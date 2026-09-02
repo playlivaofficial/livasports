@@ -1,0 +1,67 @@
+import type { Competition, Fixture, Season, Team } from '@/domain/entities';
+import { FixtureStatus, ProviderCode, ProviderEntityType } from '@/domain/enums';
+import { domainId, newDomainId } from '@/domain/ids';
+import type { ProviderMappingService } from '@/domain/provider-mapping';
+import type { SportmonksFixturePayload, SportmonksLeaguePayload, SportmonksSeasonPayload, SportmonksTeamPayload } from './types';
+
+const statusMap: Record<string, FixtureStatus> = {
+  NS: FixtureStatus.SCHEDULED, NOT_STARTED: FixtureStatus.SCHEDULED, SCHEDULED: FixtureStatus.SCHEDULED,
+  INPLAY_1ST_HALF: FixtureStatus.LIVE, INPLAY_2ND_HALF: FixtureStatus.LIVE, LIVE: FixtureStatus.LIVE,
+  HT: FixtureStatus.HALFTIME, FINISHED: FixtureStatus.FINISHED, FT: FixtureStatus.FINISHED,
+  POSTPONED: FixtureStatus.POSTPONED, CANCELLED: FixtureStatus.CANCELLED, ABANDONED: FixtureStatus.ABANDONED,
+};
+
+function currentScore(raw: SportmonksFixturePayload, participantId: number): number | null {
+  const participantScores = (raw.scores ?? []).filter(score => score.participant_id === participantId);
+  const current = participantScores.find(score => score.description?.toUpperCase() === 'CURRENT');
+  const goals = current?.score?.goals;
+  return typeof goals === 'number' && Number.isFinite(goals) ? goals : null;
+}
+
+export class SportmonksNormalizer {
+  constructor(private readonly mappings: ProviderMappingService) {}
+
+  private async id(type: ProviderEntityType, providerId: string): Promise<string> {
+    return (await this.mappings.getOrCreate(ProviderCode.SPORTMONKS, type, providerId, () => newDomainId())).livasportsEntityId;
+  }
+
+  async competition(raw: SportmonksLeaguePayload): Promise<Competition> {
+    const id = await this.id(ProviderEntityType.COMPETITION, String(raw.id));
+    const sportId = await this.id(ProviderEntityType.SPORT, String(raw.sport_id));
+    const countryId = raw.country_id === null ? null : await this.id(ProviderEntityType.COUNTRY, String(raw.country_id));
+    return { id: domainId<'Competition'>(id), sportId: domainId<'Sport'>(sportId), countryId: countryId ? domainId<'Country'>(countryId) : null,
+      name: raw.name, slug: raw.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') };
+  }
+
+  async season(raw: SportmonksSeasonPayload): Promise<Season> {
+    return { id: domainId<'Season'>(await this.id(ProviderEntityType.SEASON, String(raw.id))),
+      competitionId: domainId<'Competition'>(await this.id(ProviderEntityType.COMPETITION, String(raw.league_id))), name: raw.name,
+      startsAt: raw.starting_at ? new Date(raw.starting_at) : null, endsAt: raw.ending_at ? new Date(raw.ending_at) : null };
+  }
+
+  async team(raw: SportmonksTeamPayload): Promise<Team> {
+    return { id: domainId<'Team'>(await this.id(ProviderEntityType.TEAM, String(raw.id))),
+      sportId: domainId<'Sport'>(await this.id(ProviderEntityType.SPORT, String(raw.sport_id))),
+      countryId: raw.country_id === null ? null : domainId<'Country'>(await this.id(ProviderEntityType.COUNTRY, String(raw.country_id))),
+      name: raw.name, shortName: raw.short_code ?? null };
+  }
+
+  async fixture(raw: SportmonksFixturePayload): Promise<Fixture> {
+    const home = raw.participants?.find(participant => participant.meta?.location === 'home') ?? raw.participants?.[0];
+    const away = raw.participants?.find(participant => participant.meta?.location === 'away') ?? raw.participants?.[1];
+    if (!home || !away) throw new Error(`Sportmonks fixture ${raw.id} has no canonical home/away participants`);
+    const state = raw.state?.developer_name ?? raw.state?.name ?? String(raw.state_id);
+    const now = new Date();
+    return {
+      id: domainId<'Fixture'>(await this.id(ProviderEntityType.FIXTURE, String(raw.id))),
+      sportId: domainId<'Sport'>(await this.id(ProviderEntityType.SPORT, String(raw.sport_id))),
+      competitionId: domainId<'Competition'>(await this.id(ProviderEntityType.COMPETITION, String(raw.league_id))),
+      seasonId: raw.season_id === null ? null : domainId<'Season'>(await this.id(ProviderEntityType.SEASON, String(raw.season_id))),
+      homeTeamId: domainId<'Team'>(await this.id(ProviderEntityType.TEAM, String(home.id))),
+      awayTeamId: domainId<'Team'>(await this.id(ProviderEntityType.TEAM, String(away.id))), kickoff: new Date(raw.starting_at),
+      status: statusMap[state.toUpperCase()] ?? FixtureStatus.SCHEDULED,
+      homeScore: currentScore(raw, home.id), awayScore: currentScore(raw, away.id),
+      createdAt: raw.created_at ? new Date(raw.created_at) : now, updatedAt: raw.updated_at ? new Date(raw.updated_at) : now,
+    };
+  }
+}

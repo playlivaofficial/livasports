@@ -1,0 +1,38 @@
+{
+  "name": "livasports",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "LivaSports foundation with isolated M0/M0.5 provider validation tooling.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "validate": "node src/cli.js",
+    "diagnose:oddspapi": "node src/oddspapi-cli.js --diagnostic",
+    "validate:oddspapi": "node src/oddspapi-cli.js",
+    "test:validation": "node --test test/*.test.js",
+    "test:m1": "vitest run",
+    "test": "node --test test/*.test.js && vitest run"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "next": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "server-only": "latest"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "latest",
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "eslint": "9.39.5",
+    "eslint-config-next": "latest",
+    "tailwindcss": "latest",
+    "typescript": "6.0.3",
+    "vitest": "latest"
+  }
+}

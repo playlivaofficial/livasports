@@ -1,0 +1,12 @@
+.env
+.env.*
+!.env.example
+.next/
+node_modules/
+.pnpm-store/
+coverage/
+*.tsbuildinfo
+output/*.json
+output/*.md
+!output/.gitkeep
+!output/m1-report.md
