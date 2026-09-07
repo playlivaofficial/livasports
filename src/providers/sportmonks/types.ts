@@ -18,12 +18,14 @@ export interface SportmonksFixturePayload {
   updated_at?: string;
 }
 
-export interface SportmonksLeaguePayload { id: number; sport_id: number; country_id: number | null; name: string; country?: { iso2?: string; name?: string }; }
-export interface SportmonksSeasonPayload { id: number; league_id: number; name: string; starting_at?: string; ending_at?: string; }
-export interface SportmonksTeamPayload { id: number; sport_id: number; country_id: number | null; name: string; short_code?: string; }
+export interface SportmonksCountryPayload { id?: number; iso2?: string; name?: string; }
+export interface SportmonksLeaguePayload { id: number; sport_id: number; country_id: number | null; name: string; country?: SportmonksCountryPayload; }
+export interface SportmonksSeasonPayload { id: number; league_id: number; name: string; starting_at?: string; ending_at?: string; is_current?: boolean; }
+export interface SportmonksTeamPayload { id: number; sport_id: number; country_id: number | null; name: string; short_code?: string; image_path?: string; country?: SportmonksCountryPayload; }
 
 export interface SportmonksGateway {
   competitions(countryCodes?: readonly string[]): Promise<SportmonksLeaguePayload[]>;
+  searchCompetitions(query: string): Promise<SportmonksLeaguePayload[]>;
   seasons(providerCompetitionId: string): Promise<SportmonksSeasonPayload[]>;
   teams(providerSeasonId: string): Promise<SportmonksTeamPayload[]>;
   fixtures(from: Date, to: Date, providerCompetitionIds?: readonly string[]): Promise<SportmonksFixturePayload[]>;
@@ -34,4 +36,5 @@ export interface SportmonksGateway {
   lineups(providerFixtureId: string): Promise<unknown[]>;
   statistics(providerFixtureId: string): Promise<unknown[]>;
   headToHead(providerHomeTeamId: string, providerAwayTeamId: string): Promise<SportmonksFixturePayload[]>;
+  requestCount(): number;
 }

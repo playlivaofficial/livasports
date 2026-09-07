@@ -34,6 +34,24 @@ export class ProviderMappingService {
     return this.repository.findByLivaSportsId(provider, entityType, livasportsEntityId);
   }
 
+  async bind(
+    provider: ProviderCode, entityType: ProviderEntityType, providerEntityId: string, livasportsEntityId: string,
+    metadata: Readonly<Record<string, unknown>> = {},
+  ): Promise<ProviderEntityMapping> {
+    const existing = await this.lookup(provider, entityType, providerEntityId);
+    if (existing) {
+      if (existing.livasportsEntityId !== livasportsEntityId) throw new Error('Provider entity is already mapped to a different LivaSports entity');
+      return existing;
+    }
+    const now = new Date();
+    const mapping: ProviderEntityMapping = {
+      id: newDomainId<'ProviderEntityMapping'>(), provider, entityType, providerEntityId, livasportsEntityId,
+      metadata, createdAt: now, updatedAt: now,
+    };
+    await this.repository.save(mapping);
+    return mapping;
+  }
+
   async getOrCreate(
     provider: ProviderCode, entityType: ProviderEntityType, providerEntityId: string,
     createLivaSportsEntityId: () => string, metadata: Readonly<Record<string, unknown>> = {},

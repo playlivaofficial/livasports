@@ -44,14 +44,15 @@ export class SportmonksNormalizer {
   async season(raw: SportmonksSeasonPayload): Promise<Season> {
     return { id: domainId<'Season'>(await this.id(ProviderEntityType.SEASON, String(raw.id))),
       competitionId: domainId<'Competition'>(await this.id(ProviderEntityType.COMPETITION, String(raw.league_id))), name: raw.name,
-      startsAt: raw.starting_at ? new Date(raw.starting_at) : null, endsAt: raw.ending_at ? new Date(raw.ending_at) : null };
+      startsAt: raw.starting_at ? new Date(raw.starting_at) : null, endsAt: raw.ending_at ? new Date(raw.ending_at) : null,
+      isCurrent: raw.is_current ?? false };
   }
 
   async team(raw: SportmonksTeamPayload): Promise<Team> {
     return { id: domainId<'Team'>(await this.id(ProviderEntityType.TEAM, String(raw.id))),
       sportId: domainId<'Sport'>(await this.id(ProviderEntityType.SPORT, String(raw.sport_id))),
       countryId: raw.country_id === null ? null : domainId<'Country'>(await this.id(ProviderEntityType.COUNTRY, String(raw.country_id))),
-      name: raw.name, shortName: raw.short_code ?? null };
+      name: raw.name, shortName: raw.short_code ?? null, imageUrl: raw.image_path ?? null };
   }
 
   async fixture(raw: SportmonksFixturePayload): Promise<Fixture> {
@@ -69,7 +70,8 @@ export class SportmonksNormalizer {
       awayTeamId: domainId<'Team'>(await this.id(ProviderEntityType.TEAM, String(away.id))), kickoff: new Date(raw.starting_at),
       status: mapSportmonksFixtureStatus(state),
       homeScore: currentScore(raw, home.id), awayScore: currentScore(raw, away.id),
-      createdAt: raw.created_at ? new Date(raw.created_at) : now, updatedAt: raw.updated_at ? new Date(raw.updated_at) : now,
+      createdAt: raw.created_at ? new Date(raw.created_at) : now, updatedAt: now,
+      providerUpdatedAt: raw.updated_at ? new Date(raw.updated_at) : null,
     };
   }
 }

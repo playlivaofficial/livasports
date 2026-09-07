@@ -20,10 +20,11 @@ function required(env: NodeJS.ProcessEnv, name: string): string {
 }
 
 export function loadServerEnvironment(env: NodeJS.ProcessEnv = process.env): ServerEnvironment {
+  const resolvedDatabaseUrl = env.DATABASE_URL?.trim() || env.DATABASE_POSTGRES_URL?.trim() || env.POSTGRES_URL?.trim();
   return {
     sportmonksApiKey: required(env, 'SPORTMONKS_API_KEY'),
     oddsPapiApiKey: required(env, 'ODDSPAPI_API_KEY'),
-    databaseUrl: required(env, 'DATABASE_URL'),
+    databaseUrl: resolvedDatabaseUrl || required(env, 'DATABASE_URL'),
   };
 }
 

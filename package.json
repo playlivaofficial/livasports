@@ -13,13 +13,21 @@
     "validate": "node src/cli.js",
     "diagnose:oddspapi": "node src/oddspapi-cli.js --diagnostic",
     "validate:oddspapi": "node src/oddspapi-cli.js",
+    "db:migrate": "tsx --env-file=.env src/ingestion/cli.ts migrate",
+    "sync:football": "tsx --env-file=.env src/ingestion/cli.ts football",
+    "sync:fixtures": "tsx --env-file=.env src/ingestion/cli.ts fixtures",
+    "sync:scores": "tsx --env-file=.env src/ingestion/cli.ts scores",
+    "db:verify": "tsx --env-file=.env src/ingestion/cli.ts read",
     "test:validation": "node --test test/*.test.js",
     "test:m1": "vitest run",
     "test": "node --test test/*.test.js && vitest run"
   },
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
     "next": "latest",
+    "pg": "^8.23.0",
     "react": "latest",
     "react-dom": "latest",
     "server-only": "latest"
@@ -27,11 +35,13 @@
   "devDependencies": {
     "@tailwindcss/postcss": "latest",
     "@types/node": "latest",
+    "@types/pg": "^8.23.1",
     "@types/react": "latest",
     "@types/react-dom": "latest",
     "eslint": "9.39.5",
     "eslint-config-next": "latest",
     "tailwindcss": "latest",
+    "tsx": "^4.23.13",
     "typescript": "6.0.3",
     "vitest": "latest"
   }

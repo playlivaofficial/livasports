@@ -23,7 +23,7 @@ export async function M2SportsPage({ locale, page }: { locale: SiteLocale; page:
         <p className="mt-4 max-w-2xl text-base leading-7 text-slate-400">{dictionary.pages[page].description}</p>
         <div className="mt-5"><FreshnessIndicator locale={locale} state={data.sportsData.freshness} /></div>
       </section>
-      {data.sportsData.state === 'unavailable' || data.sportsData.state === 'not-configured' ? <ProviderErrorNotice locale={locale} provider="sports" /> : null}
+      {data.sportsData.state === 'unavailable' ? <ProviderErrorNotice locale={locale} provider="sports" /> : null}
       {fixtures.length && (data.oddsData.state === 'unavailable' || data.oddsData.state === 'not-configured') ? <div className="mt-4"><ProviderErrorNotice locale={locale} provider="odds" /></div> : null}
       <section aria-label={dictionary.labels.fixtures} className="my-8 grid grid-cols-3 gap-3">
         <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-4"><p className="text-xs text-rose-200">{dictionary.statuses[FixtureStatus.LIVE]}</p><strong className="mt-1 block text-2xl">{live}</strong></div>

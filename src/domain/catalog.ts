@@ -1,8 +1,17 @@
-import type { Bookmaker, Market } from './entities';
+import type { Bookmaker, Country, Market, Sport } from './entities';
 import { AffiliateStatus, MarketCode } from './enums';
 import { domainId } from './ids';
 
 const catalogTimestamp = new Date('2026-01-01T00:00:00.000Z');
+
+export const FOOTBALL: Sport = {
+  id: domainId<'Sport'>('4b6ca767-90b1-4275-ad70-fc25c40f8352'), code: 'FOOTBALL', name: 'Football',
+};
+
+export const PRODUCT_COUNTRIES: Readonly<Record<'BR' | 'MX', Country>> = {
+  BR: { id: domainId<'Country'>('54b8670e-469c-4f2c-9151-43f178954c6f'), code: 'BR', name: 'Brazil' },
+  MX: { id: domainId<'Country'>('7e173f82-4ed6-4cdc-a8b9-9af95f692e02'), code: 'MX', name: 'Mexico' },
+};
 
 export const V1_MARKETS: readonly Market[] = [
   { id: domainId<'Market'>('e39a2115-d3f6-44ac-96ba-aad4b2ad36ae'), code: MarketCode.MATCH_WINNER, displayName: 'Match Winner', requiresLine: false, enabled: true },

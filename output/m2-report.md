@@ -1,124 +1,132 @@
-# LivaSports M2 — Real Data Integration + Read-only Sports Experience Report
+# LivaSports M2 — Football Data Ingestion + Database Sync Report
 
-## Completion status
+## M2 status
 
-**PENDING PRODUCTION DEPLOYMENT VERIFICATION**
+**IMPLEMENTATION, NEON SYNC, AND LOCAL QUALITY GATES COMPLETE — PRODUCTION DEPLOYMENT PENDING**
 
-The M2 implementation and local verification gates are complete. This report will be finalized only after the existing Vercel project and custom domain pass production smoke tests.
+M2 now uses a PostgreSQL-backed ingestion and read path. No UI redesign, M3 feature, basketball ingestion, bet slip, full Match Center, or production polling was added.
 
-## Implementation summary
+## Database and environment
 
-- Replaced the eight M1 route skeletons with localized, server-rendered real-data pages.
-- Added server-first reusable sports components for navigation, fixture grouping/cards, status, scores, kickoff time, odds comparison, freshness, loading, empty, partial, and provider-error states.
-- Added a cache-first delivery service that reads Sportmonks canonical competitions, teams, fixtures, statuses, and scores.
-- Extended OddsPapi delivery with conservative tournament/team/kickoff reconciliation and exact V1 market filtering.
-- Preserved provider adapters, canonical IDs, mappings, request-budget protection, M0/M0.5 evidence, M1 abstractions, and migration 001.
-- Added localized metadata, canonical URLs, language alternates, and preview no-index behavior.
-- Deferred all provider access until a real request, so builds and tests consume no paid requests and succeed without credentials.
-
-## Added files
-
-- `docs/M2_DATA_DELIVERY.md`
-- `output/m2-report.md`
-- `src/config/metadata.ts`
-- `src/config/i18n.test.ts`
-- `src/delivery/types.ts`
-- `src/delivery/time.ts` and `src/delivery/time.test.ts`
-- `src/delivery/fixtures.ts` and `src/delivery/fixtures.test.ts`
-- `src/delivery/M2DataDeliveryService.ts` and `src/delivery/M2DataDeliveryService.test.ts`
-- `src/delivery/runtime.ts`
-- `src/providers/oddspapi/reconcile.ts` and `src/providers/oddspapi/reconcile.test.ts`
-- `src/providers/oddspapi/tournament-map.ts`
-- `src/components/sports/DataStates.tsx`
-- `src/components/sports/FixtureCard.tsx`
-- `src/components/sports/FixtureList.tsx`
-- `src/components/sports/M2SportsPage.tsx`
-- `src/components/sports/OddsComparison.tsx` and `src/components/sports/OddsComparison.test.ts`
-- `src/components/sports/SiteHeader.tsx`
-- `src/app/br/loading.tsx`
-- `src/app/mx/loading.tsx`
-
-## Changed files
-
-- All eight localized route page files now load the shared M2 server experience and route metadata.
-- `src/app/layout.tsx` now defines the production metadata base and production-only indexing policy.
-- `src/config/i18n.ts` now contains complete pt-BR and es-MX M2 dictionaries and explicit time-zone policy.
-- `src/config/server.ts` supports safe optional provider configuration.
-- Sportmonks status normalization and paginated gateway retrieval were extended without changing the preserved M0 adapter.
-- OddsPapi production contracts, gateway, payload types, and adapter were extended for provider-neutral fixture candidates and safe reconciliation.
-- `package.json`, `.gitignore`, and `README.md` were updated for verified M2 workflows and documentation.
+- Existing Vercel project inspected: `nikapopkha3-4447s-projects/livasports`.
+- Neon created `DATABASE_URL` for Development, Preview, and Production; it is the canonical application variable.
+- Safe server-only fallbacks support `DATABASE_POSTGRES_URL` and `POSTGRES_URL` only when `DATABASE_URL` is absent.
+- No database/provider credential is public, printed, or committed.
+- PostgreSQL driver: `pg`; no SQLite fallback.
 
 ## Migrations
 
-No migration was added. `db/migrations/001_m1_foundation.sql` is preserved unchanged. M2 does not require a production database for its initial read-only runtime/fallback path.
+| Migration | Result |
+| --- | --- |
+| `001_m1_foundation.sql` | APPLIED to Neon production |
+| `002_m2_data_ingestion.sql` | APPLIED to Neon production |
+| Idempotent migration rerun | PASS — zero pending migrations |
 
-## Automated verification
+Migration 001 was not modified. Migration 002 adds current-season, team image, provider fixture timestamp, team-season membership, ingestion health, and supporting indexes.
+
+## Ingestion implementation
+
+Created/changed areas include:
+
+- safe PostgreSQL client and migration runner
+- PostgreSQL provider-mapping and football repositories
+- in-memory repository used only for deterministic tests
+- target competition configuration
+- staged `FootballIngestionService`
+- controlled migration/sync/read CLI commands
+- persistent health records and provider request counts
+- Sportmonks competition discovery, country/team image enrichment, and request counting
+- DB-first page service/runtime with zero request-time provider calls
+
+## Configured competitions
+
+- Brasileiro Serie A
+- Copa do Brasil
+- Copa Libertadores
+- Liga MX (Apertura/Clausura names supported when returned)
+
+The controlled production sync intentionally selected only Brasileiro Serie A and Liga MX.
+
+## Controlled Sportmonks/Neon validation
+
+### Persisted Brazil sample
+
+| Entity | Count |
+| --- | ---: |
+| Competitions | 1 — Serie A (`brasileiro-serie-a`) |
+| Relevant seasons | 1 |
+| Teams | 20 |
+| Fixtures in the -7/+14 ingestion window | 33 |
+| Finished | 11 |
+| Scheduled | 21 |
+| Postponed | 1 |
+| Sportmonks mappings | 59 total |
+
+Mapping breakdown: 1 sport, 1 country, 1 competition, 3 season references discovered, 20 teams, and 33 fixtures. Only the current/relevant season was persisted; provider mappings for discovered season references remain reusable.
+
+### Mexico sample
+
+**NO SAMPLE — CURRENT SPORTMONKS SUBSCRIPTION RESPONSE RETURNED NO MEXICO LEAGUES.**
+
+`Liga MX`, `Liga BBVA`, and `Primera Division` league-name searches returned empty data. The official country lookup found Mexico, but the country-leagues endpoint also returned an empty accessible league set. M2 did not fabricate or mislabel a league. `/mx` therefore reads a correct empty DB state.
+
+### Requests consumed
+
+- Application-tracked sync requests: 16 total
+  - preliminary empty discovery: 2
+  - first successful Serie A persistence run plus Liga MX attempt: 7
+  - idempotency rerun plus Liga MX recheck: 7
+- Focused Mexico discovery diagnostics: 5
+- **Total controlled Sportmonks HTTP requests: 21**
+- OddsPapi requests: **0**
+
+### Idempotency rerun
+
+The second successful run produced zero inserts and updated the same canonical rows:
+
+- competition stage: 0 inserted; 4 updates (sport, countries, competition); 3 provider requests
+- season stage: 0 inserted; 1 updated; 1 provider request
+- team stage: 0 inserted; 21 updates (country plus 20 teams); 1 provider request
+- fixture stage: 0 inserted; 33 updated; 1 provider request
+- score stage: 0 inserted; 21 updated; 1 provider request
+
+Table counts remained 1 competition, 1 season, 20 teams, 33 fixtures, and 59 mappings. Duplicate prevention therefore passed.
+
+## DB-first reads
+
+| Read | Result |
+| --- | --- |
+| Brazil football window | PASS — available; 1 competition; 17 fixtures; 0 OddsPapi requests |
+| Mexico football window | PASS — available empty state; 0 competitions; 0 fixtures; 0 OddsPapi requests |
+| Page/component direct provider calls | NONE |
+
+Brazil/Mexico today and live filters use GEO-aware boundaries over UTC `timestamptz` storage and normalized DB statuses.
+
+## Automated tests
+
+- Node validation suite: PASS — 6/6
+- Vitest suite: PASS — 39/39 across 15 files
+- Added coverage: competition/season idempotency, team membership/mapping, fixture mapping/duplicate prevention, status normalization, UTC conversion, score update, finished score persistence, empty response retention, sanitized provider failure health, and DB-first read behavior.
+
+## Quality gates
 
 | Gate | Result |
 | --- | --- |
 | `pnpm run typecheck` | PASS |
-| `pnpm run lint` | PASS, zero warnings |
-| Preserved M0/M0.5 validation tests | PASS, 6/6 |
-| M1 + M2 Vitest suite | PASS, 32/32 across 14 files |
-| `pnpm run build` without usable credentials | PASS |
-| Build-time paid OddsPapi calls | 0 |
-| Client bundle credential-name matches | 0 |
-| Client bundle secret-value matches | 0 |
-| `NEXT_PUBLIC_` credential references | 0 |
+| `pnpm run lint` | PASS — zero warnings |
+| `pnpm run test` | PASS — 6/6 Node and 39/39 Vitest |
+| `pnpm run build` | PASS — Next.js 16.3.4 production build |
+| Client static assets | PASS — 12 files, 0 credential-name matches, 0 secret-value matches |
 
-Tests cover canonical normalization and statuses, strict live filtering, Brazil/Mexico local-day boundaries, grouping and stable ordering, deterministic and ambiguous odds joins, all three V1 markets, exact 2.5 totals, missing/partial/stale/no-odds states, provider isolation, cache deduplication, budget protection, sanitized errors, dictionary completeness, and absence of provider IDs from public models.
-
-## Controlled live-provider verification
-
-Only the smallest request-time sample was used. No credential value was printed, copied into this report, or exposed to client code.
-
-| Check | Result |
-| --- | --- |
-| Sportmonks connectivity | PASS |
-| Brazil real sports data | PASS — one real canonical fixture rendered in the controlled window |
-| OddsPapi connectivity | PASS |
-| Valid fresh matched OddsPapi quote in sample | NO SAMPLE — no quote survived exact freshness and reconciliation rules for the returned fixture |
-| Mexico sports-data sample | NO SAMPLE — no fixture in the controlled seven-day window |
-
-The OddsPapi account counter changed from 26 to 30 during the controlled verification, an exact account-observed delta of **4 requests**. The application adapter attributed **3 data requests** to the cold Brazil route: one market catalog request, one Betano BR request, and one Betsson request. The extra counter increment is not attributed as a successful application odds call without provider-side evidence. The second Brazil request reused cache and did not add adapter-attributed data calls.
-
-## Local route smoke tests
-
-| Route | Result |
-| --- | --- |
-| `/` | PASS — HTTP 307 to `/br` |
-| `/br` | PASS — HTTP 200 |
-| `/br/futebol` | PASS — HTTP 200 |
-| `/br/ao-vivo` | PASS — HTTP 200 |
-| `/br/jogos/hoje` | PASS — HTTP 200 |
-| `/mx` | PASS — HTTP 200 |
-| `/mx/futbol` | PASS — HTTP 200 |
-| `/mx/en-vivo` | PASS — HTTP 200 |
-| `/mx/partidos/hoy` | PASS — HTTP 200 |
-
-The credential-disabled production smoke rendered safe localized unavailable states. The controlled credential-enabled development smoke returned HTTP 200 for sampled Brazil and Mexico pages, retained real fixtures when no odds were available, and rendered a localized no-data state for Mexico.
-
-## Production deployment and custom domain
-
-Pending final verification against the existing Vercel project and `https://livasports.com`.
-
-## Security verification
-
-- Provider and database configuration remains server-only.
-- No provider secret uses `NEXT_PUBLIC_`.
-- `.env` remains ignored and is not part of this report or the Git candidate set.
-- Client assets contain no provider credential names or values.
-- Sanitized diagnostics contain request counts and provider-safe context only.
-- Builds and automated tests made zero paid provider calls.
+Git push, existing-project Vercel deployment, and production route smoke tests remain pending.
 
 ## Known limitations
 
-- Runtime cache, canonical mapping, and request-budget state are currently per-process rather than shared across Vercel instances.
-- Conservative fixture reconciliation rejects ambiguity and can reduce visible odds coverage.
-- The small controlled sample did not establish current Betano BR or Betsson runtime coverage; previous M0.5 evidence remains historical validation evidence, not a production guarantee.
-- Advanced Match Center data and UI are deferred.
-- Mexico can legitimately return no sample in the configured window.
+- The current Sportmonks subscription returned no accessible Liga MX competition, so Mexico persistence is a truthful no-sample result rather than a fabricated success.
+- M2 provides manual sync commands only; scheduling, distributed locks, shared caching, retry/backoff policy, and live polling are deferred to M3.
+- Odds remain separate and were not ingested or requested during M2.
+- The UI remains intentionally temporary.
 
-## Explicitly deferred M3 work
+## Recommended M3 scope
 
-M3 was not started. Bet Slip, live odds, player props, Double Chance, users/authentication, saved bets, notifications, payments, affiliate/outbound tracking, full Match Center, basketball pages, admin/CMS, and a final redesign remain out of scope.
+After Mexico coverage is resolved with Sportmonks, M3 should schedule the existing sync stages with locking, shared cache, conservative retries, and a measured live-score cadence. It should not bypass the PostgreSQL read path.

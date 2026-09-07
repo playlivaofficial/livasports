@@ -1,4 +1,3 @@
-import 'server-only';
 import { SafeProviderError, sanitizeQuery, sanitizeText } from '@/providers/safe-error';
 import type {
   SportmonksFixturePayload, SportmonksGateway, SportmonksLeaguePayload, SportmonksSeasonPayload, SportmonksTeamPayload,
@@ -12,6 +11,7 @@ interface SportmonksEnvelope<T> {
 }
 
 export class HttpSportmonksGateway implements SportmonksGateway {
+  private requests = 0;
   constructor(private readonly apiKey: string, private readonly baseUrl = 'https://api.sportmonks.com/v3') {
     if (!apiKey) throw new Error('SPORTMONKS_API_KEY is required on the server');
   }
@@ -19,6 +19,7 @@ export class HttpSportmonksGateway implements SportmonksGateway {
   private async requestEnvelope<T>(path: string, query: Record<string, string> = {}): Promise<SportmonksEnvelope<T>> {
     const url = new URL(path, `${this.baseUrl.replace(/\/$/, '')}/`);
     for (const [key, value] of Object.entries(query)) if (value) url.searchParams.set(key, value);
+    this.requests++;
     const response = await fetch(url, { headers: { Authorization: this.apiKey, Accept: 'application/json' }, cache: 'no-store' });
     const body = await response.json().catch(() => ({})) as SportmonksEnvelope<T>;
     if (!response.ok) throw new SafeProviderError({ provider: 'SPORTMONKS', status: response.status, endpoint: url.pathname,
@@ -48,11 +49,15 @@ export class HttpSportmonksGateway implements SportmonksGateway {
     return rows.filter(row => wanted.has(row.country?.iso2?.toLowerCase() ?? '') || wanted.has(row.country?.name?.toLowerCase() ?? ''));
   }
 
+  searchCompetitions(query: string) {
+    return this.paged<SportmonksLeaguePayload>(`football/leagues/search/${encodeURIComponent(query)}`, { include: 'country' }, 3);
+  }
+
   seasons(providerCompetitionId: string) {
     return this.paged<SportmonksSeasonPayload>('football/seasons', { filters: `seasonLeagues:${providerCompetitionId}` });
   }
 
-  teams(providerSeasonId: string) { return this.paged<SportmonksTeamPayload>(`football/teams/seasons/${providerSeasonId}`); }
+  teams(providerSeasonId: string) { return this.paged<SportmonksTeamPayload>(`football/teams/seasons/${providerSeasonId}`, { include: 'country' }); }
 
   fixtures(from: Date, to: Date, providerCompetitionIds?: readonly string[]) {
     return this.paged<SportmonksFixturePayload>(`football/fixtures/between/${from.toISOString().slice(0, 10)}/${to.toISOString().slice(0, 10)}`, {
@@ -91,4 +96,7 @@ export class HttpSportmonksGateway implements SportmonksGateway {
   headToHead(providerHomeTeamId: string, providerAwayTeamId: string) {
     return this.request<SportmonksFixturePayload[]>(`football/fixtures/head-to-head/${providerHomeTeamId}/${providerAwayTeamId}`, { include: 'participants;state' });
   }
+
+
+  requestCount(): number { return this.requests; }
 }

@@ -1,0 +1,111 @@
+import { describe, expect, it } from 'vitest';
+import type { FootballCompetitionTarget } from '@/config/footballCompetitions';
+import { FOOTBALL, PRODUCT_COUNTRIES } from '@/domain/catalog';
+import type { Competition, Fixture, Season, Team } from '@/domain/entities';
+import { FixtureStatus, ProviderCode, ProviderEntityType } from '@/domain/enums';
+import { domainId } from '@/domain/ids';
+import { ProviderMappingService } from '@/domain/provider-mapping';
+import type { FootballIngestionProvider } from '@/providers/contracts/FootballIngestionProvider';
+import type { FixtureQuery } from '@/providers/contracts/SportsDataProvider';
+import { InMemoryProviderEntityMappingRepository } from '@/repositories/provider-mapping.repository';
+import { DatabaseM2ReadService } from '@/delivery/DatabaseM2ReadService';
+import { FootballIngestionService } from './FootballIngestionService';
+import { InMemoryFootballIngestionStore } from './store';
+
+const now = new Date('2026-09-07T18:00:00.000Z');
+const competition: Competition = { id: domainId<'Competition'>('competition-id'), sportId: FOOTBALL.id,
+  countryId: PRODUCT_COUNTRIES.BR.id, name: 'Brasileiro Serie A', slug: 'brasileiro-serie-a' };
+const season: Season = { id: domainId<'Season'>('season-id'), competitionId: competition.id, name: '2026',
+  startsAt: new Date('2026-01-01T00:00:00Z'), endsAt: new Date('2026-12-31T23:59:59Z'), isCurrent: true };
+const teams: Team[] = [
+  { id: domainId<'Team'>('home-id'), sportId: FOOTBALL.id, countryId: PRODUCT_COUNTRIES.BR.id, name: 'Home', shortName: 'H', imageUrl: null },
+  { id: domainId<'Team'>('away-id'), sportId: FOOTBALL.id, countryId: PRODUCT_COUNTRIES.BR.id, name: 'Away', shortName: 'A', imageUrl: null },
+];
+const fixture: Fixture = { id: domainId<'Fixture'>('fixture-id'), sportId: FOOTBALL.id, competitionId: competition.id,
+  seasonId: season.id, homeTeamId: teams[0].id, awayTeamId: teams[1].id, kickoff: new Date('2026-09-07T22:30:00-03:00'),
+  status: FixtureStatus.SCHEDULED, homeScore: null, awayScore: null, createdAt: now, updatedAt: now, providerUpdatedAt: now };
+const target: FootballCompetitionTarget = { key: 'br-serie-a', slug: competition.slug, countryCode: 'BR', lookupNames: ['Brasileiro Serie A'], enabled: true, priority: 1 };
+
+class FakeProvider implements FootballIngestionProvider {
+  requests = 0;
+  throwOnDiscover = false;
+  fixtures: Fixture[] = [fixture];
+  async discoverCompetitions() { this.requests++; if (this.throwOnDiscover) throw new Error('secret-token-value');
+    return { sport: FOOTBALL, countries: [PRODUCT_COUNTRIES.BR], competitions: [{ targetKey: target.key, competition }] }; }
+  async getCompetitionCatalog() { throw new Error('unused'); }
+  async getTeamCatalog() { this.requests++; return { countries: [PRODUCT_COUNTRIES.BR], teams }; }
+  getRequestCount() { return this.requests; }
+  async getCompetitions() { return [competition]; }
+  async getSeasons() { this.requests++; return [season]; }
+  async getTeams() { return teams; }
+  async getFixtures(query: FixtureQuery) { void query; this.requests++; return this.fixtures; }
+  async getFixture() { return fixture; }
+  async getScores() { this.requests++; return [{ ...fixture, status: FixtureStatus.FINISHED, homeScore: 2, awayScore: 1 }]; }
+  async getEvents() { return []; } async getStandings() { return []; } async getLineups() { return []; }
+  async getStatistics() { return []; } async getHeadToHead() { return []; }
+}
+
+describe('M2 football ingestion', () => {
+  it('upserts competitions and seasons idempotently', async () => {
+    const provider = new FakeProvider(); const store = new InMemoryFootballIngestionStore();
+    const service = new FootballIngestionService(provider, store, [target], () => now);
+    expect((await service.syncCompetitions()).inserted).toBe(3);
+    expect((await service.syncCompetitions()).updated).toBe(3);
+    expect((await service.syncSeasons()).inserted).toBe(1);
+    expect((await service.syncSeasons()).updated).toBe(1);
+    expect(store.competitions).toHaveLength(1);
+    expect(store.seasons).toHaveLength(1);
+  });
+
+  it('persists team memberships, prevents duplicate fixtures, and preserves UTC identity', async () => {
+    const provider = new FakeProvider(); const store = new InMemoryFootballIngestionStore();
+    const service = new FootballIngestionService(provider, store, [target], () => now);
+    await service.syncCompetitions(); await service.syncSeasons(); await service.syncTeams();
+    expect(store.teamSeasons).toContain(`${teams[0].id}:${season.id}`);
+    expect((await service.syncFixtures()).inserted).toBe(1);
+    expect((await service.syncFixtures()).updated).toBe(1);
+    expect(store.fixtures).toHaveLength(1);
+    expect(store.fixtures.get(fixture.id)?.kickoff.toISOString()).toBe('2026-09-08T01:30:00.000Z');
+  });
+
+  it('updates the same fixture with its finished score', async () => {
+    const provider = new FakeProvider(); const store = new InMemoryFootballIngestionStore();
+    const service = new FootballIngestionService(provider, store, [target], () => now);
+    await service.syncCompetitions(); await service.syncSeasons(); await service.syncTeams(); await service.syncFixtures();
+    expect((await service.syncFixtureScores()).updated).toBe(1);
+    expect(store.fixtures.get(fixture.id)).toMatchObject({ status: FixtureStatus.FINISHED, homeScore: 2, awayScore: 1 });
+  });
+
+  it('handles empty provider fixture responses without deleting history', async () => {
+    const provider = new FakeProvider(); const store = new InMemoryFootballIngestionStore();
+    const service = new FootballIngestionService(provider, store, [target], () => now);
+    await service.syncCompetitions(); await service.syncSeasons(); await service.syncTeams(); await service.syncFixtures();
+    provider.fixtures = [];
+    expect(await service.syncFixtures()).toMatchObject({ inserted: 0, updated: 0 });
+    expect(store.fixtures).toHaveLength(1);
+  });
+
+  it('stores only a safe health error for unexpected provider failures', async () => {
+    const provider = new FakeProvider(); provider.throwOnDiscover = true;
+    const store = new InMemoryFootballIngestionStore();
+    await expect(new FootballIngestionService(provider, store, [target], () => now).syncCompetitions()).rejects.toThrow();
+    const run = [...store.runs.values()][0];
+    expect(run.status).toBe('FAILED');
+    expect(run.errorMessage).not.toContain('secret-token-value');
+  });
+
+  it('binds provider references to stable LivaSports IDs', async () => {
+    const mappings = new ProviderMappingService(new InMemoryProviderEntityMappingRepository());
+    await mappings.bind(ProviderCode.SPORTMONKS, ProviderEntityType.COUNTRY, '5', PRODUCT_COUNTRIES.BR.id);
+    await expect(mappings.lookupProviderId(ProviderCode.SPORTMONKS, ProviderEntityType.COUNTRY, PRODUCT_COUNTRIES.BR.id)).resolves.toBe('5');
+  });
+
+  it('reads pages from the DB repository boundary and filters live status', async () => {
+    let reads = 0;
+    const repository = { listFixtures: async () => { reads++; return [{ fixture: { ...fixture, status: FixtureStatus.LIVE }, competitionName: competition.name, homeTeamName: 'Home', awayTeamName: 'Away' }]; } };
+    const data = await new DatabaseM2ReadService(repository, () => now).load('br', 'live');
+    expect(reads).toBe(1);
+    expect(data.sections[0].fixtures[0].status).toBe(FixtureStatus.LIVE);
+    expect(data.paidOddsRequests).toBe(0);
+  });
+});

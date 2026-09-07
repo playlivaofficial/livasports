@@ -6,8 +6,8 @@ import { AffiliateStatus, FixtureStatus, MarketCode, OddsQuoteStatus, OutcomeCod
 export interface Country { id: CountryId; code: string; name: string; }
 export interface Sport { id: SportId; code: string; name: string; }
 export interface Competition { id: CompetitionId; sportId: SportId; countryId: CountryId | null; name: string; slug: string; }
-export interface Season { id: SeasonId; competitionId: CompetitionId; name: string; startsAt: Date | null; endsAt: Date | null; }
-export interface Team { id: TeamId; sportId: SportId; countryId: CountryId | null; name: string; shortName: string | null; }
+export interface Season { id: SeasonId; competitionId: CompetitionId; name: string; startsAt: Date | null; endsAt: Date | null; isCurrent?: boolean; }
+export interface Team { id: TeamId; sportId: SportId; countryId: CountryId | null; name: string; shortName: string | null; imageUrl?: string | null; }
 
 export interface Fixture {
   id: FixtureId;
@@ -22,6 +22,7 @@ export interface Fixture {
   awayScore: number | null;
   createdAt: Date;
   updatedAt: Date;
+  providerUpdatedAt?: Date | null;
 }
 
 export interface Bookmaker {
