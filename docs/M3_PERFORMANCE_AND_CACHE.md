@@ -98,6 +98,8 @@ Local production-server measurements against Neon:
 
 Provider calls were zero on every request. These local numbers are directional and include network/connection conditions; correctness and query counts matter more than synthetic scoring.
 
+Production Vercel logs confirmed the same behavior. A cold Mexico football request executed one 53.6ms DB query and completed the loader in 68.6ms; the next two loader calls were cache hits at 0.8ms and 0.6ms with no DB query. Warm Brazil football loader calls were 0.6ms with no DB query. External curl TTFB remained approximately 0.33–0.76 seconds because it also includes network and Vercel function delivery overhead; M3 does not claim that this fixed platform overhead disappeared.
+
 ## Known limitations and M3.5 handoff
 
 - The L1 cache is per process. Next Data Cache is the shared no-extra-cost L2; Redis remains optional for a later scale threshold.

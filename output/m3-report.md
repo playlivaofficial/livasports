@@ -2,7 +2,7 @@
 
 ## Status
 
-**IMPLEMENTATION AND LOCAL QUALITY GATES COMPLETE — PRODUCTION DEPLOYMENT PENDING**
+**COMPLETE — PASS**
 
 M3 adds production-minded cache-first delivery without changing provider strategy, redesigning the UI, starting M3.5, or adding paid infrastructure.
 
@@ -72,7 +72,38 @@ Local production-server evidence:
 
 ## Production deployment
 
-Pending commit, push, existing-project Vercel deployment, warmup, route smoke tests, health check, production cache timing, and client-secret scan.
+- M3 code commit: `6002989`
+- Repository/branch: `playlivaofficial/livasports`, `main`
+- Existing Vercel project: `nikapopkha3-4447s-projects/livasports`
+- New-project creation: NONE
+- Production build/deployment: READY
+- Domain: `https://livasports.com`
+- Critical Brazil warmup: PASS — four routes, HTTP 200, provider calls 0
+
+### Production cache evidence
+
+- Cold `/mx/futbol`: cache MISS, 1 DB query at 53.6ms, loader 68.6ms, provider requests 0.
+- Next `/mx/futbol`: cache HIT, 0 DB queries, loader 0.8ms, provider requests 0.
+- Third `/mx/futbol`: cache HIT, 0 DB queries, loader 0.6ms, provider requests 0.
+- Warm `/br/futebol`: cache HIT, 0 DB queries, loader 0.6ms, provider requests 0.
+- External post-deployment curl TTFB remained 0.33–0.76s because it includes network/Vercel overhead; the server data-loader improvement is recorded separately and was not overstated.
+
+### Production verification
+
+| Check | Result |
+| --- | --- |
+| `/` | PASS — HTTP 307 to `/br` |
+| `/br` | PASS — HTTP 200 |
+| `/br/futebol` | PASS — HTTP 200, DB-backed Serie A present |
+| `/br/ao-vivo` | PASS — HTTP 200 |
+| `/br/jogos/hoje` | PASS — HTTP 200 |
+| `/mx` | PASS — HTTP 200 |
+| `/mx/futbol` | PASS — HTTP 200, localized empty state |
+| `/mx/en-vivo` | PASS — HTTP 200 |
+| `/mx/partidos/hoy` | PASS — HTTP 200 |
+| HTTPS/www | PASS — `www` HTTP 308 to apex |
+| `/api/internal/health` | PASS — database/cache available, provider-presence booleans only |
+| Production client assets | PASS — 8 JS files, 0 credential-name and 0 secret-value matches |
 
 ## Known limitations
 
