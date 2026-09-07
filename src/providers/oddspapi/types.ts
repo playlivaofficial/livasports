@@ -21,6 +21,14 @@ export interface OddsPapiFixtureOdds {
   fixtureId: string;
   tournamentId: number;
   statusId: number;
+  tournamentName?: string;
+  tournamentSlug?: string;
+  categoryName?: string;
+  categorySlug?: string;
+  participant1Name?: string;
+  participant2Name?: string;
+  startTime?: string;
+  updatedAt?: string;
   bookmakerOdds?: Record<string, {
     bookmakerIsActive?: boolean;
     suspended?: boolean;

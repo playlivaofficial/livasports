@@ -1,10 +1,10 @@
 # LivaSports
 
-This repository contains the M1 Next.js/TypeScript foundation and the preserved M0/M0.5 provider-validation harnesses. The production path uses LivaSports-owned canonical models and separate Sportmonks sports-data and OddsPapi pregame-odds contracts. M1 contains localized route skeletons only; it does not contain the full product UI, Bet Slip, or Match Center.
+This repository contains the M2 read-only sports-data delivery experience, the M1 Next.js/TypeScript foundation, and the preserved M0/M0.5 provider-validation harnesses. The production path uses LivaSports-owned canonical models, Sportmonks for sports data, and OddsPapi for supported pregame odds. M2 does not contain a Bet Slip, accounts, live odds, player props, or the full Match Center.
 
-Architecture details are in `docs/M1_ARCHITECTURE.md`.
+Architecture details are in `docs/M1_ARCHITECTURE.md` and `docs/M2_DATA_DELIVERY.md`.
 
-## M1 development
+## Application development
 
 Use Node.js 20 or newer and pnpm:
 
@@ -17,7 +17,16 @@ pnpm run build
 pnpm run dev
 ```
 
-Copy `.env.example` to a local `.env` only when server-side provider or database work begins. Never commit real credentials.
+Copy `.env.example` to a local `.env` for server-side provider access. Never commit real credentials. Missing credentials produce a safe localized unavailable state, and paid providers are not called during `next build`.
+
+## M2 routes
+
+Brazil uses pt-BR and `America/Sao_Paulo`; Mexico uses es-MX and `America/Mexico_City`:
+
+- `/br`, `/br/futebol`, `/br/ao-vivo`, `/br/jogos/hoje`
+- `/mx`, `/mx/futbol`, `/mx/en-vivo`, `/mx/partidos/hoy`
+
+All route data is normalized into LivaSports-owned models before rendering. Live pages use canonical live statuses only, today pages use local calendar-day boundaries, and stale odds are never presented as current prices.
 
 ## M0/M0.5 validation harnesses
 

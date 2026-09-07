@@ -2,9 +2,16 @@ import { describe, expect, it } from 'vitest';
 import { FixtureStatus, ProviderCode, ProviderEntityType } from '@/domain/enums';
 import { ProviderMappingService } from '@/domain/provider-mapping';
 import { InMemoryProviderEntityMappingRepository } from '@/repositories/provider-mapping.repository';
-import { SportmonksNormalizer } from './normalizer';
+import { mapSportmonksFixtureStatus, SportmonksNormalizer } from './normalizer';
 
 describe('Sportmonks canonical normalization', () => {
+  it('maps live, halftime, finished and interrupted states conservatively', () => {
+    expect(mapSportmonksFixtureStatus('INPLAY_2ND_HALF')).toBe(FixtureStatus.LIVE);
+    expect(mapSportmonksFixtureStatus('HT')).toBe(FixtureStatus.HALFTIME);
+    expect(mapSportmonksFixtureStatus('FT_PEN')).toBe(FixtureStatus.FINISHED);
+    expect(mapSportmonksFixtureStatus('INTERRUPTED')).toBe(FixtureStatus.ABANDONED);
+    expect(mapSportmonksFixtureStatus('UNKNOWN_PROVIDER_STATE')).toBe(FixtureStatus.SCHEDULED);
+  });
   it('maps provider fixture fields, status, teams, and current scores to internal entities', async () => {
     const mappings = new ProviderMappingService(new InMemoryProviderEntityMappingRepository());
     const normalizer = new SportmonksNormalizer(mappings);

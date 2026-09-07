@@ -13,6 +13,7 @@ export class HttpOddsPapiGateway implements OddsPapiGateway {
     private readonly cache: CacheCoordinator,
     private readonly budget: ProviderRequestBudget,
     private readonly baseUrl = 'https://api.oddspapi.io/v4',
+    private readonly oddsTtlSeconds = 300,
   ) {
     if (!apiKey) throw new Error('ODDSPAPI_API_KEY is required on the server');
   }
@@ -42,6 +43,6 @@ export class HttpOddsPapiGateway implements OddsPapiGateway {
   oddsByTournaments(tournamentIds: readonly string[], bookmaker: string) {
     if (!tournamentIds.length) return Promise.resolve([]);
     // OddsPapi v4 accepts exactly one singular bookmaker per request.
-    return this.request<OddsPapiFixtureOdds[]>('odds-by-tournaments', buildOddsByTournamentQuery(tournamentIds, bookmaker), 5 * 60);
+    return this.request<OddsPapiFixtureOdds[]>('odds-by-tournaments', buildOddsByTournamentQuery(tournamentIds, bookmaker), this.oddsTtlSeconds);
   }
 }

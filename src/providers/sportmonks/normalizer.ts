@@ -5,11 +5,19 @@ import type { ProviderMappingService } from '@/domain/provider-mapping';
 import type { SportmonksFixturePayload, SportmonksLeaguePayload, SportmonksSeasonPayload, SportmonksTeamPayload } from './types';
 
 const statusMap: Record<string, FixtureStatus> = {
-  NS: FixtureStatus.SCHEDULED, NOT_STARTED: FixtureStatus.SCHEDULED, SCHEDULED: FixtureStatus.SCHEDULED,
-  INPLAY_1ST_HALF: FixtureStatus.LIVE, INPLAY_2ND_HALF: FixtureStatus.LIVE, LIVE: FixtureStatus.LIVE,
-  HT: FixtureStatus.HALFTIME, FINISHED: FixtureStatus.FINISHED, FT: FixtureStatus.FINISHED,
+  NS: FixtureStatus.SCHEDULED, TBA: FixtureStatus.SCHEDULED, NOT_STARTED: FixtureStatus.SCHEDULED, SCHEDULED: FixtureStatus.SCHEDULED,
+  INPLAY_1ST_HALF: FixtureStatus.LIVE, INPLAY_2ND_HALF: FixtureStatus.LIVE, INPLAY_ET: FixtureStatus.LIVE,
+  LIVE: FixtureStatus.LIVE, ET: FixtureStatus.LIVE, BREAK: FixtureStatus.LIVE, PENALTY_SHOOTOUT: FixtureStatus.LIVE,
+  HT: FixtureStatus.HALFTIME,
+  FINISHED: FixtureStatus.FINISHED, FT: FixtureStatus.FINISHED, AET: FixtureStatus.FINISHED,
+  FT_PEN: FixtureStatus.FINISHED, AFTER_EXTRA_TIME: FixtureStatus.FINISHED, AFTER_PENALTIES: FixtureStatus.FINISHED,
   POSTPONED: FixtureStatus.POSTPONED, CANCELLED: FixtureStatus.CANCELLED, ABANDONED: FixtureStatus.ABANDONED,
+  INTERRUPTED: FixtureStatus.ABANDONED,
 };
+
+export function mapSportmonksFixtureStatus(value: string): FixtureStatus {
+  return statusMap[value.trim().toUpperCase()] ?? FixtureStatus.SCHEDULED;
+}
 
 function currentScore(raw: SportmonksFixturePayload, participantId: number): number | null {
   const participantScores = (raw.scores ?? []).filter(score => score.participant_id === participantId);
@@ -59,7 +67,7 @@ export class SportmonksNormalizer {
       seasonId: raw.season_id === null ? null : domainId<'Season'>(await this.id(ProviderEntityType.SEASON, String(raw.season_id))),
       homeTeamId: domainId<'Team'>(await this.id(ProviderEntityType.TEAM, String(home.id))),
       awayTeamId: domainId<'Team'>(await this.id(ProviderEntityType.TEAM, String(away.id))), kickoff: new Date(raw.starting_at),
-      status: statusMap[state.toUpperCase()] ?? FixtureStatus.SCHEDULED,
+      status: mapSportmonksFixtureStatus(state),
       homeScore: currentScore(raw, home.id), awayScore: currentScore(raw, away.id),
       createdAt: raw.created_at ? new Date(raw.created_at) : now, updatedAt: raw.updated_at ? new Date(raw.updated_at) : now,
     };
