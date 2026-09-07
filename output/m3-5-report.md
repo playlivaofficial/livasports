@@ -2,9 +2,9 @@
 
 ## Status
 
-**LOCAL COMPLETE — VISUAL QA PASS — AWAITING APPROVAL AND PRODUCTION DEPLOYMENT**
+**COMPLETE — PASS — DEPLOYED AND VERIFIED**
 
-The redesign and final local QA are complete. Production was intentionally not changed before the requested screenshot approval gate.
+The redesign passed its local screenshot approval gate, was deployed to the existing LivaSports Vercel project, and passed post-deployment route, visual, cache, performance, redirect, and secret-exposure verification.
 
 ## Previous visual problems
 
@@ -91,6 +91,15 @@ At 375, 390, and 430px the BR/MX switch and three-part status summary remain ent
 - New heavy dependencies: **0**.
 - M3 cache, route-loader, deduplication, stale fallback, and refresh architecture: unchanged.
 
+Final production runtime evidence for deployment `dpl_3A5VZpKobeAMoRZT7sZVejBQFkgx`:
+
+- Route-load messages inspected: 63.
+- Route loads with `providerRequests: 0`: 63/63.
+- Route loads with non-zero provider requests: 0.
+- Cache HIT messages: 19.
+- Database queries attached to cache HIT requests: 0.
+- Repeated `/br/futebol` verification preserved cache-hit behavior.
+
 ## Quality gates
 
 - TypeScript: PASS.
@@ -98,23 +107,54 @@ At 375, 390, and 430px the BR/MX switch and three-part status summary remain ent
 - Node validation tests: PASS, 6/6.
 - Vitest: PASS, 47/47.
 - Production build: PASS.
-- Client/provider secret scan: PASS.
+- Vercel production build: PASS — deployment READY.
+- Client/provider secret scan: PASS — 8 production JS assets, 0 credential-name matches, 0 local secret-value matches.
 - Git diff check: PASS.
 
 ## Production deployment
 
-- Existing production baseline: commit `199f753`.
-- M3.5 production deployment: **NOT PERFORMED**.
-- Reason: final local screenshots must be approved before commit/push/deployment.
-- Target after approval: existing `nikapopkha3-4447s-projects/livasports` Vercel project only.
+- Previous production baseline: `199f753`.
+- Primary M3.5 visual commit: `d3600e9`.
+- Final M3.5 release commit: `53d2897`.
+- Repository/branch: `playlivaofficial/livasports`, `main`.
+- Vercel project: `nikapopkha3-4447s-projects/livasports`.
+- Deployment ID: `dpl_3A5VZpKobeAMoRZT7sZVejBQFkgx`.
+- Deployment status: **READY**.
+- Production alias: `https://livasports.com`.
+- Additional Vercel project created: **NO**.
+
+### Production route verification
+
+| Route | Result |
+| --- | --- |
+| `/` | PASS — HTTP 307 to `/br`, final HTTP 200 |
+| `/br` | PASS — HTTP 200 |
+| `/br/futebol` | PASS — HTTP 200 |
+| `/br/ao-vivo` | PASS — HTTP 200 |
+| `/br/jogos/hoje` | PASS — HTTP 200 |
+| `/mx` | PASS — HTTP 200 |
+| `/mx/futbol` | PASS — HTTP 200 |
+| `/mx/en-vivo` | PASS — HTTP 200 |
+| `/mx/partidos/hoy` | PASS — HTTP 200 |
+| HTTPS | PASS |
+| `www.livasports.com` | PASS — HTTP 308 to `https://livasports.com/` |
+
+### Production visual verification
+
+- `/br`, `/br/futebol`, and `/mx` were measured at a 390px production viewport.
+- Document/body widths do not exceed the browser content width.
+- Horizontal overflow: **NONE**.
+- BR/MX switch: fully inside the viewport.
+- Status summary: fully inside the viewport.
+- Repeated long odds-unavailable messages: 0.
+- A 3px production-only overflow found during the first pass was corrected by replacing viewport-relative context widths with parent-relative widths, rebuilt, recommitted, redeployed, and reverified.
 
 ## Known limitations
 
 - Mexico has no confirmed fixture sample in the current database, so the localized empty state is intentional.
 - Odds comparison remains outside M3.5; empty slots do not pretend to be actionable.
 - Stored team logos depend on the validity of the existing Sportmonks URL and fall back locally when unavailable.
-- Production route/redirect/HTTPS and post-deploy visual verification remain pending until approval.
 
 ## Recommended next action
 
-Approve the three final local screenshots, then commit/push M3.5 to `main`, deploy only to the existing Vercel project, and run the production visual/performance/security gates. After M3.5 production approval, start M3.6 Competition Expansion using the fixed 30-competition launch set. Do not start M4 before M3.6 is scoped and completed.
+M3.5 is complete. The next separately authorized milestone is M3.6 Competition Expansion using the fixed 30-competition launch set. M3.6 and M4 were not started as part of this deployment.
