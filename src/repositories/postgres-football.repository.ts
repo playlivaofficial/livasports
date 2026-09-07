@@ -109,13 +109,17 @@ export class PostgresFootballRepository implements FootballIngestionStore, Footb
   async listFixtures(countryCode: 'BR' | 'MX', from: Date, to: Date, statuses: readonly string[] = []): Promise<FixtureReadRecord[]> {
     const result = await this.database.query<Record<string, unknown>>(`SELECT f.id,f.sport_id,f.competition_id,f.season_id,f.home_team_id,f.away_team_id,
       f.kickoff,f.status,f.home_score,f.away_score,f.created_at,f.updated_at,f.provider_updated_at,
-      c.name AS competition_name,ht.name AS home_team_name,at.name AS away_team_name
+      c.name AS competition_name,ht.name AS home_team_name,ht.short_name AS home_team_short_name,ht.image_url AS home_team_image_url,
+      at.name AS away_team_name,at.short_name AS away_team_short_name,at.image_url AS away_team_image_url
       FROM fixtures f JOIN competitions c ON c.id=f.competition_id JOIN countries co ON co.id=c.country_id
       JOIN teams ht ON ht.id=f.home_team_id JOIN teams at ON at.id=f.away_team_id
       WHERE co.iso2=$1 AND f.kickoff >= $2 AND f.kickoff < $3 AND (cardinality($4::text[]) = 0 OR f.status = ANY($4::text[]))
       ORDER BY f.kickoff,f.id`, [countryCode, from, to, statuses]);
     return result.rows.map(row => ({ fixture: this.fixture(row), competitionName: String(row.competition_name),
-      homeTeamName: String(row.home_team_name), awayTeamName: String(row.away_team_name) }));
+      homeTeamName: String(row.home_team_name), homeTeamShortName: row.home_team_short_name ? String(row.home_team_short_name) : null,
+      homeTeamImageUrl: row.home_team_image_url ? String(row.home_team_image_url) : null,
+      awayTeamName: String(row.away_team_name), awayTeamShortName: row.away_team_short_name ? String(row.away_team_short_name) : null,
+      awayTeamImageUrl: row.away_team_image_url ? String(row.away_team_image_url) : null }));
   }
 
   private fixture(row: Record<string, unknown>): Fixture {

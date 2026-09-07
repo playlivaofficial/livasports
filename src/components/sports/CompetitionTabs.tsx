@@ -1,0 +1,45 @@
+import { getDictionary, type SiteLocale } from '@/config/i18n';
+
+export function competitionAnchor(name: string): string {
+  const slug = name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+  return `competition-${slug || 'fixtures'}`;
+}
+
+export function CompetitionTabs({ locale, competitions }: { locale: SiteLocale; competitions: readonly string[] }) {
+  const dictionary = getDictionary(locale);
+  if (!competitions.length) return null;
+
+  return <section className="context-panel competition-panel" aria-label={dictionary.labels.competitions}>
+    <h2 className="context-panel-title">{dictionary.labels.competitions}</h2>
+    <nav className="competition-tabs" aria-label={dictionary.labels.competitions}>
+      <a className="competition-tab is-active" href="#fixtures-content" aria-current="location">
+        <span className="competition-tab-marker" aria-hidden="true" />
+        {dictionary.labels.allCompetitions}
+      </a>
+      {competitions.map(competition => <a key={competition} className="competition-tab" href={`#${competitionAnchor(competition)}`}>
+        <span className="competition-tab-marker" aria-hidden="true" />
+        {competition}
+      </a>)}
+    </nav>
+  </section>;
+}
+
+export function FixtureSummary({ locale, live, upcoming, finished }: { locale: SiteLocale; live: number; upcoming: number; finished: number }) {
+  const dictionary = getDictionary(locale);
+  const rows = [
+    { label: dictionary.statuses.LIVE, value: live, className: 'is-live' },
+    { label: dictionary.statuses.SCHEDULED, value: upcoming, className: 'is-upcoming' },
+    { label: dictionary.statuses.FINISHED, value: finished, className: '' },
+  ];
+
+  return <section className="context-panel" aria-label={dictionary.labels.overview}>
+    <h2 className="context-panel-title">{dictionary.labels.overview}</h2>
+    <div className="status-summary">
+      {rows.map(row => <div className="summary-item" key={row.label}>
+        <span className={`summary-dot ${row.className}`} aria-hidden="true" />
+        <span className="summary-label">{row.label}</span>
+        <strong className="summary-count">{row.value}</strong>
+      </div>)}
+    </div>
+  </section>;
+}

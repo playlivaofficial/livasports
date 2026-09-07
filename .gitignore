@@ -12,5 +12,10 @@ output/*.md
 !output/m1-report.md
 !output/m2-report.md
 !output/m3-report.md
+!output/m3-5-report.md
+output/m3-5-screenshots/*
+!output/m3-5-screenshots/final-br-futebol-1440x900.png
+!output/m3-5-screenshots/final-br-home-390x844.png
+!output/m3-5-screenshots/final-mx-home-390x844.png
 
 .vercel

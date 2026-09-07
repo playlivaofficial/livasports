@@ -4,37 +4,53 @@ import type { FreshnessState } from '@/delivery/types';
 export function FreshnessIndicator({ locale, state, updatedAt }: { locale: SiteLocale; state: FreshnessState; updatedAt?: string }) {
   const dictionary = getDictionary(locale);
   const label = state === 'fresh' ? dictionary.labels.providerFresh : state === 'stale' ? dictionary.labels.providerStale : dictionary.labels.sportsUnavailable;
-  return <span className={`inline-flex items-center gap-2 text-xs ${state === 'fresh' ? 'text-emerald-300' : 'text-amber-300'}`}>
-    <span aria-hidden="true" className={`h-2 w-2 rounded-full ${state === 'fresh' ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+
+  return <span className={`freshness ${state === 'fresh' ? 'is-fresh' : ''}`}>
+    <span aria-hidden="true" className="freshness-dot" />
     {label}{updatedAt ? ` · ${dictionary.labels.updatedAt} ${updatedAt}` : ''}
   </span>;
 }
 
 export function ProviderErrorNotice({ locale, provider }: { locale: SiteLocale; provider: 'sports' | 'odds' }) {
   const dictionary = getDictionary(locale);
-  return <aside role="status" className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+  return <aside role="status" className="data-notice">
     {provider === 'sports' ? dictionary.labels.sportsUnavailable : dictionary.labels.oddsUnavailable}
   </aside>;
 }
 
 export function PartialDataNotice({ locale }: { locale: SiteLocale }) {
-  return <p className="mt-3 text-xs text-amber-300">{getDictionary(locale).labels.partialOdds}</p>;
+  return <p className="partial-data">{getDictionary(locale).labels.partialOdds}</p>;
 }
 
-export function EmptyState({ locale, live = false }: { locale: SiteLocale; live?: boolean }) {
+export function EmptyState({ locale, live = false, coverageUnavailable = false }: {
+  locale: SiteLocale;
+  live?: boolean;
+  coverageUnavailable?: boolean;
+}) {
   const dictionary = getDictionary(locale);
-  return <section className="rounded-2xl border border-dashed border-slate-700 bg-slate-900/60 px-6 py-12 text-center">
-    <p className="text-base font-medium text-slate-200">{live ? dictionary.labels.noLiveFixtures : dictionary.labels.noFixtures}</p>
+  const title = coverageUnavailable ? dictionary.labels.coverageUnavailable : live ? dictionary.labels.noLiveFixtures : dictionary.labels.noFixtures;
+  const description = coverageUnavailable ? dictionary.labels.coverageUnavailableDescription : live ? dictionary.labels.noLiveDescription : dictionary.labels.noFixturesDescription;
+
+  return <section className="empty-state" aria-labelledby="empty-state-title">
+    <span className="empty-icon" aria-hidden="true" />
+    <div className="empty-copy">
+      <h2 id="empty-state-title">{title}</h2>
+      <p>{description}</p>
+    </div>
   </section>;
 }
 
 export function LoadingState({ locale }: { locale: SiteLocale }) {
   const dictionary = getDictionary(locale);
-  return <main lang={dictionary.locale} className="min-h-screen bg-slate-950 px-6 py-20 text-slate-100">
-    <div role="status" className="mx-auto max-w-xl rounded-2xl border border-slate-800 bg-slate-900 p-8">
-      <div className="mb-5 h-2 w-24 animate-pulse rounded bg-emerald-400" />
-      <h1 className="text-xl font-semibold">{dictionary.labels.loading}</h1>
-      <p className="mt-2 text-sm text-slate-400">{dictionary.labels.loadingDescription}</p>
+  return <main lang={dictionary.locale} className="loading-page" aria-busy="true">
+    <div className="loading-header" />
+    <div className="loading-shell" role="status" aria-label={`${dictionary.labels.loading}. ${dictionary.labels.loadingDescription}`}>
+      <div className="skeleton skeleton-meta" />
+      <div className="skeleton skeleton-title" />
+      <div className="skeleton-layout">
+        <div className="skeleton skeleton-rail" />
+        <div className="skeleton skeleton-list" />
+      </div>
     </div>
   </main>;
 }

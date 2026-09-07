@@ -11,6 +11,8 @@ export interface LocaleDictionary {
     currentDate: string; competitions: string; fixtures: string; odds: string; score: string; kickoff: string;
     providerFresh: string; providerStale: string; updatedAt: string; noOdds: string; partialOdds: string; staleOdds: string;
     noFixtures: string; noLiveFixtures: string; sportsUnavailable: string; oddsUnavailable: string; loading: string; loadingDescription: string;
+    skipToContent: string; primaryNavigation: string; overview: string; allCompetitions: string; teams: string; status: string; matches: string;
+    noFixturesDescription: string; noLiveDescription: string; coverageUnavailable: string; coverageUnavailableDescription: string;
   };
   statuses: Record<FixtureStatus, string>; markets: Record<MarketCode, string>; outcomes: Record<OutcomeCode, string>;
   status: { foundation: string; noFabricatedData: string; providerBoundary: string; nextMilestone: string; routeFoundation: string };
@@ -21,19 +23,24 @@ const dictionaries: Record<SiteLocale, LocaleDictionary> = {
     locale: 'pt-BR', countryCode: 'BR', countryName: 'Brasil', timeZone: 'America/Sao_Paulo',
     navigation: { home: 'Início', football: 'Futebol', live: 'Ao vivo', today: 'Jogos de hoje' },
     pages: {
-      home: { title: 'Futebol no Brasil', description: 'Jogos de hoje, placares e comparação de odds pré-jogo.' },
-      football: { title: 'Jogos de futebol', description: 'Partidas organizadas por competição, com dados reais e cobertura transparente.' },
-      live: { title: 'Futebol ao vivo', description: 'Somente partidas confirmadas como ao vivo pelo provedor de dados.' },
-      today: { title: 'Jogos de hoje', description: 'Agenda do dia conforme o horário oficial de Brasília.' },
+      home: { title: 'Futebol de hoje', description: 'Agenda, placares e contexto das partidas no Brasil.' },
+      football: { title: 'Partidas de futebol', description: 'Calendário organizado por competição, em um só lugar.' },
+      live: { title: 'Futebol ao vivo', description: 'Partidas em andamento e placares atualizados.' },
+      today: { title: 'Jogos de hoje', description: 'Agenda do dia no horário de Brasília.' },
     },
     labels: {
       currentDate: 'Data local', competitions: 'Competições', fixtures: 'Partidas', odds: 'Odds pré-jogo', score: 'Placar', kickoff: 'Início',
       providerFresh: 'Dados atualizados', providerStale: 'Últimos dados disponíveis', updatedAt: 'Atualizado',
-      noOdds: 'Sem odds válidas para Betano BR ou Betsson.', partialOdds: 'Cobertura parcial entre as casas.',
+      noOdds: 'Indisponível', partialOdds: 'Cobertura parcial entre as casas.',
       staleOdds: 'Odds desatualizadas foram ocultadas.', noFixtures: 'Nenhuma partida encontrada para este período.',
       noLiveFixtures: 'Nenhuma partida está ao vivo agora.', sportsUnavailable: 'Os dados esportivos estão temporariamente indisponíveis.',
       oddsUnavailable: 'As partidas estão disponíveis, mas as odds não puderam ser carregadas.', loading: 'Carregando partidas',
       loadingDescription: 'Buscando dados esportivos atualizados com segurança.',
+      skipToContent: 'Ir para as partidas', primaryNavigation: 'Navegação principal', overview: 'Visão geral', allCompetitions: 'Todas', teams: 'Times', status: 'Status', matches: 'jogos',
+      noFixturesDescription: 'A programação será exibida aqui assim que houver partidas neste período.',
+      noLiveDescription: 'Volte em breve. Partidas ao vivo aparecem automaticamente quando começam.',
+      coverageUnavailable: 'Cobertura ainda não disponível',
+      coverageUnavailableDescription: 'Estamos preparando a cobertura de futebol do México. Nenhuma partida será exibida sem confirmação.',
     },
     statuses: {
       [FixtureStatus.SCHEDULED]: 'Agendado', [FixtureStatus.LIVE]: 'Ao vivo', [FixtureStatus.HALFTIME]: 'Intervalo',
@@ -55,19 +62,24 @@ const dictionaries: Record<SiteLocale, LocaleDictionary> = {
     locale: 'es-MX', countryCode: 'MX', countryName: 'México', timeZone: 'America/Mexico_City',
     navigation: { home: 'Inicio', football: 'Fútbol', live: 'En vivo', today: 'Partidos de hoy' },
     pages: {
-      home: { title: 'Fútbol en México', description: 'Partidos de hoy, marcadores y comparación de cuotas prepartido.' },
-      football: { title: 'Partidos de fútbol', description: 'Partidos agrupados por torneo, con datos reales y cobertura transparente.' },
-      live: { title: 'Fútbol en vivo', description: 'Solo partidos confirmados como en vivo por el proveedor de datos.' },
-      today: { title: 'Partidos de hoy', description: 'Calendario del día según la hora oficial de Ciudad de México.' },
+      home: { title: 'Fútbol de hoy', description: 'Calendario, marcadores y contexto de los partidos en México.' },
+      football: { title: 'Partidos de fútbol', description: 'Calendario organizado por torneo, en un solo lugar.' },
+      live: { title: 'Fútbol en vivo', description: 'Partidos en curso y marcadores actualizados.' },
+      today: { title: 'Partidos de hoy', description: 'Calendario del día en horario de Ciudad de México.' },
     },
     labels: {
       currentDate: 'Fecha local', competitions: 'Competiciones', fixtures: 'Partidos', odds: 'Cuotas prepartido', score: 'Marcador', kickoff: 'Inicio',
       providerFresh: 'Datos actualizados', providerStale: 'Últimos datos disponibles', updatedAt: 'Actualizado',
-      noOdds: 'Sin cuotas válidas de Betano BR o Betsson.', partialOdds: 'Cobertura parcial entre las casas.',
+      noOdds: 'No disponible', partialOdds: 'Cobertura parcial entre las casas.',
       staleOdds: 'Las cuotas desactualizadas se ocultaron.', noFixtures: 'No hay partidos para este periodo.',
       noLiveFixtures: 'No hay partidos en vivo en este momento.', sportsUnavailable: 'Los datos deportivos no están disponibles temporalmente.',
       oddsUnavailable: 'Los partidos están disponibles, pero no fue posible cargar las cuotas.', loading: 'Cargando partidos',
       loadingDescription: 'Consultando datos deportivos actualizados de forma segura.',
+      skipToContent: 'Ir a los partidos', primaryNavigation: 'Navegación principal', overview: 'Resumen', allCompetitions: 'Todas', teams: 'Equipos', status: 'Estado', matches: 'partidos',
+      noFixturesDescription: 'El calendario aparecerá aquí en cuanto haya partidos para este periodo.',
+      noLiveDescription: 'Vuelve pronto. Los partidos aparecen automáticamente cuando comienzan.',
+      coverageUnavailable: 'Cobertura aún no disponible',
+      coverageUnavailableDescription: 'Estamos preparando la cobertura del fútbol mexicano. No mostraremos partidos sin confirmar.',
     },
     statuses: {
       [FixtureStatus.SCHEDULED]: 'Programado', [FixtureStatus.LIVE]: 'En vivo', [FixtureStatus.HALFTIME]: 'Medio tiempo',

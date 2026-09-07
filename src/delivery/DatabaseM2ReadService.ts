@@ -23,6 +23,8 @@ export class DatabaseM2ReadService {
         const row = rowById.get(fixture.id);
         if (!row) return [];
         return [{ id: fixture.id, competition: row.competitionName, homeTeam: row.homeTeamName, awayTeam: row.awayTeamName,
+          homeTeamShortName: row.homeTeamShortName, awayTeamShortName: row.awayTeamShortName,
+          homeTeamImageUrl: row.homeTeamImageUrl, awayTeamImageUrl: row.awayTeamImageUrl,
           kickoff: fixture.kickoff.toISOString(), status: fixture.status, homeScore: fixture.homeScore, awayScore: fixture.awayScore,
           freshness: 'fresh', odds: [], oddsState: 'none' }];
       });

@@ -5,8 +5,9 @@ import { PartialDataNotice } from './DataStates';
 
 export function BookmakerPrice({ price }: { price: BookmakerPriceView }) {
   if (price.freshness !== 'fresh') return null;
-  return <div className="flex min-w-28 items-center justify-between gap-3 rounded-lg bg-slate-800 px-3 py-2">
-    <span className="text-xs text-slate-300">{price.bookmaker}</span><strong className="tabular-nums text-white">{price.decimalOdds.toFixed(2)}</strong>
+  return <div className="bookmaker-price">
+    <span className="bookmaker-name">{price.bookmaker}</span>
+    <strong className="bookmaker-odds">{price.decimalOdds.toFixed(2)}</strong>
   </div>;
 }
 
@@ -16,22 +17,31 @@ function outcomeLabel(locale: SiteLocale, market: MarketOddsView, outcome: Outco
   return market.line !== null && (outcome === OutcomeCode.OVER || outcome === OutcomeCode.UNDER) ? `${base} ${market.line}` : base;
 }
 
-export function OddsComparison({ locale, fixture }: { locale: SiteLocale; fixture: FixtureView }) {
+export function OddsComparison({ locale, fixture, emptyLabel }: { locale: SiteLocale; fixture: FixtureView; emptyLabel?: string }) {
   const dictionary = getDictionary(locale);
-  if (fixture.oddsState === 'unavailable') return <p className="mt-4 text-xs text-amber-300">{dictionary.labels.oddsUnavailable}</p>;
-  if (fixture.oddsState === 'stale') return <p className="mt-4 text-xs text-amber-300">{dictionary.labels.staleOdds}</p>;
-  const markets = fixture.odds.map(market => ({ ...market, outcomes: market.outcomes.map(outcome => ({ ...outcome, prices: outcome.prices.filter(price => price.freshness === 'fresh') })) }))
-    .filter(market => market.outcomes.some(outcome => outcome.prices.length));
-  if (!markets.length) return <p className="mt-4 text-xs text-slate-500">{dictionary.labels.noOdds}</p>;
-  return <div className="mt-5 border-t border-slate-800 pt-4">
-    <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-400">{dictionary.labels.odds}</p>
-    <div className="space-y-4">{markets.map(market => <section key={`${market.market}:${market.line ?? ''}`} aria-label={dictionary.markets[market.market]}>
-      <h4 className="mb-2 text-sm font-medium text-slate-200">{dictionary.markets[market.market]}</h4>
-      <div className="grid gap-2 lg:grid-cols-3">{market.outcomes.map(outcome => <div key={outcome.outcome} className="rounded-xl border border-slate-800 p-3">
-        <p className="mb-2 text-xs text-slate-400">{outcomeLabel(locale, market, outcome.outcome)}</p>
-        <div className="flex flex-wrap gap-2">{outcome.prices.map(price => <BookmakerPrice key={`${price.bookmaker}:${price.decimalOdds}`} price={price} />)}</div>
-      </div>)}</div>
-    </section>)}</div>
-    {fixture.oddsState === 'partial' ? <PartialDataNotice locale={locale} /> : null}
-  </div>;
+  const unavailableLabel = fixture.oddsState === 'stale' ? dictionary.labels.staleOdds
+    : fixture.oddsState === 'unavailable' ? dictionary.labels.oddsUnavailable
+      : emptyLabel ?? dictionary.labels.noOdds;
+  const markets = fixture.odds.map(market => ({
+    ...market,
+    outcomes: market.outcomes.map(outcome => ({ ...outcome, prices: outcome.prices.filter(price => price.freshness === 'fresh') })),
+  })).filter(market => market.outcomes.some(outcome => outcome.prices.length));
+
+  if (!markets.length) return <div className="odds-slot"><span className="odds-empty" title={unavailableLabel} aria-label={unavailableLabel}>—</span></div>;
+
+  return <>
+    <div className="odds-slot"><span className="odds-empty">{dictionary.labels.odds}</span></div>
+    <div className="odds-market-list">
+      {markets.map(market => <section key={`${market.market}:${market.line ?? ''}`} aria-label={dictionary.markets[market.market]}>
+        <h3 className="odds-market-title">{dictionary.markets[market.market]}</h3>
+        <div className="odds-market-grid">
+          {market.outcomes.map(outcome => <div key={outcome.outcome} className="odds-outcome">
+            <p className="odds-outcome-label">{outcomeLabel(locale, market, outcome.outcome)}</p>
+            <div>{outcome.prices.map(price => <BookmakerPrice key={`${price.bookmaker}:${price.decimalOdds}`} price={price} />)}</div>
+          </div>)}
+        </div>
+      </section>)}
+      {fixture.oddsState === 'partial' ? <PartialDataNotice locale={locale} /> : null}
+    </div>
+  </>;
 }

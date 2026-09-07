@@ -9,6 +9,7 @@ export interface OutcomeOddsView { outcome: OutcomeCode; prices: BookmakerPriceV
 export interface MarketOddsView { market: MarketCode; line: number | null; outcomes: OutcomeOddsView[]; }
 export interface FixtureView {
   id: string; competition: string; homeTeam: string; awayTeam: string; kickoff: string; status: FixtureStatus;
+  homeTeamShortName?: string | null; awayTeamShortName?: string | null; homeTeamImageUrl?: string | null; awayTeamImageUrl?: string | null;
   homeScore: number | null; awayScore: number | null; freshness: FreshnessState; odds: MarketOddsView[];
   oddsState: 'complete' | 'partial' | 'none' | 'stale' | 'unavailable';
 }

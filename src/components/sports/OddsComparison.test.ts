@@ -42,6 +42,6 @@ describe('read-only odds rendering', () => {
 
   it('renders explicit no-odds coverage', () => {
     const value = { ...fixture(), odds: [], oddsState: 'none' as const };
-    expect(renderToStaticMarkup(createElement(OddsComparison, { locale: 'br', fixture: value }))).toContain('Sem odds válidas');
+    expect(renderToStaticMarkup(createElement(OddsComparison, { locale: 'br', fixture: value }))).toContain('Indisponível');
   });
 });

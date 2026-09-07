@@ -86,6 +86,8 @@ export class InMemoryFootballIngestionStore implements FootballIngestionStore {
 
 export interface FixtureReadRecord {
   fixture: Fixture; competitionName: string; homeTeamName: string; awayTeamName: string;
+  homeTeamShortName?: string | null; awayTeamShortName?: string | null;
+  homeTeamImageUrl?: string | null; awayTeamImageUrl?: string | null;
 }
 
 export interface FootballReadRepository {
