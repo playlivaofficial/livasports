@@ -2,7 +2,7 @@
 
 ## M2 status
 
-**IMPLEMENTATION, NEON SYNC, AND LOCAL QUALITY GATES COMPLETE — PRODUCTION DEPLOYMENT PENDING**
+**COMPLETE — PASS WITH MEXICO PROVIDER-COVERAGE LIMITATION**
 
 M2 now uses a PostgreSQL-backed ingestion and read path. No UI redesign, M3 feature, basketball ingestion, bet slip, full Match Center, or production polling was added.
 
@@ -118,7 +118,33 @@ Brazil/Mexico today and live filters use GEO-aware boundaries over UTC `timestam
 | `pnpm run build` | PASS — Next.js 16.3.4 production build |
 | Client static assets | PASS — 12 files, 0 credential-name matches, 0 secret-value matches |
 
-Git push, existing-project Vercel deployment, and production route smoke tests remain pending.
+## Git and production deployment
+
+- M2 code commit: `a4fa4ea` (`feat: add M2 football database ingestion`)
+- Repository/branch: `playlivaofficial/livasports`, `main`
+- Push: PASS
+- Existing Vercel project only: `nikapopkha3-4447s-projects/livasports`
+- Deployment: `dpl_9YwcVBsW2bmPw6qtAE7agUuQLE9P`
+- Deployment state: READY
+- Production aliases: `livasports.com`, `www.livasports.com`, and existing Vercel aliases
+
+## Production smoke test
+
+| Check | Result |
+| --- | --- |
+| `/` | PASS — HTTP 307 to `/br` |
+| `/br` | PASS — HTTP 200 |
+| `/mx` | PASS — HTTP 200 |
+| `/br/futebol` | PASS — HTTP 200; DB-backed Serie A content present |
+| `/mx/futbol` | PASS — HTTP 200; localized empty DB state present |
+| `/br/ao-vivo` | PASS — HTTP 200 |
+| `/mx/en-vivo` | PASS — HTTP 200 |
+| `/br/jogos/hoje` | PASS — HTTP 200 |
+| `/mx/partidos/hoy` | PASS — HTTP 200 |
+| `www.livasports.com` | PASS — HTTPS HTTP 308 to apex |
+| Production client assets | PASS — 8 JS assets; 0 credential-name and 0 secret-value matches |
+
+Production `/br/futebol` rendered Serie A from Neon without an unavailable-provider banner. Production `/mx/futbol` rendered the correct localized no-data state. Page rendering consumed zero OddsPapi requests and made no Sportmonks request.
 
 ## Known limitations
 
