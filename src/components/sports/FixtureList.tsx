@@ -9,7 +9,7 @@ function initials(value: string): string {
 
 export function CompetitionSection({ locale, section }: { locale: SiteLocale; section: CompetitionSectionView }) {
   const dictionary = getDictionary(locale);
-  const id = competitionAnchor(section.competition);
+  const id = competitionAnchor(section.slug ?? section.competition);
 
   return <section id={id} aria-labelledby={`${id}-title`} className="competition-section">
     <header className="competition-header">

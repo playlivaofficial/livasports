@@ -1,8 +1,9 @@
 import type { DatabaseClient, QueryExecutor } from '@/database/client';
 import type { Country, Fixture, Sport, Team } from '@/domain/entities';
-import { FixtureStatus } from '@/domain/enums';
+import { CompetitionCoverageStatus, CompetitionType, FixtureStatus, TeamType } from '@/domain/enums';
 import { domainId, type SeasonId } from '@/domain/ids';
 import type { FootballIngestionStore, FootballReadRepository, FixtureReadRecord, StoredCompetition, StoredSeason, SyncKind, WriteCounts } from '@/ingestion/store';
+import { targetBySlug } from '@/config/footballCompetitions';
 
 async function counted(executor: QueryExecutor, sql: string, values: readonly unknown[]): Promise<'inserted' | 'updated'> {
   const result = await executor.query<{ inserted: boolean }>(sql, values);
@@ -33,31 +34,62 @@ export class PostgresFootballRepository implements FootballIngestionStore, Footb
   }
 
   upsertCompetitions(rows: readonly StoredCompetition[]) {
-    return many(this.database, rows, (db, row) => counted(db, `INSERT INTO competitions (id, sport_id, country_id, name, slug)
-      VALUES ($1,$2,$3,$4,$5) ON CONFLICT (id) DO UPDATE SET sport_id=EXCLUDED.sport_id, country_id=EXCLUDED.country_id,
-      name=EXCLUDED.name, slug=EXCLUDED.slug, updated_at=now() RETURNING xmax = 0 AS inserted`,
-    [row.competition.id, row.competition.sportId, row.competition.countryId, row.competition.name, row.competition.slug]));
+    return many(this.database, rows, (db, row) => {
+      const target = row.target;
+      return counted(db, `INSERT INTO competitions
+        (id,sport_id,country_id,name,slug,canonical_name,display_name_pt_br,display_name_es_mx,competition_type,region,
+         competition_group,enabled,coverage_status,priority_br,priority_mx,season_strategy)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+        ON CONFLICT (id) DO UPDATE SET sport_id=EXCLUDED.sport_id,country_id=EXCLUDED.country_id,name=EXCLUDED.name,
+        slug=EXCLUDED.slug,canonical_name=EXCLUDED.canonical_name,display_name_pt_br=EXCLUDED.display_name_pt_br,
+        display_name_es_mx=EXCLUDED.display_name_es_mx,competition_type=EXCLUDED.competition_type,region=EXCLUDED.region,
+        competition_group=EXCLUDED.competition_group,enabled=EXCLUDED.enabled,coverage_status=EXCLUDED.coverage_status,
+        priority_br=EXCLUDED.priority_br,priority_mx=EXCLUDED.priority_mx,season_strategy=EXCLUDED.season_strategy,updated_at=now()
+        RETURNING xmax = 0 AS inserted`,
+      [row.competition.id, row.competition.sportId, row.competition.countryId, row.competition.name, row.competition.slug,
+        target?.canonicalName ?? row.competition.name, target?.displayNames.br ?? row.competition.name,
+        target?.displayNames.mx ?? row.competition.name, target?.type ?? CompetitionType.DOMESTIC_LEAGUE,
+        target?.region ?? (row.competition.countryId ? 'SOUTH_AMERICA' : 'GLOBAL'), target?.group ?? 'BRAZIL',
+        target?.enabled ?? true, row.coverageStatus ?? CompetitionCoverageStatus.SUPPORTED,
+        target?.priority.br ?? 999, target?.priority.mx ?? 999, target?.seasonStrategy ?? 'STANDARD']);
+    });
   }
 
   async listTargetCompetitions(): Promise<StoredCompetition[]> {
-    const result = await this.database.query<{ id: string; sport_id: string; country_id: string | null; name: string; slug: string }>(
-      `SELECT id,sport_id,country_id,name,slug FROM competitions WHERE slug IN ('brasileiro-serie-a','copa-do-brasil','copa-libertadores','liga-mx') ORDER BY slug`,
+    const result = await this.database.query<{ id: string; sport_id: string; country_id: string | null; name: string; slug: string; coverage_status: CompetitionCoverageStatus }>(
+      `SELECT id,sport_id,country_id,name,slug,coverage_status FROM competitions
+       WHERE enabled AND coverage_status IN ('SUPPORTED','SUPPORTED_BUT_NO_CURRENT_FIXTURES') ORDER BY priority_br,slug`,
     );
-    return result.rows.map(row => ({ targetKey: row.slug, competition: { id: domainId<'Competition'>(row.id), sportId: domainId<'Sport'>(row.sport_id),
-      countryId: row.country_id ? domainId<'Country'>(row.country_id) : null, name: row.name, slug: row.slug } }));
+    return result.rows.map(row => ({ targetKey: targetBySlug(row.slug)?.key ?? row.slug,
+      target: targetBySlug(row.slug), coverageStatus: row.coverage_status,
+      competition: { id: domainId<'Competition'>(row.id), sportId: domainId<'Sport'>(row.sport_id),
+        countryId: row.country_id ? domainId<'Country'>(row.country_id) : null, name: row.name, slug: row.slug } }));
   }
 
   upsertSeasons(rows: readonly StoredSeason[]) {
-    return many(this.database, rows, (db, row) => counted(db, `INSERT INTO seasons (id,competition_id,name,starts_at,ends_at,is_current)
-      VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (id) DO UPDATE SET competition_id=EXCLUDED.competition_id,name=EXCLUDED.name,
-      starts_at=EXCLUDED.starts_at,ends_at=EXCLUDED.ends_at,is_current=EXCLUDED.is_current,updated_at=now() RETURNING xmax = 0 AS inserted`,
-    [row.id, row.competitionId, row.name, row.startsAt, row.endsAt, row.isCurrent ?? false]));
+    return this.database.transaction(async db => {
+      const competitionIds = [...new Set(rows.map(row => row.competitionId))];
+      if (competitionIds.length) await db.query('UPDATE seasons SET is_current=false,updated_at=now() WHERE competition_id = ANY($1::uuid[]) AND is_current', [competitionIds]);
+      const counts = { inserted: 0, updated: 0 };
+      for (const row of rows) {
+        const kind = await counted(db, `INSERT INTO seasons (id,competition_id,name,starts_at,ends_at,is_current)
+          VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (id) DO UPDATE SET competition_id=EXCLUDED.competition_id,name=EXCLUDED.name,
+          starts_at=EXCLUDED.starts_at,ends_at=EXCLUDED.ends_at,is_current=EXCLUDED.is_current,updated_at=now() RETURNING xmax = 0 AS inserted`,
+        [row.id, row.competitionId, row.name, row.startsAt, row.endsAt, row.isCurrent ?? false]);
+        counts[kind]++;
+      }
+      return counts;
+    });
   }
 
   async listRelevantSeasons(): Promise<StoredSeason[]> {
     const result = await this.database.query<{ id: string; competition_id: string; name: string; starts_at: Date | null; ends_at: Date | null; is_current: boolean; slug: string }>(
       `SELECT s.id,s.competition_id,s.name,s.starts_at,s.ends_at,s.is_current,c.slug FROM seasons s JOIN competitions c ON c.id=s.competition_id
-       WHERE s.is_current OR s.ends_at IS NULL OR s.ends_at >= now() ORDER BY s.is_current DESC,s.starts_at DESC NULLS LAST`,
+       WHERE c.enabled AND c.coverage_status IN ('SUPPORTED','SUPPORTED_BUT_NO_CURRENT_FIXTURES')
+       AND (s.is_current OR (NOT EXISTS (SELECT 1 FROM seasons current_season
+         WHERE current_season.competition_id=s.competition_id AND current_season.is_current)
+         AND (s.ends_at IS NULL OR s.ends_at >= now())))
+       ORDER BY s.is_current DESC,s.starts_at DESC NULLS LAST`,
     );
     return result.rows.map(row => ({ id: domainId<'Season'>(row.id), competitionId: domainId<'Competition'>(row.competition_id),
       name: row.name, startsAt: row.starts_at ? new Date(row.starts_at) : null, endsAt: row.ends_at ? new Date(row.ends_at) : null,
@@ -65,28 +97,52 @@ export class PostgresFootballRepository implements FootballIngestionStore, Footb
   }
 
   upsertTeams(rows: readonly Team[], seasonId: SeasonId) {
+    if (!rows.length) return Promise.resolve({ inserted: 0, updated: 0 });
     return this.database.transaction(async db => {
-      const counts = { inserted: 0, updated: 0 };
-      for (const row of rows) {
-        const kind = await counted(db, `INSERT INTO teams (id,sport_id,country_id,name,short_name,image_url) VALUES ($1,$2,$3,$4,$5,$6)
-          ON CONFLICT (id) DO UPDATE SET sport_id=EXCLUDED.sport_id,country_id=EXCLUDED.country_id,name=EXCLUDED.name,
-          short_name=EXCLUDED.short_name,image_url=EXCLUDED.image_url,updated_at=now() RETURNING xmax = 0 AS inserted`,
-        [row.id, row.sportId, row.countryId, row.name, row.shortName, row.imageUrl ?? null]);
-        counts[kind]++;
-        await db.query('INSERT INTO team_seasons (team_id,season_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [row.id, seasonId]);
-      }
-      return counts;
+      const payload = rows.map(row => ({ id: row.id, sport_id: row.sportId, country_id: row.countryId,
+        name: row.name, short_name: row.shortName, image_url: row.imageUrl ?? null, team_type: row.type ?? TeamType.CLUB }));
+      const result = await db.query<{ inserted: boolean }>(`WITH input AS (
+          SELECT * FROM jsonb_to_recordset($1::jsonb) AS row(
+            id uuid,sport_id uuid,country_id uuid,name text,short_name text,image_url text,team_type text)
+        ) INSERT INTO teams (id,sport_id,country_id,name,short_name,image_url,team_type)
+        SELECT id,sport_id,country_id,name,short_name,image_url,team_type FROM input
+        ON CONFLICT (id) DO UPDATE SET sport_id=EXCLUDED.sport_id,country_id=EXCLUDED.country_id,name=EXCLUDED.name,
+          short_name=EXCLUDED.short_name,image_url=EXCLUDED.image_url,team_type=EXCLUDED.team_type,updated_at=now()
+        RETURNING xmax = 0 AS inserted`, [JSON.stringify(payload)]);
+      await db.query(`INSERT INTO team_seasons (team_id,season_id)
+        SELECT unnest($1::uuid[]),$2::uuid ON CONFLICT DO NOTHING`, [rows.map(row => row.id), seasonId]);
+      const inserted = result.rows.filter(row => row.inserted).length;
+      return { inserted, updated: result.rows.length - inserted };
     });
   }
 
   upsertFixtures(rows: readonly Fixture[]) {
-    return many(this.database, rows, (db, row) => counted(db, `INSERT INTO fixtures
-      (id,sport_id,competition_id,season_id,home_team_id,away_team_id,kickoff,status,home_score,away_score,created_at,updated_at,provider_updated_at)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,now(),$12) ON CONFLICT (id) DO UPDATE SET
-      sport_id=EXCLUDED.sport_id,competition_id=EXCLUDED.competition_id,season_id=EXCLUDED.season_id,home_team_id=EXCLUDED.home_team_id,
-      away_team_id=EXCLUDED.away_team_id,kickoff=EXCLUDED.kickoff,status=EXCLUDED.status,home_score=EXCLUDED.home_score,
-      away_score=EXCLUDED.away_score,provider_updated_at=EXCLUDED.provider_updated_at,updated_at=now() RETURNING xmax = 0 AS inserted`,
-    [row.id,row.sportId,row.competitionId,row.seasonId,row.homeTeamId,row.awayTeamId,row.kickoff,row.status,row.homeScore,row.awayScore,row.createdAt,row.providerUpdatedAt ?? null]));
+    if (!rows.length) return Promise.resolve({ inserted: 0, updated: 0 });
+    return this.database.transaction(async db => {
+      const payload = rows.map(row => ({ id: row.id, sport_id: row.sportId, competition_id: row.competitionId,
+        season_id: row.seasonId, home_team_id: row.homeTeamId, away_team_id: row.awayTeamId,
+        kickoff: row.kickoff.toISOString(), status: row.status, home_score: row.homeScore, away_score: row.awayScore,
+        created_at: row.createdAt.toISOString(), provider_updated_at: row.providerUpdatedAt?.toISOString() ?? null }));
+      const result = await db.query<{ inserted: boolean }>(`WITH input AS (
+          SELECT * FROM jsonb_to_recordset($1::jsonb) AS row(
+            id uuid,sport_id uuid,competition_id uuid,season_id uuid,home_team_id uuid,away_team_id uuid,
+            kickoff timestamptz,status text,home_score integer,away_score integer,created_at timestamptz,provider_updated_at timestamptz)
+        ) INSERT INTO fixtures
+          (id,sport_id,competition_id,season_id,home_team_id,away_team_id,kickoff,status,home_score,away_score,created_at,updated_at,provider_updated_at)
+        SELECT id,sport_id,competition_id,season_id,home_team_id,away_team_id,kickoff,status,home_score,away_score,created_at,now(),provider_updated_at FROM input
+        ON CONFLICT (id) DO UPDATE SET sport_id=EXCLUDED.sport_id,competition_id=EXCLUDED.competition_id,
+          season_id=EXCLUDED.season_id,home_team_id=EXCLUDED.home_team_id,away_team_id=EXCLUDED.away_team_id,
+          kickoff=EXCLUDED.kickoff,status=EXCLUDED.status,home_score=EXCLUDED.home_score,away_score=EXCLUDED.away_score,
+          provider_updated_at=EXCLUDED.provider_updated_at,updated_at=now() RETURNING xmax = 0 AS inserted`,
+      [JSON.stringify(payload)]);
+      const inserted = result.rows.filter(row => row.inserted).length;
+      return { inserted, updated: result.rows.length - inserted };
+    });
+  }
+
+  async updateCompetitionFixtureCoverage(competitionId: string, hasFixtures: boolean) {
+    await this.database.query('UPDATE competitions SET coverage_status=$2,updated_at=now() WHERE id=$1', [competitionId,
+      hasFixtures ? CompetitionCoverageStatus.SUPPORTED : CompetitionCoverageStatus.SUPPORTED_BUT_NO_CURRENT_FIXTURES]);
   }
 
   async listFixturesForScoreSync(limit: number): Promise<Fixture[]> {
@@ -99,8 +155,8 @@ export class PostgresFootballRepository implements FootballIngestionStore, Footb
     const result = await this.database.query<{ id: string }>('INSERT INTO ingestion_sync_runs (sync_kind,target_key,status) VALUES ($1,$2,\'RUNNING\') RETURNING id', [syncKind, targetKey]);
     return result.rows[0].id;
   }
-  async finishSync(id: string, counts: WriteCounts, providerRequests: number) {
-    await this.database.query(`UPDATE ingestion_sync_runs SET status='SUCCEEDED',completed_at=now(),records_inserted=$2,records_updated=$3,provider_requests=$4 WHERE id=$1`, [id, counts.inserted, counts.updated, providerRequests]);
+  async finishSync(id: string, counts: WriteCounts, providerRequests: number, metadata: Record<string, unknown> = {}) {
+    await this.database.query(`UPDATE ingestion_sync_runs SET status='SUCCEEDED',completed_at=now(),records_inserted=$2,records_updated=$3,provider_requests=$4,metadata=$5::jsonb WHERE id=$1`, [id, counts.inserted, counts.updated, providerRequests, JSON.stringify(metadata)]);
   }
   async failSync(id: string, safeMessage: string, providerRequests: number) {
     await this.database.query(`UPDATE ingestion_sync_runs SET status='FAILED',completed_at=now(),error_message=$2,provider_requests=$3 WHERE id=$1`, [id, safeMessage, providerRequests]);
@@ -109,13 +165,19 @@ export class PostgresFootballRepository implements FootballIngestionStore, Footb
   async listFixtures(countryCode: 'BR' | 'MX', from: Date, to: Date, statuses: readonly string[] = []): Promise<FixtureReadRecord[]> {
     const result = await this.database.query<Record<string, unknown>>(`SELECT f.id,f.sport_id,f.competition_id,f.season_id,f.home_team_id,f.away_team_id,
       f.kickoff,f.status,f.home_score,f.away_score,f.created_at,f.updated_at,f.provider_updated_at,
-      c.name AS competition_name,ht.name AS home_team_name,ht.short_name AS home_team_short_name,ht.image_url AS home_team_image_url,
+      CASE WHEN $1='BR' THEN c.display_name_pt_br ELSE c.display_name_es_mx END AS competition_name,
+      c.slug AS competition_slug,c.competition_group,
+      CASE WHEN $1='BR' THEN c.priority_br ELSE c.priority_mx END AS competition_priority,
+      ht.name AS home_team_name,ht.short_name AS home_team_short_name,ht.image_url AS home_team_image_url,
       at.name AS away_team_name,at.short_name AS away_team_short_name,at.image_url AS away_team_image_url
-      FROM fixtures f JOIN competitions c ON c.id=f.competition_id JOIN countries co ON co.id=c.country_id
+      FROM fixtures f JOIN competitions c ON c.id=f.competition_id
       JOIN teams ht ON ht.id=f.home_team_id JOIN teams at ON at.id=f.away_team_id
-      WHERE co.iso2=$1 AND f.kickoff >= $2 AND f.kickoff < $3 AND (cardinality($4::text[]) = 0 OR f.status = ANY($4::text[]))
-      ORDER BY f.kickoff,f.id`, [countryCode, from, to, statuses]);
+      WHERE c.enabled AND c.coverage_status IN ('SUPPORTED','SUPPORTED_BUT_NO_CURRENT_FIXTURES')
+      AND f.kickoff >= $2 AND f.kickoff < $3 AND (cardinality($4::text[]) = 0 OR f.status = ANY($4::text[]))
+      ORDER BY competition_priority,f.kickoff,f.id`, [countryCode, from, to, statuses]);
     return result.rows.map(row => ({ fixture: this.fixture(row), competitionName: String(row.competition_name),
+      competitionSlug: String(row.competition_slug), competitionGroup: String(row.competition_group),
+      competitionPriority: Number(row.competition_priority),
       homeTeamName: String(row.home_team_name), homeTeamShortName: row.home_team_short_name ? String(row.home_team_short_name) : null,
       homeTeamImageUrl: row.home_team_image_url ? String(row.home_team_image_url) : null,
       awayTeamName: String(row.away_team_name), awayTeamShortName: row.away_team_short_name ? String(row.away_team_short_name) : null,

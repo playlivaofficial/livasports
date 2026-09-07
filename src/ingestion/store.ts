@@ -1,14 +1,23 @@
 import type { Competition, Country, Fixture, Season, Sport, Team } from '@/domain/entities';
 import type { SeasonId } from '@/domain/ids';
+import type { FootballCompetitionTarget } from '@/config/footballCompetitions';
+import { CompetitionCoverageStatus } from '@/domain/enums';
 
 export interface WriteCounts { inserted: number; updated: number; }
-export interface StoredCompetition { targetKey: string; competition: Competition; }
+export interface StoredCompetition {
+  targetKey: string;
+  competition: Competition;
+  target?: FootballCompetitionTarget;
+  coverageStatus?: CompetitionCoverageStatus;
+  providerName?: string;
+}
 export interface StoredSeason extends Season { targetKey: string; }
 export type SyncKind = 'FOOTBALL' | 'COMPETITIONS' | 'SEASONS' | 'TEAMS' | 'FIXTURES' | 'SCORES';
 
 export interface SyncRun {
   id: string; syncKind: SyncKind; targetKey: string; status: 'RUNNING' | 'SUCCEEDED' | 'FAILED';
   startedAt: Date; completedAt: Date | null; inserted: number; updated: number; providerRequests: number; errorMessage: string | null;
+  metadata?: Record<string, unknown>;
 }
 
 export interface FootballIngestionStore {
@@ -20,9 +29,10 @@ export interface FootballIngestionStore {
   listRelevantSeasons(): Promise<StoredSeason[]>;
   upsertTeams(rows: readonly Team[], seasonId: SeasonId): Promise<WriteCounts>;
   upsertFixtures(rows: readonly Fixture[]): Promise<WriteCounts>;
+  updateCompetitionFixtureCoverage(competitionId: string, hasFixtures: boolean): Promise<void>;
   listFixturesForScoreSync(limit: number): Promise<Fixture[]>;
   startSync(kind: SyncKind, targetKey: string): Promise<string>;
-  finishSync(id: string, counts: WriteCounts, providerRequests: number): Promise<void>;
+  finishSync(id: string, counts: WriteCounts, providerRequests: number, metadata?: Record<string, unknown>): Promise<void>;
   failSync(id: string, safeMessage: string, providerRequests: number): Promise<void>;
 }
 
@@ -65,18 +75,22 @@ export class InMemoryFootballIngestionStore implements FootballIngestionStore {
     return counts;
   }
   async upsertFixtures(rows: readonly Fixture[]) { return this.upsert(this.fixtures, rows); }
+  async updateCompetitionFixtureCoverage(competitionId: string, hasFixtures: boolean) {
+    const row = this.competitions.get(competitionId);
+    if (row) row.coverageStatus = hasFixtures ? CompetitionCoverageStatus.SUPPORTED : CompetitionCoverageStatus.SUPPORTED_BUT_NO_CURRENT_FIXTURES;
+  }
   async listFixturesForScoreSync(limit: number) {
     return [...this.fixtures.values()].filter(row => ['SCHEDULED', 'LIVE', 'HALFTIME'].includes(row.status)).slice(0, limit);
   }
   async startSync(syncKind: SyncKind, targetKey: string) {
     const id = crypto.randomUUID();
     this.runs.set(id, { id, syncKind, targetKey, status: 'RUNNING', startedAt: new Date(), completedAt: null,
-      inserted: 0, updated: 0, providerRequests: 0, errorMessage: null });
+      inserted: 0, updated: 0, providerRequests: 0, errorMessage: null, metadata: {} });
     return id;
   }
-  async finishSync(id: string, counts: WriteCounts, providerRequests: number) {
+  async finishSync(id: string, counts: WriteCounts, providerRequests: number, metadata: Record<string, unknown> = {}) {
     const run = this.runs.get(id); if (!run) throw new Error('Unknown sync run');
-    Object.assign(run, { status: 'SUCCEEDED', completedAt: new Date(), ...counts, providerRequests });
+    Object.assign(run, { status: 'SUCCEEDED', completedAt: new Date(), ...counts, providerRequests, metadata });
   }
   async failSync(id: string, safeMessage: string, providerRequests: number) {
     const run = this.runs.get(id); if (!run) throw new Error('Unknown sync run');
@@ -86,6 +100,7 @@ export class InMemoryFootballIngestionStore implements FootballIngestionStore {
 
 export interface FixtureReadRecord {
   fixture: Fixture; competitionName: string; homeTeamName: string; awayTeamName: string;
+  competitionSlug?: string; competitionGroup?: string; competitionPriority?: number;
   homeTeamShortName?: string | null; awayTeamShortName?: string | null;
   homeTeamImageUrl?: string | null; awayTeamImageUrl?: string | null;
 }

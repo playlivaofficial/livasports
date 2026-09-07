@@ -1,13 +1,26 @@
 import { getDictionary, type SiteLocale } from '@/config/i18n';
+import type { CompetitionSectionView } from '@/delivery/types';
 
-export function competitionAnchor(name: string): string {
-  const slug = name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+export function competitionAnchor(name?: string): string {
+  const slug = (name ?? 'fixtures').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
   return `competition-${slug || 'fixtures'}`;
 }
 
-export function CompetitionTabs({ locale, competitions }: { locale: SiteLocale; competitions: readonly string[] }) {
+const groupLabels: Record<SiteLocale, Record<string, string>> = {
+  br: { BRAZIL: 'Brasil', EUROPE: 'Europa', AMERICAS: 'Américas', INTERNATIONAL: 'Seleções', OTHER: 'Outros' },
+  mx: { BRAZIL: 'Brasil', EUROPE: 'Europa', AMERICAS: 'Américas', INTERNATIONAL: 'Selecciones', OTHER: 'Otros' },
+};
+
+export function CompetitionTabs({ locale, sections }: { locale: SiteLocale; sections: readonly CompetitionSectionView[] }) {
   const dictionary = getDictionary(locale);
-  if (!competitions.length) return null;
+  if (!sections.length) return null;
+  const groups = new Map<string, CompetitionSectionView[]>();
+  for (const section of sections) {
+    const group = section.group ?? 'OTHER';
+    const rows = groups.get(group) ?? [];
+    rows.push(section);
+    groups.set(group, rows);
+  }
 
   return <section className="context-panel competition-panel" aria-label={dictionary.labels.competitions}>
     <h2 className="context-panel-title">{dictionary.labels.competitions}</h2>
@@ -16,10 +29,15 @@ export function CompetitionTabs({ locale, competitions }: { locale: SiteLocale; 
         <span className="competition-tab-marker" aria-hidden="true" />
         {dictionary.labels.allCompetitions}
       </a>
-      {competitions.map(competition => <a key={competition} className="competition-tab" href={`#${competitionAnchor(competition)}`}>
-        <span className="competition-tab-marker" aria-hidden="true" />
-        {competition}
-      </a>)}
+      {[...groups.entries()].map(([group, competitions]) => <div className="competition-tab-group" key={group}>
+        <span className="competition-tab-group-label">{groupLabels[locale][group] ?? group}</span>
+        <div className="competition-tab-group-links">
+          {competitions.map(competition => <a key={competition.slug ?? competition.competition} className="competition-tab" href={`#${competitionAnchor(competition.slug ?? competition.competition)}`}>
+            <span className="competition-tab-marker" aria-hidden="true" />
+            {competition.competition}
+          </a>)}
+        </div>
+      </div>)}
     </nav>
   </section>;
 }

@@ -23,14 +23,16 @@ export class DatabaseM2ReadService {
         const row = rowById.get(fixture.id);
         if (!row) return [];
         return [{ id: fixture.id, competition: row.competitionName, homeTeam: row.homeTeamName, awayTeam: row.awayTeamName,
+          competitionSlug: row.competitionSlug, competitionGroup: row.competitionGroup, competitionPriority: row.competitionPriority,
           homeTeamShortName: row.homeTeamShortName, awayTeamShortName: row.awayTeamShortName,
           homeTeamImageUrl: row.homeTeamImageUrl, awayTeamImageUrl: row.awayTeamImageUrl,
           kickoff: fixture.kickoff.toISOString(), status: fixture.status, homeScore: fixture.homeScore, awayScore: fixture.awayScore,
           freshness: 'fresh', odds: [], oddsState: 'none' }];
       });
       const sportsData: ProviderState = views.length ? { state: 'available', freshness: 'fresh', reason: 'ok' } : noDataState();
-      return { ...base, sportsData, oddsData: noDataState(), competitions: [...new Set(views.map(row => row.competition))].sort(),
-        sections: groupFixtureViews(views), paidOddsRequests: 0 };
+      const sections = groupFixtureViews(views);
+      return { ...base, sportsData, oddsData: noDataState(), competitions: sections.map(section => section.competition),
+        sections, paidOddsRequests: 0 };
   }
 
   async load(locale: SiteLocale, page: PageKey): Promise<M2PageData> {

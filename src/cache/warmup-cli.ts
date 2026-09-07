@@ -1,6 +1,9 @@
 const baseUrl = (process.env.WARMUP_BASE_URL?.trim() || 'http://localhost:3000').replace(/\/$/, '');
 export {};
-const paths = ['/br', '/br/futebol', '/br/jogos/hoje', '/br/ao-vivo'] as const;
+const paths = [
+  '/br', '/br/futebol', '/br/jogos/hoje', '/br/ao-vivo',
+  '/mx', '/mx/futbol', '/mx/partidos/hoy', '/mx/en-vivo',
+] as const;
 
 const results = [];
 for (const path of paths) {

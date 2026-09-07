@@ -25,7 +25,7 @@ export async function M2SportsPage({ locale, page }: { locale: SiteLocale; page:
       <div className="sports-layout">
         <aside className="context-rail">
           <FixtureSummary locale={locale} live={live} upcoming={upcoming} finished={finished} />
-          <CompetitionTabs locale={locale} competitions={data.competitions} />
+          <CompetitionTabs locale={locale} sections={data.sections} />
         </aside>
         <div className="fixture-content">
           {data.sportsData.state === 'unavailable' ? <ProviderErrorNotice locale={locale} provider="sports" /> : null}

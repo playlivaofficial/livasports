@@ -8,6 +8,16 @@ import type { FootballCompetitionTarget } from '@/config/footballCompetitions';
 import type { CompetitionCatalog, FootballIngestionProvider, TeamCatalog } from '@/providers/contracts/FootballIngestionProvider';
 import { SportmonksNormalizer } from './normalizer';
 import type { SportmonksGateway } from './types';
+import { classifyAccessibleCoverage } from '@/competition/coverage';
+import { CompetitionCoverageStatus, TeamType } from '@/domain/enums';
+
+async function mapBounded<T, R>(rows: readonly T[], mapper: (row: T) => Promise<R>, concurrency = 4): Promise<R[]> {
+  const results: R[] = [];
+  for (let index = 0; index < rows.length; index += concurrency) {
+    results.push(...await Promise.all(rows.slice(index, index + concurrency).map(mapper)));
+  }
+  return results;
+}
 
 export class SportmonksAdapter implements SportsDataProvider, FootballIngestionProvider {
   private readonly normalizer: SportmonksNormalizer;
@@ -36,39 +46,31 @@ export class SportmonksAdapter implements SportsDataProvider, FootballIngestionP
   }
 
   async discoverCompetitions(targets: readonly FootballCompetitionTarget[]): Promise<CompetitionCatalog> {
-    const enabled = targets.filter(target => target.enabled).sort((a, b) => a.priority - b.priority);
-    const searches = new Map<string, Awaited<ReturnType<SportmonksGateway['searchCompetitions']>>>();
+    const enabled = targets.filter(target => target.enabled).sort((a, b) => a.priority.br - b.priority.br);
     const countries = new Map<string, Country>(Object.values(PRODUCT_COUNTRIES).map(country => [country.id, country]));
     const competitions: CompetitionCatalog['competitions'] = [];
-    for (const target of enabled) {
-      const aliases = target.lookupNames.map(name => name.toLowerCase());
-      const matches = new Map<number, Awaited<ReturnType<SportmonksGateway['searchCompetitions']>>[number]>();
-      for (const lookup of target.lookupNames) {
-        if (!searches.has(lookup)) searches.set(lookup, await this.gateway.searchCompetitions(lookup));
-        for (const candidate of searches.get(lookup) ?? []) {
-          const name = candidate.name.toLowerCase();
-          const nameMatches = aliases.some(alias => name === alias || name.includes(alias) || alias.includes(name));
-          const countryMatches = candidate.country?.iso2?.toUpperCase() === target.countryCode;
-          if (nameMatches && (countryMatches || target.regional)) matches.set(candidate.id, candidate);
-        }
-        if (matches.size) break;
-      }
-      const selected = [...matches.values()];
-      for (const raw of selected) {
-        const country = await this.bindSportAndCountry(raw);
-        if (country) countries.set(country.id, country);
-        const competition = await this.normalizer.competition(raw);
-        const suffix = raw.name.toLowerCase().includes('apertura') ? '-apertura' : raw.name.toLowerCase().includes('clausura') ? '-clausura' : '';
-        competition.slug = `${target.slug}${suffix}`;
-        competition.countryId = PRODUCT_COUNTRIES[target.countryCode].id;
-        competitions.push({ targetKey: target.key, competition });
-      }
+    const coverage = classifyAccessibleCoverage(enabled, await this.gateway.competitions());
+    for (const result of coverage) {
+      if (result.classification !== CompetitionCoverageStatus.SUPPORTED || !result.providerCompetition) continue;
+      const raw = result.providerCompetition;
+      const country = await this.bindSportAndCountry(raw);
+      if (country) countries.set(country.id, country);
+      const competition = await this.normalizer.competition(raw);
+      competition.slug = result.target.slug;
+      competition.countryId = country?.id ?? null;
+      await this.mappings.bind(ProviderCode.SPORTMONKS, ProviderEntityType.COMPETITION, String(raw.id), competition.id, {
+        targetKey: result.target.key, providerName: raw.name, teamType: result.target.teamType, seasonStrategy: result.target.seasonStrategy,
+      });
+      competitions.push({ targetKey: result.target.key, competition, target: result.target,
+        coverageStatus: CompetitionCoverageStatus.SUPPORTED, providerName: raw.name });
     }
     return { sport: FOOTBALL, countries: [...countries.values()], competitions };
   }
 
   async getTeamCatalog(seasonId: SeasonId): Promise<TeamCatalog> {
     const providerId = await this.providerId(ProviderEntityType.SEASON, seasonId);
+    const seasonMapping = await this.mappings.lookupByLivaSportsId(ProviderCode.SPORTMONKS, ProviderEntityType.SEASON, seasonId);
+    const teamType = seasonMapping?.metadata.teamType === TeamType.NATIONAL_TEAM ? TeamType.NATIONAL_TEAM : TeamType.CLUB;
     const rawTeams = await this.gateway.teams(providerId);
     const countries = new Map<string, Country>();
     for (const raw of rawTeams) {
@@ -76,7 +78,7 @@ export class SportmonksAdapter implements SportsDataProvider, FootballIngestionP
       if (country) countries.set(country.id, country);
       else raw.country_id = null;
     }
-    return { countries: [...countries.values()], teams: await Promise.all(rawTeams.map(raw => this.normalizer.team(raw))) };
+    return { countries: [...countries.values()], teams: await mapBounded(rawTeams, raw => this.normalizer.team(raw, teamType)) };
   }
 
   getRequestCount(): number { return this.gateway.requestCount(); }
@@ -87,18 +89,26 @@ export class SportmonksAdapter implements SportsDataProvider, FootballIngestionP
 
   async getSeasons(competitionId: CompetitionId) {
     const providerId = await this.providerId(ProviderEntityType.COMPETITION, competitionId);
-    return Promise.all((await this.gateway.seasons(providerId)).map(raw => this.normalizer.season(raw)));
+    const competitionMapping = await this.mappings.lookupByLivaSportsId(ProviderCode.SPORTMONKS, ProviderEntityType.COMPETITION, competitionId);
+    const rows = await this.gateway.seasons(providerId);
+    const seasons = await Promise.all(rows.map(raw => this.normalizer.season(raw)));
+    await Promise.all(rows.map((raw, index) => this.mappings.bind(ProviderCode.SPORTMONKS, ProviderEntityType.SEASON,
+      String(raw.id), seasons[index].id, { targetKey: competitionMapping?.metadata.targetKey,
+        teamType: competitionMapping?.metadata.teamType, seasonStrategy: competitionMapping?.metadata.seasonStrategy })));
+    return seasons;
   }
 
   async getTeams(seasonId: SeasonId) {
     const providerId = await this.providerId(ProviderEntityType.SEASON, seasonId);
-    return Promise.all((await this.gateway.teams(providerId)).map(raw => this.normalizer.team(raw)));
+    const seasonMapping = await this.mappings.lookupByLivaSportsId(ProviderCode.SPORTMONKS, ProviderEntityType.SEASON, seasonId);
+    const teamType = seasonMapping?.metadata.teamType === TeamType.NATIONAL_TEAM ? TeamType.NATIONAL_TEAM : TeamType.CLUB;
+    return mapBounded(await this.gateway.teams(providerId), raw => this.normalizer.team(raw, teamType));
   }
 
   async getFixtures(query: FixtureQuery) {
     const competitionIds = query.competitionIds
       ? await Promise.all(query.competitionIds.map(id => this.providerId(ProviderEntityType.COMPETITION, id))) : undefined;
-    return Promise.all((await this.gateway.fixtures(query.from, query.to, competitionIds)).map(raw => this.normalizer.fixture(raw)));
+    return mapBounded(await this.gateway.fixtures(query.from, query.to, competitionIds), raw => this.normalizer.fixture(raw));
   }
 
   async getFixture(fixtureId: FixtureId) {
@@ -108,7 +118,7 @@ export class SportmonksAdapter implements SportsDataProvider, FootballIngestionP
 
   async getScores(fixtureIds: readonly FixtureId[]) {
     const ids = await Promise.all(fixtureIds.map(id => this.providerId(ProviderEntityType.FIXTURE, id)));
-    return Promise.all((await this.gateway.scores(ids)).map(raw => this.normalizer.fixture(raw)));
+    return mapBounded(await this.gateway.scores(ids), raw => this.normalizer.fixture(raw));
   }
 
   async getEvents(fixtureId: FixtureId): Promise<MatchEvent[]> {

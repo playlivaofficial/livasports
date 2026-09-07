@@ -30,4 +30,17 @@ describe('fixture delivery rules', () => {
     expect(groups.map(group => group.competition)).toEqual(['Liga MX', 'Serie A']);
     expect(groups[1].fixtures.map(row => row.id)).toEqual(['0', '1']);
   });
+
+  it('groups by stable slug and applies GEO presentation priority', () => {
+    const view = (id: string, competition: string, slug: string, priority: number): FixtureView => ({ id, competition,
+      competitionSlug: slug, competitionGroup: 'EUROPE', competitionPriority: priority, homeTeam: 'A', awayTeam: 'B',
+      kickoff: '2026-09-08T20:00:00Z', status: FixtureStatus.SCHEDULED, homeScore: null, awayScore: null,
+      freshness: 'fresh', odds: [], oddsState: 'none' });
+    const groups = groupFixtureViews([
+      view('1', 'Premier League', 'premier-league', 50), view('2', 'Liga MX', 'liga-mx', 10),
+      view('3', 'Liga Premier', 'premier-league', 50),
+    ]);
+    expect(groups.map(group => group.slug)).toEqual(['liga-mx', 'premier-league']);
+    expect(groups[1].fixtures).toHaveLength(2);
+  });
 });

@@ -17,14 +17,14 @@ export function stableSortFixtures<T extends Pick<Fixture, 'kickoff' | 'id'>>(fi
 }
 
 export function groupFixtureViews(fixtures: readonly FixtureView[]): CompetitionSectionView[] {
-  const groups = new Map<string, FixtureView[]>();
+  const groups = new Map<string, { competition: string; slug: string; group: string; priority: number; fixtures: FixtureView[] }>();
   for (const fixture of fixtures) {
-    const group = groups.get(fixture.competition) ?? [];
-    group.push(fixture);
-    groups.set(fixture.competition, group);
+    const key = fixture.competitionSlug ?? fixture.competition;
+    const group = groups.get(key) ?? { competition: fixture.competition, slug: fixture.competitionSlug ?? key,
+      group: fixture.competitionGroup ?? 'OTHER', priority: fixture.competitionPriority ?? 999, fixtures: [] };
+    group.fixtures.push(fixture);
+    groups.set(key, group);
   }
-  return [...groups.entries()].sort(([left], [right]) => left.localeCompare(right)).map(([competition, rows]) => ({
-    competition,
-    fixtures: [...rows].sort((left, right) => left.kickoff.localeCompare(right.kickoff) || left.id.localeCompare(right.id)),
-  }));
+  return [...groups.values()].sort((left, right) => left.priority - right.priority || left.competition.localeCompare(right.competition))
+    .map(group => ({ ...group, fixtures: [...group.fixtures].sort((left, right) => left.kickoff.localeCompare(right.kickoff) || left.id.localeCompare(right.id)) }));
 }

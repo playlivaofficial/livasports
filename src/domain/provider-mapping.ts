@@ -18,6 +18,11 @@ export interface ProviderEntityMappingRepository {
   save(mapping: ProviderEntityMapping): Promise<void>;
 }
 
+function sameMetadata(left: Readonly<Record<string, unknown>>, right: Readonly<Record<string, unknown>>): boolean {
+  const keys = new Set([...Object.keys(left), ...Object.keys(right)]);
+  return [...keys].every(key => JSON.stringify(left[key]) === JSON.stringify(right[key]));
+}
+
 export class ProviderMappingService {
   constructor(private readonly repository: ProviderEntityMappingRepository) {}
 
@@ -41,7 +46,11 @@ export class ProviderMappingService {
     const existing = await this.lookup(provider, entityType, providerEntityId);
     if (existing) {
       if (existing.livasportsEntityId !== livasportsEntityId) throw new Error('Provider entity is already mapped to a different LivaSports entity');
-      return existing;
+      const mergedMetadata = { ...existing.metadata, ...metadata };
+      if (sameMetadata(existing.metadata, mergedMetadata)) return existing;
+      const updated = { ...existing, metadata: mergedMetadata, updatedAt: new Date() };
+      await this.repository.save(updated);
+      return updated;
     }
     const now = new Date();
     const mapping: ProviderEntityMapping = {
@@ -57,7 +66,13 @@ export class ProviderMappingService {
     createLivaSportsEntityId: () => string, metadata: Readonly<Record<string, unknown>> = {},
   ): Promise<ProviderEntityMapping> {
     const existing = await this.lookup(provider, entityType, providerEntityId);
-    if (existing) return existing;
+    if (existing) {
+      const mergedMetadata = { ...existing.metadata, ...metadata };
+      if (sameMetadata(existing.metadata, mergedMetadata)) return existing;
+      const updated = { ...existing, metadata: mergedMetadata, updatedAt: new Date() };
+      await this.repository.save(updated);
+      return updated;
+    }
     const now = new Date();
     const mapping: ProviderEntityMapping = {
       id: newDomainId<'ProviderEntityMapping'>(), provider, entityType, providerEntityId,

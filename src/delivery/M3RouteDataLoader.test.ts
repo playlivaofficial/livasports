@@ -8,7 +8,7 @@ function page(locale: 'br' | 'mx', fixtures = 1): M2PageData {
   return { locale, page: 'football', currentDate: 'date', timeZone: locale === 'br' ? 'America/Sao_Paulo' : 'America/Mexico_City',
     sportsData: { state: 'available', freshness: 'fresh', reason: fixtures ? 'ok' : 'no-data' },
     oddsData: { state: 'available', freshness: 'fresh', reason: 'no-data' }, competitions: fixtures ? ['Serie A'] : [],
-    sections: fixtures ? [{ competition: 'Serie A', fixtures: [{ id: 'fixture', competition: 'Serie A', homeTeam: 'A', awayTeam: 'B',
+    sections: fixtures ? [{ competition: 'Serie A', slug: 'brasileirao-serie-a', group: 'BRAZIL', priority: 10, fixtures: [{ id: 'fixture', competition: 'Serie A', homeTeam: 'A', awayTeam: 'B',
       kickoff: now.toISOString(), status: 'SCHEDULED' as never, homeScore: null, awayScore: null, freshness: 'fresh', odds: [], oddsState: 'none' }] }] : [], paidOddsRequests: 0 };
 }
 

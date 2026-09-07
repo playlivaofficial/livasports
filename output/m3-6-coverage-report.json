@@ -1,0 +1,954 @@
+{
+  "milestone": "M3.6",
+  "generatedAt": "2026-09-07T18:09:02.776Z",
+  "provider": "SPORTMONKS",
+  "requestsConsumed": 21,
+  "window": {
+    "from": "2026-08-31",
+    "to": "2026-09-28"
+  },
+  "configuredCompetitions": 34,
+  "summary": {
+    "SUPPORTED": 26,
+    "SUPPORTED_BUT_NO_CURRENT_FIXTURES": 8,
+    "NO_SUBSCRIPTION_ACCESS": 0,
+    "NOT_FOUND": 0,
+    "AMBIGUOUS_MAPPING": 0
+  },
+  "competitions": [
+    {
+      "key": "eng-premier-league",
+      "slug": "premier-league",
+      "requestedCanonicalName": "Premier League",
+      "automatic": false,
+      "displayNamePtBr": "Premier League",
+      "displayNameEsMx": "Premier League",
+      "type": "DOMESTIC_LEAGUE",
+      "region": "EUROPE",
+      "country": "GB",
+      "providerId": 8,
+      "providerName": "Premier League",
+      "providerCountry": "England",
+      "currentSeasons": [
+        {
+          "id": 28083,
+          "name": "2026/2027",
+          "startsAt": "2026-08-21",
+          "endsAt": "2027-05-30",
+          "isCurrent": true
+        }
+      ],
+      "fixtureCount": 31,
+      "classification": "SUPPORTED",
+      "confidence": 100,
+      "notes": []
+    },
+    {
+      "key": "eng-championship",
+      "slug": "championship",
+      "requestedCanonicalName": "Championship",
+      "automatic": false,
+      "displayNamePtBr": "Championship",
+      "displayNameEsMx": "Championship",
+      "type": "DOMESTIC_LEAGUE",
+      "region": "EUROPE",
+      "country": "GB",
+      "providerId": 9,
+      "providerName": "Championship",
+      "providerCountry": "England",
+      "currentSeasons": [
+        {
+          "id": 27903,
+          "name": "2026/2027",
+          "startsAt": "2026-08-14",
+          "endsAt": "2027-05-01",
+          "isCurrent": true
+        }
+      ],
+      "fixtureCount": 59,
+      "classification": "SUPPORTED",
+      "confidence": 100,
+      "notes": []
+    },
+    {
+      "key": "eng-fa-cup",
+      "slug": "fa-cup",
+      "requestedCanonicalName": "FA Cup",
+      "automatic": false,
+      "displayNamePtBr": "FA Cup",
+      "displayNameEsMx": "FA Cup",
+      "type": "DOMESTIC_CUP",
+      "region": "EUROPE",
+      "country": "GB",
+      "providerId": 24,
+      "providerName": "FA Cup",
+      "providerCountry": "England",
+      "currentSeasons": [
+        {
+          "id": 28020,
+          "name": "2026/2027",
+          "startsAt": "2026-08-07",
+          "endsAt": "2026-09-09",
+          "isCurrent": true
+        }
+      ],
+      "fixtureCount": 144,
+      "classification": "SUPPORTED",
+      "confidence": 100,
+      "notes": []
+    },
+    {
+      "key": "eng-carabao-cup",
+      "slug": "carabao-cup",
+      "requestedCanonicalName": "Carabao Cup",
+      "automatic": false,
+      "displayNamePtBr": "Carabao Cup",
+      "displayNameEsMx": "Carabao Cup",
+      "type": "DOMESTIC_CUP",
+      "region": "EUROPE",
+      "country": "GB",
+      "providerId": 27,
+      "providerName": "Carabao Cup",
+      "providerCountry": "England",
+      "currentSeasons": [
+        {
+          "id": 27917,
+          "name": "2026/2027",
+          "startsAt": "2026-08-01",
+          "endsAt": "2026-09-17",
+          "isCurrent": true
+        }
+      ],
+      "fixtureCount": 16,
+      "classification": "SUPPORTED",
+      "confidence": 100,
+      "notes": []
+    },
+    {
+      "key": "deu-bundesliga",
+      "slug": "bundesliga",
+      "requestedCanonicalName": "Bundesliga",
+      "automatic": false,
+      "displayNamePtBr": "Bundesliga",
+      "displayNameEsMx": "Bundesliga",
+      "type": "DOMESTIC_LEAGUE",
+      "region": "EUROPE",
+      "country": "DE",
+      "providerId": 82,
+      "providerName": "Bundesliga",
+      "providerCountry": "Germany",
+      "currentSeasons": [
+        {
+          "id": 28321,
+          "name": "2026/2027",
+          "startsAt": "2026-08-28",
+          "endsAt": "2027-05-22",
+          "isCurrent": true
+        }
+      ],
+      "fixtureCount": 27,
+      "classification": "SUPPORTED",
+      "confidence": 100,
+      "notes": []
+    },
+    {
+      "key": "fra-ligue-1",
+      "slug": "ligue-1",
+      "requestedCanonicalName": "Ligue 1",
+      "automatic": false,
+      "displayNamePtBr": "Ligue 1",
+      "displayNameEsMx": "Ligue 1",
+      "type": "DOMESTIC_LEAGUE",
+      "region": "EUROPE",
+      "country": "FR",
+      "providerId": 301,
+      "providerName": "Ligue 1",
+      "providerCountry": "France",
+      "currentSeasons": [
+        {
+          "id": 28082,
+          "name": "2026/2027",
+          "startsAt": "2026-08-21",
+          "endsAt": "2027-05-29",
+          "isCurrent": true
+        }
+      ],
+      "fixtureCount": 27,
+      "classification": "SUPPORTED",
+      "confidence": 100,
+      "notes": []
+    },
+    {
+      "key": "fra-ligue-2",
+      "slug": "ligue-2",
+      "requestedCanonicalName": "Ligue 2",
+      "automatic": false,
+      "displayNamePtBr": "Ligue 2",
+      "displayNameEsMx": "Ligue 2",
+      "type": "DOMESTIC_LEAGUE",
+      "region": "EUROPE",
+      "country": "FR",
+      "providerId": 304,
+      "providerName": "Ligue 2",
+      "providerCountry": "France",
+      "currentSeasons": [
+        {
+          "id": 28105,
+          "name": "2026/2027",
+          "startsAt": "2026-08-08",
+          "endsAt": "2027-05-22",
+          "isCurrent": true
+        }
+      ],
+      "fixtureCount": 28,
+      "classification": "SUPPORTED",
+      "confidence": 100,
+      "notes": []
+    },
+    {
+      "key": "ita-serie-a",
+      "slug": "serie-a-italy",
+      "requestedCanonicalName": "Serie A (Italy)",
+      "automatic": false,
+      "displayNamePtBr": "Serie A Italiana",
+      "displayNameEsMx": "Serie A de Italia",
+      "type": "DOMESTIC_LEAGUE",
+      "region": "EUROPE",
+      "country": "IT",
+      "providerId": 384,
+      "providerName": "Serie A",
+      "providerCountry": "Italy",
+      "currentSeasons": [
+        {
+          "id": 27895,
+          "name": "2026/2027",
+          "startsAt": "2026-08-22",
+          "endsAt": "2027-05-30",
+          "isCurrent": true
+        }
+      ],
+      "fixtureCount": 32,
+      "classification": "SUPPORTED",
+      "confidence": 100,
+      "notes": []
+    },
+    {
+      "key": "ita-serie-b",
+      "slug": "serie-b-italy",
+      "requestedCanonicalName": "Serie B (Italy)",
+      "automatic": false,
+      "displayNamePtBr": "Serie B Italiana",
+      "displayNameEsMx": "Serie B de Italia",
+      "type": "DOMESTIC_LEAGUE",
+      "region": "EUROPE",
+      "country": "IT",
+      "providerId": 387,
+      "providerName": "Serie B",
+      "providerCountry": "Italy",
+      "currentSeasons": [
+        {
+          "id": 28379,
+          "name": "2026/2027",
+          "startsAt": "2026-08-21",
+          "endsAt": "2027-05-14",
+          "isCurrent": true
+        }
+      ],
+      "fixtureCount": 30,
+      "classification": "SUPPORTED",
+      "confidence": 100,
+      "notes": []
+    },
+    {
+      "key": "ita-coppa-italia",
+      "slug": "coppa-italia",
+      "requestedCanonicalName": "Coppa Italia",
+      "automatic": false,
+      "displayNamePtBr": "Copa da Itália",
+      "displayNameEsMx": "Copa Italia",
+      "type": "DOMESTIC_CUP",
+      "region": "EUROPE",
+      "country": "IT",
+      "providerId": 390,
+      "providerName": "Coppa Italia",
+      "providerCountry": "Italy",
+      "currentSeasons": [
+        {
+          "id": 28279,
+          "name": "2026/2027",
+          "startsAt": "2026-08-08",
+          "endsAt": "2027-05-19",
+          "isCurrent": true
+        }
+      ],
+      "fixtureCount": 8,
+      "classification": "SUPPORTED",
+      "confidence": 100,
+      "notes": []
+    },
+    {
+      "key": "esp-la-liga",
+      "slug": "la-liga",
+      "requestedCanonicalName": "La Liga",
+      "automatic": false,
+      "displayNamePtBr": "La Liga",
+      "displayNameEsMx": "La Liga",
+      "type": "DOMESTIC_LEAGUE",
+      "region": "EUROPE",
+      "country": "ES",
+      "providerId": 564,
+      "providerName": "La Liga",
+      "providerCountry": "Spain",
+      "currentSeasons": [
+        {
+          "id": 27965,
+          "name": "2026/2027",
+          "startsAt": "2026-08-15",
+          "endsAt": "2027-05-30",
+          "isCurrent": true
+        }
+      ],
+      "fixtureCount": 42,
+      "classification": "SUPPORTED",
+      "confidence": 100,
+      "notes": []
+    },
+    {
+      "key": "esp-la-liga-2",
+      "slug": "la-liga-2",
+      "requestedCanonicalName": "La Liga 2",
+      "automatic": false,
+      "displayNamePtBr": "La Liga 2",
+      "displayNameEsMx": "La Liga 2",
+      "type": "DOMESTIC_LEAGUE",
+      "region": "EUROPE",
+      "country": "ES",
+      "providerId": 567,
+      "providerName": "La Liga 2",
+      "providerCountry": "Spain",
+      "currentSeasons": [
+        {
+          "id": 28479,
+          "name": "2026/2027",
+          "startsAt": "2026-08-14",
+          "endsAt": "2027-06-06",
+          "isCurrent": true
+        }
+      ],
+      "fixtureCount": 46,
+      "classification": "SUPPORTED",
+      "confidence": 100,
+      "notes": []
+    },
+    {
+      "key": "esp-copa-del-rey",
+      "slug": "copa-del-rey",
+      "requestedCanonicalName": "Copa del Rey",
+      "automatic": false,
+      "displayNamePtBr": "Copa do Rei",
+      "displayNameEsMx": "Copa del Rey",
+      "type": "DOMESTIC_CUP",
+      "region": "EUROPE",
+      "country": "ES",
+      "providerId": 570,
+      "providerName": "Copa Del Rey",
+      "providerCountry": "Spain",
+      "currentSeasons": [
+        {
+          "id": 28138,
+          "name": "2026/2027",
+          "startsAt": "2026-09-27",
+          "endsAt": "2027-04-18",
+          "isCurrent": true
+        }
+      ],
+      "fixtureCount": 0,
+      "classification": "SUPPORTED_BUT_NO_CURRENT_FIXTURES",
+      "confidence": 100,
+      "notes": [
+        "No fixtures in the controlled active window."
+      ]
+    },
+    {
+      "key": "nld-eredivisie",
+      "slug": "eredivisie",
+      "requestedCanonicalName": "Eredivisie",
+      "automatic": false,
+      "displayNamePtBr": "Eredivisie",
+      "displayNameEsMx": "Eredivisie",
+      "type": "DOMESTIC_LEAGUE",
+      "region": "EUROPE",
+      "country": "NL",
+      "providerId": 72,
+      "providerName": "Eredivisie",
+      "providerCountry": "Netherlands",
+      "currentSeasons": [
+        {
+          "id": 27958,
+          "name": "2026/2027",
+          "startsAt": "2026-08-07",
+          "endsAt": "2027-05-23",
+          "isCurrent": true
+        }
+      ],
+      "fixtureCount": 30,
+      "classification": "SUPPORTED",
+      "confidence": 100,
+      "notes": []
+    },
+    {
+      "key": "prt-primeira-liga",
+      "slug": "liga-portugal",
+      "requestedCanonicalName": "Liga Portugal",
+      "automatic": false,
+      "displayNamePtBr": "Liga Portugal",
+      "displayNameEsMx": "Liga Portugal",
+      "type": "DOMESTIC_LEAGUE",
+      "region": "EUROPE",
+      "country": "PT",
+      "providerId": 462,
+      "providerName": "Liga Portugal",
+      "providerCountry": "Portugal",
+      "currentSeasons": [
+        {
+          "id": 27947,
+          "name": "2026/2027",
+          "startsAt": "2026-08-07",
+          "endsAt": "2027-05-16",
+          "isCurrent": true
+        }
+      ],
+      "fixtureCount": 31,
+      "classification": "SUPPORTED",
+      "confidence": 100,
+      "notes": []
+    },
+    {
+      "key": "tur-super-lig",
+      "slug": "super-lig",
+      "requestedCanonicalName": "Super Lig",
+      "automatic": false,
+      "displayNamePtBr": "Super Lig",
+      "displayNameEsMx": "Super Lig",
+      "type": "DOMESTIC_LEAGUE",
+      "region": "EUROPE",
+      "country": "TR",
+      "providerId": 600,
+      "providerName": "Super Lig",
+      "providerCountry": "Turkey",
+      "currentSeasons": [
+        {
+          "id": 28203,
+          "name": "2026/2027",
+          "startsAt": "2026-08-14",
+          "endsAt": "2027-05-23",
+          "isCurrent": true
+        }
+      ],
+      "fixtureCount": 29,
+      "classification": "SUPPORTED",
+      "confidence": 100,
+      "notes": []
+    },
+    {
+      "key": "arg-primera-division",
+      "slug": "argentina-primera-division",
+      "requestedCanonicalName": "Liga Profesional de Fútbol",
+      "automatic": false,
+      "displayNamePtBr": "Liga Profissional Argentina",
+      "displayNameEsMx": "Liga Profesional de Fútbol",
+      "type": "DOMESTIC_LEAGUE",
+      "region": "SOUTH_AMERICA",
+      "country": "AR",
+      "providerId": 636,
+      "providerName": "Liga Profesional de Fútbol",
+      "providerCountry": "Argentina",
+      "currentSeasons": [
+        {
+          "id": 26808,
+          "name": "2026",
+          "startsAt": "2026-01-22",
+          "endsAt": "2026-11-08",
+          "isCurrent": true
+        }
+      ],
+      "fixtureCount": 50,
+      "classification": "SUPPORTED",
+      "confidence": 100,
+      "notes": []
+    },
+    {
+      "key": "br-serie-a",
+      "slug": "brasileirao-serie-a",
+      "requestedCanonicalName": "Brasileirão Série A",
+      "automatic": false,
+      "displayNamePtBr": "Brasileirão Série A",
+      "displayNameEsMx": "Brasileirão Serie A",
+      "type": "DOMESTIC_LEAGUE",
+      "region": "SOUTH_AMERICA",
+      "country": "BR",
+      "providerId": 648,
+      "providerName": "Serie A",
+      "providerCountry": "Brazil",
+      "currentSeasons": [
+        {
+          "id": 26763,
+          "name": "2026",
+          "startsAt": "2026-01-28",
+          "endsAt": "2026-12-02",
+          "isCurrent": true
+        }
+      ],
+      "fixtureCount": 33,
+      "classification": "SUPPORTED",
+      "confidence": 100,
+      "notes": []
+    },
+    {
+      "key": "br-serie-b",
+      "slug": "brasileirao-serie-b",
+      "requestedCanonicalName": "Brasileirão Série B",
+      "automatic": false,
+      "displayNamePtBr": "Brasileirão Série B",
+      "displayNameEsMx": "Brasileirão Serie B",
+      "type": "DOMESTIC_LEAGUE",
+      "region": "SOUTH_AMERICA",
+      "country": "BR",
+      "providerId": 651,
+      "providerName": "Serie B",
+      "providerCountry": "Brazil",
+      "currentSeasons": [
+        {
+          "id": 27198,
+          "name": "2026",
+          "startsAt": "2026-03-21",
+          "endsAt": "2026-11-28",
+          "isCurrent": true
+        }
+      ],
+      "fixtureCount": 51,
+      "classification": "SUPPORTED",
+      "confidence": 100,
+      "notes": []
+    },
+    {
+      "key": "br-copa-do-brasil",
+      "slug": "copa-do-brasil",
+      "requestedCanonicalName": "Copa do Brasil",
+      "automatic": false,
+      "displayNamePtBr": "Copa do Brasil",
+      "displayNameEsMx": "Copa de Brasil",
+      "type": "DOMESTIC_CUP",
+      "region": "SOUTH_AMERICA",
+      "country": "BR",
+      "providerId": 654,
+      "providerName": "Copa do Brasil",
+      "providerCountry": "Brazil",
+      "currentSeasons": [
+        {
+          "id": 27151,
+          "name": "2026",
+          "startsAt": "2026-02-17",
+          "endsAt": "2026-12-06",
+          "isCurrent": true
+        }
+      ],
+      "fixtureCount": 4,
+      "classification": "SUPPORTED",
+      "confidence": 100,
+      "notes": []
+    },
+    {
+      "key": "br-paulista-a1",
+      "slug": "paulista-a1",
+      "requestedCanonicalName": "Paulista A1",
+      "automatic": false,
+      "displayNamePtBr": "Paulista A1",
+      "displayNameEsMx": "Paulista A1",
+      "type": "DOMESTIC_LEAGUE",
+      "region": "SOUTH_AMERICA",
+      "country": "BR",
+      "providerId": 1313,
+      "providerName": "Paulista A1",
+      "providerCountry": "Brazil",
+      "currentSeasons": [
+        {
+          "id": 27852,
+          "name": "2027",
+          "startsAt": "2027-01-10",
+          "endsAt": "2027-03-09",
+          "isCurrent": true
+        }
+      ],
+      "fixtureCount": 0,
+      "classification": "SUPPORTED_BUT_NO_CURRENT_FIXTURES",
+      "confidence": 100,
+      "notes": [
+        "No fixtures in the controlled active window."
+      ]
+    },
+    {
+      "key": "br-carioca-serie-a",
+      "slug": "carioca-serie-a",
+      "requestedCanonicalName": "Carioca Serie A",
+      "automatic": false,
+      "displayNamePtBr": "Carioca Série A",
+      "displayNameEsMx": "Carioca Serie A",
+      "type": "DOMESTIC_LEAGUE",
+      "region": "SOUTH_AMERICA",
+      "country": "BR",
+      "providerId": 1296,
+      "providerName": "Carioca Serie A",
+      "providerCountry": "Brazil",
+      "currentSeasons": [
+        {
+          "id": 27843,
+          "name": "2027",
+          "startsAt": "2027-01-11",
+          "endsAt": "2027-03-08",
+          "isCurrent": true
+        }
+      ],
+      "fixtureCount": 0,
+      "classification": "SUPPORTED_BUT_NO_CURRENT_FIXTURES",
+      "confidence": 100,
+      "notes": [
+        "No fixtures in the controlled active window."
+      ]
+    },
+    {
+      "key": "br-copa-nordeste",
+      "slug": "copa-do-nordeste",
+      "requestedCanonicalName": "Copa do Nordeste",
+      "automatic": false,
+      "displayNamePtBr": "Copa do Nordeste",
+      "displayNameEsMx": "Copa do Nordeste",
+      "type": "DOMESTIC_CUP",
+      "region": "SOUTH_AMERICA",
+      "country": "BR",
+      "providerId": 1294,
+      "providerName": "Copa do Nordeste",
+      "providerCountry": "Brazil",
+      "currentSeasons": [
+        {
+          "id": 28508,
+          "name": "2027",
+          "startsAt": "2027-03-24",
+          "endsAt": "2027-06-06",
+          "isCurrent": true
+        }
+      ],
+      "fixtureCount": 0,
+      "classification": "SUPPORTED_BUT_NO_CURRENT_FIXTURES",
+      "confidence": 100,
+      "notes": [
+        "No fixtures in the controlled active window."
+      ]
+    },
+    {
+      "key": "conmebol-libertadores",
+      "slug": "copa-libertadores",
+      "requestedCanonicalName": "Copa Libertadores",
+      "automatic": false,
+      "displayNamePtBr": "Copa Libertadores",
+      "displayNameEsMx": "Copa Libertadores",
+      "type": "CONTINENTAL_CLUB",
+      "region": "SOUTH_AMERICA",
+      "country": null,
+      "providerId": 1122,
+      "providerName": "Copa Libertadores",
+      "providerCountry": "South America",
+      "currentSeasons": [
+        {
+          "id": 26784,
+          "name": "2026",
+          "startsAt": "2026-02-04",
+          "endsAt": "2026-11-28",
+          "isCurrent": true
+        }
+      ],
+      "fixtureCount": 8,
+      "classification": "SUPPORTED",
+      "confidence": 100,
+      "notes": []
+    },
+    {
+      "key": "conmebol-sudamericana",
+      "slug": "copa-sudamericana",
+      "requestedCanonicalName": "Copa Sudamericana",
+      "automatic": false,
+      "displayNamePtBr": "Copa Sul-Americana",
+      "displayNameEsMx": "Copa Sudamericana",
+      "type": "CONTINENTAL_CLUB",
+      "region": "SOUTH_AMERICA",
+      "country": null,
+      "providerId": 1116,
+      "providerName": "Copa Sudamericana",
+      "providerCountry": "South America",
+      "currentSeasons": [
+        {
+          "id": 26783,
+          "name": "2026",
+          "startsAt": "2026-03-03",
+          "endsAt": "2026-11-21",
+          "isCurrent": true
+        }
+      ],
+      "fixtureCount": 8,
+      "classification": "SUPPORTED",
+      "confidence": 100,
+      "notes": []
+    },
+    {
+      "key": "mx-liga-mx",
+      "slug": "liga-mx",
+      "requestedCanonicalName": "Liga MX",
+      "automatic": false,
+      "displayNamePtBr": "Liga MX",
+      "displayNameEsMx": "Liga MX",
+      "type": "DOMESTIC_LEAGUE",
+      "region": "NORTH_AMERICA",
+      "country": "MX",
+      "providerId": 743,
+      "providerName": "Liga MX",
+      "providerCountry": "Mexico",
+      "currentSeasons": [
+        {
+          "id": 28009,
+          "name": "2026/2027",
+          "startsAt": "2026-07-17",
+          "endsAt": "2026-11-23",
+          "isCurrent": true
+        }
+      ],
+      "fixtureCount": 36,
+      "classification": "SUPPORTED",
+      "confidence": 100,
+      "notes": []
+    },
+    {
+      "key": "usa-mls",
+      "slug": "mls",
+      "requestedCanonicalName": "Major League Soccer",
+      "automatic": false,
+      "displayNamePtBr": "Major League Soccer",
+      "displayNameEsMx": "Major League Soccer",
+      "type": "DOMESTIC_LEAGUE",
+      "region": "NORTH_AMERICA",
+      "country": "US",
+      "providerId": 779,
+      "providerName": "Major League Soccer",
+      "providerCountry": "United States",
+      "currentSeasons": [
+        {
+          "id": 26720,
+          "name": "2026",
+          "startsAt": "2026-02-21",
+          "endsAt": "2026-11-08",
+          "isCurrent": true
+        }
+      ],
+      "fixtureCount": 75,
+      "classification": "SUPPORTED",
+      "confidence": 100,
+      "notes": []
+    },
+    {
+      "key": "concacaf-champions-cup",
+      "slug": "concacaf-champions-cup",
+      "requestedCanonicalName": "CONCACAF Champions Cup",
+      "automatic": false,
+      "displayNamePtBr": "Copa dos Campeões da CONCACAF",
+      "displayNameEsMx": "Copa de Campeones de la CONCACAF",
+      "type": "CONTINENTAL_CLUB",
+      "region": "NORTH_AMERICA",
+      "country": null,
+      "providerId": 1111,
+      "providerName": "CONCACAF Champions Cup",
+      "providerCountry": "North & Central America",
+      "currentSeasons": [
+        {
+          "id": 28239,
+          "name": "2027",
+          "startsAt": "2027-02-04",
+          "endsAt": "2027-05-31",
+          "isCurrent": true
+        }
+      ],
+      "fixtureCount": 0,
+      "classification": "SUPPORTED_BUT_NO_CURRENT_FIXTURES",
+      "confidence": 100,
+      "notes": [
+        "No fixtures in the controlled active window."
+      ]
+    },
+    {
+      "key": "sau-pro-league",
+      "slug": "saudi-pro-league",
+      "requestedCanonicalName": "Saudi Pro League",
+      "automatic": false,
+      "displayNamePtBr": "Liga Saudita",
+      "displayNameEsMx": "Liga Profesional Saudí",
+      "type": "DOMESTIC_LEAGUE",
+      "region": "MIDDLE_EAST",
+      "country": "SA",
+      "providerId": 944,
+      "providerName": "Pro League",
+      "providerCountry": "Saudi Arabia",
+      "currentSeasons": [
+        {
+          "id": 27951,
+          "name": "2026/2027",
+          "startsAt": "2026-08-13",
+          "endsAt": "2027-05-28",
+          "isCurrent": true
+        }
+      ],
+      "fixtureCount": 28,
+      "classification": "SUPPORTED",
+      "confidence": 100,
+      "notes": []
+    },
+    {
+      "key": "sau-pro-league-playoffs",
+      "slug": "saudi-pro-league-playoffs",
+      "requestedCanonicalName": "Pro League Play-offs",
+      "automatic": true,
+      "displayNamePtBr": "Play-offs da Liga Saudita",
+      "displayNameEsMx": "Play-offs de la Liga Saudí",
+      "type": "DOMESTIC_LEAGUE",
+      "region": "MIDDLE_EAST",
+      "country": "SA",
+      "providerId": 1678,
+      "providerName": "Pro League Play-offs",
+      "providerCountry": "Saudi Arabia",
+      "currentSeasons": [
+        {
+          "id": 15979,
+          "name": "2018/2019",
+          "startsAt": "2019-05-20",
+          "endsAt": "2019-05-24",
+          "isCurrent": false
+        }
+      ],
+      "fixtureCount": 0,
+      "classification": "SUPPORTED_BUT_NO_CURRENT_FIXTURES",
+      "confidence": 100,
+      "notes": [
+        "No fixtures in the controlled active window."
+      ]
+    },
+    {
+      "key": "uefa-champions-league",
+      "slug": "champions-league",
+      "requestedCanonicalName": "UEFA Champions League",
+      "automatic": false,
+      "displayNamePtBr": "Liga dos Campeões da UEFA",
+      "displayNameEsMx": "Liga de Campeones de la UEFA",
+      "type": "CONTINENTAL_CLUB",
+      "region": "EUROPE",
+      "country": null,
+      "providerId": 2,
+      "providerName": "Champions League",
+      "providerCountry": "Europe",
+      "currentSeasons": [
+        {
+          "id": 28155,
+          "name": "2026/2027",
+          "startsAt": "2026-07-07",
+          "endsAt": "2027-01-27",
+          "isCurrent": true
+        }
+      ],
+      "fixtureCount": 18,
+      "classification": "SUPPORTED",
+      "confidence": 100,
+      "notes": []
+    },
+    {
+      "key": "uefa-europa-league",
+      "slug": "europa-league",
+      "requestedCanonicalName": "UEFA Europa League",
+      "automatic": false,
+      "displayNamePtBr": "Liga Europa da UEFA",
+      "displayNameEsMx": "Liga Europa de la UEFA",
+      "type": "CONTINENTAL_CLUB",
+      "region": "EUROPE",
+      "country": null,
+      "providerId": 5,
+      "providerName": "Europa League",
+      "providerCountry": "Europe",
+      "currentSeasons": [
+        {
+          "id": 27913,
+          "name": "2026/2027",
+          "startsAt": "2026-07-09",
+          "endsAt": "2027-01-28",
+          "isCurrent": true
+        }
+      ],
+      "fixtureCount": 18,
+      "classification": "SUPPORTED",
+      "confidence": 100,
+      "notes": []
+    },
+    {
+      "key": "uefa-conference-league",
+      "slug": "conference-league",
+      "requestedCanonicalName": "UEFA Conference League",
+      "automatic": false,
+      "displayNamePtBr": "Liga Conferência da UEFA",
+      "displayNameEsMx": "Liga Conferencia de la UEFA",
+      "type": "CONTINENTAL_CLUB",
+      "region": "EUROPE",
+      "country": null,
+      "providerId": 2286,
+      "providerName": "Europa Conference League",
+      "providerCountry": "Europe",
+      "currentSeasons": [
+        {
+          "id": 27911,
+          "name": "2026/2027",
+          "startsAt": "2026-07-07",
+          "endsAt": "2026-12-17",
+          "isCurrent": true
+        }
+      ],
+      "fixtureCount": 0,
+      "classification": "SUPPORTED_BUT_NO_CURRENT_FIXTURES",
+      "confidence": 100,
+      "notes": [
+        "No fixtures in the controlled active window."
+      ]
+    },
+    {
+      "key": "uefa-super-cup",
+      "slug": "uefa-super-cup",
+      "requestedCanonicalName": "UEFA Super Cup",
+      "automatic": false,
+      "displayNamePtBr": "Supercopa da UEFA",
+      "displayNameEsMx": "Supercopa de la UEFA",
+      "type": "CONTINENTAL_CLUB",
+      "region": "EUROPE",
+      "country": null,
+      "providerId": 1328,
+      "providerName": "UEFA Super Cup",
+      "providerCountry": "Europe",
+      "currentSeasons": [
+        {
+          "id": 29184,
+          "name": "2027/2028",
+          "startsAt": "2027-08-12",
+          "endsAt": "2027-08-12",
+          "isCurrent": true
+        }
+      ],
+      "fixtureCount": 0,
+      "classification": "SUPPORTED_BUT_NO_CURRENT_FIXTURES",
+      "confidence": 100,
+      "notes": [
+        "No fixtures in the controlled active window."
+      ]
+    }
+  ]
+}

@@ -18,15 +18,26 @@ function safeSyncMessage(error: unknown): string {
   return 'Sync failed; inspect server logs for the sanitized provider or database diagnostic.';
 }
 
-function relevantSeasons<T extends { isCurrent?: boolean; startsAt: Date | null; endsAt: Date | null }>(rows: readonly T[], now: Date): T[] {
+function relevantSeasons<T extends { isCurrent?: boolean; startsAt: Date | null; endsAt: Date | null }>(
+  rows: readonly T[],
+  now: Date,
+  strategy: FootballCompetitionTarget['seasonStrategy'] = 'STANDARD',
+): T[] {
+  const limit = strategy === 'SPLIT' ? 2 : 1;
+  const current = rows.filter(row => row.isCurrent)
+    .sort((a, b) => (b.startsAt?.getTime() ?? 0) - (a.startsAt?.getTime() ?? 0));
+  if (current.length) return current.slice(0, limit);
   const startFloor = new Date(now.getTime() - 120 * 86_400_000);
   const endCeiling = new Date(now.getTime() + 400 * 86_400_000);
-  const relevant = rows.filter(row => row.isCurrent || ((!row.endsAt || row.endsAt >= startFloor) && (!row.startsAt || row.startsAt <= endCeiling)));
-  if (relevant.length) return relevant;
-  return [...rows].sort((a, b) => (b.startsAt?.getTime() ?? 0) - (a.startsAt?.getTime() ?? 0)).slice(0, 1);
+  const relevant = rows.filter(row => (!row.endsAt || row.endsAt >= startFloor) && (!row.startsAt || row.startsAt <= endCeiling))
+    .sort((a, b) => (b.startsAt?.getTime() ?? 0) - (a.startsAt?.getTime() ?? 0));
+  if (relevant.length) return relevant.slice(0, limit);
+  return [...rows].sort((a, b) => (b.startsAt?.getTime() ?? 0) - (a.startsAt?.getTime() ?? 0)).slice(0, limit);
 }
 
 export class FootballIngestionService {
+  private stageErrors: Array<{ stage: SyncKind; target: string; error: string }> = [];
+
   constructor(
     private readonly provider: FootballIngestionProvider,
     private readonly store: FootballIngestionStore,
@@ -36,19 +47,24 @@ export class FootballIngestionService {
   ) {}
 
   private async tracked(kind: SyncKind, work: () => Promise<WriteCounts>): Promise<SyncResult> {
+    this.stageErrors = [];
     const runId = await this.store.startSync(kind, 'BR,MX');
     const before = this.provider.getRequestCount();
     const started = performance.now();
     try {
       const counts = await work();
       const providerRequests = this.provider.getRequestCount() - before;
-      await this.store.finishSync(runId, counts, providerRequests);
+      await this.store.finishSync(runId, counts, providerRequests, { errors: this.stageErrors });
       return { ...counts, providerRequests, durationMs: Math.round((performance.now() - started) * 10) / 10 };
     } catch (error) {
       const providerRequests = this.provider.getRequestCount() - before;
       await this.store.failSync(runId, safeSyncMessage(error), providerRequests);
       throw error;
     }
+  }
+
+  private recordError(stage: SyncKind, target: string, error: unknown) {
+    this.stageErrors.push({ stage, target, error: safeSyncMessage(error) });
   }
 
   syncCompetitions() {
@@ -66,8 +82,12 @@ export class FootballIngestionService {
       const competitions = await this.store.listTargetCompetitions();
       const rows: StoredSeason[] = [];
       for (const item of competitions) {
-        const seasons = relevantSeasons(await this.provider.getSeasons(item.competition.id), this.now());
-        rows.push(...seasons.map(season => ({ ...season, targetKey: item.targetKey })));
+        try {
+          const seasons = relevantSeasons(await this.provider.getSeasons(item.competition.id), this.now(), item.target?.seasonStrategy);
+          rows.push(...seasons.map(season => ({ ...season, targetKey: item.targetKey })));
+        } catch (error) {
+          this.recordError('SEASONS', item.targetKey, error);
+        }
       }
       return this.store.upsertSeasons(rows);
     });
@@ -78,9 +98,13 @@ export class FootballIngestionService {
       const seasons = await this.store.listRelevantSeasons();
       const counts: WriteCounts[] = [];
       for (const season of seasons) {
-        const catalog = await this.provider.getTeamCatalog(season.id);
-        counts.push(await this.store.upsertCountries(catalog.countries));
-        counts.push(await this.store.upsertTeams(catalog.teams, season.id));
+        try {
+          const catalog = await this.provider.getTeamCatalog(season.id);
+          counts.push(await this.store.upsertCountries(catalog.countries));
+          counts.push(await this.store.upsertTeams(catalog.teams, season.id));
+        } catch (error) {
+          this.recordError('TEAMS', season.targetKey, error);
+        }
       }
       const result = plus(...counts);
       await this.invalidator.invalidateTags(fixtureChangeTags([]));
@@ -94,10 +118,40 @@ export class FootballIngestionService {
       const now = this.now();
       const from = new Date(now.getTime() - daysPast * 86_400_000);
       const to = new Date(now.getTime() + daysFuture * 86_400_000);
-      const fixtures = competitions.length ? await this.provider.getFixtures({ from, to, competitionIds: competitions.map(row => row.competition.id) }) : [];
-      const counts = await this.store.upsertFixtures(fixtures);
-      if (fixtures.length) await this.invalidator.invalidateTags(fixtureChangeTags(fixtures.map(row => row.id)));
-      return counts;
+      const batches = new Map<string, typeof competitions>();
+      for (const competition of competitions) {
+        const key = competition.target?.group ?? 'OTHER';
+        const group = batches.get(key) ?? [];
+        group.push(competition);
+        batches.set(key, group);
+      }
+      const counts: WriteCounts[] = [];
+      const changedIds: string[] = [];
+      const persistBatch = async (rows: typeof competitions, fixtures: Fixture[]) => {
+        counts.push(await this.store.upsertFixtures(fixtures));
+        changedIds.push(...fixtures.map(row => row.id));
+        const found = new Set(fixtures.map(row => row.competitionId));
+        for (const row of rows) await this.store.updateCompetitionFixtureCoverage(row.competition.id, found.has(row.competition.id));
+      };
+      for (const [batch, rows] of batches) {
+        try {
+          const fixtures = await this.provider.getFixtures({ from, to, competitionIds: rows.map(row => row.competition.id) });
+          await persistBatch(rows, fixtures);
+        } catch (error) {
+          this.recordError('FIXTURES', batch, error);
+          if (!(error instanceof SafeProviderError)) continue;
+          for (const row of rows) {
+            try {
+              const fixtures = await this.provider.getFixtures({ from, to, competitionIds: [row.competition.id] });
+              await persistBatch([row], fixtures);
+            } catch (competitionError) {
+              this.recordError('FIXTURES', row.targetKey, competitionError);
+            }
+          }
+        }
+      }
+      if (changedIds.length) await this.invalidator.invalidateTags(fixtureChangeTags(changedIds));
+      return plus(...counts);
     });
   }
 

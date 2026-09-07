@@ -1,5 +1,5 @@
 import type { Competition, Fixture, Season, Team } from '@/domain/entities';
-import { FixtureStatus, ProviderCode, ProviderEntityType } from '@/domain/enums';
+import { FixtureStatus, ProviderCode, ProviderEntityType, TeamType } from '@/domain/enums';
 import { domainId, newDomainId } from '@/domain/ids';
 import type { ProviderMappingService } from '@/domain/provider-mapping';
 import type { SportmonksFixturePayload, SportmonksLeaguePayload, SportmonksSeasonPayload, SportmonksTeamPayload } from './types';
@@ -48,11 +48,11 @@ export class SportmonksNormalizer {
       isCurrent: raw.is_current ?? false };
   }
 
-  async team(raw: SportmonksTeamPayload): Promise<Team> {
+  async team(raw: SportmonksTeamPayload, type: TeamType = TeamType.CLUB): Promise<Team> {
     return { id: domainId<'Team'>(await this.id(ProviderEntityType.TEAM, String(raw.id))),
       sportId: domainId<'Sport'>(await this.id(ProviderEntityType.SPORT, String(raw.sport_id))),
       countryId: raw.country_id === null ? null : domainId<'Country'>(await this.id(ProviderEntityType.COUNTRY, String(raw.country_id))),
-      name: raw.name, shortName: raw.short_code ?? null, imageUrl: raw.image_path ?? null };
+      name: raw.name, shortName: raw.short_code ?? null, imageUrl: raw.image_path ?? null, type };
   }
 
   async fixture(raw: SportmonksFixturePayload): Promise<Fixture> {

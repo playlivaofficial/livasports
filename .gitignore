@@ -13,9 +13,20 @@ output/*.md
 !output/m2-report.md
 !output/m3-report.md
 !output/m3-5-report.md
+!output/m3-6-coverage-report.md
+!output/m3-6-coverage-report.json
+!output/m3-6-report.md
+!output/m3-6-checkpoint.md
 output/m3-5-screenshots/*
 !output/m3-5-screenshots/final-br-futebol-1440x900.png
 !output/m3-5-screenshots/final-br-home-390x844.png
 !output/m3-5-screenshots/final-mx-home-390x844.png
+output/m3-6-screenshots/*
+!output/m3-6-screenshots/br-futebol-1440x900.png
+!output/m3-6-screenshots/mx-futbol-1440x900.png
+!output/m3-6-screenshots/br-home-390x844.png
+!output/m3-6-screenshots/br-futebol-390x844.png
+!output/m3-6-screenshots/mx-home-390x844.png
+!output/m3-6-screenshots/mx-futbol-390x844.png
 
 .vercel

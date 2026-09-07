@@ -9,11 +9,12 @@ export interface OutcomeOddsView { outcome: OutcomeCode; prices: BookmakerPriceV
 export interface MarketOddsView { market: MarketCode; line: number | null; outcomes: OutcomeOddsView[]; }
 export interface FixtureView {
   id: string; competition: string; homeTeam: string; awayTeam: string; kickoff: string; status: FixtureStatus;
+  competitionSlug?: string; competitionGroup?: string; competitionPriority?: number;
   homeTeamShortName?: string | null; awayTeamShortName?: string | null; homeTeamImageUrl?: string | null; awayTeamImageUrl?: string | null;
   homeScore: number | null; awayScore: number | null; freshness: FreshnessState; odds: MarketOddsView[];
   oddsState: 'complete' | 'partial' | 'none' | 'stale' | 'unavailable';
 }
-export interface CompetitionSectionView { competition: string; fixtures: FixtureView[]; }
+export interface CompetitionSectionView { competition: string; slug: string; group: string; priority: number; fixtures: FixtureView[]; }
 export interface M2PageData {
   locale: SiteLocale; page: PageKey; currentDate: string; timeZone: string; sportsData: ProviderState; oddsData: ProviderState;
   competitions: string[]; sections: CompetitionSectionView[]; paidOddsRequests: number;
