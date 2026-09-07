@@ -319,7 +319,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .page-title { font-size: 1.35rem; }
   .page-description { margin-top: 0.35rem; font-size: 0.78rem; line-height: 1.45; }
   .freshness { margin-top: var(--space-2); }
-  .context-rail, .context-panel, .status-summary { width: calc(100vw - (var(--space-3) * 2)); min-width: 0; max-width: calc(100vw - (var(--space-3) * 2)); }
+  .context-rail, .context-panel, .status-summary { width: 100%; min-width: 0; max-width: 100%; }
   .status-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .summary-item { width: 100%; min-width: 0; overflow: hidden; gap: 0.35rem; padding: 0 0.42rem; }
   .summary-label { min-width: 0; overflow: hidden; font-size: 0.7rem; text-overflow: ellipsis; white-space: nowrap; }
