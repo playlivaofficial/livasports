@@ -8,6 +8,7 @@ import { ProviderMappingService } from '@/domain/provider-mapping';
 import type { FootballIngestionProvider } from '@/providers/contracts/FootballIngestionProvider';
 import type { FixtureQuery } from '@/providers/contracts/SportsDataProvider';
 import { InMemoryProviderEntityMappingRepository } from '@/repositories/provider-mapping.repository';
+import { RecordingCacheInvalidator } from '@/cache/invalidation';
 import { DatabaseM2ReadService } from '@/delivery/DatabaseM2ReadService';
 import { FootballIngestionService } from './FootballIngestionService';
 import { InMemoryFootballIngestionStore } from './store';
@@ -30,6 +31,7 @@ class FakeProvider implements FootballIngestionProvider {
   requests = 0;
   throwOnDiscover = false;
   fixtures: Fixture[] = [fixture];
+  scoreIds: string[] = [];
   async discoverCompetitions() { this.requests++; if (this.throwOnDiscover) throw new Error('secret-token-value');
     return { sport: FOOTBALL, countries: [PRODUCT_COUNTRIES.BR], competitions: [{ targetKey: target.key, competition }] }; }
   async getCompetitionCatalog() { throw new Error('unused'); }
@@ -40,7 +42,7 @@ class FakeProvider implements FootballIngestionProvider {
   async getTeams() { return teams; }
   async getFixtures(query: FixtureQuery) { void query; this.requests++; return this.fixtures; }
   async getFixture() { return fixture; }
-  async getScores() { this.requests++; return [{ ...fixture, status: FixtureStatus.FINISHED, homeScore: 2, awayScore: 1 }]; }
+  async getScores(ids: readonly string[]) { this.scoreIds = [...ids]; this.requests++; return [{ ...fixture, status: FixtureStatus.FINISHED, homeScore: 2, awayScore: 1 }]; }
   async getEvents() { return []; } async getStandings() { return []; } async getLineups() { return []; }
   async getStatistics() { return []; } async getHeadToHead() { return []; }
 }
@@ -70,10 +72,14 @@ describe('M2 football ingestion', () => {
 
   it('updates the same fixture with its finished score', async () => {
     const provider = new FakeProvider(); const store = new InMemoryFootballIngestionStore();
-    const service = new FootballIngestionService(provider, store, [target], () => now);
+    const invalidator = new RecordingCacheInvalidator();
+    const service = new FootballIngestionService(provider, store, [target], () => now, invalidator);
     await service.syncCompetitions(); await service.syncSeasons(); await service.syncTeams(); await service.syncFixtures();
     expect((await service.syncFixtureScores()).updated).toBe(1);
     expect(store.fixtures.get(fixture.id)).toMatchObject({ status: FixtureStatus.FINISHED, homeScore: 2, awayScore: 1 });
+    expect(provider.scoreIds).toEqual([fixture.id]);
+    expect(invalidator.tags).toContain(`livasports:v1:fixture:${fixture.id}`);
+    expect(invalidator.tags).toContain('livasports:v1:fixtures:live:br');
   });
 
   it('handles empty provider fixture responses without deleting history', async () => {

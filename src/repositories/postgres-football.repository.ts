@@ -91,7 +91,7 @@ export class PostgresFootballRepository implements FootballIngestionStore, Footb
 
   async listFixturesForScoreSync(limit: number): Promise<Fixture[]> {
     const result = await this.database.query<Record<string, unknown>>(`SELECT * FROM fixtures WHERE status IN ('SCHEDULED','LIVE','HALFTIME')
-      AND kickoff >= now() - interval '2 days' ORDER BY kickoff LIMIT $1`, [limit]);
+      AND kickoff >= now() - interval '2 days' AND kickoff < now() + interval '2 days' ORDER BY kickoff LIMIT $1`, [limit]);
     return result.rows.map(row => this.fixture(row));
   }
 
@@ -106,11 +106,14 @@ export class PostgresFootballRepository implements FootballIngestionStore, Footb
     await this.database.query(`UPDATE ingestion_sync_runs SET status='FAILED',completed_at=now(),error_message=$2,provider_requests=$3 WHERE id=$1`, [id, safeMessage, providerRequests]);
   }
 
-  async listFixtures(countryCode: 'BR' | 'MX', from: Date, to: Date): Promise<FixtureReadRecord[]> {
-    const result = await this.database.query<Record<string, unknown>>(`SELECT f.*,c.name AS competition_name,ht.name AS home_team_name,at.name AS away_team_name
+  async listFixtures(countryCode: 'BR' | 'MX', from: Date, to: Date, statuses: readonly string[] = []): Promise<FixtureReadRecord[]> {
+    const result = await this.database.query<Record<string, unknown>>(`SELECT f.id,f.sport_id,f.competition_id,f.season_id,f.home_team_id,f.away_team_id,
+      f.kickoff,f.status,f.home_score,f.away_score,f.created_at,f.updated_at,f.provider_updated_at,
+      c.name AS competition_name,ht.name AS home_team_name,at.name AS away_team_name
       FROM fixtures f JOIN competitions c ON c.id=f.competition_id JOIN countries co ON co.id=c.country_id
       JOIN teams ht ON ht.id=f.home_team_id JOIN teams at ON at.id=f.away_team_id
-      WHERE co.iso2=$1 AND f.kickoff >= $2 AND f.kickoff < $3 ORDER BY f.kickoff,f.id`, [countryCode, from, to]);
+      WHERE co.iso2=$1 AND f.kickoff >= $2 AND f.kickoff < $3 AND (cardinality($4::text[]) = 0 OR f.status = ANY($4::text[]))
+      ORDER BY f.kickoff,f.id`, [countryCode, from, to, statuses]);
     return result.rows.map(row => ({ fixture: this.fixture(row), competitionName: String(row.competition_name),
       homeTeamName: String(row.home_team_name), awayTeamName: String(row.away_team_name) }));
   }

@@ -89,5 +89,5 @@ export interface FixtureReadRecord {
 }
 
 export interface FootballReadRepository {
-  listFixtures(countryCode: 'BR' | 'MX', from: Date, to: Date): Promise<FixtureReadRecord[]>;
+  listFixtures(countryCode: 'BR' | 'MX', from: Date, to: Date, statuses?: readonly string[]): Promise<FixtureReadRecord[]>;
 }

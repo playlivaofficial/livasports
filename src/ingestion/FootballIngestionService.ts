@@ -3,8 +3,11 @@ import type { Fixture } from '@/domain/entities';
 import { SafeProviderError } from '@/providers/safe-error';
 import type { FootballIngestionProvider } from '@/providers/contracts/FootballIngestionProvider';
 import type { FootballIngestionStore, StoredSeason, SyncKind, WriteCounts } from './store';
+import type { CacheInvalidator } from '@/cache/invalidation';
+import { NoopCacheInvalidator } from '@/cache/invalidation';
+import { cacheKeys, fixtureChangeTags } from '@/cache/keys';
 
-export interface SyncResult extends WriteCounts { providerRequests: number; }
+export interface SyncResult extends WriteCounts { providerRequests: number; durationMs: number; }
 
 function plus(...counts: readonly WriteCounts[]): WriteCounts {
   return counts.reduce((sum, row) => ({ inserted: sum.inserted + row.inserted, updated: sum.updated + row.updated }), { inserted: 0, updated: 0 });
@@ -29,16 +32,18 @@ export class FootballIngestionService {
     private readonly store: FootballIngestionStore,
     private readonly targets: readonly FootballCompetitionTarget[] = FOOTBALL_COMPETITION_TARGETS,
     private readonly now: () => Date = () => new Date(),
+    private readonly invalidator: CacheInvalidator = new NoopCacheInvalidator(),
   ) {}
 
   private async tracked(kind: SyncKind, work: () => Promise<WriteCounts>): Promise<SyncResult> {
     const runId = await this.store.startSync(kind, 'BR,MX');
     const before = this.provider.getRequestCount();
+    const started = performance.now();
     try {
       const counts = await work();
       const providerRequests = this.provider.getRequestCount() - before;
       await this.store.finishSync(runId, counts, providerRequests);
-      return { ...counts, providerRequests };
+      return { ...counts, providerRequests, durationMs: Math.round((performance.now() - started) * 10) / 10 };
     } catch (error) {
       const providerRequests = this.provider.getRequestCount() - before;
       await this.store.failSync(runId, safeSyncMessage(error), providerRequests);
@@ -49,8 +54,10 @@ export class FootballIngestionService {
   syncCompetitions() {
     return this.tracked('COMPETITIONS', async () => {
       const catalog = await this.provider.discoverCompetitions(this.targets);
-      return plus(await this.store.upsertCountries(catalog.countries), await this.store.upsertSport(catalog.sport),
+      const counts = plus(await this.store.upsertCountries(catalog.countries), await this.store.upsertSport(catalog.sport),
         await this.store.upsertCompetitions(catalog.competitions));
+      await this.invalidator.invalidateTags([cacheKeys.competitionList('br'), cacheKeys.competitionList('mx')]);
+      return counts;
     });
   }
 
@@ -75,7 +82,9 @@ export class FootballIngestionService {
         counts.push(await this.store.upsertCountries(catalog.countries));
         counts.push(await this.store.upsertTeams(catalog.teams, season.id));
       }
-      return plus(...counts);
+      const result = plus(...counts);
+      await this.invalidator.invalidateTags(fixtureChangeTags([]));
+      return result;
     });
   }
 
@@ -86,7 +95,9 @@ export class FootballIngestionService {
       const from = new Date(now.getTime() - daysPast * 86_400_000);
       const to = new Date(now.getTime() + daysFuture * 86_400_000);
       const fixtures = competitions.length ? await this.provider.getFixtures({ from, to, competitionIds: competitions.map(row => row.competition.id) }) : [];
-      return this.store.upsertFixtures(fixtures);
+      const counts = await this.store.upsertFixtures(fixtures);
+      if (fixtures.length) await this.invalidator.invalidateTags(fixtureChangeTags(fixtures.map(row => row.id)));
+      return counts;
     });
   }
 
@@ -97,7 +108,9 @@ export class FootballIngestionService {
       for (let index = 0; index < candidates.length; index += 50) {
         updates.push(...await this.provider.getScores(candidates.slice(index, index + 50).map(row => row.id)));
       }
-      return this.store.upsertFixtures(updates);
+      const counts = await this.store.upsertFixtures(updates);
+      if (updates.length) await this.invalidator.invalidateTags(fixtureChangeTags(updates.map(row => row.id)));
+      return counts;
     });
   }
 

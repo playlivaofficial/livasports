@@ -18,6 +18,7 @@
     "sync:fixtures": "tsx --env-file=.env src/ingestion/cli.ts fixtures",
     "sync:scores": "tsx --env-file=.env src/ingestion/cli.ts scores",
     "db:verify": "tsx --env-file=.env src/ingestion/cli.ts read",
+    "cache:warm": "tsx src/cache/warmup-cli.ts",
     "test:validation": "node --test test/*.test.js",
     "test:m1": "vitest run",
     "test": "node --test test/*.test.js && vitest run"

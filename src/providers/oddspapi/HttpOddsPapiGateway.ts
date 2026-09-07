@@ -14,6 +14,7 @@ export class HttpOddsPapiGateway implements OddsPapiGateway {
     private readonly budget: ProviderRequestBudget,
     private readonly baseUrl = 'https://api.oddspapi.io/v4',
     private readonly oddsTtlSeconds = 300,
+    private readonly onDiagnostic: (event: Readonly<Record<string, unknown>>) => void = () => undefined,
   ) {
     if (!apiKey) throw new Error('ODDSPAPI_API_KEY is required on the server');
   }
@@ -22,9 +23,11 @@ export class HttpOddsPapiGateway implements OddsPapiGateway {
 
   private async request<T>(path: string, query: Record<string, string>, ttlSeconds: number): Promise<T> {
     const cacheKey = `oddspapi:${path}:${new URLSearchParams(query).toString()}`;
-    return this.cache.getOrLoad(cacheKey, ttlSeconds, async () => {
-      this.budget.consume();
+    const result = await this.cache.getOrSet(cacheKey, { ttlSeconds }, async () => {
+      const budget = this.budget.consume();
       this.requests++;
+      this.onDiagnostic({ event: 'oddspapi-request', endpoint: path, requestCount: this.requests,
+        budget: { used: budget.used, remaining: budget.remaining, limit: budget.limit, period: budget.period } });
       const url = new URL(path, `${this.baseUrl.replace(/\/$/, '')}/`);
       for (const [key, value] of Object.entries(query)) url.searchParams.set(key, value);
       url.searchParams.set('apiKey', this.apiKey);
@@ -35,6 +38,8 @@ export class HttpOddsPapiGateway implements OddsPapiGateway {
         message: sanitizeText(body.error?.message ?? body.message ?? 'Provider request failed', [this.apiKey]) });
       return body;
     });
+    this.onDiagnostic({ event: 'oddspapi-cache', endpoint: path, status: result.status });
+    return result.value;
   }
 
   bookmakers() { return this.request<Array<{ bookmakerName: string; slug: string; liveOdds: boolean | null }>>('bookmakers', {}, 24 * 60 * 60); }

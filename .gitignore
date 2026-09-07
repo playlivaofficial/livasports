@@ -11,5 +11,6 @@ output/*.md
 !output/.gitkeep
 !output/m1-report.md
 !output/m2-report.md
+!output/m3-report.md
 
 .vercel

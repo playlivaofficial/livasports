@@ -12,4 +12,28 @@ describe('cache coordinator', () => {
     expect(first).toEqual(second);
     expect(calls).toBe(1);
   });
+
+  it('supports deterministic get, set, hit, miss, and delete paths', async () => {
+    const events: string[] = [];
+    const coordinator = new CacheCoordinator(new MemoryCacheStore(), event => events.push(event.event));
+    await expect(coordinator.get('missing')).resolves.toBeNull();
+    const first = await coordinator.getOrSet('route:br', { ttlSeconds: 60 }, async () => 7);
+    const second = await coordinator.getOrSet('route:br', { ttlSeconds: 60 }, async () => 8);
+    expect(first).toEqual({ value: 7, status: 'MISS' });
+    expect(second).toEqual({ value: 7, status: 'HIT' });
+    expect(events).toContain('miss');
+    expect(events).toContain('hit');
+    await coordinator.delete('route:br');
+    await expect(coordinator.get('route:br')).resolves.toBeNull();
+  });
+
+  it('serves a bounded stale value when refresh fails', async () => {
+    let time = 0;
+    const now = () => time;
+    const coordinator = new CacheCoordinator(new MemoryCacheStore(now), () => undefined, now);
+    await coordinator.getOrSet('fixtures:today:br', { ttlSeconds: 1, staleIfErrorSeconds: 10 }, async () => 'fresh');
+    time = 2_000;
+    const result = await coordinator.getOrSet('fixtures:today:br', { ttlSeconds: 1, staleIfErrorSeconds: 10 }, async () => { throw new Error('db unavailable'); });
+    expect(result).toEqual({ value: 'fresh', status: 'STALE' });
+  });
 });

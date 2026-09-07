@@ -1,6 +1,6 @@
 import { connection } from 'next/server';
 import { getDictionary, type PageKey, type SiteLocale } from '@/config/i18n';
-import { loadM2PageData } from '@/delivery/runtime';
+import { loadM3PageData } from '@/delivery/runtime';
 import { FixtureStatus } from '@/domain/enums';
 import { EmptyState, FreshnessIndicator, ProviderErrorNotice } from './DataStates';
 import { FixtureList } from './FixtureList';
@@ -8,7 +8,7 @@ import { SiteHeader } from './SiteHeader';
 
 export async function M2SportsPage({ locale, page }: { locale: SiteLocale; page: PageKey }) {
   await connection();
-  const data = await loadM2PageData(locale, page);
+  const data = await loadM3PageData(locale, page);
   const dictionary = getDictionary(locale);
   const fixtures = data.sections.flatMap(section => section.fixtures);
   const live = fixtures.filter(fixture => fixture.status === FixtureStatus.LIVE || fixture.status === FixtureStatus.HALFTIME).length;

@@ -9,16 +9,24 @@ export interface DatabaseClient extends QueryExecutor {
   close(): Promise<void>;
 }
 
+export interface DatabaseQueryMetric { event: 'db-query'; operation: string; durationMs: number; }
+
 export class PostgresDatabaseClient implements DatabaseClient {
   private readonly pool: Pool;
 
-  constructor(connectionString: string) {
+  constructor(connectionString: string, private readonly onQuery: (metric: DatabaseQueryMetric) => void = () => undefined) {
     if (!connectionString.trim()) throw new Error('DATABASE_URL is required');
     this.pool = new Pool({ connectionString, max: 5, idleTimeoutMillis: 10_000, connectionTimeoutMillis: 10_000 });
   }
 
-  query<Row extends QueryResultRow = QueryResultRow>(text: string, values?: readonly unknown[]): Promise<QueryResult<Row>> {
-    return this.pool.query<Row>(text, values as unknown[] | undefined);
+  async query<Row extends QueryResultRow = QueryResultRow>(text: string, values?: readonly unknown[]): Promise<QueryResult<Row>> {
+    const started = performance.now();
+    try {
+      return await this.pool.query<Row>(text, values as unknown[] | undefined);
+    } finally {
+      this.onQuery({ event: 'db-query', operation: text.trim().split(/\s+/, 1)[0]?.toUpperCase() || 'QUERY',
+        durationMs: Math.round((performance.now() - started) * 10) / 10 });
+    }
   }
 
   async transaction<T>(work: (client: QueryExecutor) => Promise<T>): Promise<T> {
