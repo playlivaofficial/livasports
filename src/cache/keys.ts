@@ -11,6 +11,7 @@ export const cacheKeys = {
   fixturesLive: (locale: SiteLocale) => `${prefix}:fixtures:live:${locale}`,
   fixturesCompetition: (competitionId: string) => `${prefix}:fixtures:competition:${clean(competitionId)}`,
   fixture: (fixtureId: string) => `${prefix}:fixture:${clean(fixtureId)}`,
+  matchModule: (fixtureId: string, locale: SiteLocale, scope: string) => `${prefix}:match:v1:${clean(fixtureId)}:${locale}:${clean(scope)}`,
   standings: (competitionId: string) => `${prefix}:standings:${clean(competitionId)}`,
   odds: (fixtureId: string) => `${prefix}:odds:${clean(fixtureId)}`,
 } as const;

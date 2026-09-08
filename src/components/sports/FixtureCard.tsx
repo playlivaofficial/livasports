@@ -3,6 +3,8 @@ import type { FixtureView } from '@/delivery/types';
 import { FixtureStatus } from '@/domain/enums';
 import { OddsComparison } from './OddsComparison';
 import { TeamMark } from './TeamMark';
+import Link from 'next/link';
+import { matchPath } from '@/match-center/routes';
 
 function isLive(status: FixtureStatus): boolean {
   return status === FixtureStatus.LIVE || status === FixtureStatus.HALFTIME;
@@ -58,15 +60,11 @@ export function ScoreDisplay({ fixture }: { fixture: FixtureView }) {
 export function FixtureCard({ locale, fixture }: { locale: SiteLocale; fixture: FixtureView }) {
   const dictionary = getDictionary(locale);
   return <article className={`fixture-row ${isLive(fixture.status) ? 'is-live' : ''}`} aria-label={`${fixture.homeTeam} – ${fixture.awayTeam}`}>
-    <div className="fixture-timing">
-      <KickoffTime locale={locale} kickoff={fixture.kickoff} />
-      <FixtureStatusBadge locale={locale} status={fixture.status} />
-    </div>
-    <div className="team-stack">
-      <TeamIdentity name={fixture.homeTeam} shortName={fixture.homeTeamShortName} imageUrl={fixture.homeTeamImageUrl} />
-      <TeamIdentity name={fixture.awayTeam} shortName={fixture.awayTeamShortName} imageUrl={fixture.awayTeamImageUrl} />
-    </div>
-    <ScoreDisplay fixture={fixture} />
+    {fixture.publicId ? <Link className="fixture-main-link" href={matchPath(locale, fixture.publicId, fixture.homeTeam, fixture.awayTeam)}>
+      <div className="fixture-timing"><KickoffTime locale={locale} kickoff={fixture.kickoff} /><FixtureStatusBadge locale={locale} status={fixture.status} /></div>
+      <div className="team-stack"><TeamIdentity name={fixture.homeTeam} shortName={fixture.homeTeamShortName} imageUrl={fixture.homeTeamImageUrl} /><TeamIdentity name={fixture.awayTeam} shortName={fixture.awayTeamShortName} imageUrl={fixture.awayTeamImageUrl} /></div>
+      <ScoreDisplay fixture={fixture} />
+    </Link> : <><div className="fixture-timing"><KickoffTime locale={locale} kickoff={fixture.kickoff} /><FixtureStatusBadge locale={locale} status={fixture.status} /></div><div className="team-stack"><TeamIdentity name={fixture.homeTeam} shortName={fixture.homeTeamShortName} imageUrl={fixture.homeTeamImageUrl} /><TeamIdentity name={fixture.awayTeam} shortName={fixture.awayTeamShortName} imageUrl={fixture.awayTeamImageUrl} /></div><ScoreDisplay fixture={fixture} /></>}
     <OddsComparison locale={locale} fixture={fixture} emptyLabel={dictionary.labels.noOdds} />
   </article>;
 }
