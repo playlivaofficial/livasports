@@ -198,7 +198,7 @@ export class PostgresFootballRepository implements FootballIngestionStore, Footb
   }
 
   async listFixtures(countryCode: 'BR' | 'MX', from: Date, to: Date, statuses: readonly string[] = []): Promise<FixtureReadRecord[]> {
-    const result = await this.database.query<Record<string, unknown>>(`SELECT f.id,f.sport_id,f.competition_id,f.season_id,f.home_team_id,f.away_team_id,
+    const result = await this.database.query<Record<string, unknown>>(`SELECT f.id,f.public_id,f.sport_id,f.competition_id,f.season_id,f.home_team_id,f.away_team_id,
       f.kickoff,f.status,f.home_score,f.away_score,f.created_at,f.updated_at,f.provider_updated_at,
       CASE WHEN $1='BR' THEN c.display_name_pt_br ELSE c.display_name_es_mx END AS competition_name,
       c.slug AS competition_slug,c.competition_group,
@@ -210,7 +210,7 @@ export class PostgresFootballRepository implements FootballIngestionStore, Footb
       WHERE c.enabled AND c.coverage_status IN ('SUPPORTED','SUPPORTED_BUT_NO_CURRENT_FIXTURES')
       AND f.kickoff >= $2 AND f.kickoff < $3 AND (cardinality($4::text[]) = 0 OR f.status = ANY($4::text[]))
       ORDER BY competition_priority,f.kickoff,f.id`, [countryCode, from, to, statuses]);
-    return result.rows.map(row => ({ fixture: this.fixture(row), competitionName: String(row.competition_name),
+    return result.rows.map(row => ({ fixture: this.fixture(row), publicId: row.public_id ? String(row.public_id) : undefined, competitionName: String(row.competition_name),
       competitionSlug: String(row.competition_slug), competitionGroup: String(row.competition_group),
       competitionPriority: Number(row.competition_priority),
       homeTeamName: String(row.home_team_name), homeTeamShortName: row.home_team_short_name ? String(row.home_team_short_name) : null,

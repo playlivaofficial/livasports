@@ -1,6 +1,7 @@
 import { SafeProviderError, sanitizeQuery, sanitizeText } from '@/providers/safe-error';
 import type {
   SportmonksFixturePayload, SportmonksGateway, SportmonksLeaguePayload, SportmonksSeasonPayload, SportmonksTeamPayload,
+  SportmonksStandingPayload,
 } from './types';
 
 interface SportmonksEnvelope<T> {
@@ -81,6 +82,12 @@ export class HttpSportmonksGateway implements SportmonksGateway {
       .catch(error => { if (error instanceof SafeProviderError && error.context.status === 404) return null; throw error; });
   }
 
+  fixtureDetails(providerFixtureId: string) {
+    return this.request<SportmonksFixturePayload>(`football/fixtures/${providerFixtureId}`, {
+      include: 'participants;state;scores;season;league;round;stage;group;venue;events.type;statistics.type;lineups;formations;coaches',
+    }).catch(error => { if (error instanceof SafeProviderError && error.context.status === 404) return null; throw error; });
+  }
+
   scores(providerFixtureIds: readonly string[]) {
     return providerFixtureIds.length
       ? this.request<SportmonksFixturePayload[]>(`football/fixtures/multi/${providerFixtureIds.join(',')}`, { include: 'participants;state;scores' })
@@ -92,7 +99,9 @@ export class HttpSportmonksGateway implements SportmonksGateway {
     return value.events ?? [];
   }
 
-  standings(providerSeasonId: string) { return this.request<unknown[]>(`football/standings/seasons/${providerSeasonId}`); }
+  standings(providerSeasonId: string) {
+    return this.request<SportmonksStandingPayload[]>(`football/standings/seasons/${providerSeasonId}`, { include: 'participant;details.type;stage;group' });
+  }
 
   async lineups(providerFixtureId: string) {
     const value = await this.request<{ lineups?: unknown[] }>(`football/fixtures/${providerFixtureId}`, { include: 'lineups' });

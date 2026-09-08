@@ -166,7 +166,7 @@ export class SportmonksAdapter implements SportsDataProvider, FootballIngestionP
     const rows = await this.gateway.events(await this.providerId(ProviderEntityType.FIXTURE, fixtureId));
     const events: MatchEvent[] = [];
     for (const row of rows) {
-      const value = row as Record<string, unknown>;
+      const value = row as unknown as Record<string, unknown>;
       const teamMapping = typeof value.participant_id === 'number'
         ? await this.mappings.lookup(ProviderCode.SPORTMONKS, ProviderEntityType.TEAM, String(value.participant_id)) : null;
       events.push({ fixtureId, type: String(value.type ?? value.name ?? 'UNKNOWN'), minute: typeof value.minute === 'number' ? value.minute : null,
@@ -180,7 +180,7 @@ export class SportmonksAdapter implements SportsDataProvider, FootballIngestionP
     const rows = await this.gateway.standings(await this.providerId(ProviderEntityType.SEASON, seasonId));
     const standings: StandingRow[] = [];
     for (const row of rows) {
-      const value = row as Record<string, unknown>;
+      const value = row as unknown as Record<string, unknown>;
       if (typeof value.participant_id !== 'number' || typeof value.league_id !== 'number' || typeof value.position !== 'number') continue;
       const [team, competition] = await Promise.all([
         this.mappings.lookup(ProviderCode.SPORTMONKS, ProviderEntityType.TEAM, String(value.participant_id)),

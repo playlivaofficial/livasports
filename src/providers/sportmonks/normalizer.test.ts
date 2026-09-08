@@ -44,4 +44,17 @@ describe('Sportmonks canonical normalization', () => {
     await expect(mappings.lookupProviderId(ProviderCode.SPORTMONKS, ProviderEntityType.FIXTURE, fixture.id))
       .resolves.toBe('9981');
   });
+  it('uses explicit home/away metadata even when participant order is reversed', async () => {
+    const normalizer = new SportmonksNormalizer(new ProviderMappingService(new InMemoryProviderEntityMappingRepository()));
+    const fixture = await normalizer.fixture({ id: 2, sport_id: 1, league_id: 3, season_id: 4, state_id: 5,
+      starting_at: '2026-09-08T20:00:00Z', participants: [{id:20,name:'Away',meta:{location:'away'}},{id:10,name:'Home',meta:{location:'home'}}],
+      scores:[{participant_id:10,description:'CURRENT',score:{goals:0}},{participant_id:20,description:'CURRENT',score:{goals:1}}] });
+    expect(fixture.homeScore).toBe(0); expect(fixture.awayScore).toBe(1);
+  });
+  it('rejects participants without explicit roles instead of guessing by array order', async () => {
+    const normalizer = new SportmonksNormalizer(new ProviderMappingService(new InMemoryProviderEntityMappingRepository()));
+    await expect(normalizer.fixture({ id: 2, sport_id: 1, league_id: 3, season_id: 4, state_id: 5,
+      starting_at: '2026-09-08T20:00:00Z', participants: [{id:10,name:'First'},{id:20,name:'Second'}] }))
+      .rejects.toThrow('no canonical home/away participants');
+  });
 });

@@ -8,7 +8,7 @@ export interface BookmakerPriceView { bookmaker: 'Betano BR' | 'Betsson'; decima
 export interface OutcomeOddsView { outcome: OutcomeCode; prices: BookmakerPriceView[]; }
 export interface MarketOddsView { market: MarketCode; line: number | null; outcomes: OutcomeOddsView[]; }
 export interface FixtureView {
-  id: string; competition: string; homeTeam: string; awayTeam: string; kickoff: string; status: FixtureStatus;
+  id: string; publicId?: string; competition: string; homeTeam: string; awayTeam: string; kickoff: string; status: FixtureStatus;
   competitionSlug?: string; competitionGroup?: string; competitionPriority?: number;
   homeTeamShortName?: string | null; awayTeamShortName?: string | null; homeTeamImageUrl?: string | null; awayTeamImageUrl?: string | null;
   homeScore: number | null; awayScore: number | null; freshness: FreshnessState; odds: MarketOddsView[];

@@ -25,7 +25,7 @@ export class DatabaseM2ReadService {
       const views: FixtureView[] = selected.flatMap(fixture => {
         const row = rowById.get(fixture.id);
         if (!row) return [];
-        return [{ id: fixture.id, competition: row.competitionName, homeTeam: row.homeTeamName, awayTeam: row.awayTeamName,
+        return [{ id: fixture.id, publicId: row.publicId, competition: row.competitionName, homeTeam: row.homeTeamName, awayTeam: row.awayTeamName,
           competitionSlug: row.competitionSlug, competitionGroup: row.competitionGroup, competitionPriority: row.competitionPriority,
           homeTeamShortName: row.homeTeamShortName, awayTeamShortName: row.awayTeamShortName,
           homeTeamImageUrl: row.homeTeamImageUrl, awayTeamImageUrl: row.awayTeamImageUrl,

@@ -89,6 +89,8 @@ try {
   await send('Page.navigate', { url });
   await loaded;
   await new Promise(resolveWait => setTimeout(resolveWait, 3_000));
+  await send('Runtime.evaluate', { expression: `if (location.hash) document.querySelector(location.hash)?.scrollIntoView({block:'start'})` });
+  await new Promise(resolveWait => setTimeout(resolveWait, 250));
   const measured = await send('Runtime.evaluate', { returnByValue: true, expression: `(() => ({
     title: document.title,
     readyState: document.readyState,
@@ -98,6 +100,9 @@ try {
     brokenImages: [...document.images].filter(image => image.complete && image.naturalWidth === 0).length,
     competitionSections: document.querySelectorAll('.competition-section').length,
     fixtureRows: document.querySelectorAll('.fixture-row').length
+    ,overflowElements: [...document.querySelectorAll('body *')].filter(element => {
+      const rect = element.getBoundingClientRect(); return rect.right > document.documentElement.clientWidth + 1 || rect.left < -1;
+    }).slice(0,12).map(element => ({ tag: element.tagName, className: element.className, right: Math.round(element.getBoundingClientRect().right), width: Math.round(element.getBoundingClientRect().width), scrollWidth: element.scrollWidth }))
   }))()` });
   const screenshot = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
   const target = resolve(output);

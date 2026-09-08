@@ -56,8 +56,8 @@ export class SportmonksNormalizer {
   }
 
   async fixture(raw: SportmonksFixturePayload): Promise<Fixture> {
-    const home = raw.participants?.find(participant => participant.meta?.location === 'home') ?? raw.participants?.[0];
-    const away = raw.participants?.find(participant => participant.meta?.location === 'away') ?? raw.participants?.[1];
+    const home = raw.participants?.find(participant => participant.meta?.location === 'home');
+    const away = raw.participants?.find(participant => participant.meta?.location === 'away');
     if (!home || !away) throw new Error(`Sportmonks fixture ${raw.id} has no canonical home/away participants`);
     const state = raw.state?.developer_name ?? raw.state?.name ?? String(raw.state_id);
     const now = new Date();
