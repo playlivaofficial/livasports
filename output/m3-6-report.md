@@ -4,9 +4,9 @@ Generated: 2026-09-08T07:00:07.171Z
 
 ## Status
 
-**COMPLETE — PRODUCTION-SAFE RELEASE CANDIDATE**
+**COMPLETE — DEPLOYED — PRODUCTION QA PASS — M4 NOT STARTED**
 
-M3.6 expands LivaSports to the final approved 34-entry Sportmonks club-competition set. The updated subscription is recognized, all mappings are exact and unambiguous, the controlled Neon ingestion is complete, and the second idempotency pass created no new records. Production deployment and production smoke results are recorded after the final release gate; M4 has not started.
+M3.6 expands LivaSports to the final approved 34-entry Sportmonks club-competition set. The updated subscription is recognized, all mappings are exact and unambiguous, the controlled Neon ingestion is complete, and the second idempotency pass created no new records. The implementation is deployed to the existing LivaSports Vercel project and passed production smoke, mobile, cache, provider-call, health, and secret-exposure QA. M4 has not started.
 
 ## Coverage result
 
@@ -138,8 +138,57 @@ This continuation consumed exactly **43 Sportmonks requests**, including two one
 | ESLint | PASS — zero warnings |
 | Production build | PASS — Next.js 16.3.4 |
 | Secret scan | PASS — 7 loaded secret values checked across 140 commit-candidate text files; 0 literal leaks, 0 tracked sensitive env files, 0 client credential-name matches |
-| Production deployment/smoke/cache QA | Pending final release run |
+| Production deployment/smoke/cache QA | PASS |
+
+## Production release verification
+
+Verified: 2026-09-08T08:07:26.075Z
+
+- Repository/branch: `playlivaofficial/livasports`, `main`
+- M3.6 implementation commit: `d6ecefc0b590c8957a6506a4ccce9eb2e884bf42`
+- Existing Vercel project: `nikapopkha3-4447s-projects/livasports`
+- Deployment ID: `dpl_HayTDSdVpmh97hNRAS4rr3EsLjkU`
+- Deployment URL: `https://livasports-nsybgehx3-nikapopkha3-4447s-projects.vercel.app`
+- Production domain: `https://livasports.com`
+- Status: **READY**, Production, Latest
+- Vercel production build: **PASS**, 17 seconds
+- New Vercel project created: **NO**
+
+### Production routes
+
+| Route | Result |
+| --- | --- |
+| `/` | PASS — HTTP 307 to `/br` |
+| `/br` | PASS — HTTP 200 |
+| `/br/futebol` | PASS — HTTP 200 |
+| `/br/ao-vivo` | PASS — HTTP 200 |
+| `/br/jogos/hoje` | PASS — HTTP 200 |
+| `/mx` | PASS — HTTP 200 |
+| `/mx/futbol` | PASS — HTTP 200 |
+| `/mx/en-vivo` | PASS — HTTP 200 |
+| `/mx/partidos/hoy` | PASS — HTTP 200 |
+| `/api/internal/health` | PASS — HTTP 200; database/cache available; both provider-presence booleans true |
+| HTTPS | PASS |
+| `www.livasports.com` | PASS — HTTP 308 to `https://livasports.com/` |
+
+### Cache and provider-call QA
+
+Deployment-scoped Vercel runtime logs showed one route cache MISS followed by a HIT. The observed loader messages both reported `providerRequests: 0`; non-zero provider-request messages were **0**. The MISS performed the DB read and the HIT returned in approximately 0.7ms. Visible Vercel warning, error, and fatal counts were all **0**.
+
+### Production mobile/visual QA
+
+At a true 390×844 viewport:
+
+- `/br/futebol`: document width matched the content viewport; horizontal overflow **NONE**.
+- `/br`: `scrollWidth` equaled viewport width; horizontal overflow **NONE**.
+- `/mx`: `scrollWidth` equaled viewport width; horizontal overflow **NONE**.
+- BR/MX switch, primary navigation, status summary, competition tabs, fixture rows, scores, team marks, and compact unavailable states remained readable.
+- Repeated long odds-unavailable message count: **0**.
+
+### Production secret scan
+
+Eight HTML documents and eight production JavaScript assets were scanned against seven locally loaded secret values and all sensitive credential variable names. Literal secret matches: **0**. Credential-name matches: **0**.
 
 ## Final conclusion
 
-The data expansion and persistence work is complete and production-safe pending the final deterministic build, secret, deployment, and production smoke gates. Stop after M3.6; do not begin M4 automatically.
+M3.6 is complete, deployed, and verified. All 34 approved competition mappings are recognized; controlled persistence and idempotency are clean; production navigation remains cache/DB-backed with zero provider calls. Stop after M3.6; do not begin M4 automatically.
