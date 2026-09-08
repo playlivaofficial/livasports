@@ -105,6 +105,14 @@ export interface FixtureReadRecord {
   homeTeamImageUrl?: string | null; awayTeamImageUrl?: string | null;
 }
 
+export interface CompetitionReadRecord {
+  competitionName: string;
+  competitionSlug: string;
+  competitionGroup: string;
+  competitionPriority: number;
+}
+
 export interface FootballReadRepository {
+  listCompetitions(countryCode: 'BR' | 'MX'): Promise<CompetitionReadRecord[]>;
   listFixtures(countryCode: 'BR' | 'MX', from: Date, to: Date, statuses?: readonly string[]): Promise<FixtureReadRecord[]>;
 }

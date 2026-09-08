@@ -231,6 +231,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .competition-emblem { display: grid; width: 1.55rem; height: 1.55rem; flex: 0 0 auto; place-items: center; border: 1px solid var(--color-border-strong); border-radius: 50%; background: var(--color-bg); color: var(--color-accent); font-size: 0.63rem; font-weight: 900; }
 .competition-title { overflow: hidden; margin: 0; color: var(--color-text); font-size: 0.83rem; font-weight: 760; text-overflow: ellipsis; white-space: nowrap; }
 .competition-count { color: var(--color-text-muted); font-family: var(--font-numeric); font-size: 0.68rem; white-space: nowrap; }
+.competition-empty-state { min-height: 3.5rem; margin: 0; padding: var(--space-4); color: var(--color-text-muted); font-size: 0.76rem; line-height: 1.45; }
 .fixture-table-head { display: grid; grid-template-columns: 6.7rem minmax(17rem, 1fr) 4.6rem 6.75rem; align-items: center; min-height: 2rem; padding: 0 var(--space-4); border-bottom: 1px solid var(--color-border); color: var(--color-text-muted); font-size: 0.62rem; font-weight: 750; letter-spacing: 0.065em; text-transform: uppercase; }
 .fixture-table-head > :last-child { text-align: right; }
 .fixture-row { position: relative; display: grid; grid-template-columns: 6.7rem minmax(17rem, 1fr) 4.6rem 6.75rem; min-height: 5.05rem; align-items: center; padding: 0.65rem var(--space-4); border-bottom: 1px solid var(--color-border); transition: background var(--transition-fast); }

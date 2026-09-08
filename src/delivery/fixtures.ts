@@ -1,7 +1,7 @@
 import type { Fixture } from '@/domain/entities';
 import { FixtureStatus } from '@/domain/enums';
 import type { PageKey } from '@/config/i18n';
-import type { CompetitionSectionView, FixtureView } from './types';
+import type { CompetitionSectionView, CompetitionView, FixtureView } from './types';
 import { belongsToLocalDay } from './time';
 
 export function isLiveStatus(status: FixtureStatus): boolean { return status === FixtureStatus.LIVE || status === FixtureStatus.HALFTIME; }
@@ -16,8 +16,11 @@ export function stableSortFixtures<T extends Pick<Fixture, 'kickoff' | 'id'>>(fi
   return [...fixtures].sort((left, right) => left.kickoff.getTime() - right.kickoff.getTime() || String(left.id).localeCompare(String(right.id)));
 }
 
-export function groupFixtureViews(fixtures: readonly FixtureView[]): CompetitionSectionView[] {
+const groupPriority: Readonly<Record<string, number>> = { BRAZIL: 1, AMERICAS: 2, EUROPE: 3, OTHER: 4 };
+
+export function groupFixtureViews(fixtures: readonly FixtureView[], competitions: readonly CompetitionView[] = []): CompetitionSectionView[] {
   const groups = new Map<string, { competition: string; slug: string; group: string; priority: number; fixtures: FixtureView[] }>();
+  for (const competition of competitions) groups.set(competition.slug, { ...competition, fixtures: [] });
   for (const fixture of fixtures) {
     const key = fixture.competitionSlug ?? fixture.competition;
     const group = groups.get(key) ?? { competition: fixture.competition, slug: fixture.competitionSlug ?? key,
@@ -25,6 +28,7 @@ export function groupFixtureViews(fixtures: readonly FixtureView[]): Competition
     group.fixtures.push(fixture);
     groups.set(key, group);
   }
-  return [...groups.values()].sort((left, right) => left.priority - right.priority || left.competition.localeCompare(right.competition))
+  return [...groups.values()].sort((left, right) => (groupPriority[left.group] ?? 5) - (groupPriority[right.group] ?? 5)
+      || left.priority - right.priority || left.competition.localeCompare(right.competition))
     .map(group => ({ ...group, fixtures: [...group.fixtures].sort((left, right) => left.kickoff.localeCompare(right.kickoff) || left.id.localeCompare(right.id)) }));
 }

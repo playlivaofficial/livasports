@@ -14,7 +14,8 @@ export interface FixtureView {
   homeScore: number | null; awayScore: number | null; freshness: FreshnessState; odds: MarketOddsView[];
   oddsState: 'complete' | 'partial' | 'none' | 'stale' | 'unavailable';
 }
-export interface CompetitionSectionView { competition: string; slug: string; group: string; priority: number; fixtures: FixtureView[]; }
+export interface CompetitionView { competition: string; slug: string; group: string; priority: number; }
+export interface CompetitionSectionView extends CompetitionView { fixtures: FixtureView[]; }
 export interface M2PageData {
   locale: SiteLocale; page: PageKey; currentDate: string; timeZone: string; sportsData: ProviderState; oddsData: ProviderState;
   competitions: string[]; sections: CompetitionSectionView[]; paidOddsRequests: number;

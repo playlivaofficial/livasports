@@ -16,7 +16,10 @@ export class DatabaseM2ReadService {
     const base = { locale, page, currentDate: new Intl.DateTimeFormat(dictionary.locale, { dateStyle: 'full', timeZone: dictionary.timeZone }).format(now), timeZone: dictionary.timeZone };
     const window = deliveryWindow(locale, page, now);
       const statuses = page === 'live' ? ['LIVE', 'HALFTIME'] : [];
-      const rows = await this.repository.listFixtures(dictionary.countryCode, window.from, window.to, statuses);
+      const [competitionRows, rows] = await Promise.all([
+        this.repository.listCompetitions(dictionary.countryCode),
+        this.repository.listFixtures(dictionary.countryCode, window.from, window.to, statuses),
+      ]);
       const rowById = new Map(rows.map(row => [row.fixture.id, row]));
       const selected = stableSortFixtures(filterFixturesForPage(rows.map(row => row.fixture), page, now, dictionary.timeZone));
       const views: FixtureView[] = selected.flatMap(fixture => {
@@ -30,7 +33,8 @@ export class DatabaseM2ReadService {
           freshness: 'fresh', odds: [], oddsState: 'none' }];
       });
       const sportsData: ProviderState = views.length ? { state: 'available', freshness: 'fresh', reason: 'ok' } : noDataState();
-      const sections = groupFixtureViews(views);
+      const sections = groupFixtureViews(views, competitionRows.map(row => ({ competition: row.competitionName,
+        slug: row.competitionSlug, group: row.competitionGroup, priority: row.competitionPriority })));
       return { ...base, sportsData, oddsData: noDataState(), competitions: sections.map(section => section.competition),
         sections, paidOddsRequests: 0 };
   }

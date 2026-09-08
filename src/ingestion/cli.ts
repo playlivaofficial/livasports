@@ -52,8 +52,18 @@ try {
     const service = new DatabaseM2ReadService(repository);
     const pages = await Promise.all((['br', 'mx'] as const).map(async locale => {
       const data = await service.load(locale, 'football');
+      const canonicalSlugs = new Set(FOOTBALL_COMPETITION_TARGETS.filter(target => target.enabled).map(target => target.slug));
+      const deliveredSlugs = new Set(data.sections.map(section => section.slug));
+      const competitionsWithFixtures = data.sections.filter(section => section.fixtures.length > 0).map(section => section.slug);
+      const competitionsWithoutFixtures = data.sections.filter(section => section.fixtures.length === 0).map(section => section.slug);
       return { locale, state: data.sportsData.state, competitions: data.competitions.length,
-        fixtures: data.sections.reduce((sum, section) => sum + section.fixtures.length, 0), paidOddsRequests: data.paidOddsRequests };
+        fixtures: data.sections.reduce((sum, section) => sum + section.fixtures.length, 0),
+        competitionsWithFixtures, competitionsWithoutFixtures,
+        canonicalRegistryMatch: canonicalSlugs.size === deliveredSlugs.size
+          && [...canonicalSlugs].every(slug => deliveredSlugs.has(slug)),
+        missingCanonicalSlugs: [...canonicalSlugs].filter(slug => !deliveredSlugs.has(slug)),
+        unexpectedCompetitionSlugs: [...deliveredSlugs].filter(slug => !canonicalSlugs.has(slug)),
+        paidOddsRequests: data.paidOddsRequests };
     }));
     console.info(JSON.stringify({ command, pages }));
   } else if (command === 'stats') {

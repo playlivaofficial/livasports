@@ -12,7 +12,7 @@ export interface LocaleDictionary {
     providerFresh: string; providerStale: string; updatedAt: string; noOdds: string; partialOdds: string; staleOdds: string;
     noFixtures: string; noLiveFixtures: string; sportsUnavailable: string; oddsUnavailable: string; loading: string; loadingDescription: string;
     skipToContent: string; primaryNavigation: string; overview: string; allCompetitions: string; teams: string; status: string; matches: string;
-    noFixturesDescription: string; noLiveDescription: string; coverageUnavailable: string; coverageUnavailableDescription: string;
+    noFixturesDescription: string; noLiveDescription: string; competitionEmptyPeriod: string; coverageUnavailable: string; coverageUnavailableDescription: string;
   };
   statuses: Record<FixtureStatus, string>; markets: Record<MarketCode, string>; outcomes: Record<OutcomeCode, string>;
   status: { foundation: string; noFabricatedData: string; providerBoundary: string; nextMilestone: string; routeFoundation: string };
@@ -39,6 +39,7 @@ const dictionaries: Record<SiteLocale, LocaleDictionary> = {
       skipToContent: 'Ir para as partidas', primaryNavigation: 'Navegação principal', overview: 'Visão geral', allCompetitions: 'Todas', teams: 'Times', status: 'Status', matches: 'jogos',
       noFixturesDescription: 'A programação será exibida aqui assim que houver partidas neste período.',
       noLiveDescription: 'Volte em breve. Partidas ao vivo aparecem automaticamente quando começam.',
+      competitionEmptyPeriod: 'Nenhum jogo disponível neste período.',
       coverageUnavailable: 'Cobertura ainda não disponível',
       coverageUnavailableDescription: 'Estamos preparando a cobertura de futebol do México. Nenhuma partida será exibida sem confirmação.',
     },
@@ -78,6 +79,7 @@ const dictionaries: Record<SiteLocale, LocaleDictionary> = {
       skipToContent: 'Ir a los partidos', primaryNavigation: 'Navegación principal', overview: 'Resumen', allCompetitions: 'Todas', teams: 'Equipos', status: 'Estado', matches: 'partidos',
       noFixturesDescription: 'El calendario aparecerá aquí en cuanto haya partidos para este periodo.',
       noLiveDescription: 'Vuelve pronto. Los partidos aparecen automáticamente cuando comienzan.',
+      competitionEmptyPeriod: 'No hay partidos disponibles en este período.',
       coverageUnavailable: 'Cobertura aún no disponible',
       coverageUnavailableDescription: 'Estamos preparando la cobertura del fútbol mexicano. No mostraremos partidos sin confirmar.',
     },

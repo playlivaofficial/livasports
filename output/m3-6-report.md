@@ -8,6 +8,32 @@ Generated: 2026-09-08T07:00:07.171Z
 
 M3.6 expands LivaSports to the final approved 34-entry Sportmonks club-competition set. The updated subscription is recognized, all mappings are exact and unambiguous, the controlled Neon ingestion is complete, and the second idempotency pass created no new records. The implementation is deployed to the existing LivaSports Vercel project and passed production smoke, mobile, cache, provider-call, health, and secret-exposure QA. M4 has not started.
 
+## Competition navigation completion fix
+
+Verified locally: 2026-09-08T08:33:48.650Z
+
+**READY FOR PRODUCTION DEPLOYMENT**
+
+The route read model previously derived navigation sections from fixture rows, so enabled competitions without a fixture inside the selected delivery window were omitted. Navigation is now driven by a dedicated enabled-competition registry read, while fixtures remain a separate bounded date-window read. The two fixed DB queries run in parallel on a route-cache miss; there is no per-competition query and no provider call.
+
+- Enabled competitions in Neon: **34**
+- Canonical enabled registry entries: **34**
+- Competitions discoverable in BR navigation: **34**
+- Competitions discoverable in MX navigation: **34**
+- Canonical slug comparison: **PASS** — 0 missing, 0 unexpected
+- Competitions with fixtures in the football delivery window: **24**
+- Competitions without fixtures in that window: **10**
+- Fixture rows returned by the DB read: **327** per locale
+- Normal-navigation provider requests: **0**
+- Group order: **Brazil → Americas → Europe → Other**
+- Saudi Pro League Play-offs represented: **YES**
+
+The 24 competitions with fixture rows are: `brasileirao-serie-a`, `brasileirao-serie-b`, `copa-libertadores`, `copa-sudamericana`, `argentina-primera-division`, `liga-mx`, `mls`, `champions-league`, `premier-league`, `la-liga`, `serie-a-italy`, `bundesliga`, `ligue-1`, `liga-portugal`, `eredivisie`, `championship`, `fa-cup`, `carabao-cup`, `ligue-2`, `serie-b-italy`, `coppa-italia`, `la-liga-2`, `super-lig`, and `saudi-pro-league`.
+
+The 10 competition sections with no fixture in the current football window are: `copa-do-brasil`, `paulista-a1`, `carioca-serie-a`, `copa-do-nordeste`, `concacaf-champions-cup`, `europa-league`, `conference-league`, `uefa-super-cup`, `copa-del-rey`, and `saudi-pro-league-playoffs`. They remain clickable and render a compact localized no-games state; no fixture or score is fabricated.
+
+Local 390×844 browser QA passed for `/br` and `/mx`: both returned 34 competition links and 34 competition sections, BR/PT and MX/ES empty-state text was correct, fixture-bearing competitions still rendered real rows, and `document.scrollWidth` equaled the 390px viewport width. Tests, typecheck, lint, production build, DB integrity, and pre-deployment secret scan passed. The route cache key was versioned so the obsolete 24-entry cached payload cannot survive this release.
+
 ## Coverage result
 
 - Approved targets: **34**
@@ -31,7 +57,7 @@ The exact provider names, IDs, seasons, confidence scores, and controlled-window
 | Fixtures | 904 |
 | Provider mappings | 2,484 |
 
-DB-backed reads are available for both locales. The final read gate returned 24 competitions and 327 fixture rows for each localized route data read, with **0 paid odds/provider requests**.
+DB-backed reads are available for both locales. The original M3.6 fixture-derived gate returned only 24 competitions. The completed registry-backed gate now returns all **34 competitions** and 327 fixture rows for each localized route data read, with **0 paid odds/provider requests**.
 
 ### Counts by competition
 

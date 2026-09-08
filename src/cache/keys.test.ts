@@ -3,7 +3,7 @@ import { cacheKeys, fixtureChangeTags, routeCacheTags } from './keys';
 
 describe('cache keys', () => {
   it('are deterministic, namespaced, and normalize entity IDs', () => {
-    expect(cacheKeys.routeData('br', 'today', '2026-09-07')).toBe('livasports:v1:route:br:today:2026-09-07');
+    expect(cacheKeys.routeData('br', 'today', '2026-09-07')).toBe('livasports:v1:route:v2:br:today:2026-09-07');
     expect(cacheKeys.fixture(' ABC 123 ')).toBe('livasports:v1:fixture:abc-123');
     expect(routeCacheTags('mx', 'live')).toContain('livasports:v1:fixtures:live:mx');
   });

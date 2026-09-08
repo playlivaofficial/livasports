@@ -10,6 +10,7 @@ const groupLabels: Record<SiteLocale, Record<string, string>> = {
   br: { BRAZIL: 'Brasil', EUROPE: 'Europa', AMERICAS: 'Américas', INTERNATIONAL: 'Seleções', OTHER: 'Outros' },
   mx: { BRAZIL: 'Brasil', EUROPE: 'Europa', AMERICAS: 'Américas', INTERNATIONAL: 'Selecciones', OTHER: 'Otros' },
 };
+const groupOrder = ['BRAZIL', 'AMERICAS', 'EUROPE', 'OTHER'] as const;
 
 export function CompetitionTabs({ locale, sections }: { locale: SiteLocale; sections: readonly CompetitionSectionView[] }) {
   const dictionary = getDictionary(locale);
@@ -21,6 +22,7 @@ export function CompetitionTabs({ locale, sections }: { locale: SiteLocale; sect
     rows.push(section);
     groups.set(group, rows);
   }
+  const orderedGroups = groupOrder.flatMap(group => groups.has(group) ? [[group, groups.get(group)!] as const] : []);
 
   return <section className="context-panel competition-panel" aria-label={dictionary.labels.competitions}>
     <h2 className="context-panel-title">{dictionary.labels.competitions}</h2>
@@ -29,7 +31,7 @@ export function CompetitionTabs({ locale, sections }: { locale: SiteLocale; sect
         <span className="competition-tab-marker" aria-hidden="true" />
         {dictionary.labels.allCompetitions}
       </a>
-      {[...groups.entries()].map(([group, competitions]) => <div className="competition-tab-group" key={group}>
+      {orderedGroups.map(([group, competitions]) => <div className="competition-tab-group" key={group}>
         <span className="competition-tab-group-label">{groupLabels[locale][group] ?? group}</span>
         <div className="competition-tab-group-links">
           {competitions.map(competition => <a key={competition.slug ?? competition.competition} className="competition-tab" href={`#${competitionAnchor(competition.slug ?? competition.competition)}`}>

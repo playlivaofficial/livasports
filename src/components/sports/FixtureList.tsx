@@ -19,13 +19,15 @@ export function CompetitionSection({ locale, section }: { locale: SiteLocale; se
       </div>
       <span className="competition-count">{section.fixtures.length} {dictionary.labels.matches}</span>
     </header>
-    <div className="fixture-table-head" aria-hidden="true">
-      <span>{dictionary.labels.status}</span>
-      <span>{dictionary.labels.teams}</span>
-      <span>{dictionary.labels.score}</span>
-      <span>{dictionary.labels.odds}</span>
-    </div>
-    <div>{section.fixtures.map(fixture => <FixtureCard key={fixture.id} locale={locale} fixture={fixture} />)}</div>
+    {section.fixtures.length ? <>
+      <div className="fixture-table-head" aria-hidden="true">
+        <span>{dictionary.labels.status}</span>
+        <span>{dictionary.labels.teams}</span>
+        <span>{dictionary.labels.score}</span>
+        <span>{dictionary.labels.odds}</span>
+      </div>
+      <div>{section.fixtures.map(fixture => <FixtureCard key={fixture.id} locale={locale} fixture={fixture} />)}</div>
+    </> : <p className="competition-empty-state" role="status">{dictionary.labels.competitionEmptyPeriod}</p>}
   </section>;
 }
 

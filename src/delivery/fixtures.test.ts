@@ -43,4 +43,24 @@ describe('fixture delivery rules', () => {
     expect(groups.map(group => group.slug)).toEqual(['liga-mx', 'premier-league']);
     expect(groups[1].fixtures).toHaveLength(2);
   });
+
+  it('keeps enabled competition registry entries when the active window has no fixtures', () => {
+    const groups = groupFixtureViews([], [
+      { competition: 'Paulista A1', slug: 'paulista-a1', group: 'BRAZIL', priority: 50 },
+      { competition: 'Liga Conferência da UEFA', slug: 'conference-league', group: 'EUROPE', priority: 145 },
+      { competition: 'Play-offs da Liga Saudita', slug: 'saudi-pro-league-playoffs', group: 'OTHER', priority: 330 },
+    ]);
+    expect(groups.map(group => group.slug)).toEqual(['paulista-a1', 'conference-league', 'saudi-pro-league-playoffs']);
+    expect(groups.every(group => group.fixtures.length === 0)).toBe(true);
+  });
+
+  it('orders registry sections by approved group order before locale priority', () => {
+    const groups = groupFixtureViews([], [
+      { competition: 'Liga MX', slug: 'liga-mx', group: 'AMERICAS', priority: 10 },
+      { competition: 'Brasileirão', slug: 'brasileirao', group: 'BRAZIL', priority: 120 },
+      { competition: 'Champions League', slug: 'champions-league', group: 'EUROPE', priority: 40 },
+      { competition: 'Liga Saudita', slug: 'saudi-pro-league', group: 'OTHER', priority: 80 },
+    ]);
+    expect(groups.map(group => group.group)).toEqual(['BRAZIL', 'AMERICAS', 'EUROPE', 'OTHER']);
+  });
 });

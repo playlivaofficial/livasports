@@ -2,7 +2,7 @@ import type { DatabaseClient, QueryExecutor } from '@/database/client';
 import type { Country, Fixture, Sport, Team } from '@/domain/entities';
 import { CompetitionCoverageStatus, CompetitionType, FixtureStatus, TeamType } from '@/domain/enums';
 import { domainId, type SeasonId } from '@/domain/ids';
-import type { FootballIngestionStore, FootballReadRepository, FixtureReadRecord, StoredCompetition, StoredSeason, SyncKind, WriteCounts } from '@/ingestion/store';
+import type { CompetitionReadRecord, FootballIngestionStore, FootballReadRepository, FixtureReadRecord, StoredCompetition, StoredSeason, SyncKind, WriteCounts } from '@/ingestion/store';
 import { targetBySlug } from '@/config/footballCompetitions';
 
 async function counted(executor: QueryExecutor, sql: string, values: readonly unknown[]): Promise<'inserted' | 'updated'> {
@@ -176,6 +176,25 @@ export class PostgresFootballRepository implements FootballIngestionStore, Footb
   }
   async failSync(id: string, safeMessage: string, providerRequests: number) {
     await this.database.query(`UPDATE ingestion_sync_runs SET status='FAILED',completed_at=now(),error_message=$2,provider_requests=$3 WHERE id=$1`, [id, safeMessage, providerRequests]);
+  }
+
+  async listCompetitions(countryCode: 'BR' | 'MX'): Promise<CompetitionReadRecord[]> {
+    const result = await this.database.query<{
+      competition_name: string;
+      competition_slug: string;
+      competition_group: string;
+      competition_priority: number;
+    }>(`SELECT
+      CASE WHEN $1='BR' THEN display_name_pt_br ELSE display_name_es_mx END AS competition_name,
+      slug AS competition_slug,competition_group,
+      CASE WHEN $1='BR' THEN priority_br ELSE priority_mx END AS competition_priority
+      FROM competitions
+      WHERE enabled AND coverage_status IN ('SUPPORTED','SUPPORTED_BUT_NO_CURRENT_FIXTURES')
+      ORDER BY CASE competition_group
+        WHEN 'BRAZIL' THEN 1 WHEN 'AMERICAS' THEN 2 WHEN 'EUROPE' THEN 3 WHEN 'OTHER' THEN 4 ELSE 5 END,
+        competition_priority,slug`, [countryCode]);
+    return result.rows.map(row => ({ competitionName: row.competition_name, competitionSlug: row.competition_slug,
+      competitionGroup: row.competition_group, competitionPriority: Number(row.competition_priority) }));
   }
 
   async listFixtures(countryCode: 'BR' | 'MX', from: Date, to: Date, statuses: readonly string[] = []): Promise<FixtureReadRecord[]> {

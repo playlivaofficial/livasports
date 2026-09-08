@@ -139,11 +139,21 @@ describe('M2 football ingestion', () => {
   });
 
   it('reads pages from the DB repository boundary and filters live status', async () => {
-    let reads = 0;
-    const repository = { listFixtures: async () => { reads++; return [{ fixture: { ...fixture, status: FixtureStatus.LIVE }, competitionName: competition.name, homeTeamName: 'Home', awayTeamName: 'Away' }]; } };
+    let competitionReads = 0; let fixtureReads = 0;
+    const repository = {
+      listCompetitions: async () => { competitionReads++; return [
+        { competitionName: competition.name, competitionSlug: competition.slug, competitionGroup: 'BRAZIL', competitionPriority: 1 },
+        { competitionName: 'Paulista A1', competitionSlug: 'paulista-a1', competitionGroup: 'BRAZIL', competitionPriority: 2 },
+      ]; },
+      listFixtures: async () => { fixtureReads++; return [{ fixture: { ...fixture, status: FixtureStatus.LIVE }, competitionName: competition.name,
+        competitionSlug: competition.slug, competitionGroup: 'BRAZIL', competitionPriority: 1, homeTeamName: 'Home', awayTeamName: 'Away' }]; },
+    };
     const data = await new DatabaseM2ReadService(repository, () => now).load('br', 'live');
-    expect(reads).toBe(1);
+    expect(competitionReads).toBe(1);
+    expect(fixtureReads).toBe(1);
+    expect(data.sections).toHaveLength(2);
     expect(data.sections[0].fixtures[0].status).toBe(FixtureStatus.LIVE);
+    expect(data.sections[1]).toMatchObject({ competition: 'Paulista A1', fixtures: [] });
     expect(data.paidOddsRequests).toBe(0);
   });
 });
