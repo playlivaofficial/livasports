@@ -1,5 +1,7 @@
 # LivaSports M3.6 — Safe Checkpoint
 
+> Historical checkpoint closed on 2026-09-08. The interrupted work was resumed from commit `87f8301`, completed without restarting successful stages, and verified in `output/m3-6-report.md`. The snapshot below is intentionally preserved as the handoff source of truth.
+
 Checkpoint timestamp: **2026-09-07T22:28:08+04:00**
 
 Repository: `playlivaofficial/livasports`

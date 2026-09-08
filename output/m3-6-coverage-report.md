@@ -65,3 +65,21 @@ Account-accessible leagues returned: 34
 - None.
 
 No unsupported competition was treated as available, and no fixture data was fabricated.
+
+## Final persistence verification
+
+Completed: 2026-09-08T07:00:07.171Z
+
+- Neon totals: **34 competitions, 42 seasons, 33 current seasons, 1,343 unique teams, 904 fixtures, 2,484 provider mappings**.
+- Exact mapping integrity: **PASS** — 0 competition, season, team, fixture, provider-reference, or internal-mapping duplicate groups.
+- Mapping completeness: **PASS** — 0 stored teams or fixtures without a Sportmonks mapping; 0 orphan Sportmonks country mappings.
+- Second controlled idempotency pass: **PASS** — 0 new teams and 0 new fixtures.
+- Accessible zero-window competitions remain `SUPPORTED_BUT_NO_CURRENT_FIXTURES`; they are not classified as subscription failures.
+
+The coverage fixture count is the provider response count for the controlled discovery window. Canonical database counts can be slightly lower when repeated provider rows normalize to one fixture. Exact final database counts by competition are recorded in `output/m3-6-report.md`.
+
+## Final persistence verification
+
+The controlled ingestion completed after this coverage snapshot. Neon now contains 34 enabled competitions, 42 seasons, 33 current seasons, 1,343 unique teams, 904 fixtures, and 2,484 provider mappings. All duplicate-group checks, missing team/fixture mapping checks, and orphan Sportmonks country-mapping checks returned zero.
+
+The provider fixture counts above are discovery-window evidence. Canonical database fixture counts can be lower where duplicate provider rows normalize to one internal fixture. Exact final per-competition database counts and idempotency evidence are in `output/m3-6-report.md`.

@@ -1,6 +1,6 @@
 import { DEFAULT_INGESTION_WINDOW, FOOTBALL_COMPETITION_TARGETS, type FootballCompetitionTarget } from '@/config/footballCompetitions';
 import type { Fixture } from '@/domain/entities';
-import { SafeProviderError } from '@/providers/safe-error';
+import { SafeProviderError, sanitizeText } from '@/providers/safe-error';
 import type { FootballIngestionProvider } from '@/providers/contracts/FootballIngestionProvider';
 import type { FootballIngestionStore, StoredSeason, SyncKind, WriteCounts } from './store';
 import type { CacheInvalidator } from '@/cache/invalidation';
@@ -15,7 +15,16 @@ function plus(...counts: readonly WriteCounts[]): WriteCounts {
 
 function safeSyncMessage(error: unknown): string {
   if (error instanceof SafeProviderError) return `${error.context.provider} ${error.context.status} ${error.context.endpoint}: ${error.context.message}`;
-  return 'Sync failed; inspect server logs for the sanitized provider or database diagnostic.';
+  const message = error instanceof Error ? error.message : 'Unknown ingestion failure';
+  const errorCode = typeof (error as { code?: unknown })?.code === 'string' && /^[0-9A-Z]{5}$/.test((error as { code: string }).code)
+    ? (error as { code: string }).code : null;
+  const knownOperationalMessage = /^(timeout exceeded when trying to connect|ON CONFLICT DO UPDATE command cannot affect row a second time)/i.test(message);
+  if (!errorCode && !knownOperationalMessage) return 'Sync failed; inspect server logs for the sanitized provider or database diagnostic.';
+  const secrets = [process.env.DATABASE_URL, process.env.DATABASE_POSTGRES_URL, process.env.POSTGRES_URL,
+    process.env.DATABASE_PGPASSWORD, process.env.SPORTMONKS_API_KEY]
+    .filter((value): value is string => Boolean(value));
+  const safeMessage = sanitizeText(message, secrets).replace(/postgres(?:ql)?:\/\/\S+/gi, '[REDACTED_DATABASE_URL]');
+  return errorCode ? `${errorCode}: ${safeMessage}` : safeMessage;
 }
 
 function relevantSeasons<T extends { isCurrent?: boolean; startsAt: Date | null; endsAt: Date | null }>(
@@ -37,6 +46,7 @@ function relevantSeasons<T extends { isCurrent?: boolean; startsAt: Date | null;
 
 export class FootballIngestionService {
   private stageErrors: Array<{ stage: SyncKind; target: string; error: string }> = [];
+  private readonly selectedTargetIdentifiers: ReadonlySet<string>;
 
   constructor(
     private readonly provider: FootballIngestionProvider,
@@ -44,7 +54,13 @@ export class FootballIngestionService {
     private readonly targets: readonly FootballCompetitionTarget[] = FOOTBALL_COMPETITION_TARGETS,
     private readonly now: () => Date = () => new Date(),
     private readonly invalidator: CacheInvalidator = new NoopCacheInvalidator(),
-  ) {}
+  ) {
+    this.selectedTargetIdentifiers = new Set(targets.flatMap(target => [target.key, target.slug]));
+  }
+
+  private selected<T extends { targetKey: string }>(rows: readonly T[]): T[] {
+    return rows.filter(row => this.selectedTargetIdentifiers.has(row.targetKey));
+  }
 
   private async tracked(kind: SyncKind, work: () => Promise<WriteCounts>): Promise<SyncResult> {
     this.stageErrors = [];
@@ -79,7 +95,7 @@ export class FootballIngestionService {
 
   syncSeasons() {
     return this.tracked('SEASONS', async () => {
-      const competitions = await this.store.listTargetCompetitions();
+      const competitions = this.selected(await this.store.listTargetCompetitions());
       const rows: StoredSeason[] = [];
       for (const item of competitions) {
         try {
@@ -95,7 +111,7 @@ export class FootballIngestionService {
 
   syncTeams() {
     return this.tracked('TEAMS', async () => {
-      const seasons = await this.store.listRelevantSeasons();
+      const seasons = this.selected(await this.store.listRelevantSeasons());
       const counts: WriteCounts[] = [];
       for (const season of seasons) {
         try {
@@ -114,7 +130,7 @@ export class FootballIngestionService {
 
   syncFixtures(daysPast = DEFAULT_INGESTION_WINDOW.daysPast, daysFuture = DEFAULT_INGESTION_WINDOW.daysFuture) {
     return this.tracked('FIXTURES', async () => {
-      const competitions = await this.store.listTargetCompetitions();
+      const competitions = this.selected(await this.store.listTargetCompetitions());
       const now = this.now();
       const from = new Date(now.getTime() - daysPast * 86_400_000);
       const to = new Date(now.getTime() + daysFuture * 86_400_000);

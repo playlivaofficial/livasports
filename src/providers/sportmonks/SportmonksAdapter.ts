@@ -7,7 +7,7 @@ import type { FixtureQuery, SportsDataProvider } from '@/providers/contracts/Spo
 import type { FootballCompetitionTarget } from '@/config/footballCompetitions';
 import type { CompetitionCatalog, FootballIngestionProvider, TeamCatalog } from '@/providers/contracts/FootballIngestionProvider';
 import { SportmonksNormalizer } from './normalizer';
-import type { SportmonksGateway } from './types';
+import type { SportmonksGateway, SportmonksTeamPayload } from './types';
 import { classifyAccessibleCoverage } from '@/competition/coverage';
 import { CompetitionCoverageStatus, TeamType } from '@/domain/enums';
 
@@ -21,8 +21,15 @@ async function mapBounded<T, R>(rows: readonly T[], mapper: (row: T) => Promise<
 
 export class SportmonksAdapter implements SportsDataProvider, FootballIngestionProvider {
   private readonly normalizer: SportmonksNormalizer;
+  private sportBinding: Promise<void> | null = null;
+  private readonly countryBindings = new Map<number, Promise<Country | null>>();
+  private readonly teamCountries = new Map<string, Promise<Country>>();
 
-  constructor(private readonly gateway: SportmonksGateway, private readonly mappings: ProviderMappingService) {
+  constructor(
+    private readonly gateway: SportmonksGateway,
+    private readonly mappings: ProviderMappingService,
+    private readonly resolveCountryByCode?: (code: string) => Promise<Country | null>,
+  ) {
     this.normalizer = new SportmonksNormalizer(mappings);
   }
 
@@ -33,16 +40,56 @@ export class SportmonksAdapter implements SportsDataProvider, FootballIngestionP
   }
 
   private async bindSportAndCountry(raw: { sport_id: number; country_id: number | null; country?: { iso2?: string; name?: string } }): Promise<Country | null> {
-    await this.mappings.bind(ProviderCode.SPORTMONKS, ProviderEntityType.SPORT, String(raw.sport_id), FOOTBALL.id, { code: FOOTBALL.code });
+    this.sportBinding ??= this.mappings.bind(ProviderCode.SPORTMONKS, ProviderEntityType.SPORT,
+      String(raw.sport_id), FOOTBALL.id, { code: FOOTBALL.code }).then(() => undefined);
+    await this.sportBinding;
     if (raw.country_id === null || !raw.country?.iso2 || !raw.country.name) return null;
+    const cached = this.countryBindings.get(raw.country_id);
+    if (cached) return cached;
+    const binding = (async () => {
+      const code = raw.country!.iso2!.toUpperCase();
+      const productCountry = code === 'BR' ? PRODUCT_COUNTRIES.BR : code === 'MX' ? PRODUCT_COUNTRIES.MX : null;
+      const existing = await this.mappings.lookup(ProviderCode.SPORTMONKS, ProviderEntityType.COUNTRY, String(raw.country_id));
+      const mappedCountry: Country | null = existing ? {
+        id: domainId<'Country'>(existing.livasportsEntityId), code, name: raw.country!.name!,
+      } : null;
+      const country = productCountry ?? mappedCountry ?? await this.resolveCountryByCode?.(code) ?? {
+        id: domainId<'Country'>(crypto.randomUUID()), code, name: raw.country!.name!,
+      };
+      await this.mappings.bind(ProviderCode.SPORTMONKS, ProviderEntityType.COUNTRY,
+        String(raw.country_id), country.id, { code, name: country.name });
+      return country;
+    })();
+    this.countryBindings.set(raw.country_id, binding);
+    return binding;
+  }
+
+  private async canonicalTeamCountry(raw: SportmonksTeamPayload): Promise<Country | null> {
+    if (raw.country_id === null || !raw.country?.iso2 || !raw.country.name) return null;
+    if (!this.resolveCountryByCode) return this.bindSportAndCountry(raw);
     const code = raw.country.iso2.toUpperCase();
-    const productCountry = code === 'BR' || code === 'MX' ? PRODUCT_COUNTRIES[code] : null;
-    const existing = await this.mappings.lookup(ProviderCode.SPORTMONKS, ProviderEntityType.COUNTRY, String(raw.country_id));
-    const country: Country = productCountry ?? {
-      id: domainId<'Country'>(existing?.livasportsEntityId ?? crypto.randomUUID()), code, name: raw.country.name,
-    };
-    await this.mappings.bind(ProviderCode.SPORTMONKS, ProviderEntityType.COUNTRY, String(raw.country_id), country.id, { code, name: country.name });
-    return country;
+    const cached = this.teamCountries.get(code);
+    if (cached) return cached;
+    const binding = (async () => {
+      const productCountry = code === 'BR' || code === 'MX' ? PRODUCT_COUNTRIES[code] : null;
+      return productCountry ?? await this.resolveCountryByCode!(code) ?? {
+        id: domainId<'Country'>(crypto.randomUUID()), code, name: raw.country!.name!,
+      };
+    })();
+    this.teamCountries.set(code, binding);
+    return binding;
+  }
+
+  private async normalizeTeamCatalog(rawTeams: readonly SportmonksTeamPayload[], teamType: TeamType): Promise<TeamCatalog> {
+    const canonicalCountries = await mapBounded(rawTeams, raw => this.canonicalTeamCountry(raw));
+    const normalized = await mapBounded(rawTeams, raw => this.normalizer.team({ ...raw, country_id: null }, teamType));
+    const countries = new Map<string, Country>();
+    const teams = normalized.map((team, index) => {
+      const country = canonicalCountries[index];
+      if (country) countries.set(country.id, country);
+      return { ...team, countryId: country?.id ?? null };
+    });
+    return { countries: [...countries.values()], teams };
   }
 
   async discoverCompetitions(targets: readonly FootballCompetitionTarget[]): Promise<CompetitionCatalog> {
@@ -72,13 +119,7 @@ export class SportmonksAdapter implements SportsDataProvider, FootballIngestionP
     const seasonMapping = await this.mappings.lookupByLivaSportsId(ProviderCode.SPORTMONKS, ProviderEntityType.SEASON, seasonId);
     const teamType = seasonMapping?.metadata.teamType === TeamType.NATIONAL_TEAM ? TeamType.NATIONAL_TEAM : TeamType.CLUB;
     const rawTeams = await this.gateway.teams(providerId);
-    const countries = new Map<string, Country>();
-    for (const raw of rawTeams) {
-      const country = await this.bindSportAndCountry(raw);
-      if (country) countries.set(country.id, country);
-      else raw.country_id = null;
-    }
-    return { countries: [...countries.values()], teams: await mapBounded(rawTeams, raw => this.normalizer.team(raw, teamType)) };
+    return this.normalizeTeamCatalog(rawTeams, teamType);
   }
 
   getRequestCount(): number { return this.gateway.requestCount(); }
@@ -102,7 +143,7 @@ export class SportmonksAdapter implements SportsDataProvider, FootballIngestionP
     const providerId = await this.providerId(ProviderEntityType.SEASON, seasonId);
     const seasonMapping = await this.mappings.lookupByLivaSportsId(ProviderCode.SPORTMONKS, ProviderEntityType.SEASON, seasonId);
     const teamType = seasonMapping?.metadata.teamType === TeamType.NATIONAL_TEAM ? TeamType.NATIONAL_TEAM : TeamType.CLUB;
-    return mapBounded(await this.gateway.teams(providerId), raw => this.normalizer.team(raw, teamType));
+    return (await this.normalizeTeamCatalog(await this.gateway.teams(providerId), teamType)).teams;
   }
 
   async getFixtures(query: FixtureQuery) {

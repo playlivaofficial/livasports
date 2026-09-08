@@ -8,6 +8,35 @@
     "to": "2026-09-28"
   },
   "configuredCompetitions": 34,
+  "ingestionCompletion": {
+    "verifiedAt": "2026-09-08T07:00:07.171Z",
+    "counts": {
+      "enabledCompetitions": 34,
+      "seasons": 42,
+      "currentSeasons": 33,
+      "teams": 1343,
+      "fixtures": 904,
+      "providerMappings": 2484
+    },
+    "idempotency": {
+      "teamsInserted": 0,
+      "fixturesInserted": 0,
+      "scoresInserted": 0,
+      "result": "PASS"
+    },
+    "integrity": {
+      "competitionDuplicateGroups": 0,
+      "seasonDuplicateGroups": 0,
+      "teamDuplicateGroups": 0,
+      "fixtureDuplicateGroups": 0,
+      "providerReferenceDuplicateGroups": 0,
+      "internalMappingDuplicateGroups": 0,
+      "teamsWithoutSportmonksMapping": 0,
+      "fixturesWithoutSportmonksMapping": 0,
+      "orphanSportmonksCountryMappings": 0
+    },
+    "continuationProviderRequests": 43
+  },
   "summary": {
     "SUPPORTED": 26,
     "SUPPORTED_BUT_NO_CURRENT_FIXTURES": 8,

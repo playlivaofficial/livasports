@@ -85,6 +85,23 @@ describe('M2 football ingestion', () => {
     expect(store.fixtures.get(fixture.id)?.kickoff.toISOString()).toBe('2026-09-08T01:30:00.000Z');
   });
 
+  it('limits resumable stages to explicitly selected competition targets', async () => {
+    const provider = new FakeProvider(); const store = new InMemoryFootballIngestionStore();
+    const otherTarget = { ...target, key: 'other-target', slug: 'other-league', canonicalName: 'Other League' };
+    const otherCompetition = { ...competition, id: domainId<'Competition'>('other-competition'), slug: otherTarget.slug };
+    const otherSeason = { ...season, id: domainId<'Season'>('other-season'), competitionId: otherCompetition.id, targetKey: otherTarget.slug };
+    await store.upsertCompetitions([
+      { targetKey: target.key, competition, target },
+      { targetKey: otherTarget.key, competition: otherCompetition, target: otherTarget },
+    ]);
+    await store.upsertSeasons([{ ...season, targetKey: target.slug }, otherSeason]);
+    const service = new FootballIngestionService(provider, store, [target], () => now);
+    await service.syncTeams();
+    expect(provider.requests).toBe(1);
+    expect(store.teamSeasons.has(`${teams[0].id}:${season.id}`)).toBe(true);
+    expect(store.teamSeasons.has(`${teams[0].id}:${otherSeason.id}`)).toBe(false);
+  });
+
   it('updates the same fixture with its finished score', async () => {
     const provider = new FakeProvider(); const store = new InMemoryFootballIngestionStore();
     const invalidator = new RecordingCacheInvalidator();

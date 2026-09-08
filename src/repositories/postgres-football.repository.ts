@@ -21,6 +21,14 @@ async function many<T>(database: DatabaseClient, rows: readonly T[], write: (cli
 export class PostgresFootballRepository implements FootballIngestionStore, FootballReadRepository {
   constructor(private readonly database: DatabaseClient) {}
 
+  async findCountryByCode(code: string): Promise<Country | null> {
+    const result = await this.database.query<{ id: string; iso2: string; name: string }>(
+      'SELECT id,iso2,name FROM countries WHERE iso2=$1', [code.toUpperCase()],
+    );
+    const row = result.rows[0];
+    return row ? { id: domainId<'Country'>(row.id), code: row.iso2, name: row.name } : null;
+  }
+
   upsertCountries(rows: readonly Country[]) {
     return many(this.database, rows, (db, row) => counted(db, `INSERT INTO countries (id, iso2, name) VALUES ($1,$2,$3)
       ON CONFLICT (id) DO UPDATE SET iso2=EXCLUDED.iso2, name=EXCLUDED.name, updated_at=now() RETURNING xmax = 0 AS inserted`,
@@ -152,8 +160,16 @@ export class PostgresFootballRepository implements FootballIngestionStore, Footb
   }
 
   async startSync(syncKind: SyncKind, targetKey: string): Promise<string> {
-    const result = await this.database.query<{ id: string }>('INSERT INTO ingestion_sync_runs (sync_kind,target_key,status) VALUES ($1,$2,\'RUNNING\') RETURNING id', [syncKind, targetKey]);
-    return result.rows[0].id;
+    return this.database.transaction(async db => {
+      await db.query(`UPDATE ingestion_sync_runs SET status='FAILED',completed_at=now(),
+        error_message=COALESCE(error_message,'Interrupted process was not active when a replacement sync began.')
+        WHERE sync_kind=$1 AND status='RUNNING' AND started_at < now() - interval '30 minutes'`, [syncKind]);
+      const result = await db.query<{ id: string }>(
+        'INSERT INTO ingestion_sync_runs (sync_kind,target_key,status) VALUES ($1,$2,\'RUNNING\') RETURNING id',
+        [syncKind, targetKey],
+      );
+      return result.rows[0].id;
+    });
   }
   async finishSync(id: string, counts: WriteCounts, providerRequests: number, metadata: Record<string, unknown> = {}) {
     await this.database.query(`UPDATE ingestion_sync_runs SET status='SUCCEEDED',completed_at=now(),records_inserted=$2,records_updated=$3,provider_requests=$4,metadata=$5::jsonb WHERE id=$1`, [id, counts.inserted, counts.updated, providerRequests, JSON.stringify(metadata)]);

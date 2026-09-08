@@ -15,6 +15,7 @@
     "validate:oddspapi": "node src/oddspapi-cli.js",
     "db:migrate": "tsx --env-file=.env.production.local --env-file=.env src/ingestion/cli.ts migrate",
     "sync:football": "tsx --env-file=.env.production.local --env-file=.env src/ingestion/cli.ts football",
+    "sync:teams": "tsx --env-file=.env.production.local --env-file=.env src/ingestion/cli.ts teams",
     "sync:fixtures": "tsx --env-file=.env.production.local --env-file=.env src/ingestion/cli.ts fixtures",
     "sync:scores": "tsx --env-file=.env.production.local --env-file=.env src/ingestion/cli.ts scores",
     "coverage:competitions": "tsx --env-file=.env src/ingestion/cli.ts coverage",

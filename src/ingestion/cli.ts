@@ -90,17 +90,22 @@ try {
       } else {
         const ingestible = validation.results.filter(result => isIngestibleCoverage(result.classification)).map(result => result.target);
         const db = requiredDatabase();
+        const repository = new PostgresFootballRepository(db);
         const mappings = new ProviderMappingService(new PostgresProviderEntityMappingRepository(db));
-        const service = new FootballIngestionService(new SportmonksAdapter(gateway, mappings), new PostgresFootballRepository(db), ingestible);
+        const service = new FootballIngestionService(new SportmonksAdapter(gateway, mappings,
+          code => repository.findCountryByCode(code)), repository, ingestible);
         const result = await service.syncFootball();
         console.info(JSON.stringify({ command, coverage: report.summary, coverageRequests: validation.requestsConsumed,
           ingestibleCompetitions: ingestible.length, result }));
       }
     } else {
       const db = requiredDatabase();
+      const repository = new PostgresFootballRepository(db);
       const mappings = new ProviderMappingService(new PostgresProviderEntityMappingRepository(db));
-      const service = new FootballIngestionService(new SportmonksAdapter(gateway, mappings), new PostgresFootballRepository(db), targets);
-      const result = command === 'fixtures' ? await service.syncFixtures()
+      const service = new FootballIngestionService(new SportmonksAdapter(gateway, mappings,
+        code => repository.findCountryByCode(code)), repository, targets);
+      const result = command === 'teams' ? await service.syncTeams()
+        : command === 'fixtures' ? await service.syncFixtures()
         : command === 'scores' ? await service.syncFixtureScores()
           : await service.syncFootball();
       console.info(JSON.stringify({ command, result }));
