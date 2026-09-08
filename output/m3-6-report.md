@@ -1,6 +1,6 @@
 # LivaSports M3.6 — Competition Expansion Report
 
-Generated: 2026-09-08T07:00:07.171Z
+Generated: 2026-09-08T08:41:41.867Z
 
 ## Status
 
@@ -12,7 +12,7 @@ M3.6 expands LivaSports to the final approved 34-entry Sportmonks club-competiti
 
 Verified locally: 2026-09-08T08:33:48.650Z
 
-**READY FOR PRODUCTION DEPLOYMENT**
+**COMPLETE — DEPLOYED — PRODUCTION QA PASS**
 
 The route read model previously derived navigation sections from fixture rows, so enabled competitions without a fixture inside the selected delivery window were omitted. Navigation is now driven by a dedicated enabled-competition registry read, while fixtures remain a separate bounded date-window read. The two fixed DB queries run in parallel on a route-cache miss; there is no per-competition query and no provider call.
 
@@ -32,7 +32,27 @@ The 24 competitions with fixture rows are: `brasileirao-serie-a`, `brasileirao-s
 
 The 10 competition sections with no fixture in the current football window are: `copa-do-brasil`, `paulista-a1`, `carioca-serie-a`, `copa-do-nordeste`, `concacaf-champions-cup`, `europa-league`, `conference-league`, `uefa-super-cup`, `copa-del-rey`, and `saudi-pro-league-playoffs`. They remain clickable and render a compact localized no-games state; no fixture or score is fabricated.
 
-Local 390×844 browser QA passed for `/br` and `/mx`: both returned 34 competition links and 34 competition sections, BR/PT and MX/ES empty-state text was correct, fixture-bearing competitions still rendered real rows, and `document.scrollWidth` equaled the 390px viewport width. Tests, typecheck, lint, production build, DB integrity, and pre-deployment secret scan passed. The route cache key was versioned so the obsolete 24-entry cached payload cannot survive this release.
+Local and production 390×844 browser QA passed for `/br` and `/mx`: both returned 34 competition links and 34 competition sections, BR/PT and MX/ES empty-state text was correct, fixture-bearing competitions still rendered real rows, and `document.scrollWidth` equaled the 390px viewport width. Tests, typecheck, lint, production build, DB integrity, and pre/post-deployment secret scans passed. The route cache key was versioned so the obsolete 24-entry cached payload cannot survive this release.
+
+### Completion-fix production release
+
+- Verified: **2026-09-08T08:41:41.867Z**
+- Implementation commit: `c51555af6e7c8ccbcfd9337e13284e8c65e60ac2`
+- Existing Vercel project: `nikapopkha3-4447s-projects/livasports`
+- Deployment ID: `dpl_4kyRC5QDDYKSJ9Z1qyEXKqBErRUG`
+- Deployment URL: `https://livasports-pk5ap3njg-nikapopkha3-4447s-projects.vercel.app`
+- Vercel status/build: **READY / PASS — 19 seconds**
+- Production domain and HTTPS: **PASS**
+- `www.livasports.com` redirect: **PASS — HTTP 308 to `https://livasports.com/`**
+- `/` redirect: **PASS — HTTP 307 to `/br`**
+- BR/MX route smoke: **PASS — HTTP 200 for all eight localized routes**
+- Health: **PASS — database/cache available; provider configuration server-side**
+- Navigation: **PASS — 34/34 in both locales**
+- Mobile 390px overflow: **PASS — 390px client width / 390px document width**
+- Cache: **PASS — production MISS followed by HIT (0.6ms HIT observed)**
+- Normal-navigation provider requests: **0** on every observed loader event
+- Vercel warning/error/fatal counts: **0 / 0 / 0**
+- Production secret scan: **PASS — 8 HTML documents and 8 JavaScript assets; 0 credential-name or literal-secret matches**
 
 ## Coverage result
 
@@ -159,7 +179,7 @@ This continuation consumed exactly **43 Sportmonks requests**, including two one
 | Neon migrations | PASS — migrations 001–005 applied; rerun applied 0 |
 | DB-backed BR/MX reads | PASS |
 | Duplicate/orphan audit | PASS |
-| Tests | PASS — 6 Node tests and 60 Vitest tests |
+| Tests | PASS — 6 Node tests and 62 Vitest tests |
 | Typecheck | PASS |
 | ESLint | PASS — zero warnings |
 | Production build | PASS — Next.js 16.3.4 |
@@ -217,4 +237,4 @@ Eight HTML documents and eight production JavaScript assets were scanned against
 
 ## Final conclusion
 
-M3.6 is complete, deployed, and verified. All 34 approved competition mappings are recognized; controlled persistence and idempotency are clean; production navigation remains cache/DB-backed with zero provider calls. Stop after M3.6; do not begin M4 automatically.
+M3.6 is complete, deployed, and verified. All 34 approved competition mappings are recognized and all 34 are now discoverable in BR and MX production navigation, including compact localized empty states for competitions without games in the selected window. Controlled persistence and idempotency remain clean; production navigation remains cache/DB-backed with zero provider calls. Stop after M3.6; do not begin M4 automatically.
