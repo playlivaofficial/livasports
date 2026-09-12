@@ -1,27 +1,35 @@
-# M6 checkpoint
+# M6 completed checkpoint
 
-Checkpoint: 2026-09-12, local release verification in progress.
+**M6 COMPLETE / PRODUCTION VERIFIED — 2026-09-12 14:00 UTC.** Stop after M6. Do not restart ingestion or start M7/M8.
 
-Baseline main: `f05a8a1390ad35e03da972c1461dfea9bcc304eb`. Active feature branch: `codex/m6-bet-slip-builder`. No M7/M8. The user explicitly authorizes release after all gates pass; no further approval is required.
+## Published implementation
 
-Implementation and documentation are present in the working tree. Migration 010 is already applied to Neon and repeated as a no-op; never rerun M3.6/M4 ingestion. Existing data are intact. One controlled M6 OddsPapi call has occurred, with ledger 19 and cumulative Sportmonks 262. No upstream calls may be triggered from navigation.
+- Repository: `playlivaofficial/livasports`.
+- Feature branch: `codex/m6-bet-slip-builder`.
+- Feature commit: `a18d68b2c8ca2a392e63dfe7e0f8b58ebaab8d65`, pushed.
+- Verified main merge: `f10302987550c80546f63f30b7cb25f7fdc3a936`, pushed and synchronized.
+- Existing Vercel project only: `nikapopkha3-4447s-projects/livasports`.
+- Verified application deployment: `dpl_5TijVbugt78sarjKMW5NerH43pwr`, READY, main merge above, apex/www aliases preserved.
+- Final publication contains report/screenshots/QA helpers only. Its final commit/deployment is recorded by Git/Vercel and in the completion response; the report does not attempt to contain its own hash. Application/migration code is unchanged from the verified release.
 
-All local gates passed at 13:49 UTC: 6 Node + 242 Vitest tests, typecheck, lint, production build, secret scan; real slip/five-viewport/cross-tab/SPA/back-forward QA; local-only edge replay; migration no-op repeat and data integrity. Protected scheduler checks pass after loading `.env.m5-1.local` (its secret is absent from the other local files). Do not print any environment value.
+## Completed gates
 
-Then commit/push feature, fetch and safely merge main, push without force, verify synchronization, and use only the existing linked Vercel project's Git deployment. Run full production route/cache/secret/browser/provider-ledger QA, update the M6 report with observed evidence, push any evidence-only follow-up, verify final deployment and clean tree, stop after M6. Never interpret a controlled refresh as automation.
+248 tests (6 Node + 242 Vitest / 49 files), typecheck, lint, production build, secret scan, migration no-op repeat, canonical data-integrity audit, real slip interaction, all three markets, ten limit, replacement, two tabs, refresh, SPA/back/forward, BR/MX GEO/localization, and actual rendered 375/390/430/768/1440 layouts PASS.
 
-Useful checks (Git Bash or another shell; credentials remain in ignored files):
+Production HTTPS/www, BR/MX 34/34 navigation, Match Center/profiles/sitemap, canonical redirects/404, security and existing M5/M5.1 gates PASS. A 1,316-entry runtime window had no unexpected warning/error; 30 cache keys exhibited MISS and HIT. Provider calls during ordinary navigation/resolution are zero. One real selection crossed the 14:00 UTC kickoff and became MATCH_STARTED with no price and its intent retained; no time override or upstream request was used.
 
-```sh
-pnpm typecheck
-pnpm lint
-pnpm test
-pnpm build
-pnpm secret:scan
-node --require ./scripts/tsx-windows-preload.cjs --import tsx --env-file=.env.production.local --env-file=.env scripts/m6-audit.ts audit
-node scripts/m6-browser-qa.mjs http://localhost:3300 real
-node scripts/m6-navigation-browser-qa.mjs http://localhost:3300
-node scripts/m6-edge-browser-qa.mjs
-```
+Local replay separately proves price-change/expiry/suspension/closure/finish/missing/failure/recovery. Four 61-second hidden/offline/closed/empty tests made zero reads. Production analytics duplicate event: two 204 responses, exactly one row. No forced production price change or fake sports data.
 
-The real browser test requires at least eleven real fresh matches to exercise the tenth/eleventh limit. Do not repeatedly refresh providers to satisfy it; use existing valid snapshots and the controlled worker only when necessary for bounded verification. Edge replay is localhost-only and does not mutate canonical data or persist invented prices.
+## Preserved data / usage
+
+34 enabled competitions; 42 seasons; 1,343 teams; 904 fixtures; 2,595 provider mappings; 253 players; 651 retained quote rows; 1,150 history rows; 50 OddsPapi fixture mappings. Zero duplicate canonical/odds/profile rows, relational odds/profile orphans, invalid event contexts, running odds jobs or pending snapshots. Existing 134 unmaterialized provider identity reservations remain unchanged. No source timestamp/global shift, wipe or ingestion restart occurred.
+
+M6 total: **2 billable OddsPapi requests, Sportmonks 0**, both bounded controlled Betano BR/Premier League tournament 17 verification batches. Production duplicate invocation consumed zero. HTTP ledger 20, cumulative Sportmonks 262, conservative period accounting 69 used / 4,431 safe remaining below internal 4,500 ceiling. Quotes still expire; row count is not fresh coverage.
+
+Migration 010 already applied additively. Do not undo or repeat full ingestion. The local QA server and temporary isolated browser sessions are stopped. Credentials remain in ignored files and existing server-side Vercel variables; never print or copy them into reports.
+
+## Honest limitations / any later continuation
+
+No M6 release blocker remains. Continuous automation is **NOT operational** on Hobby, Betsson BR/MX remains GEO-unverified/gated, affiliate CTAs remain disabled, and there is no real two-public-book sample. Cross-device persistence is not provided; truly simultaneous tab writes are last-writer-wins; denied local storage is page-memory only. No purchases or upgrades.
+
+For a later authorized task, fetch and inspect current `origin/main`, read `output/m6-report.md`, and verify existing Vercel state before taking action. Do not rerun paid QA/provider refreshes simply to reproduce old screenshots. Existing screenshots are capture-time evidence; local replay is explicitly not production data. No milestone starts automatically.

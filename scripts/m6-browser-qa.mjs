@@ -30,6 +30,7 @@ try{
         check('selected button state',await page.evaluate('document.querySelector(".slip-odds-button").getAttribute("aria-pressed")==="true"'));
         await page.click('.slip-trigger');await page.wait('document.querySelectorAll(".slip-price").length===1');await page.screenshot(`${prefix}-one-390.png`);
         await page.key('Escape');await page.click('#odds-tab-TOTAL_GOALS');await page.click('.slip-odds-button:not(:disabled)');await page.wait('!!document.querySelector(".slip-confirm")');
+        await page.wait('!!document.querySelector(".slip-item:not([data-state=PENDING])")');
         await page.screenshot(`${prefix}-replace-390.png`);await page.click('.slip-confirm button');await page.wait('!document.querySelector(".slip-confirm")');
         check('one per match replacement',await page.evaluate('JSON.parse(localStorage.getItem("livasports:guest-slip")).selections.length===1&&JSON.parse(localStorage.getItem("livasports:guest-slip")).selections[0].market==="TOTAL_GOALS"'));
         await page.key('Escape');

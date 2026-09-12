@@ -9,6 +9,14 @@ try{
     const first=await runMigrations(db);const second=await runMigrations(db);
     if(second.length)throw new Error('MIGRATION_REPLAY_CHANGED');
     console.info(JSON.stringify({command,first,second,idempotent:true,providerRequests:0}));
+  }else if(command==='analytics'){
+    const base=process.argv[3]??'http://localhost:3300';
+    if(!['http://localhost:3300','https://livasports.com'].includes(base))throw new Error('QA_ORIGIN_NOT_ALLOWED');
+    const eventId=crypto.randomUUID();const body={eventId,eventName:'slip_open',locale:'br',placement:'guest-slip'};
+    const statuses=[];for(let i=0;i<2;i++)statuses.push((await fetch(base+'/api/events',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)})).status);
+    const row=(await db.query('SELECT count(*) AS n FROM product_events WHERE event_id=$1',[eventId])).rows[0];
+    const idempotent=statuses.every(s=>s===204)&&row.n==='1';
+    console.info(JSON.stringify({command,statuses,rows:row.n,idempotent,providerRequests:0}));if(!idempotent)process.exitCode=1;
   }else{
     const counts=(await db.query(`SELECT
       (SELECT count(*) FROM competitions WHERE enabled) AS competitions,(SELECT count(*) FROM fixtures) AS fixtures,
