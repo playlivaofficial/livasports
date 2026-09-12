@@ -1,0 +1,21 @@
+'use client';
+import {useSyncExternalStore} from 'react';
+import type {SiteLocale} from '@/config/i18n';
+import {createSlipStore,EMPTY_SLIP,type StorageNotice} from './state';
+import {canonicalSelection,selectionKey,type CanonicalSelection} from './types';
+import {emitSlipEvent} from './events';
+
+export const slipStore=createSlipStore(()=>window.localStorage);
+const serverSnapshot={slip:EMPTY_SLIP,notice:null as StorageNotice,ready:false};
+export function useSlip(){return useSyncExternalStore(slipStore.subscribe,slipStore.getSnapshot,()=>serverSnapshot);}
+export interface SlipFeedback {result:string;selection?:CanonicalSelection;expiresAt?:string;bookmaker?:string;expectedKey?:string;}
+export const FEEDBACK_EVENT='livasports:slip-feedback';
+export function feedback(value:SlipFeedback){window.dispatchEvent(new CustomEvent(FEEDBACK_EVENT,{detail:value}));}
+export function addSlipSelection(value:CanonicalSelection,locale:SiteLocale,expiresAt:string,bookmaker?:string){
+  const selection=canonicalSelection(value);
+  if(!selection||!Number.isFinite(Date.parse(expiresAt))||Date.now()>=Date.parse(expiresAt)){feedback({result:'EXPIRED'});return;}
+  const result=slipStore.dispatch({type:'add',selection,addedAt:new Date().toISOString()});
+  if(result.result==='ADDED')emitSlipEvent('slip_selection_add',locale,selection,bookmaker);
+  const previous=result.slip.selections.find(s=>s.fixturePublicId===selection.fixturePublicId);
+  feedback({result:result.result,selection,expiresAt,bookmaker,expectedKey:previous?selectionKey(previous):undefined});
+}

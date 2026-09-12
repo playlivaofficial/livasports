@@ -27,6 +27,10 @@ output/*.md
 !output/m5-coverage-report.json
 !output/m5-1-report.md
 !output/m5-1-checkpoint.md
+!output/m6-report.md
+!output/m6-checkpoint.md
+output/m6-*-private.json
+output/m6-*-failure.png
 output/m5-*-private.json
 output/m3-5-screenshots/*
 !output/m3-5-screenshots/final-br-futebol-1440x900.png

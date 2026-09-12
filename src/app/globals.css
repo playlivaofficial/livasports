@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "../slip/slip.css";
 
 :root {
   color-scheme: dark;

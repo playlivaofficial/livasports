@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import {Suspense} from 'react';
+import {SlipShell} from '@/components/slip/SlipShell';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://livasports.com'),
@@ -9,5 +11,5 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="pt-BR"><body>{children}</body></html>;
+  return <html lang="pt-BR"><body><div className="site-content-wrapper">{children}</div><Suspense fallback={null}><SlipShell/></Suspense></body></html>;
 }

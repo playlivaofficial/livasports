@@ -1,0 +1,78 @@
+/* M6 is a small client island. The existing sports/Match Center tree stays server-rendered. */
+.site-content-wrapper { min-width:0; padding-bottom:6rem; }
+.guest-slip button { font:inherit; cursor:pointer; }
+.slip-entry { position:fixed; z-index:55; bottom:max(12px,env(safe-area-inset-bottom)); right:16px; width:224px; }
+.slip-trigger { display:flex; width:100%; min-height:48px; align-items:center; justify-content:center; gap:.65rem; padding:.6rem 1rem; border:1px solid var(--color-border-strong); border-radius:.75rem; background:var(--color-surface-raised); box-shadow:0 6px 24px #0005; color:var(--color-text); font-size:.8rem !important; font-weight:750 !important; }
+.slip-trigger>svg { color:var(--color-accent); }
+.slip-trigger:hover,.slip-trigger[aria-expanded=true] { border-color:var(--color-accent); }
+.slip-trigger:disabled { cursor:default; }
+.slip-count { display:inline-grid; place-items:center; min-width:1.4rem; height:1.4rem; padding:0 .3rem; border-radius:.4rem; background:var(--color-accent-soft); color:var(--color-accent); font-family:var(--font-numeric); font-size:.7rem; font-weight:750; }
+.slip-trigger-text { display:grid; gap:.2rem; min-width:0; text-align:left; }
+.slip-trigger-text small { color:var(--color-text-secondary); font-size:.6rem; font-weight:500; line-height:1.35; }
+.slip-inline-feedback { flex:0 0 auto; margin:0; padding:.55rem 1rem; background:var(--color-accent-soft); color:var(--color-text-secondary); font-size:.68rem; line-height:1.4; }
+.slip-panel { position:fixed; z-index:54; right:16px; bottom:76px; width:336px; max-height:min(70dvh,660px); display:flex; flex-direction:column; overflow:hidden; border:1px solid var(--color-border-strong); border-radius:.9rem; background:var(--color-surface); box-shadow:0 12px 36px #0006; }
+.slip-heading { display:flex; flex:0 0 auto; align-items:center; justify-content:space-between; gap:.5rem; min-height:60px; padding:.5rem .7rem .5rem 1rem; border-bottom:1px solid var(--color-border); }
+.slip-heading>div { display:flex; align-items:center; gap:.6rem; }
+.slip-heading svg { color:var(--color-accent); }
+.slip-heading h2 { margin:0; font-size:.95rem; letter-spacing:-.02em; }
+.slip-icon-button { display:grid; flex:0 0 auto; place-items:center; width:44px; height:44px; padding:0; border:0; border-radius:.45rem; background:transparent; color:var(--color-text-muted); font-size:1.3rem !important; }
+.slip-icon-button:hover { background:var(--color-surface-hover); color:var(--color-text); }
+.slip-body { flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain; padding:0 1rem; scrollbar-width:thin; scrollbar-color:var(--color-border-strong) transparent; }
+.slip-summary { display:flex; align-items:center; justify-content:space-between; gap:.5rem; min-height:52px; color:var(--color-text-muted); font-size:.69rem; }
+.slip-summary>div { display:grid; gap:.18rem; }.slip-summary small { font-size:.58rem; }
+.slip-summary button { min-height:44px; border:0; border-radius:.4rem; background:none; color:var(--color-text-secondary); text-decoration:underline; text-underline-offset:3px; }
+.slip-list { margin:0; padding:0; list-style:none; }
+.slip-item { min-width:0; border:1px solid var(--color-border); border-radius:.6rem; padding:.7rem .75rem; margin-bottom:.65rem; background:var(--color-bg); }
+.slip-item-header { display:flex; justify-content:space-between; gap:.25rem; align-items:flex-start; }
+.slip-item-header>div { min-width:0; padding-top:.15rem; }
+.slip-item-header a,.slip-item-header strong { display:block; font-size:.77rem; font-weight:700; line-height:1.45; overflow-wrap:anywhere; }
+.slip-item-header a:hover { color:var(--color-accent); }
+.slip-item-header small { display:block; margin-top:.3rem; color:var(--color-text-muted); font-size:.6rem; line-height:1.5; overflow-wrap:anywhere; }
+.slip-remove { margin:-.45rem -.6rem 0 0; }
+.slip-market { margin:.9rem 0 .3rem; color:var(--color-text-muted); font-size:.62rem; }
+.slip-pick { display:flex; justify-content:space-between; align-items:center; gap:.65rem; min-height:1.65rem; }
+.slip-pick>strong:first-child { min-width:0; overflow-wrap:anywhere; font-size:.85rem; }
+.slip-price { flex:0 0 auto; padding:.35rem .5rem; border-radius:.4rem; background:var(--color-accent-soft); color:var(--color-accent); font-family:var(--font-numeric); font-size:.91rem; }
+.slip-no-price { color:var(--color-text-muted); }
+.slip-state { display:grid; gap:.2rem; margin-top:.6rem; color:var(--color-warning); font-size:.64rem; line-height:1.4; }
+.slip-state.is-current { color:var(--color-text-secondary); }
+.slip-state small { color:var(--color-text-muted); font-size:.61rem; }
+.slip-item[data-state=PRICE_CHANGED] .slip-state>span { color:var(--color-accent); }
+.slip-footer { flex:0 0 auto; border-top:1px solid var(--color-border); padding:.8rem 1rem; background:var(--color-surface-raised); }
+.slip-footer p { margin:0 0 .3rem; color:var(--color-text-secondary); font-size:.66rem; line-height:1.45; }
+.slip-footer small { display:block; color:var(--color-text-muted); font-size:.6rem; line-height:1.5; }
+.slip-empty { padding:1.8rem .6rem 2rem; text-align:center; }
+.slip-empty-icon { display:grid; place-items:center; width:3.1rem; height:3.1rem; margin:0 auto 1rem; border:1px solid var(--color-border); border-radius:.9rem; background:var(--color-accent-soft); color:var(--color-accent); }
+.slip-empty-icon svg { width:25px; height:25px; }
+.slip-empty h3 { margin:0 0 .65rem; font-size:.98rem; line-height:1.4; }
+.slip-empty p { margin:0; color:var(--color-text-muted); font-size:.75rem; line-height:1.65; }
+.slip-empty a { display:inline-flex; min-height:44px; align-items:center; gap:.35rem; margin-top:.9rem; color:var(--color-accent); font-size:.74rem; font-weight:700; }
+.slip-notice { margin:.65rem 0; padding:.65rem .75rem; border:1px solid #f6b94b33; border-radius:.5rem; background:var(--color-warning-soft); color:var(--color-warning); font-size:.68rem; line-height:1.5; }
+.slip-confirm { margin:.8rem 0; padding:.8rem; border:1px solid var(--color-accent); border-radius:.6rem; background:var(--color-surface-raised); font-size:.74rem; }
+.slip-confirm p { margin:.5rem 0; color:var(--color-text-secondary); line-height:1.5; overflow-wrap:anywhere; }
+.slip-confirm>div { display:flex; gap:.5rem; flex-wrap:wrap; margin-top:.5rem; }
+.slip-confirm button { flex:1; min-height:44px; padding:.45rem .6rem; border:1px solid var(--color-border-strong); border-radius:.4rem; background:var(--color-surface); color:var(--color-text); font-size:.7rem; }
+.slip-confirm button:first-child { background:var(--color-accent-soft); color:var(--color-accent); border-color:var(--color-accent); }
+.slip-verified { margin:.65rem 0 1rem; color:var(--color-text-muted); font-size:.6rem; }
+button.slip-odds-button { position:relative; width:100%; min-width:44px; min-height:44px; max-width:92px; padding:.45rem .2rem; border:1px solid var(--color-border-strong); background:var(--color-surface-raised); color:var(--color-text); cursor:pointer; }
+button.slip-odds-button:hover { border-color:var(--color-accent); background:var(--color-accent-soft); }
+button.slip-odds-button[aria-pressed=true] { border-color:var(--color-accent); background:var(--color-accent-soft); color:var(--color-accent); }
+.slip-selected-indicator { position:absolute; top:1px; right:3px; font:8px var(--font-sans); }
+@media(min-width:1280px) {
+  body[data-slip-open=true] .site-content-wrapper { margin-right:368px; }
+  .slip-panel { top:80px; bottom:auto; max-height:calc(100dvh - 156px); }
+  .slip-entry { width:336px; }
+}
+@media(max-width:1279px) {
+  .slip-panel { right:12px; width:min(420px,calc(100% - 24px)); }
+  body[data-slip-open=true] .site-content-wrapper { padding-bottom:calc(var(--slip-panel-height,70dvh) + 90px); }
+}
+@media(max-width:620px) {
+  .slip-entry { left:12px; right:12px; width:auto; }
+  .slip-trigger { justify-content:flex-start; }
+  .slip-trigger>span:last-child { margin-left:auto; }
+  .slip-panel { bottom:calc(max(12px,env(safe-area-inset-bottom)) + 60px); max-height:68dvh; }
+  .slip-body { padding:0 .8rem; }
+  button.slip-odds-button { font-size:.75rem; }
+}
+@media(prefers-reduced-motion:reduce) {.guest-slip *,button.slip-odds-button { scroll-behavior:auto; transition:none; }}
