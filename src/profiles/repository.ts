@@ -270,10 +270,16 @@ export class PostgresProfileRepository {
   }
 
   async sitemapPlayers(limit = 10000) {
-    const result = await this.database.query<Row>(`SELECT p.public_id,p.display_name,GREATEST(p.updated_at,COALESCE(max(ps.observed_at),p.updated_at),
-      COALESCE(max(fl.observed_at),p.updated_at)) AS updated_at
-      FROM players p LEFT JOIN player_season_statistics ps ON ps.player_id=p.id LEFT JOIN fixture_lineups fl ON fl.player_entity_id=p.id
-      GROUP BY p.id HAVING count(DISTINCT ps.provider_type_id)>0 OR count(DISTINCT fl.fixture_id)>0 ORDER BY updated_at DESC LIMIT $1`, [limit]);
+    const result = await this.database.query<Row>(`SELECT p.public_id,p.display_name,GREATEST(p.updated_at,
+      COALESCE((SELECT max(ps.observed_at) FROM player_season_statistics ps WHERE ps.player_id=p.id),p.updated_at),
+      COALESCE((SELECT max(fl.observed_at) FROM fixture_lineups fl WHERE fl.player_entity_id=p.id),p.updated_at),
+      COALESCE((SELECT max(fps.observed_at) FROM fixture_player_statistics fps WHERE fps.player_id=p.id),p.updated_at)) AS updated_at
+      FROM players p
+      WHERE EXISTS (SELECT 1 FROM team_squad_memberships sm WHERE sm.player_id=p.id)
+        AND (EXISTS (SELECT 1 FROM player_season_statistics ps WHERE ps.player_id=p.id)
+          OR EXISTS (SELECT 1 FROM fixture_lineups fl WHERE fl.player_entity_id=p.id)
+          OR EXISTS (SELECT 1 FROM fixture_player_statistics fps WHERE fps.player_id=p.id))
+      ORDER BY updated_at DESC LIMIT $1`, [limit]);
     return result.rows.map(row => ({ publicId: String(row.public_id), name: String(row.display_name), updatedAt: new Date(String(row.updated_at)) }));
   }
 }

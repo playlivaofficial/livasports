@@ -36,4 +36,16 @@ describe('player profile read model', () => {
     expect(result?.matches.data).toHaveLength(1);
     expect(result?.matches.data[0]?.minutesPlayed).toBe(90);
   });
+
+  it('keeps thin lineup-only players out of the sitemap', async () => {
+    let statement = '';
+    const database = { query: async (sql:string) => {
+      statement = sql;
+      return { rows:[] };
+    } };
+    await new PostgresProfileRepository(database as never).sitemapPlayers();
+    expect(statement).toContain('EXISTS (SELECT 1 FROM team_squad_memberships');
+    expect(statement).toContain('fixture_player_statistics');
+    expect(statement).not.toContain('HAVING count(DISTINCT fl.fixture_id)>0');
+  });
 });
