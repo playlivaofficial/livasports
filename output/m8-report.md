@@ -1,6 +1,6 @@
 # M8 affiliate and conversion hardening
 
-Status: all local implementation/release gates passed; authorized publication in progress.
+Status: **M8 released and production verified**. Final evidence publication is verified again against the containing main commit before stopping.
 
 Betsson's approved destination is not available in this local environment. Exact secure input: `LIVASPORTS_AFFILIATE_CONFIG_FILE` → `destinationUrl` → server-only `affiliate_links.destination_url`. Campaign configuration also requires the actual operator campaign identifier and approved placement/date/domain scope. Betsson BR remains odds eligible and affiliate approved. Betano BR CTA off; MX independently gated. Active campaigns/placements: none. Postback and sub-ID propagation: not operational; no real conversion evidence available.
 
@@ -20,4 +20,35 @@ Security: repository, final local Match Center HTML and its scripts scan clean, 
 
 Live baseline remains 34 competitions, 904 fixtures, 1,343 teams, 253 players, 651 retained current quote rows and 1,563 history rows. OddsPapi ledger 22 / historical sports requests 262; M8 provider delta **0 / 0**. Current retained prices are stale and correctly withheld; no provider refresh was purchased or triggered for M8. Continuous odds automation remains non-operational on Hobby.
 
-Release commit, deployment identity, final production checks and exact synchronized main will be recorded after publication. Active campaigns, affiliate impressions/clicks and operator conversion rows remain zero because approved commercial configuration is unavailable. First-party attribution is implemented and tested; no real operator arrival, FTD, revenue, commission or conversion measurement is claimed.
+Active campaigns, affiliate impressions/clicks and operator conversion rows remain zero because approved commercial configuration is unavailable. First-party attribution is implemented and tested; no real operator arrival, FTD, revenue, commission or conversion measurement is claimed.
+
+## Release evidence
+
+| Item | Verified result |
+|---|---|
+| Feature branch | `codex/m8-affiliate-conversion-hardening`, pushed |
+| Implementation commit | `1cfb522eeef4b5daf2f9c1bde22d3fb259ad6320` |
+| Safe main merge | `af4c00da2f1e5d6c43b4e044a9754877a9ee005a`, pushed |
+| GitHub identity | `playlivaofficial`; no stale `nika1578` credential used |
+| Git state at application release | Local main equals origin/main; clean tree |
+| Application deployment | `dpl_5BxYoPbssLATX27esCtccd5UAbQ2`, READY, exact merge SHA |
+| Existing project | `nikapopkha3-4447s-projects/livasports` / `prj_AWVpxaSj2mI7RI7MlwmrnMW6Ogvr` |
+| Production alias | `livasports.com` independently verified to point to that deployment |
+| Migration | `012_m8_affiliate_conversion.sql` applied once; repeat migration returned `[]` |
+
+The existing GitHub integration deployed main automatically. No project was created, no force-push occurred, and no hosting/provider upgrade was purchased. The subsequent evidence-only commit contains production screenshots, this report and the bounded log-audit helper; application source remains identical to the verified merge. Its final main SHA and exact READY deployment are verified and included in the task completion message to avoid self-referential commit hashes inside this file.
+
+## Production QA
+
+- Full M3–M7 route regression passed: `/`, all BR/MX navigation pages, 34/34 competition links in both locales, real Match Center data/API, odds API, team/player profiles, canonical redirects, missing routes, sitemap, DB health and all 50 source-confirmed kickoff corrections.
+- M7 HTTP: 17 checks passed, including ten canonical selections, locale isolation, current-only totals, exact saved-order restoration, missing fixture context, safe outbound fallback and strict request validation. Real elapsed-kickoff selections produce no price, total or best badge.
+- M8 HTTP: all 25 checks passed against production. Open-redirect/query/scheme injection, unknown bookmaker/placement, forged offer/impression, duplicate arguments and unsupported postback requests are rejected. HEAD, crawlers and prefetch do not activate. BR and MX missing campaigns return null offers. Protected operations rejects missing/invalid authorization.
+- Real browser: 31 no-campaign page checks and 27 persisted-slip checks passed across 375/390/430/768/1440. Home, Match Center, team, player and MX pages show no empty sponsor box or unapproved CTA. M6/M7 ten-pick controls, focus, 44px targets, SPA/back/forward persistence and localized failure recovery work. No browser JS error, unexpected 5xx, overflow or broken image; page captures show CLS 0.
+- Approved-destination/creative behavior is not falsely claimed live. Complete Betsson/Betano math and the actual commercial CTA were verified in labeled local replay; viewability/opt-out/QA tests use the shared anchor architecture without fabricated creative. The database-backed redirect was tested within a fully rolled-back transaction, never by following an invented live destination.
+- Production secret scan: BR Match Center HTML plus scripts (11 documents), MX HTML plus scripts (10), and repository all pass with zero credential-value leaks, zero client secret references and zero tracked environment files.
+- Masked protected commercial health: signing configured, campaigns/metrics empty, zero conversions, postback/sub-ID false, no last redirect error, retention maintenance present. Existing product module-view telemetry is explicitly reported separately as unclassified and may include QA. Odds automation remains disabled/non-operational, last automated refresh null, no active lease.
+- Runtime logs: the initial bounded 500-returned-row sample had zero error/fatal entries, server 5xx or nonzero provider-request markers. A later filtered audit found one request with a background M3 route-cache revalidation connection timeout; that request returned 200, and the Match Center load then completed in about 222 ms. The database, delivery and cache components are unchanged from M7. Explicit recovery checks of home, the affected match, DB health and the match again all returned 200 (557 / 1,012 / 279 / 337 ms). No affiliate failure or server 500/502/503/504 was found. This diagnosed transient legacy background error is retained as an operational observation, not erased or called a clean lifetime log. The final evidence deployment is audited separately with request deduplication and explicit error/status filters; a bounded sample is not represented as exhaustive history.
+- HTTP apex → HTTPS apex and HTTPS www → HTTPS apex both return 308; HTTPS apex returns 200.
+- Final DB audit: counts retained at 34 competitions / 904 fixtures / 1,343 teams / 253 players / 651 quotes / 1,563 history; no running job, pending snapshot or invalid product-event context. Affiliate clicks/impressions/conversions remain 0. Provider counters remain 22 OddsPapi / 262 sports; M8 delta 0 / 0.
+
+Remaining operational prerequisites: securely provide the existing approved Betsson destination and actual campaign scope through `LIVASPORTS_AFFILIATE_CONFIG_FILE` (`destinationUrl`); provide approved creatives for any banner; provide real supported operator documentation/credentials before downstream conversions or sub-ID propagation can operate. Betano remains odds-only, MX remains independently gated, and manual retention cleanup and the separate Hobby odds-automation limitation are documented. These do not downgrade Betsson BR odds eligibility or block this authorized M8 release. Stop after M8.

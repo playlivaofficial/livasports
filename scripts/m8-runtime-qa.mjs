@@ -9,8 +9,14 @@ try{const auth=JSON.parse(await readFile(join(process.env.APPDATA,'com.vercel.cl
     const q=new URLSearchParams({projectId:project,ownerId:team,teamId:team,deploymentId,environment:'production',startDate:String(Date.now()-3600000),endDate:String(Date.now()+60000),page:String(page)});
     const r=await fetch('https://vercel.com/api/logs/request-logs?'+q,{headers:{Authorization:`Bearer ${auth.token}`}});if(!r.ok)throw Error('LOGS_UNAVAILABLE');const body=await r.json();rows.push(...(body.rows??[]));hasMore=body.hasMoreRows===true;if(!hasMore)break;
   }
+  const filteredChecks=[];
+  for(const filter of [{level:'error,fatal'},{statusCode:'500'},{statusCode:'502'},{statusCode:'503'},{statusCode:'504'}]){
+    const q=new URLSearchParams({projectId:project,ownerId:team,teamId:team,deploymentId,environment:'production',startDate:String(Date.now()-3600000),endDate:String(Date.now()+60000),page:'0',...filter});
+    const r=await fetch('https://vercel.com/api/logs/request-logs?'+q,{headers:{Authorization:`Bearer ${auth.token}`}});if(!r.ok)throw Error('FILTERED_LOGS_UNAVAILABLE');const body=await r.json();rows.push(...(body.rows??[]));filteredChecks.push({filter,rows:(body.rows??[]).length,hasMore:body.hasMoreRows===true});
+  }
+  rows=[...new Map(rows.map(r=>[r.requestId??`${r.timestamp}:${r.requestMethod}:${r.requestPath}`,r])).values()];
   const failures=rows.filter(r=>r.statusCode>=500||r.logs?.some(l=>['error','fatal'].includes(l.level))),classes={};
   for(const r of failures){const key=r.logs?.some(l=>/destination stream closed early/i.test(l.message??''))?'CLIENT_STREAM_CLOSED':r.logs?.some(l=>/CONFIG_READ_FAILED|redirect-config-failed|attribution-write-failed/i.test(l.message??''))?'COMMERCIAL_ERROR':'OTHER_ERROR';classes[key]=(classes[key]??0)+1;}
-  const result={at:new Date().toISOString(),deploymentId,status:failures.length?'REVIEW':rows.length?'PASS':'NO_LOG_ROWS',rows:rows.length,hasMore,server5xx:rows.filter(r=>r.statusCode>=500).length,errorRows:failures.length,errorClasses:classes,providerRequestMarkers:rows.reduce((n,r)=>n+(r.logs??[]).filter(l=>/providerRequests["\s:]+[1-9]/.test(l.message??'')).length,0)};
-  await writeFile('output/m8-production-runtime-private.json',JSON.stringify(result,null,2));console.log(JSON.stringify(result));if(result.server5xx||result.providerRequestMarkers||classes.COMMERCIAL_ERROR||classes.OTHER_ERROR)process.exitCode=1;
+  const result={at:new Date().toISOString(),deploymentId,status:failures.length||filteredChecks.some(c=>c.rows)?'REVIEW':rows.length?'PASS':'NO_LOG_ROWS',rows:rows.length,hasMore,filteredChecks,server5xx:rows.filter(r=>r.statusCode>=500).length,errorRows:failures.length,errorClasses:classes,providerRequestMarkers:rows.reduce((n,r)=>n+(r.logs??[]).filter(l=>/providerRequests["\s:]+[1-9]/.test(l.message??'')).length,0)};
+  await writeFile('output/m8-production-runtime-private.json',JSON.stringify(result,null,2));console.log(JSON.stringify(result));if(result.status!=='PASS'||result.providerRequestMarkers)process.exitCode=1;
 }catch{console.error('M8_RUNTIME_LOG_AUDIT_FAILED; no private log bodies printed');process.exitCode=1;}
