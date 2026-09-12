@@ -7,13 +7,15 @@ import { M5_TOURNAMENTS,normalizeM5Snapshot,verifyCatalog } from '@/providers/od
 import { canonicalFixtures,endOddsJob,persistSnapshot,startOddsJob } from './ingestion';
 import {planOddsRefresh} from './refresh-policy';
 import type { OddsSnapshot } from './types';
+import {runOddsScheduler} from './scheduler';
 
 const db=new PostgresDatabaseClient(databaseUrl()!);
 let job:string|null=null;
 try {
   const command=process.argv[2]??'verify';
   if(command==='migrate')console.info(JSON.stringify({migrations:await runMigrations(db)}));
-  else if(command==='import-audit'||command==='refresh'||command==='scheduled-refresh'||command==='resume'||command==='replay-latest'){
+  else if(command==='scheduled-refresh')console.info(JSON.stringify(await runOddsScheduler(db,process.env.ODDSPAPI_API_KEY!)));
+  else if(command==='import-audit'||command==='refresh'||command==='resume'||command==='replay-latest'){
     job=await startOddsJob(db);let snapshots:OddsSnapshot[]=[];
     if(command==='import-audit'){
       const audit=JSON.parse(await readFile('output/m5-audit-private.json','utf8'));
@@ -45,7 +47,7 @@ try {
           WHEN b.provider_slug='betsson' THEN 'Generic betsson.com feed; BR/MX jurisdiction unverified' ELSE 'BR source is not MX coverage' END)
         FROM bookmakers b CROSS JOIN countries c WHERE b.provider_slug IN ('betano.bet.br','betsson') AND c.iso2 IN ('BR','MX')
         ON CONFLICT(bookmaker_id,country_id) DO NOTHING`,[betano.observedAt]);
-    }else if(command==='refresh'||command==='scheduled-refresh'){
+    }else if(command==='refresh'){
         const catalog=(await db.query("SELECT markets,tournaments FROM odds_provider_catalog WHERE provider='ODDSPAPI'")).rows[0];
         if(!catalog)throw new Error('ODDS_CATALOG_NOT_VERIFIED');verifyCatalog(catalog.markets,catalog.tournaments);
         const fixtures=(await canonicalFixtures(db)).filter(f=>M5_TOURNAMENTS.some(t=>t.canonical===f.competition));
@@ -53,7 +55,7 @@ try {
         const plan=planOddsRefresh(fixtures,latest?.toISOString()??null);
         console.info(JSON.stringify({stage:'ODDS_REFRESH_PLAN',...plan}));
         const provider=new M5OddsPapiAdapter(db,process.env.ODDSPAPI_API_KEY!,job,4);
-        for(const bookmaker of command==='scheduled-refresh'&&!plan.due?[]:['betano.bet.br','betsson']){
+        for(const bookmaker of ['betano.bet.br','betsson']){
           const tournaments=M5_TOURNAMENTS.filter(t=>fixtures.some(f=>f.competition===t.canonical&&f.status==='SCHEDULED'&&Date.parse(f.kickoff)>Date.now())).map(t=>t.id);
           if(!tournaments.length)continue;
           const snapshot=await provider.snapshot(bookmaker,tournaments);

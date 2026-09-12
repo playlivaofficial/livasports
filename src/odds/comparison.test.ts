@@ -38,4 +38,11 @@ describe('exact selection comparison',()=>{
     expect(buildComparison({...snapshot,quotes:[{...q,market:'TOTAL_GOALS',outcome:'OVER',line:3.5}]},'TOTAL_GOALS',now).rows).toHaveLength(0);
     expect(buildComparison({...snapshot,quotes:[q,q]},'MATCH_WINNER',now).eligiblePrices).toBe(0);
   });
+  it('only attaches an approved destination action while the quote is eligible and fresh',()=>{
+    const actions={'betano.bet.br':'/go/betano.bet.br?placement=match-odds'};
+    expect(buildComparison(snapshot,'MATCH_WINNER',now).rows[0].action).toBeNull();
+    expect(buildComparison(snapshot,'MATCH_WINNER',now,actions).rows[0].action).toBe(actions['betano.bet.br']);
+    expect(buildComparison(snapshot,'MATCH_WINNER',now+ODDS_TTL_MS,actions).rows[0].action).toBeNull();
+    expect(buildComparison(snapshot,'MATCH_WINNER',Date.parse(q.providerKickoff),actions).rows[0].action).toBeNull();
+  });
 });

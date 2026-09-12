@@ -105,8 +105,14 @@ export async function persistSnapshot(db:DatabaseClient,jobId:string,snapshot:Od
       SELECT fixture_id,bookmaker_id,market_code,outcome_code,line,decimal_odds,provider_updated_at,received_at,status,scope,phase,observed_at FROM changed RETURNING id`,
       [snapshot.bookmaker,snapshot.tournamentIds,snapshot.observedAt,JSON.stringify(quotes)]);
     await tx.query('UPDATE odds_sync_snapshots SET applied_at=COALESCE(applied_at,now()) WHERE id=$1',[key]);
+    await tx.query(`INSERT INTO odds_refresh_targets(bookmaker,tournament_id,last_success_at,last_attempt_at)
+      SELECT $1,unnest($2::text[]),$3,$3 ON CONFLICT(bookmaker,tournament_id) DO UPDATE SET
+      last_success_at=excluded.last_success_at,last_attempt_at=excluded.last_attempt_at,retry_after=NULL,consecutive_failures=0,last_error=NULL
+      WHERE odds_refresh_targets.last_success_at IS NULL OR odds_refresh_targets.last_success_at<excluded.last_success_at`,
+      [snapshot.bookmaker,snapshot.tournamentIds,snapshot.observedAt]);
     await tx.query("UPDATE odds_sync_jobs SET cursor=cursor+1,heartbeat_at=now(),lease_expires_at=now()+interval '3 minutes' WHERE id=$1",[jobId]);
     return {bookmaker:snapshot.bookmaker,returnedFixtures:snapshot.fixtures.length,matchedFixtures:accepted.size,quotes:quotes.length,
-      ...changes.rows[0],closed:closed.rowCount,matching:matches.map(m=>({providerId:m.raw.providerId,fixtureId:m.fixture?.id??null,state:m.state,reason:m.reason})),rejected:snapshot.rejected};
+      history_changes:Number(changes.rows[0]?.history_changes??0),current_writes:Number(changes.rows[0]?.current_writes??0),closed:closed.rowCount,
+      matching:matches.map(m=>({providerId:m.raw.providerId,fixtureId:m.fixture?.id??null,state:m.state,reason:m.reason})),rejected:snapshot.rejected};
   });
 }

@@ -5,6 +5,7 @@ export function emitMatchEvent(eventName:MatchEventName,context:MatchEventContex
   if(typeof window==='undefined')return;
   const key=`ls:${eventName}:${context.locale}:${context.fixtureId}:${placement}:${extra.market??''}:${extra.bookmaker??''}`;
   try{const now=Date.now();if(now-Number(sessionStorage.getItem(key)??0)<10000)return;sessionStorage.setItem(key,String(now));}catch{/* Tracking must never block navigation. */}
-  void fetch('/api/events',{method:'POST',keepalive:true,headers:{'content-type':'application/json'},
+  try{void fetch('/api/events',{method:'POST',keepalive:true,headers:{'content-type':'application/json'},
     body:JSON.stringify({eventId:crypto.randomUUID(),eventName,...context,placement,...extra})}).catch(()=>undefined);
+  }catch{/* Storage, UUID generation or synchronous transport errors cannot interrupt an outbound link. */}
 }

@@ -14,7 +14,7 @@ function database(){const url=databaseUrl();if(!url)throw new Error('Odds DB una
 export async function loadOddsComparisons(fixtureId:string,locale:SiteLocale):Promise<OddsComparison[]>{
   const snapshot=(await cache.getOrSet(`odds:m5:${fixtureId}:${locale}`,{ttlSeconds:15,staleIfErrorSeconds:0},()=>readOddsSnapshot(database(),fixtureId,locale))).value;
   return (Object.keys(SELECTIONS) as OddsMarket[]).map(market=>{
-    const actions=Object.fromEntries(Object.keys(snapshot.destinations).map(bookmaker=>[bookmaker,`/go/${bookmaker}?fixtureId=${fixtureId}&locale=${locale}&market=${market}`]));
+    const actions=Object.fromEntries(Object.keys(snapshot.destinations).map(bookmaker=>[bookmaker,`/go/${bookmaker}?fixtureId=${fixtureId}&locale=${locale}&market=${market}&placement=match-odds`]));
     return buildComparison(snapshot,market,Date.now(),actions);
   });
 }
