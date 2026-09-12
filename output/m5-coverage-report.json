@@ -1,0 +1,1902 @@
+{
+  "at": "2026-09-12T11:48:23.517Z",
+  "counts": {
+    "competitions": "34",
+    "seasons": "42",
+    "teams": "1343",
+    "fixtures": "904",
+    "mappings": "2595",
+    "quotes": "651",
+    "history": "846"
+  },
+  "fixtures": [
+    {
+      "id": "115e2e72-c000-432a-b53c-9c895bc4e111",
+      "public_id": "115e2e72c000432a",
+      "slug": "brasileirao-serie-a",
+      "kickoff": "2026-09-12T19:00:00.000Z",
+      "status": "SCHEDULED",
+      "provider_entity_id": "id1000032566887010"
+    },
+    {
+      "id": "efb9eb42-36e5-4aa8-9b0d-05cbe62b9dd3",
+      "public_id": "efb9eb4236e54aa8",
+      "slug": "brasileirao-serie-a",
+      "kickoff": "2026-09-12T19:00:00.000Z",
+      "status": "SCHEDULED",
+      "provider_entity_id": "id1000032566887008"
+    },
+    {
+      "id": "e62cce0b-0b9b-4012-b45f-1c1a27cfbcdf",
+      "public_id": "e62cce0b0b9b4012",
+      "slug": "brasileirao-serie-a",
+      "kickoff": "2026-09-12T20:00:00.000Z",
+      "status": "SCHEDULED",
+      "provider_entity_id": "id1000032566887016"
+    },
+    {
+      "id": "aded22c4-035e-4296-96f8-8850cb36d34d",
+      "public_id": "aded22c4035e4296",
+      "slug": "brasileirao-serie-a",
+      "kickoff": "2026-09-12T21:30:00.000Z",
+      "status": "SCHEDULED",
+      "provider_entity_id": "id1000032566887004"
+    },
+    {
+      "id": "ab713a17-00c4-4974-a8c3-d807d0038755",
+      "public_id": "ab713a1700c44974",
+      "slug": "brasileirao-serie-a",
+      "kickoff": "2026-09-12T23:30:00.000Z",
+      "status": "SCHEDULED",
+      "provider_entity_id": "id1000032566887000"
+    },
+    {
+      "id": "be30c2fc-a15d-4796-bb11-95d4016c3a82",
+      "public_id": "be30c2fca15d4796",
+      "slug": "brasileirao-serie-a",
+      "kickoff": "2026-09-13T00:00:00.000Z",
+      "status": "SCHEDULED",
+      "provider_entity_id": "id1000032566887002"
+    },
+    {
+      "id": "699ac39c-f722-4e48-af51-382b1e7f7154",
+      "public_id": "699ac39cf7224e48",
+      "slug": "brasileirao-serie-a",
+      "kickoff": "2026-09-13T19:00:00.000Z",
+      "status": "SCHEDULED",
+      "provider_entity_id": "id1000032566887006"
+    },
+    {
+      "id": "48611d6f-0a48-4f87-84fc-3befd389141d",
+      "public_id": "48611d6f0a484f87",
+      "slug": "brasileirao-serie-a",
+      "kickoff": "2026-09-13T20:30:00.000Z",
+      "status": "SCHEDULED",
+      "provider_entity_id": "id1000032566886998"
+    },
+    {
+      "id": "8c3061fd-c8b3-4f3c-9591-36c4caae6d8b",
+      "public_id": "8c3061fdc8b34f3c",
+      "slug": "brasileirao-serie-a",
+      "kickoff": "2026-09-14T23:00:00.000Z",
+      "status": "SCHEDULED",
+      "provider_entity_id": "id1000032566887014"
+    },
+    {
+      "id": "d7f975a2-6cca-49a6-a7eb-5ee3c5de0967",
+      "public_id": "d7f975a26cca49a6",
+      "slug": "brasileirao-serie-a",
+      "kickoff": "2026-09-19T19:00:00.000Z",
+      "status": "SCHEDULED",
+      "provider_entity_id": "id1000032566887028"
+    },
+    {
+      "id": "ef0c083c-7bd4-408c-83c8-a03398bbcaee",
+      "public_id": "ef0c083c7bd4408c",
+      "slug": "brasileirao-serie-a",
+      "kickoff": "2026-09-19T20:00:00.000Z",
+      "status": "SCHEDULED",
+      "provider_entity_id": "id1000032566887026"
+    },
+    {
+      "id": "75ffaccc-dcff-4a7a-a442-e99a65f84fd2",
+      "public_id": "75ffacccdcff4a7a",
+      "slug": "brasileirao-serie-a",
+      "kickoff": "2026-09-19T21:30:00.000Z",
+      "status": "SCHEDULED",
+      "provider_entity_id": "id1000032566887036"
+    },
+    {
+      "id": "5bba91e1-9194-4cd9-a4ce-ca3617dab333",
+      "public_id": "5bba91e191944cd9",
+      "slug": "brasileirao-serie-a",
+      "kickoff": "2026-09-19T23:30:00.000Z",
+      "status": "SCHEDULED",
+      "provider_entity_id": "id1000032566887020"
+    },
+    {
+      "id": "2feb5828-dc3a-4970-9c77-6186e90e0305",
+      "public_id": "2feb5828dc3a4970",
+      "slug": "brasileirao-serie-a",
+      "kickoff": "2026-09-20T00:00:00.000Z",
+      "status": "SCHEDULED",
+      "provider_entity_id": "id1000032566887022"
+    },
+    {
+      "id": "c0441590-be28-49bb-abf6-bf4cbb501e8e",
+      "public_id": "c0441590be2849bb",
+      "slug": "brasileirao-serie-a",
+      "kickoff": "2026-09-20T14:00:00.000Z",
+      "status": "SCHEDULED",
+      "provider_entity_id": "id1000032566887030"
+    },
+    {
+      "id": "c1564042-b00b-4607-8957-cf2a15fa7088",
+      "public_id": "c1564042b00b4607",
+      "slug": "brasileirao-serie-a",
+      "kickoff": "2026-09-20T19:00:00.000Z",
+      "status": "SCHEDULED",
+      "provider_entity_id": "id1000032566887034"
+    },
+    {
+      "id": "ddb18c72-415f-42f0-a171-c97a74062d59",
+      "public_id": "ddb18c72415f42f0",
+      "slug": "brasileirao-serie-a",
+      "kickoff": "2026-09-20T19:00:00.000Z",
+      "status": "SCHEDULED",
+      "provider_entity_id": "id1000032566887024"
+    },
+    {
+      "id": "40b186ca-f733-40f6-9055-8ac68607ddfd",
+      "public_id": "40b186caf73340f6",
+      "slug": "brasileirao-serie-a",
+      "kickoff": "2026-09-20T21:30:00.000Z",
+      "status": "SCHEDULED",
+      "provider_entity_id": "id1000032566887018"
+    },
+    {
+      "id": "57ecbdc5-02e1-4625-bfd6-117c6b3b5c6b",
+      "public_id": "57ecbdc502e14625",
+      "slug": "brasileirao-serie-a",
+      "kickoff": "2026-09-20T22:30:00.000Z",
+      "status": "SCHEDULED",
+      "provider_entity_id": "id1000032566887032"
+    },
+    {
+      "id": "65a667ce-1ba2-466b-bdd9-4f801d0cb6ce",
+      "public_id": "65a667ce1ba2466b",
+      "slug": "copa-libertadores",
+      "kickoff": "2026-09-15T22:00:00.000Z",
+      "status": "SCHEDULED",
+      "provider_entity_id": "id1000038473873326"
+    },
+    {
+      "id": "7d5de21c-d42e-437e-be36-9597fea47cf8",
+      "public_id": "7d5de21cd42e437e",
+      "slug": "copa-libertadores",
+      "kickoff": "2026-09-16T22:00:00.000Z",
+      "status": "SCHEDULED",
+      "provider_entity_id": "id1000038473903158"
+    },
+    {
+      "id": "01a18d5d-847c-44a3-b3fa-875ee27b61d4",
+      "public_id": "01a18d5d847c44a3",
+      "slug": "copa-libertadores",
+      "kickoff": "2026-09-17T00:30:00.000Z",
+      "status": "SCHEDULED",
+      "provider_entity_id": "id1000038473911212"
+    },
+    {
+      "id": "31684ae4-53ab-44ec-b5b3-4b35eb016d75",
+      "public_id": "31684ae453ab44ec",
+      "slug": "copa-libertadores",
+      "kickoff": "2026-09-18T00:30:00.000Z",
+      "status": "SCHEDULED",
+      "provider_entity_id": "id1000038474073942"
+    },
+    {
+      "id": "870fc8e4-82f5-466c-9693-6937e433a981",
+      "public_id": "870fc8e482f5466c",
+      "slug": "liga-mx",
+      "kickoff": "2026-09-12T23:05:00.000Z",
+      "status": "SCHEDULED",
+      "provider_entity_id": "id1002746472055166"
+    },
+    {
+      "id": "06c341a0-8a61-41ae-b320-53e03630da8e",
+      "public_id": "06c341a08a6141ae",
+      "slug": "liga-mx",
+      "kickoff": "2026-09-13T01:10:00.000Z",
+      "status": "SCHEDULED",
+      "provider_entity_id": "id1002746472055172"
+    },
+    {
+      "id": "a5353b7b-1201-4fea-b33f-4fca1e06f3b3",
+      "public_id": "a5353b7b12014fea",
+      "slug": "liga-mx",
+      "kickoff": "2026-09-13T03:15:00.000Z",
+      "status": "SCHEDULED",
+      "provider_entity_id": "id1002746472055164"
+    },
+    {
+      "id": "47df86ce-184b-4c86-be57-fd754897d65e",
+      "public_id": "47df86ce184b4c86",
+      "slug": "liga-mx",
+      "kickoff": "2026-09-14T01:00:00.000Z",
+      "status": "SCHEDULED",
+      "provider_entity_id": "id1002746472055170"
+    },
+    {
+      "id": "af6fbc7c-996f-4092-93d3-2a3a5cb37c2a",
+      "public_id": "af6fbc7c996f4092",
+      "slug": "liga-mx",
+      "kickoff": "2026-09-14T01:07:00.000Z",
+      "status": "SCHEDULED",
+      "provider_entity_id": "id1002746472055168"
+    },
+    {
+      "id": "163a5145-f354-4ba4-9d26-d52a1e1f634d",
+      "public_id": "163a5145f3544ba4",
+      "slug": "liga-mx",
+      "kickoff": "2026-09-15T01:00:00.000Z",
+      "status": "SCHEDULED",
+      "provider_entity_id": "id1002746474402378"
+    },
+    {
+      "id": "c5a53e5b-92c0-42c6-8274-e3fb6fc0fb2d",
+      "public_id": "c5a53e5b92c042c6",
+      "slug": "liga-mx",
+      "kickoff": "2026-09-16T01:00:00.000Z",
+      "status": "SCHEDULED",
+      "provider_entity_id": "id1002746474364096"
+    },
+    {
+      "id": "4b72cc66-d7b8-45cb-97da-86d1131070f9",
+      "public_id": "4b72cc66d7b845cb",
+      "slug": "premier-league",
+      "kickoff": "2026-09-12T14:00:00.000Z",
+      "status": "SCHEDULED",
+      "provider_entity_id": "id1000001772221256"
+    },
+    {
+      "id": "5dac1128-aa0c-4698-98b0-11e5786d0b92",
+      "public_id": "5dac1128aa0c4698",
+      "slug": "premier-league",
+      "kickoff": "2026-09-12T14:00:00.000Z",
+      "status": "SCHEDULED",
+      "provider_entity_id": "id1000001772221260"
+    },
+    {
+      "id": "30d88064-6657-43ea-85c8-e735f592130a",
+      "public_id": "30d88064665743ea",
+      "slug": "premier-league",
+      "kickoff": "2026-09-12T14:00:00.000Z",
+      "status": "SCHEDULED",
+      "provider_entity_id": "id1000001772221264"
+    },
+    {
+      "id": "3383b74d-f62a-41b2-884a-f577b85c8d34",
+      "public_id": "3383b74df62a41b2",
+      "slug": "premier-league",
+      "kickoff": "2026-09-12T14:00:00.000Z",
+      "status": "SCHEDULED",
+      "provider_entity_id": "id1000001772221254"
+    },
+    {
+      "id": "147bd589-b1cf-4a47-8f31-f5ede6e7f5d6",
+      "public_id": "147bd589b1cf4a47",
+      "slug": "premier-league",
+      "kickoff": "2026-09-12T14:00:00.000Z",
+      "status": "SCHEDULED",
+      "provider_entity_id": "id1000001772221252"
+    },
+    {
+      "id": "1f196e32-a3c5-4899-9b46-da0c9f705e68",
+      "public_id": "1f196e32a3c54899",
+      "slug": "premier-league",
+      "kickoff": "2026-09-12T16:30:00.000Z",
+      "status": "SCHEDULED",
+      "provider_entity_id": "id1000001772221270"
+    },
+    {
+      "id": "4d873974-b580-4b99-87f3-435686af4dc6",
+      "public_id": "4d873974b5804b99",
+      "slug": "premier-league",
+      "kickoff": "2026-09-12T19:00:00.000Z",
+      "status": "SCHEDULED",
+      "provider_entity_id": "id1000001772221268"
+    },
+    {
+      "id": "967a73b3-e48b-40f0-8452-e13ff13f07d9",
+      "public_id": "967a73b3e48b40f0",
+      "slug": "premier-league",
+      "kickoff": "2026-09-13T13:00:00.000Z",
+      "status": "SCHEDULED",
+      "provider_entity_id": "id1000001772221258"
+    },
+    {
+      "id": "a7ca59c5-2250-4409-9436-27a968768476",
+      "public_id": "a7ca59c522504409",
+      "slug": "premier-league",
+      "kickoff": "2026-09-13T15:30:00.000Z",
+      "status": "SCHEDULED",
+      "provider_entity_id": "id1000001772221266"
+    },
+    {
+      "id": "a414140f-9068-4da8-8914-6a3fe590cc8e",
+      "public_id": "a414140f90684da8",
+      "slug": "premier-league",
+      "kickoff": "2026-09-14T19:00:00.000Z",
+      "status": "SCHEDULED",
+      "provider_entity_id": "id1000001772221262"
+    },
+    {
+      "id": "872508a1-8101-4ea7-a9d8-60024e385241",
+      "public_id": "872508a181014ea7",
+      "slug": "premier-league",
+      "kickoff": "2026-09-18T19:00:00.000Z",
+      "status": "SCHEDULED",
+      "provider_entity_id": "id1000001772221274"
+    },
+    {
+      "id": "5ba422e7-e6e9-477b-a194-3c6f12857b8c",
+      "public_id": "5ba422e7e6e9477b",
+      "slug": "premier-league",
+      "kickoff": "2026-09-19T11:30:00.000Z",
+      "status": "SCHEDULED",
+      "provider_entity_id": "id1000001772221290"
+    },
+    {
+      "id": "17cbdf6b-b6ab-4236-aa74-991c78109c58",
+      "public_id": "17cbdf6bb6ab4236",
+      "slug": "premier-league",
+      "kickoff": "2026-09-19T14:00:00.000Z",
+      "status": "SCHEDULED",
+      "provider_entity_id": "id1000001772221278"
+    },
+    {
+      "id": "d232d70c-dd1f-41d5-a6fb-cc2143246dd7",
+      "public_id": "d232d70cdd1f41d5",
+      "slug": "premier-league",
+      "kickoff": "2026-09-19T14:00:00.000Z",
+      "status": "SCHEDULED",
+      "provider_entity_id": "id1000001772221286"
+    },
+    {
+      "id": "15675a22-49b6-4809-9daf-db97136a6c94",
+      "public_id": "15675a2249b64809",
+      "slug": "premier-league",
+      "kickoff": "2026-09-19T14:00:00.000Z",
+      "status": "SCHEDULED",
+      "provider_entity_id": "id1000001772221276"
+    },
+    {
+      "id": "a465bd32-c368-4efd-afac-ae4bad7f1fd5",
+      "public_id": "a465bd32c3684efd",
+      "slug": "premier-league",
+      "kickoff": "2026-09-19T16:30:00.000Z",
+      "status": "SCHEDULED",
+      "provider_entity_id": "id1000001772221288"
+    },
+    {
+      "id": "270dd518-8f61-40fc-a1a6-0eaf36560039",
+      "public_id": "270dd5188f6140fc",
+      "slug": "premier-league",
+      "kickoff": "2026-09-20T13:00:00.000Z",
+      "status": "SCHEDULED",
+      "provider_entity_id": "id1000001772221284"
+    },
+    {
+      "id": "ddb7b7ce-becf-413b-a2ad-e6df8289a9c6",
+      "public_id": "ddb7b7cebecf413b",
+      "slug": "premier-league",
+      "kickoff": "2026-09-20T13:00:00.000Z",
+      "status": "SCHEDULED",
+      "provider_entity_id": "id1000001772221272"
+    },
+    {
+      "id": "569ee64a-d02b-4e4b-894f-dbb1a3a09ba6",
+      "public_id": "569ee64ad02b4e4b",
+      "slug": "premier-league",
+      "kickoff": "2026-09-20T13:00:00.000Z",
+      "status": "SCHEDULED",
+      "provider_entity_id": "id1000001772221282"
+    },
+    {
+      "id": "386c8ec7-08d2-46ff-b4dc-005f32ea10c2",
+      "public_id": "386c8ec708d246ff",
+      "slug": "premier-league",
+      "kickoff": "2026-09-20T15:30:00.000Z",
+      "status": "SCHEDULED",
+      "provider_entity_id": "id1000001772221280"
+    }
+  ],
+  "coverage": [
+    {
+      "bookmaker": "betano.bet.br",
+      "competition": "brasileirao-serie-a",
+      "market": "MATCH_WINNER",
+      "fixtures": 19,
+      "completeAtObservation": 17,
+      "activeAtObservation": 17,
+      "completenessStatus": "PARTIAL PASS",
+      "coveragePercent": 89.5
+    },
+    {
+      "bookmaker": "betano.bet.br",
+      "competition": "brasileirao-serie-a",
+      "market": "TOTAL_GOALS",
+      "fixtures": 19,
+      "completeAtObservation": 17,
+      "activeAtObservation": 17,
+      "completenessStatus": "PARTIAL PASS",
+      "coveragePercent": 89.5
+    },
+    {
+      "bookmaker": "betano.bet.br",
+      "competition": "brasileirao-serie-a",
+      "market": "BTTS",
+      "fixtures": 19,
+      "completeAtObservation": 17,
+      "activeAtObservation": 17,
+      "completenessStatus": "PARTIAL PASS",
+      "coveragePercent": 89.5
+    },
+    {
+      "bookmaker": "betano.bet.br",
+      "competition": "copa-libertadores",
+      "market": "MATCH_WINNER",
+      "fixtures": 4,
+      "completeAtObservation": 1,
+      "activeAtObservation": 1,
+      "completenessStatus": "PARTIAL PASS",
+      "coveragePercent": 25
+    },
+    {
+      "bookmaker": "betano.bet.br",
+      "competition": "copa-libertadores",
+      "market": "TOTAL_GOALS",
+      "fixtures": 4,
+      "completeAtObservation": 1,
+      "activeAtObservation": 1,
+      "completenessStatus": "PARTIAL PASS",
+      "coveragePercent": 25
+    },
+    {
+      "bookmaker": "betano.bet.br",
+      "competition": "copa-libertadores",
+      "market": "BTTS",
+      "fixtures": 4,
+      "completeAtObservation": 1,
+      "activeAtObservation": 1,
+      "completenessStatus": "PARTIAL PASS",
+      "coveragePercent": 25
+    },
+    {
+      "bookmaker": "betano.bet.br",
+      "competition": "liga-mx",
+      "market": "MATCH_WINNER",
+      "fixtures": 7,
+      "completeAtObservation": 5,
+      "activeAtObservation": 5,
+      "completenessStatus": "PARTIAL PASS",
+      "coveragePercent": 71.4
+    },
+    {
+      "bookmaker": "betano.bet.br",
+      "competition": "liga-mx",
+      "market": "TOTAL_GOALS",
+      "fixtures": 7,
+      "completeAtObservation": 5,
+      "activeAtObservation": 5,
+      "completenessStatus": "PARTIAL PASS",
+      "coveragePercent": 71.4
+    },
+    {
+      "bookmaker": "betano.bet.br",
+      "competition": "liga-mx",
+      "market": "BTTS",
+      "fixtures": 7,
+      "completeAtObservation": 5,
+      "activeAtObservation": 5,
+      "completenessStatus": "PARTIAL PASS",
+      "coveragePercent": 71.4
+    },
+    {
+      "bookmaker": "betano.bet.br",
+      "competition": "premier-league",
+      "market": "MATCH_WINNER",
+      "fixtures": 20,
+      "completeAtObservation": 20,
+      "activeAtObservation": 20,
+      "completenessStatus": "PASS",
+      "coveragePercent": 100
+    },
+    {
+      "bookmaker": "betano.bet.br",
+      "competition": "premier-league",
+      "market": "TOTAL_GOALS",
+      "fixtures": 20,
+      "completeAtObservation": 20,
+      "activeAtObservation": 20,
+      "completenessStatus": "PASS",
+      "coveragePercent": 100
+    },
+    {
+      "bookmaker": "betano.bet.br",
+      "competition": "premier-league",
+      "market": "BTTS",
+      "fixtures": 20,
+      "completeAtObservation": 20,
+      "activeAtObservation": 20,
+      "completenessStatus": "PASS",
+      "coveragePercent": 100
+    },
+    {
+      "bookmaker": "betsson",
+      "competition": "brasileirao-serie-a",
+      "market": "MATCH_WINNER",
+      "fixtures": 19,
+      "completeAtObservation": 19,
+      "activeAtObservation": 13,
+      "completenessStatus": "PASS",
+      "coveragePercent": 100
+    },
+    {
+      "bookmaker": "betsson",
+      "competition": "brasileirao-serie-a",
+      "market": "TOTAL_GOALS",
+      "fixtures": 19,
+      "completeAtObservation": 19,
+      "activeAtObservation": 13,
+      "completenessStatus": "PASS",
+      "coveragePercent": 100
+    },
+    {
+      "bookmaker": "betsson",
+      "competition": "brasileirao-serie-a",
+      "market": "BTTS",
+      "fixtures": 19,
+      "completeAtObservation": 19,
+      "activeAtObservation": 13,
+      "completenessStatus": "PASS",
+      "coveragePercent": 100
+    },
+    {
+      "bookmaker": "betsson",
+      "competition": "copa-libertadores",
+      "market": "MATCH_WINNER",
+      "fixtures": 4,
+      "completeAtObservation": 4,
+      "activeAtObservation": 3,
+      "completenessStatus": "PASS",
+      "coveragePercent": 100
+    },
+    {
+      "bookmaker": "betsson",
+      "competition": "copa-libertadores",
+      "market": "TOTAL_GOALS",
+      "fixtures": 4,
+      "completeAtObservation": 4,
+      "activeAtObservation": 3,
+      "completenessStatus": "PASS",
+      "coveragePercent": 100
+    },
+    {
+      "bookmaker": "betsson",
+      "competition": "copa-libertadores",
+      "market": "BTTS",
+      "fixtures": 4,
+      "completeAtObservation": 4,
+      "activeAtObservation": 3,
+      "completenessStatus": "PASS",
+      "coveragePercent": 100
+    },
+    {
+      "bookmaker": "betsson",
+      "competition": "liga-mx",
+      "market": "MATCH_WINNER",
+      "fixtures": 7,
+      "completeAtObservation": 7,
+      "activeAtObservation": 4,
+      "completenessStatus": "PASS",
+      "coveragePercent": 100
+    },
+    {
+      "bookmaker": "betsson",
+      "competition": "liga-mx",
+      "market": "TOTAL_GOALS",
+      "fixtures": 7,
+      "completeAtObservation": 7,
+      "activeAtObservation": 4,
+      "completenessStatus": "PASS",
+      "coveragePercent": 100
+    },
+    {
+      "bookmaker": "betsson",
+      "competition": "liga-mx",
+      "market": "BTTS",
+      "fixtures": 7,
+      "completeAtObservation": 7,
+      "activeAtObservation": 4,
+      "completenessStatus": "PASS",
+      "coveragePercent": 100
+    },
+    {
+      "bookmaker": "betsson",
+      "competition": "premier-league",
+      "market": "MATCH_WINNER",
+      "fixtures": 20,
+      "completeAtObservation": 20,
+      "activeAtObservation": 7,
+      "completenessStatus": "PASS",
+      "coveragePercent": 100
+    },
+    {
+      "bookmaker": "betsson",
+      "competition": "premier-league",
+      "market": "TOTAL_GOALS",
+      "fixtures": 20,
+      "completeAtObservation": 20,
+      "activeAtObservation": 7,
+      "completenessStatus": "PASS",
+      "coveragePercent": 100
+    },
+    {
+      "bookmaker": "betsson",
+      "competition": "premier-league",
+      "market": "BTTS",
+      "fixtures": 20,
+      "completeAtObservation": 20,
+      "activeAtObservation": 7,
+      "completenessStatus": "PASS",
+      "coveragePercent": 100
+    }
+  ],
+  "missing": [
+    {
+      "fixtureId": "e62cce0b-0b9b-4012-b45f-1c1a27cfbcdf",
+      "competition": "brasileirao-serie-a",
+      "bookmaker": "betano.bet.br",
+      "market": "MATCH_WINNER",
+      "outcome": "HOME",
+      "line": null
+    },
+    {
+      "fixtureId": "e62cce0b-0b9b-4012-b45f-1c1a27cfbcdf",
+      "competition": "brasileirao-serie-a",
+      "bookmaker": "betano.bet.br",
+      "market": "MATCH_WINNER",
+      "outcome": "DRAW",
+      "line": null
+    },
+    {
+      "fixtureId": "e62cce0b-0b9b-4012-b45f-1c1a27cfbcdf",
+      "competition": "brasileirao-serie-a",
+      "bookmaker": "betano.bet.br",
+      "market": "MATCH_WINNER",
+      "outcome": "AWAY",
+      "line": null
+    },
+    {
+      "fixtureId": "57ecbdc5-02e1-4625-bfd6-117c6b3b5c6b",
+      "competition": "brasileirao-serie-a",
+      "bookmaker": "betano.bet.br",
+      "market": "MATCH_WINNER",
+      "outcome": "HOME",
+      "line": null
+    },
+    {
+      "fixtureId": "57ecbdc5-02e1-4625-bfd6-117c6b3b5c6b",
+      "competition": "brasileirao-serie-a",
+      "bookmaker": "betano.bet.br",
+      "market": "MATCH_WINNER",
+      "outcome": "DRAW",
+      "line": null
+    },
+    {
+      "fixtureId": "57ecbdc5-02e1-4625-bfd6-117c6b3b5c6b",
+      "competition": "brasileirao-serie-a",
+      "bookmaker": "betano.bet.br",
+      "market": "MATCH_WINNER",
+      "outcome": "AWAY",
+      "line": null
+    },
+    {
+      "fixtureId": "e62cce0b-0b9b-4012-b45f-1c1a27cfbcdf",
+      "competition": "brasileirao-serie-a",
+      "bookmaker": "betano.bet.br",
+      "market": "TOTAL_GOALS",
+      "outcome": "OVER",
+      "line": 2.5
+    },
+    {
+      "fixtureId": "e62cce0b-0b9b-4012-b45f-1c1a27cfbcdf",
+      "competition": "brasileirao-serie-a",
+      "bookmaker": "betano.bet.br",
+      "market": "TOTAL_GOALS",
+      "outcome": "UNDER",
+      "line": 2.5
+    },
+    {
+      "fixtureId": "57ecbdc5-02e1-4625-bfd6-117c6b3b5c6b",
+      "competition": "brasileirao-serie-a",
+      "bookmaker": "betano.bet.br",
+      "market": "TOTAL_GOALS",
+      "outcome": "OVER",
+      "line": 2.5
+    },
+    {
+      "fixtureId": "57ecbdc5-02e1-4625-bfd6-117c6b3b5c6b",
+      "competition": "brasileirao-serie-a",
+      "bookmaker": "betano.bet.br",
+      "market": "TOTAL_GOALS",
+      "outcome": "UNDER",
+      "line": 2.5
+    },
+    {
+      "fixtureId": "e62cce0b-0b9b-4012-b45f-1c1a27cfbcdf",
+      "competition": "brasileirao-serie-a",
+      "bookmaker": "betano.bet.br",
+      "market": "BTTS",
+      "outcome": "YES",
+      "line": null
+    },
+    {
+      "fixtureId": "e62cce0b-0b9b-4012-b45f-1c1a27cfbcdf",
+      "competition": "brasileirao-serie-a",
+      "bookmaker": "betano.bet.br",
+      "market": "BTTS",
+      "outcome": "NO",
+      "line": null
+    },
+    {
+      "fixtureId": "57ecbdc5-02e1-4625-bfd6-117c6b3b5c6b",
+      "competition": "brasileirao-serie-a",
+      "bookmaker": "betano.bet.br",
+      "market": "BTTS",
+      "outcome": "YES",
+      "line": null
+    },
+    {
+      "fixtureId": "57ecbdc5-02e1-4625-bfd6-117c6b3b5c6b",
+      "competition": "brasileirao-serie-a",
+      "bookmaker": "betano.bet.br",
+      "market": "BTTS",
+      "outcome": "NO",
+      "line": null
+    },
+    {
+      "fixtureId": "65a667ce-1ba2-466b-bdd9-4f801d0cb6ce",
+      "competition": "copa-libertadores",
+      "bookmaker": "betano.bet.br",
+      "market": "MATCH_WINNER",
+      "outcome": "HOME",
+      "line": null
+    },
+    {
+      "fixtureId": "65a667ce-1ba2-466b-bdd9-4f801d0cb6ce",
+      "competition": "copa-libertadores",
+      "bookmaker": "betano.bet.br",
+      "market": "MATCH_WINNER",
+      "outcome": "DRAW",
+      "line": null
+    },
+    {
+      "fixtureId": "65a667ce-1ba2-466b-bdd9-4f801d0cb6ce",
+      "competition": "copa-libertadores",
+      "bookmaker": "betano.bet.br",
+      "market": "MATCH_WINNER",
+      "outcome": "AWAY",
+      "line": null
+    },
+    {
+      "fixtureId": "7d5de21c-d42e-437e-be36-9597fea47cf8",
+      "competition": "copa-libertadores",
+      "bookmaker": "betano.bet.br",
+      "market": "MATCH_WINNER",
+      "outcome": "HOME",
+      "line": null
+    },
+    {
+      "fixtureId": "7d5de21c-d42e-437e-be36-9597fea47cf8",
+      "competition": "copa-libertadores",
+      "bookmaker": "betano.bet.br",
+      "market": "MATCH_WINNER",
+      "outcome": "DRAW",
+      "line": null
+    },
+    {
+      "fixtureId": "7d5de21c-d42e-437e-be36-9597fea47cf8",
+      "competition": "copa-libertadores",
+      "bookmaker": "betano.bet.br",
+      "market": "MATCH_WINNER",
+      "outcome": "AWAY",
+      "line": null
+    },
+    {
+      "fixtureId": "31684ae4-53ab-44ec-b5b3-4b35eb016d75",
+      "competition": "copa-libertadores",
+      "bookmaker": "betano.bet.br",
+      "market": "MATCH_WINNER",
+      "outcome": "HOME",
+      "line": null
+    },
+    {
+      "fixtureId": "31684ae4-53ab-44ec-b5b3-4b35eb016d75",
+      "competition": "copa-libertadores",
+      "bookmaker": "betano.bet.br",
+      "market": "MATCH_WINNER",
+      "outcome": "DRAW",
+      "line": null
+    },
+    {
+      "fixtureId": "31684ae4-53ab-44ec-b5b3-4b35eb016d75",
+      "competition": "copa-libertadores",
+      "bookmaker": "betano.bet.br",
+      "market": "MATCH_WINNER",
+      "outcome": "AWAY",
+      "line": null
+    },
+    {
+      "fixtureId": "65a667ce-1ba2-466b-bdd9-4f801d0cb6ce",
+      "competition": "copa-libertadores",
+      "bookmaker": "betano.bet.br",
+      "market": "TOTAL_GOALS",
+      "outcome": "OVER",
+      "line": 2.5
+    },
+    {
+      "fixtureId": "65a667ce-1ba2-466b-bdd9-4f801d0cb6ce",
+      "competition": "copa-libertadores",
+      "bookmaker": "betano.bet.br",
+      "market": "TOTAL_GOALS",
+      "outcome": "UNDER",
+      "line": 2.5
+    },
+    {
+      "fixtureId": "7d5de21c-d42e-437e-be36-9597fea47cf8",
+      "competition": "copa-libertadores",
+      "bookmaker": "betano.bet.br",
+      "market": "TOTAL_GOALS",
+      "outcome": "OVER",
+      "line": 2.5
+    },
+    {
+      "fixtureId": "7d5de21c-d42e-437e-be36-9597fea47cf8",
+      "competition": "copa-libertadores",
+      "bookmaker": "betano.bet.br",
+      "market": "TOTAL_GOALS",
+      "outcome": "UNDER",
+      "line": 2.5
+    },
+    {
+      "fixtureId": "31684ae4-53ab-44ec-b5b3-4b35eb016d75",
+      "competition": "copa-libertadores",
+      "bookmaker": "betano.bet.br",
+      "market": "TOTAL_GOALS",
+      "outcome": "OVER",
+      "line": 2.5
+    },
+    {
+      "fixtureId": "31684ae4-53ab-44ec-b5b3-4b35eb016d75",
+      "competition": "copa-libertadores",
+      "bookmaker": "betano.bet.br",
+      "market": "TOTAL_GOALS",
+      "outcome": "UNDER",
+      "line": 2.5
+    },
+    {
+      "fixtureId": "65a667ce-1ba2-466b-bdd9-4f801d0cb6ce",
+      "competition": "copa-libertadores",
+      "bookmaker": "betano.bet.br",
+      "market": "BTTS",
+      "outcome": "YES",
+      "line": null
+    },
+    {
+      "fixtureId": "65a667ce-1ba2-466b-bdd9-4f801d0cb6ce",
+      "competition": "copa-libertadores",
+      "bookmaker": "betano.bet.br",
+      "market": "BTTS",
+      "outcome": "NO",
+      "line": null
+    },
+    {
+      "fixtureId": "7d5de21c-d42e-437e-be36-9597fea47cf8",
+      "competition": "copa-libertadores",
+      "bookmaker": "betano.bet.br",
+      "market": "BTTS",
+      "outcome": "YES",
+      "line": null
+    },
+    {
+      "fixtureId": "7d5de21c-d42e-437e-be36-9597fea47cf8",
+      "competition": "copa-libertadores",
+      "bookmaker": "betano.bet.br",
+      "market": "BTTS",
+      "outcome": "NO",
+      "line": null
+    },
+    {
+      "fixtureId": "31684ae4-53ab-44ec-b5b3-4b35eb016d75",
+      "competition": "copa-libertadores",
+      "bookmaker": "betano.bet.br",
+      "market": "BTTS",
+      "outcome": "YES",
+      "line": null
+    },
+    {
+      "fixtureId": "31684ae4-53ab-44ec-b5b3-4b35eb016d75",
+      "competition": "copa-libertadores",
+      "bookmaker": "betano.bet.br",
+      "market": "BTTS",
+      "outcome": "NO",
+      "line": null
+    },
+    {
+      "fixtureId": "163a5145-f354-4ba4-9d26-d52a1e1f634d",
+      "competition": "liga-mx",
+      "bookmaker": "betano.bet.br",
+      "market": "MATCH_WINNER",
+      "outcome": "HOME",
+      "line": null
+    },
+    {
+      "fixtureId": "163a5145-f354-4ba4-9d26-d52a1e1f634d",
+      "competition": "liga-mx",
+      "bookmaker": "betano.bet.br",
+      "market": "MATCH_WINNER",
+      "outcome": "DRAW",
+      "line": null
+    },
+    {
+      "fixtureId": "163a5145-f354-4ba4-9d26-d52a1e1f634d",
+      "competition": "liga-mx",
+      "bookmaker": "betano.bet.br",
+      "market": "MATCH_WINNER",
+      "outcome": "AWAY",
+      "line": null
+    },
+    {
+      "fixtureId": "c5a53e5b-92c0-42c6-8274-e3fb6fc0fb2d",
+      "competition": "liga-mx",
+      "bookmaker": "betano.bet.br",
+      "market": "MATCH_WINNER",
+      "outcome": "HOME",
+      "line": null
+    },
+    {
+      "fixtureId": "c5a53e5b-92c0-42c6-8274-e3fb6fc0fb2d",
+      "competition": "liga-mx",
+      "bookmaker": "betano.bet.br",
+      "market": "MATCH_WINNER",
+      "outcome": "DRAW",
+      "line": null
+    },
+    {
+      "fixtureId": "c5a53e5b-92c0-42c6-8274-e3fb6fc0fb2d",
+      "competition": "liga-mx",
+      "bookmaker": "betano.bet.br",
+      "market": "MATCH_WINNER",
+      "outcome": "AWAY",
+      "line": null
+    },
+    {
+      "fixtureId": "163a5145-f354-4ba4-9d26-d52a1e1f634d",
+      "competition": "liga-mx",
+      "bookmaker": "betano.bet.br",
+      "market": "TOTAL_GOALS",
+      "outcome": "OVER",
+      "line": 2.5
+    },
+    {
+      "fixtureId": "163a5145-f354-4ba4-9d26-d52a1e1f634d",
+      "competition": "liga-mx",
+      "bookmaker": "betano.bet.br",
+      "market": "TOTAL_GOALS",
+      "outcome": "UNDER",
+      "line": 2.5
+    },
+    {
+      "fixtureId": "c5a53e5b-92c0-42c6-8274-e3fb6fc0fb2d",
+      "competition": "liga-mx",
+      "bookmaker": "betano.bet.br",
+      "market": "TOTAL_GOALS",
+      "outcome": "OVER",
+      "line": 2.5
+    },
+    {
+      "fixtureId": "c5a53e5b-92c0-42c6-8274-e3fb6fc0fb2d",
+      "competition": "liga-mx",
+      "bookmaker": "betano.bet.br",
+      "market": "TOTAL_GOALS",
+      "outcome": "UNDER",
+      "line": 2.5
+    },
+    {
+      "fixtureId": "163a5145-f354-4ba4-9d26-d52a1e1f634d",
+      "competition": "liga-mx",
+      "bookmaker": "betano.bet.br",
+      "market": "BTTS",
+      "outcome": "YES",
+      "line": null
+    },
+    {
+      "fixtureId": "163a5145-f354-4ba4-9d26-d52a1e1f634d",
+      "competition": "liga-mx",
+      "bookmaker": "betano.bet.br",
+      "market": "BTTS",
+      "outcome": "NO",
+      "line": null
+    },
+    {
+      "fixtureId": "c5a53e5b-92c0-42c6-8274-e3fb6fc0fb2d",
+      "competition": "liga-mx",
+      "bookmaker": "betano.bet.br",
+      "market": "BTTS",
+      "outcome": "YES",
+      "line": null
+    },
+    {
+      "fixtureId": "c5a53e5b-92c0-42c6-8274-e3fb6fc0fb2d",
+      "competition": "liga-mx",
+      "bookmaker": "betano.bet.br",
+      "market": "BTTS",
+      "outcome": "NO",
+      "line": null
+    }
+  ],
+  "timestamps": {
+    "providerMissing": 0,
+    "oldestProviderChange": "2026-09-05T18:16:33.234Z",
+    "newestProviderChange": "2026-09-12T11:39:25.115Z",
+    "oldestObservation": "2026-09-12T11:39:47.046Z",
+    "newestObservation": "2026-09-12T11:39:51.840Z",
+    "expiredObservations": 0
+  },
+  "geos": [
+    {
+      "provider_slug": "betano.bet.br",
+      "iso2": "BR",
+      "odds_enabled": true,
+      "comparison_enabled": true,
+      "affiliate_enabled": false,
+      "evidence": {
+        "reason": "BR-specific paid feed verified",
+        "source": "M5 account and fixture-domain audit"
+      }
+    },
+    {
+      "provider_slug": "betano.bet.br",
+      "iso2": "MX",
+      "odds_enabled": false,
+      "comparison_enabled": false,
+      "affiliate_enabled": false,
+      "evidence": {
+        "reason": "BR source is not MX coverage",
+        "source": "M5 account and fixture-domain audit"
+      }
+    },
+    {
+      "provider_slug": "betsson",
+      "iso2": "BR",
+      "odds_enabled": false,
+      "comparison_enabled": false,
+      "affiliate_enabled": false,
+      "evidence": {
+        "reason": "Generic betsson.com feed; BR/MX jurisdiction unverified",
+        "source": "M5 account and fixture-domain audit"
+      }
+    },
+    {
+      "provider_slug": "betsson",
+      "iso2": "MX",
+      "odds_enabled": false,
+      "comparison_enabled": false,
+      "affiliate_enabled": false,
+      "evidence": {
+        "reason": "Generic betsson.com feed; BR/MX jurisdiction unverified",
+        "source": "M5 account and fixture-domain audit"
+      }
+    }
+  ],
+  "requests": [
+    {
+      "endpoint": "/v4/account",
+      "safe_query": {},
+      "started_at": "2026-09-12T10:38:35.249Z",
+      "completed_at": "2026-09-12T10:38:35.795Z",
+      "http_status": 200,
+      "outcome": "SUCCEEDED"
+    },
+    {
+      "endpoint": "/v4/bookmakers",
+      "safe_query": {},
+      "started_at": "2026-09-12T10:39:49.895Z",
+      "completed_at": "2026-09-12T10:39:50.086Z",
+      "http_status": 200,
+      "outcome": "SUCCEEDED"
+    },
+    {
+      "endpoint": "/v4/tournaments",
+      "safe_query": {
+        "sportId": 10,
+        "language": "en"
+      },
+      "started_at": "2026-09-12T10:39:51.003Z",
+      "completed_at": "2026-09-12T10:39:51.289Z",
+      "http_status": 200,
+      "outcome": "SUCCEEDED"
+    },
+    {
+      "endpoint": "/v4/markets",
+      "safe_query": {
+        "language": "en"
+      },
+      "started_at": "2026-09-12T10:39:52.104Z",
+      "completed_at": "2026-09-12T10:39:52.612Z",
+      "http_status": 200,
+      "outcome": "SUCCEEDED"
+    },
+    {
+      "endpoint": "/v4/fixtures",
+      "safe_query": {
+        "hasOdds": true,
+        "language": "en",
+        "statusId": 0,
+        "bookmakers": "betano.bet.br,betsson",
+        "tournamentId": 325
+      },
+      "started_at": "2026-09-12T10:40:39.181Z",
+      "completed_at": "2026-09-12T10:40:39.669Z",
+      "http_status": 200,
+      "outcome": "SUCCEEDED"
+    },
+    {
+      "endpoint": "/v4/fixtures",
+      "safe_query": {
+        "hasOdds": true,
+        "language": "en",
+        "statusId": 0,
+        "bookmakers": "betano.bet.br,betsson",
+        "tournamentId": 27464
+      },
+      "started_at": "2026-09-12T10:40:40.291Z",
+      "completed_at": "2026-09-12T10:40:40.474Z",
+      "http_status": 429,
+      "outcome": "AUDIT_ERROR"
+    },
+    {
+      "endpoint": "/v4/fixtures",
+      "safe_query": {
+        "hasOdds": true,
+        "language": "en",
+        "statusId": 0,
+        "bookmakers": "betano.bet.br,betsson",
+        "tournamentId": 27464
+      },
+      "started_at": "2026-09-12T10:41:01.927Z",
+      "completed_at": "2026-09-12T10:41:02.157Z",
+      "http_status": 200,
+      "outcome": "SUCCEEDED"
+    },
+    {
+      "endpoint": "/v4/fixtures",
+      "safe_query": {
+        "hasOdds": true,
+        "language": "en",
+        "statusId": 0,
+        "bookmakers": "betano.bet.br,betsson",
+        "tournamentId": 17
+      },
+      "started_at": "2026-09-12T10:41:04.669Z",
+      "completed_at": "2026-09-12T10:41:04.864Z",
+      "http_status": 200,
+      "outcome": "SUCCEEDED"
+    },
+    {
+      "endpoint": "/v4/fixtures",
+      "safe_query": {
+        "hasOdds": true,
+        "language": "en",
+        "statusId": 0,
+        "bookmakers": "betano.bet.br,betsson",
+        "tournamentId": 384
+      },
+      "started_at": "2026-09-12T10:41:07.369Z",
+      "completed_at": "2026-09-12T10:41:07.574Z",
+      "http_status": 200,
+      "outcome": "SUCCEEDED"
+    },
+    {
+      "endpoint": "/v4/odds-by-tournaments",
+      "safe_query": {
+        "language": "en",
+        "bookmaker": "betano.bet.br",
+        "verbosity": 3,
+        "oddsFormat": "decimal",
+        "tournamentIds": "325,27464,17,384"
+      },
+      "started_at": "2026-09-12T10:41:10.083Z",
+      "completed_at": "2026-09-12T10:41:10.655Z",
+      "http_status": 200,
+      "outcome": "SUCCEEDED"
+    },
+    {
+      "endpoint": "/v4/odds-by-tournaments",
+      "safe_query": {
+        "language": "en",
+        "bookmaker": "betsson",
+        "verbosity": 3,
+        "oddsFormat": "decimal",
+        "tournamentIds": "325,27464,17,384"
+      },
+      "started_at": "2026-09-12T10:41:13.165Z",
+      "completed_at": "2026-09-12T10:41:13.759Z",
+      "http_status": 200,
+      "outcome": "SUCCEEDED"
+    },
+    {
+      "endpoint": "/v4/odds-by-tournaments",
+      "safe_query": {
+        "language": "en",
+        "bookmaker": "betano.bet.br",
+        "verbosity": "3",
+        "oddsFormat": "decimal",
+        "tournamentIds": "325,27464,17,384"
+      },
+      "started_at": "2026-09-12T11:39:45.470Z",
+      "completed_at": "2026-09-12T11:39:47.046Z",
+      "http_status": 200,
+      "outcome": "SUCCEEDED"
+    },
+    {
+      "endpoint": "/v4/odds-by-tournaments",
+      "safe_query": {
+        "language": "en",
+        "bookmaker": "betsson",
+        "verbosity": "3",
+        "oddsFormat": "decimal",
+        "tournamentIds": "325,27464,17,384"
+      },
+      "started_at": "2026-09-12T11:39:50.625Z",
+      "completed_at": "2026-09-12T11:39:51.840Z",
+      "http_status": 200,
+      "outcome": "SUCCEEDED"
+    }
+  ],
+  "providerUsage": {
+    "oddsPapi": 13,
+    "sportmonks": 2,
+    "normalNavigation": 0
+  },
+  "kickoffCorrection": {
+    "changed": 50,
+    "timezoneOnly": 46,
+    "timezonePlusScheduleChange": 4,
+    "canonicalIdsPreserved": true,
+    "publicIdsPreserved": true,
+    "unverifiedFixturesNotShifted": 854,
+    "corrections": [
+      {
+        "id": "01a18d5d-847c-44a3-b3fa-875ee27b61d4",
+        "public_id": "01a18d5d847c44a3",
+        "status": "SCHEDULED",
+        "evidence": {
+          "after": "2026-09-17T00:30:00.000Z",
+          "before": "2026-09-16T20:30:00.000Z",
+          "reason": "UTC_PARSE_DEFECT_PROVEN",
+          "observedAt": "2026-09-12T11:05:50.036Z",
+          "providerEpoch": 1789605000
+        }
+      },
+      {
+        "id": "06c341a0-8a61-41ae-b320-53e03630da8e",
+        "public_id": "06c341a08a6141ae",
+        "status": "SCHEDULED",
+        "evidence": {
+          "after": "2026-09-13T01:10:00.000Z",
+          "before": "2026-09-12T21:00:00.000Z",
+          "reason": "UTC_PARSE_DEFECT_AND_SOURCE_SCHEDULE_CHANGE",
+          "observedAt": "2026-09-12T10:47:00.272Z",
+          "providerEpoch": 1789261800
+        }
+      },
+      {
+        "id": "115e2e72-c000-432a-b53c-9c895bc4e111",
+        "public_id": "115e2e72c000432a",
+        "status": "SCHEDULED",
+        "evidence": {
+          "after": "2026-09-12T19:00:00.000Z",
+          "before": "2026-09-12T15:00:00.000Z",
+          "reason": "UTC_PARSE_DEFECT_PROVEN",
+          "observedAt": "2026-09-12T10:47:00.272Z",
+          "providerEpoch": 1789239600
+        }
+      },
+      {
+        "id": "147bd589-b1cf-4a47-8f31-f5ede6e7f5d6",
+        "public_id": "147bd589b1cf4a47",
+        "status": "SCHEDULED",
+        "evidence": {
+          "after": "2026-09-12T14:00:00.000Z",
+          "before": "2026-09-12T10:00:00.000Z",
+          "reason": "UTC_PARSE_DEFECT_PROVEN",
+          "observedAt": "2026-09-12T11:05:50.036Z",
+          "providerEpoch": 1789221600
+        }
+      },
+      {
+        "id": "15675a22-49b6-4809-9daf-db97136a6c94",
+        "public_id": "15675a2249b64809",
+        "status": "SCHEDULED",
+        "evidence": {
+          "after": "2026-09-19T14:00:00.000Z",
+          "before": "2026-09-19T10:00:00.000Z",
+          "reason": "UTC_PARSE_DEFECT_PROVEN",
+          "observedAt": "2026-09-12T11:05:50.036Z",
+          "providerEpoch": 1789826400
+        }
+      },
+      {
+        "id": "163a5145-f354-4ba4-9d26-d52a1e1f634d",
+        "public_id": "163a5145f3544ba4",
+        "status": "SCHEDULED",
+        "evidence": {
+          "after": "2026-09-15T01:00:00.000Z",
+          "before": "2026-09-14T21:00:00.000Z",
+          "reason": "UTC_PARSE_DEFECT_PROVEN",
+          "observedAt": "2026-09-12T11:05:50.036Z",
+          "providerEpoch": 1789434000
+        }
+      },
+      {
+        "id": "17cbdf6b-b6ab-4236-aa74-991c78109c58",
+        "public_id": "17cbdf6bb6ab4236",
+        "status": "SCHEDULED",
+        "evidence": {
+          "after": "2026-09-19T14:00:00.000Z",
+          "before": "2026-09-19T10:00:00.000Z",
+          "reason": "UTC_PARSE_DEFECT_PROVEN",
+          "observedAt": "2026-09-12T11:05:50.036Z",
+          "providerEpoch": 1789826400
+        }
+      },
+      {
+        "id": "1f196e32-a3c5-4899-9b46-da0c9f705e68",
+        "public_id": "1f196e32a3c54899",
+        "status": "SCHEDULED",
+        "evidence": {
+          "after": "2026-09-12T16:30:00.000Z",
+          "before": "2026-09-12T12:30:00.000Z",
+          "reason": "UTC_PARSE_DEFECT_PROVEN",
+          "observedAt": "2026-09-12T10:47:00.272Z",
+          "providerEpoch": 1789230600
+        }
+      },
+      {
+        "id": "270dd518-8f61-40fc-a1a6-0eaf36560039",
+        "public_id": "270dd5188f6140fc",
+        "status": "SCHEDULED",
+        "evidence": {
+          "after": "2026-09-20T13:00:00.000Z",
+          "before": "2026-09-20T09:00:00.000Z",
+          "reason": "UTC_PARSE_DEFECT_PROVEN",
+          "observedAt": "2026-09-12T11:05:50.036Z",
+          "providerEpoch": 1789909200
+        }
+      },
+      {
+        "id": "2feb5828-dc3a-4970-9c77-6186e90e0305",
+        "public_id": "2feb5828dc3a4970",
+        "status": "SCHEDULED",
+        "evidence": {
+          "after": "2026-09-20T00:00:00.000Z",
+          "before": "2026-09-19T20:00:00.000Z",
+          "reason": "UTC_PARSE_DEFECT_PROVEN",
+          "observedAt": "2026-09-12T11:05:50.036Z",
+          "providerEpoch": 1789862400
+        }
+      },
+      {
+        "id": "30d88064-6657-43ea-85c8-e735f592130a",
+        "public_id": "30d88064665743ea",
+        "status": "SCHEDULED",
+        "evidence": {
+          "after": "2026-09-12T14:00:00.000Z",
+          "before": "2026-09-12T10:00:00.000Z",
+          "reason": "UTC_PARSE_DEFECT_PROVEN",
+          "observedAt": "2026-09-12T11:05:50.036Z",
+          "providerEpoch": 1789221600
+        }
+      },
+      {
+        "id": "31684ae4-53ab-44ec-b5b3-4b35eb016d75",
+        "public_id": "31684ae453ab44ec",
+        "status": "SCHEDULED",
+        "evidence": {
+          "after": "2026-09-18T00:30:00.000Z",
+          "before": "2026-09-17T20:30:00.000Z",
+          "reason": "UTC_PARSE_DEFECT_PROVEN",
+          "observedAt": "2026-09-12T11:05:50.036Z",
+          "providerEpoch": 1789691400
+        }
+      },
+      {
+        "id": "3383b74d-f62a-41b2-884a-f577b85c8d34",
+        "public_id": "3383b74df62a41b2",
+        "status": "SCHEDULED",
+        "evidence": {
+          "after": "2026-09-12T14:00:00.000Z",
+          "before": "2026-09-12T10:00:00.000Z",
+          "reason": "UTC_PARSE_DEFECT_PROVEN",
+          "observedAt": "2026-09-12T11:05:50.036Z",
+          "providerEpoch": 1789221600
+        }
+      },
+      {
+        "id": "386c8ec7-08d2-46ff-b4dc-005f32ea10c2",
+        "public_id": "386c8ec708d246ff",
+        "status": "SCHEDULED",
+        "evidence": {
+          "after": "2026-09-20T15:30:00.000Z",
+          "before": "2026-09-20T11:30:00.000Z",
+          "reason": "UTC_PARSE_DEFECT_PROVEN",
+          "observedAt": "2026-09-12T11:05:50.036Z",
+          "providerEpoch": 1789918200
+        }
+      },
+      {
+        "id": "40b186ca-f733-40f6-9055-8ac68607ddfd",
+        "public_id": "40b186caf73340f6",
+        "status": "SCHEDULED",
+        "evidence": {
+          "after": "2026-09-20T21:30:00.000Z",
+          "before": "2026-09-20T17:30:00.000Z",
+          "reason": "UTC_PARSE_DEFECT_PROVEN",
+          "observedAt": "2026-09-12T11:05:50.036Z",
+          "providerEpoch": 1789939800
+        }
+      },
+      {
+        "id": "47df86ce-184b-4c86-be57-fd754897d65e",
+        "public_id": "47df86ce184b4c86",
+        "status": "SCHEDULED",
+        "evidence": {
+          "after": "2026-09-14T01:00:00.000Z",
+          "before": "2026-09-13T20:00:00.000Z",
+          "reason": "UTC_PARSE_DEFECT_AND_SOURCE_SCHEDULE_CHANGE",
+          "observedAt": "2026-09-12T11:05:50.036Z",
+          "providerEpoch": 1789347600
+        }
+      },
+      {
+        "id": "48611d6f-0a48-4f87-84fc-3befd389141d",
+        "public_id": "48611d6f0a484f87",
+        "status": "SCHEDULED",
+        "evidence": {
+          "after": "2026-09-13T20:30:00.000Z",
+          "before": "2026-09-13T16:30:00.000Z",
+          "reason": "UTC_PARSE_DEFECT_PROVEN",
+          "observedAt": "2026-09-12T11:05:50.036Z",
+          "providerEpoch": 1789331400
+        }
+      },
+      {
+        "id": "4b72cc66-d7b8-45cb-97da-86d1131070f9",
+        "public_id": "4b72cc66d7b845cb",
+        "status": "SCHEDULED",
+        "evidence": {
+          "after": "2026-09-12T14:00:00.000Z",
+          "before": "2026-09-12T10:00:00.000Z",
+          "reason": "UTC_PARSE_DEFECT_PROVEN",
+          "observedAt": "2026-09-12T11:05:50.036Z",
+          "providerEpoch": 1789221600
+        }
+      },
+      {
+        "id": "4d873974-b580-4b99-87f3-435686af4dc6",
+        "public_id": "4d873974b5804b99",
+        "status": "SCHEDULED",
+        "evidence": {
+          "after": "2026-09-12T19:00:00.000Z",
+          "before": "2026-09-12T15:00:00.000Z",
+          "reason": "UTC_PARSE_DEFECT_PROVEN",
+          "observedAt": "2026-09-12T10:47:00.272Z",
+          "providerEpoch": 1789239600
+        }
+      },
+      {
+        "id": "569ee64a-d02b-4e4b-894f-dbb1a3a09ba6",
+        "public_id": "569ee64ad02b4e4b",
+        "status": "SCHEDULED",
+        "evidence": {
+          "after": "2026-09-20T13:00:00.000Z",
+          "before": "2026-09-20T09:00:00.000Z",
+          "reason": "UTC_PARSE_DEFECT_PROVEN",
+          "observedAt": "2026-09-12T11:05:50.036Z",
+          "providerEpoch": 1789909200
+        }
+      },
+      {
+        "id": "57ecbdc5-02e1-4625-bfd6-117c6b3b5c6b",
+        "public_id": "57ecbdc502e14625",
+        "status": "SCHEDULED",
+        "evidence": {
+          "after": "2026-09-20T22:30:00.000Z",
+          "before": "2026-09-20T18:30:00.000Z",
+          "reason": "UTC_PARSE_DEFECT_PROVEN",
+          "observedAt": "2026-09-12T11:05:50.036Z",
+          "providerEpoch": 1789943400
+        }
+      },
+      {
+        "id": "5ba422e7-e6e9-477b-a194-3c6f12857b8c",
+        "public_id": "5ba422e7e6e9477b",
+        "status": "SCHEDULED",
+        "evidence": {
+          "after": "2026-09-19T11:30:00.000Z",
+          "before": "2026-09-19T07:30:00.000Z",
+          "reason": "UTC_PARSE_DEFECT_PROVEN",
+          "observedAt": "2026-09-12T11:05:50.036Z",
+          "providerEpoch": 1789817400
+        }
+      },
+      {
+        "id": "5bba91e1-9194-4cd9-a4ce-ca3617dab333",
+        "public_id": "5bba91e191944cd9",
+        "status": "SCHEDULED",
+        "evidence": {
+          "after": "2026-09-19T23:30:00.000Z",
+          "before": "2026-09-19T19:30:00.000Z",
+          "reason": "UTC_PARSE_DEFECT_PROVEN",
+          "observedAt": "2026-09-12T11:05:50.036Z",
+          "providerEpoch": 1789860600
+        }
+      },
+      {
+        "id": "5dac1128-aa0c-4698-98b0-11e5786d0b92",
+        "public_id": "5dac1128aa0c4698",
+        "status": "SCHEDULED",
+        "evidence": {
+          "after": "2026-09-12T14:00:00.000Z",
+          "before": "2026-09-12T10:00:00.000Z",
+          "reason": "UTC_PARSE_DEFECT_PROVEN",
+          "observedAt": "2026-09-12T11:05:50.036Z",
+          "providerEpoch": 1789221600
+        }
+      },
+      {
+        "id": "65a667ce-1ba2-466b-bdd9-4f801d0cb6ce",
+        "public_id": "65a667ce1ba2466b",
+        "status": "SCHEDULED",
+        "evidence": {
+          "after": "2026-09-15T22:00:00.000Z",
+          "before": "2026-09-15T18:00:00.000Z",
+          "reason": "UTC_PARSE_DEFECT_PROVEN",
+          "observedAt": "2026-09-12T10:47:00.272Z",
+          "providerEpoch": 1789509600
+        }
+      },
+      {
+        "id": "699ac39c-f722-4e48-af51-382b1e7f7154",
+        "public_id": "699ac39cf7224e48",
+        "status": "SCHEDULED",
+        "evidence": {
+          "after": "2026-09-13T19:00:00.000Z",
+          "before": "2026-09-13T15:00:00.000Z",
+          "reason": "UTC_PARSE_DEFECT_PROVEN",
+          "observedAt": "2026-09-12T11:05:50.036Z",
+          "providerEpoch": 1789326000
+        }
+      },
+      {
+        "id": "75ffaccc-dcff-4a7a-a442-e99a65f84fd2",
+        "public_id": "75ffacccdcff4a7a",
+        "status": "SCHEDULED",
+        "evidence": {
+          "after": "2026-09-19T21:30:00.000Z",
+          "before": "2026-09-19T17:30:00.000Z",
+          "reason": "UTC_PARSE_DEFECT_PROVEN",
+          "observedAt": "2026-09-12T11:05:50.036Z",
+          "providerEpoch": 1789853400
+        }
+      },
+      {
+        "id": "7d5de21c-d42e-437e-be36-9597fea47cf8",
+        "public_id": "7d5de21cd42e437e",
+        "status": "SCHEDULED",
+        "evidence": {
+          "after": "2026-09-16T22:00:00.000Z",
+          "before": "2026-09-16T18:00:00.000Z",
+          "reason": "UTC_PARSE_DEFECT_PROVEN",
+          "observedAt": "2026-09-12T10:47:00.272Z",
+          "providerEpoch": 1789596000
+        }
+      },
+      {
+        "id": "870fc8e4-82f5-466c-9693-6937e433a981",
+        "public_id": "870fc8e482f5466c",
+        "status": "SCHEDULED",
+        "evidence": {
+          "after": "2026-09-12T23:05:00.000Z",
+          "before": "2026-09-12T19:00:00.000Z",
+          "reason": "UTC_PARSE_DEFECT_AND_SOURCE_SCHEDULE_CHANGE",
+          "observedAt": "2026-09-12T10:47:00.272Z",
+          "providerEpoch": 1789254300
+        }
+      },
+      {
+        "id": "872508a1-8101-4ea7-a9d8-60024e385241",
+        "public_id": "872508a181014ea7",
+        "status": "SCHEDULED",
+        "evidence": {
+          "after": "2026-09-18T19:00:00.000Z",
+          "before": "2026-09-18T15:00:00.000Z",
+          "reason": "UTC_PARSE_DEFECT_PROVEN",
+          "observedAt": "2026-09-12T11:05:50.036Z",
+          "providerEpoch": 1789758000
+        }
+      },
+      {
+        "id": "8c3061fd-c8b3-4f3c-9591-36c4caae6d8b",
+        "public_id": "8c3061fdc8b34f3c",
+        "status": "SCHEDULED",
+        "evidence": {
+          "after": "2026-09-14T23:00:00.000Z",
+          "before": "2026-09-14T19:00:00.000Z",
+          "reason": "UTC_PARSE_DEFECT_PROVEN",
+          "observedAt": "2026-09-12T11:05:50.036Z",
+          "providerEpoch": 1789426800
+        }
+      },
+      {
+        "id": "967a73b3-e48b-40f0-8452-e13ff13f07d9",
+        "public_id": "967a73b3e48b40f0",
+        "status": "SCHEDULED",
+        "evidence": {
+          "after": "2026-09-13T13:00:00.000Z",
+          "before": "2026-09-13T09:00:00.000Z",
+          "reason": "UTC_PARSE_DEFECT_PROVEN",
+          "observedAt": "2026-09-12T11:05:50.036Z",
+          "providerEpoch": 1789304400
+        }
+      },
+      {
+        "id": "a414140f-9068-4da8-8914-6a3fe590cc8e",
+        "public_id": "a414140f90684da8",
+        "status": "SCHEDULED",
+        "evidence": {
+          "after": "2026-09-14T19:00:00.000Z",
+          "before": "2026-09-14T15:00:00.000Z",
+          "reason": "UTC_PARSE_DEFECT_PROVEN",
+          "observedAt": "2026-09-12T11:05:50.036Z",
+          "providerEpoch": 1789412400
+        }
+      },
+      {
+        "id": "a465bd32-c368-4efd-afac-ae4bad7f1fd5",
+        "public_id": "a465bd32c3684efd",
+        "status": "SCHEDULED",
+        "evidence": {
+          "after": "2026-09-19T16:30:00.000Z",
+          "before": "2026-09-19T12:30:00.000Z",
+          "reason": "UTC_PARSE_DEFECT_PROVEN",
+          "observedAt": "2026-09-12T11:05:50.036Z",
+          "providerEpoch": 1789835400
+        }
+      },
+      {
+        "id": "a5353b7b-1201-4fea-b33f-4fca1e06f3b3",
+        "public_id": "a5353b7b12014fea",
+        "status": "SCHEDULED",
+        "evidence": {
+          "after": "2026-09-13T03:15:00.000Z",
+          "before": "2026-09-12T23:00:00.000Z",
+          "reason": "UTC_PARSE_DEFECT_AND_SOURCE_SCHEDULE_CHANGE",
+          "observedAt": "2026-09-12T11:05:50.036Z",
+          "providerEpoch": 1789269300
+        }
+      },
+      {
+        "id": "a7ca59c5-2250-4409-9436-27a968768476",
+        "public_id": "a7ca59c522504409",
+        "status": "SCHEDULED",
+        "evidence": {
+          "after": "2026-09-13T15:30:00.000Z",
+          "before": "2026-09-13T11:30:00.000Z",
+          "reason": "UTC_PARSE_DEFECT_PROVEN",
+          "observedAt": "2026-09-12T11:05:50.036Z",
+          "providerEpoch": 1789313400
+        }
+      },
+      {
+        "id": "ab713a17-00c4-4974-a8c3-d807d0038755",
+        "public_id": "ab713a1700c44974",
+        "status": "SCHEDULED",
+        "evidence": {
+          "after": "2026-09-12T23:30:00.000Z",
+          "before": "2026-09-12T19:30:00.000Z",
+          "reason": "UTC_PARSE_DEFECT_PROVEN",
+          "observedAt": "2026-09-12T11:05:50.036Z",
+          "providerEpoch": 1789255800
+        }
+      },
+      {
+        "id": "aded22c4-035e-4296-96f8-8850cb36d34d",
+        "public_id": "aded22c4035e4296",
+        "status": "SCHEDULED",
+        "evidence": {
+          "after": "2026-09-12T21:30:00.000Z",
+          "before": "2026-09-12T17:30:00.000Z",
+          "reason": "UTC_PARSE_DEFECT_PROVEN",
+          "observedAt": "2026-09-12T11:05:50.036Z",
+          "providerEpoch": 1789248600
+        }
+      },
+      {
+        "id": "af6fbc7c-996f-4092-93d3-2a3a5cb37c2a",
+        "public_id": "af6fbc7c996f4092",
+        "status": "SCHEDULED",
+        "evidence": {
+          "after": "2026-09-14T01:07:00.000Z",
+          "before": "2026-09-13T21:07:00.000Z",
+          "reason": "UTC_PARSE_DEFECT_PROVEN",
+          "observedAt": "2026-09-12T11:05:50.036Z",
+          "providerEpoch": 1789348020
+        }
+      },
+      {
+        "id": "be30c2fc-a15d-4796-bb11-95d4016c3a82",
+        "public_id": "be30c2fca15d4796",
+        "status": "SCHEDULED",
+        "evidence": {
+          "after": "2026-09-13T00:00:00.000Z",
+          "before": "2026-09-12T20:00:00.000Z",
+          "reason": "UTC_PARSE_DEFECT_PROVEN",
+          "observedAt": "2026-09-12T11:05:50.036Z",
+          "providerEpoch": 1789257600
+        }
+      },
+      {
+        "id": "c0441590-be28-49bb-abf6-bf4cbb501e8e",
+        "public_id": "c0441590be2849bb",
+        "status": "SCHEDULED",
+        "evidence": {
+          "after": "2026-09-20T14:00:00.000Z",
+          "before": "2026-09-20T10:00:00.000Z",
+          "reason": "UTC_PARSE_DEFECT_PROVEN",
+          "observedAt": "2026-09-12T11:05:50.036Z",
+          "providerEpoch": 1789912800
+        }
+      },
+      {
+        "id": "c1564042-b00b-4607-8957-cf2a15fa7088",
+        "public_id": "c1564042b00b4607",
+        "status": "SCHEDULED",
+        "evidence": {
+          "after": "2026-09-20T19:00:00.000Z",
+          "before": "2026-09-20T15:00:00.000Z",
+          "reason": "UTC_PARSE_DEFECT_PROVEN",
+          "observedAt": "2026-09-12T11:05:50.036Z",
+          "providerEpoch": 1789930800
+        }
+      },
+      {
+        "id": "c5a53e5b-92c0-42c6-8274-e3fb6fc0fb2d",
+        "public_id": "c5a53e5b92c042c6",
+        "status": "SCHEDULED",
+        "evidence": {
+          "after": "2026-09-16T01:00:00.000Z",
+          "before": "2026-09-15T21:00:00.000Z",
+          "reason": "UTC_PARSE_DEFECT_PROVEN",
+          "observedAt": "2026-09-12T11:05:50.036Z",
+          "providerEpoch": 1789520400
+        }
+      },
+      {
+        "id": "d232d70c-dd1f-41d5-a6fb-cc2143246dd7",
+        "public_id": "d232d70cdd1f41d5",
+        "status": "SCHEDULED",
+        "evidence": {
+          "after": "2026-09-19T14:00:00.000Z",
+          "before": "2026-09-19T10:00:00.000Z",
+          "reason": "UTC_PARSE_DEFECT_PROVEN",
+          "observedAt": "2026-09-12T11:05:50.036Z",
+          "providerEpoch": 1789826400
+        }
+      },
+      {
+        "id": "d7f975a2-6cca-49a6-a7eb-5ee3c5de0967",
+        "public_id": "d7f975a26cca49a6",
+        "status": "SCHEDULED",
+        "evidence": {
+          "after": "2026-09-19T19:00:00.000Z",
+          "before": "2026-09-19T15:00:00.000Z",
+          "reason": "UTC_PARSE_DEFECT_PROVEN",
+          "observedAt": "2026-09-12T11:05:50.036Z",
+          "providerEpoch": 1789844400
+        }
+      },
+      {
+        "id": "ddb18c72-415f-42f0-a171-c97a74062d59",
+        "public_id": "ddb18c72415f42f0",
+        "status": "SCHEDULED",
+        "evidence": {
+          "after": "2026-09-20T19:00:00.000Z",
+          "before": "2026-09-20T15:00:00.000Z",
+          "reason": "UTC_PARSE_DEFECT_PROVEN",
+          "observedAt": "2026-09-12T11:05:50.036Z",
+          "providerEpoch": 1789930800
+        }
+      },
+      {
+        "id": "ddb7b7ce-becf-413b-a2ad-e6df8289a9c6",
+        "public_id": "ddb7b7cebecf413b",
+        "status": "SCHEDULED",
+        "evidence": {
+          "after": "2026-09-20T13:00:00.000Z",
+          "before": "2026-09-20T09:00:00.000Z",
+          "reason": "UTC_PARSE_DEFECT_PROVEN",
+          "observedAt": "2026-09-12T11:05:50.036Z",
+          "providerEpoch": 1789909200
+        }
+      },
+      {
+        "id": "e62cce0b-0b9b-4012-b45f-1c1a27cfbcdf",
+        "public_id": "e62cce0b0b9b4012",
+        "status": "SCHEDULED",
+        "evidence": {
+          "after": "2026-09-12T20:00:00.000Z",
+          "before": "2026-09-12T16:00:00.000Z",
+          "reason": "UTC_PARSE_DEFECT_PROVEN",
+          "observedAt": "2026-09-12T11:05:50.036Z",
+          "providerEpoch": 1789243200
+        }
+      },
+      {
+        "id": "ef0c083c-7bd4-408c-83c8-a03398bbcaee",
+        "public_id": "ef0c083c7bd4408c",
+        "status": "SCHEDULED",
+        "evidence": {
+          "after": "2026-09-19T20:00:00.000Z",
+          "before": "2026-09-19T16:00:00.000Z",
+          "reason": "UTC_PARSE_DEFECT_PROVEN",
+          "observedAt": "2026-09-12T11:05:50.036Z",
+          "providerEpoch": 1789848000
+        }
+      },
+      {
+        "id": "efb9eb42-36e5-4aa8-9b0d-05cbe62b9dd3",
+        "public_id": "efb9eb4236e54aa8",
+        "status": "SCHEDULED",
+        "evidence": {
+          "after": "2026-09-12T19:00:00.000Z",
+          "before": "2026-09-12T15:00:00.000Z",
+          "reason": "UTC_PARSE_DEFECT_PROVEN",
+          "observedAt": "2026-09-12T10:47:00.272Z",
+          "providerEpoch": 1789239600
+        }
+      }
+    ]
+  },
+  "idempotency": {
+    "at": "2026-09-12T11:46:55.482Z",
+    "results": [
+      {
+        "bookmaker": "betano.bet.br",
+        "historyChanges": 0,
+        "currentWrites": 0,
+        "closed": 0
+      },
+      {
+        "bookmaker": "betsson",
+        "historyChanges": 0,
+        "currentWrites": 0,
+        "closed": 0
+      }
+    ]
+  },
+  "limitation": "Generic Betsson feed does not verify BR/MX jurisdiction. No eligible MX feed or configured affiliate CTA. No production scheduler is running."
+}

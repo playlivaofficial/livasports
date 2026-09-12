@@ -1,0 +1,64 @@
+'use client';
+import {useEffect,useRef,useState} from 'react';
+import type {OddsComparison,OddsMarket,OddsCell} from '@/odds/types';
+import {SELECTIONS} from '@/odds/types';
+import {emitMatchEvent,type MatchEventContext} from './events';
+
+const copy={
+  br:{title:'Compare as odds',pregame:'Pré-jogo · 90 minutos',markets:{MATCH_WINNER:'Resultado final',TOTAL_GOALS:'Gols · 2,5',BTTS:'Ambas marcam'},
+    outcomes:{HOME:'1',DRAW:'X',AWAY:'2',OVER:'Mais de 2,5',UNDER:'Menos de 2,5',YES:'Sim',NO:'Não'},house:'Casa',action:'Ação',visit:'Ver na casa',best:'Melhor odd',
+    empty:'Odds ainda não disponíveis para esta partida.',stale:'Odds desatualizadas — aguardando nova verificação.',closed:'As odds pré-jogo não estão mais disponíveis.',suspended:'Mercado temporariamente suspenso.',
+    observed:'Verificado em',changed:'Última mudança informada',single:'Uma casa disponível neste mercado.',responsible:'18+. Aposte com responsabilidade.',disclosure:'Podemos receber comissão pelos links de parceiros. Isso não altera a ordem das odds.'},
+  mx:{title:'Compara las cuotas',pregame:'Prepartido · 90 minutos',markets:{MATCH_WINNER:'Resultado final',TOTAL_GOALS:'Goles · 2.5',BTTS:'Ambos anotan'},
+    outcomes:{HOME:'1',DRAW:'X',AWAY:'2',OVER:'Más de 2.5',UNDER:'Menos de 2.5',YES:'Sí',NO:'No'},house:'Casa',action:'Acción',visit:'Ver en la casa',best:'Mejor cuota',
+    empty:'Las cuotas aún no están disponibles para este partido.',stale:'Cuotas desactualizadas — pendientes de verificación.',closed:'Las cuotas prepartido ya no están disponibles.',suspended:'Mercado suspendido temporalmente.',
+    observed:'Verificado el',changed:'Último cambio informado',single:'Una casa disponible en este mercado.',responsible:'18+. Apuesta con responsabilidad.',disclosure:'Podemos recibir una comisión por enlaces de socios. Esto no cambia el orden de las cuotas.'},
+};
+export function PregameOdds({initial,context}:{initial:OddsComparison[];context:MatchEventContext}){
+  const [comparisons,setComparisons]=useState(initial);const [market,setMarket]=useState<OddsMarket>('MATCH_WINNER');
+  const [clock,setClock]=useState<number|null>(null);const root=useRef<HTMLElement>(null);const visible=useRef(false);
+  const text=copy[context.locale];const selected=comparisons.find(c=>c.market===market);const sent=useRef(new Set<string>());
+  const selectedMarket=useRef(market);
+  useEffect(()=>{
+    let stopped=false;let inFlight=false;let lastAttempt=0;const abort=new AbortController();
+    const tick=()=>setClock(Date.now());
+    async function refresh(){if(stopped||inFlight||!visible.current||document.visibilityState!=='visible'||Date.now()-lastAttempt<60000)return;
+      inFlight=true;lastAttempt=Date.now();tick();try{const response=await fetch(`/api/odds/${context.fixtureId}?locale=${context.locale}`,{cache:'no-store',signal:abort.signal});
+        if(response.ok){const body=await response.json();if(!stopped&&Array.isArray(body.comparisons))setComparisons(body.comparisons);}
+      }catch{/* Expiry still applies when refresh is unavailable. */}finally{inFlight=false;}}
+    const observe=(entries:IntersectionObserverEntry[])=>{visible.current=entries.some(e=>e.isIntersecting);if(visible.current){
+      if(!sent.current.has('module')){sent.current.add('module');emitMatchEvent('odds_module_view',context,'match_odds');}
+      if(!sent.current.has(selectedMarket.current)){sent.current.add(selectedMarket.current);emitMatchEvent('odds_market_view',context,'match_odds',{market:selectedMarket.current});}
+      void refresh();}};
+    const observer=new IntersectionObserver(observe,{threshold:0.15});if(root.current)observer.observe(root.current);
+    const timer=window.setInterval(tick,1000);const refreshTimer=window.setInterval(()=>void refresh(),60000);
+    const focus=()=>{tick();void refresh();};document.addEventListener('visibilitychange',focus);window.addEventListener('pageshow',focus);
+    return()=>{stopped=true;abort.abort();observer.disconnect();clearInterval(timer);clearInterval(refreshTimer);document.removeEventListener('visibilitychange',focus);window.removeEventListener('pageshow',focus);};
+  },[context.fixtureId,context.locale,context.competitionId,context]);
+  const cellCurrent=(cell:OddsCell)=>cell.decimalOdds!==null&&cell.expiresAt!==null&&(clock===null||clock<Date.parse(cell.expiresAt));
+  const available=selected?.rows.filter(r=>r.cells.some(cellCurrent)).length??0;
+  const anyExpired=selected?.rows.some(r=>r.cells.some(c=>c.state==='STALE'||(c.decimalOdds!==null&&!cellCurrent(c))));
+  const allClosed=selected?.rows.length&&selected.rows.every(r=>r.cells.every(c=>c.state==='CLOSED'||c.state==='UNAVAILABLE'));
+  const pastKickoff=clock!==null&&selected?.closesAt&&clock>=Date.parse(selected.closesAt);
+  const unavailable=allClosed||pastKickoff?text.closed:anyExpired?text.stale:selected?.rows.some(r=>r.cells.some(c=>c.state==='SUSPENDED'))?text.suspended:text.empty;
+  const date=(value:string)=>new Intl.DateTimeFormat(context.locale==='br'?'pt-BR':'es-MX',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',timeZone:context.locale==='br'?'America/Sao_Paulo':'America/Mexico_City'}).format(new Date(value));
+  function select(next:OddsMarket){selectedMarket.current=next;setMarket(next);if(!sent.current.has(next)){sent.current.add(next);emitMatchEvent('odds_market_view',context,'match_odds',{market:next});}}
+  return <section id="odds" ref={root} className="match-panel commercial-panel pregame-odds" aria-label={text.title}>
+    <div className="odds-title"><div><h2>{text.title}</h2><p>{text.pregame}</p></div><span className="age-label">18+</span></div>
+    <div className="odds-market-tabs" role="tablist" aria-label={text.title}>{(Object.keys(SELECTIONS) as OddsMarket[]).map((key,index,keys)=><button type="button" role="tab" key={key} id={`odds-tab-${key}`} aria-controls="odds-market-panel" aria-selected={key===market} tabIndex={key===market?0:-1} onClick={()=>select(key)} onKeyDown={event=>{
+      const next=event.key==='ArrowRight'?keys[(index+1)%keys.length]:event.key==='ArrowLeft'?keys[(index+keys.length-1)%keys.length]:event.key==='Home'?keys[0]:event.key==='End'?keys.at(-1):null;
+      if(next){event.preventDefault();select(next);document.getElementById(`odds-tab-${next}`)?.focus();}
+    }}>{text.markets[key]}</button>)}</div>
+    <div role="tabpanel" id="odds-market-panel" aria-labelledby={`odds-tab-${market}`}>
+      {selected?.rows.length?<table className="pregame-table"><thead><tr><th scope="col">{text.house}</th>{SELECTIONS[market].map(outcome=><th scope="col" key={outcome}>{text.outcomes[outcome]}</th>)}<th scope="col">{text.action}</th></tr></thead>
+        <tbody>{selected.rows.map(row=><tr key={row.bookmaker}><th scope="row">{row.name}</th>{row.cells.map(cell=>{
+          const current=cellCurrent(cell);const best=current&&cell.best&&selected.rows.filter(r=>r.cells.some(c=>c.outcome===cell.outcome&&cellCurrent(c))).length>=2;
+          return <td key={cell.outcome}><span className={`pregame-price${best?' is-best':''}${!current?' is-unavailable':''}`} title={best?text.best:!current?unavailable:undefined}>
+            {current?new Intl.NumberFormat(context.locale==='br'?'pt-BR':'es-MX',{minimumFractionDigits:2,maximumFractionDigits:2}).format(Number(cell.decimalOdds)):'—'}{best?<span className="sr-only"> {text.best}</span>:null}</span></td>;})}
+          <td>{row.action&&row.cells.some(cellCurrent)?<a href={row.action} rel="sponsored nofollow noopener" onClick={()=>emitMatchEvent('odds_bookmaker_click',context,'match_odds',{market,bookmaker:row.bookmaker})}>{text.visit} ↗</a>:<span className="odds-no-action">—</span>}</td></tr>)}</tbody></table>:null}
+      {!available?<p className="pregame-empty" role="status">{unavailable}</p>:available===1?<p className="odds-note">{text.single}</p>:null}
+      {selected?.observedAt?<p className="odds-freshness">{text.observed} <time dateTime={selected.observedAt}>{date(selected.observedAt)}</time>{selected.providerUpdatedAt?<span> · {text.changed}: {date(selected.providerUpdatedAt)}</span>:null}</p>:null}
+    </div>
+    <p className="affiliate-disclosure">{selected?.rows.some(r=>r.action&&r.cells.some(cellCurrent))?`${text.disclosure} `:''}{text.responsible}</p>
+  </section>;
+}

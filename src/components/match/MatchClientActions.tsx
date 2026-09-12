@@ -1,19 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-
-type EventName = 'match_open' | 'match_tab_view' | 'odds_module_view' | 'match_share';
-interface Context { fixtureId: string; competitionId: string; locale: 'br' | 'mx'; }
-
-function emit(name: EventName, context: Context, placement?: string): void {
-  const key = `ls:${name}:${context.fixtureId}:${placement ?? ''}`;
-  const now = Date.now();
-  const previous = Number(sessionStorage.getItem(key) ?? 0);
-  if (now - previous < 10_000) return;
-  sessionStorage.setItem(key, String(now));
-  void fetch('/api/events', { method: 'POST', keepalive: true, headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ eventId: crypto.randomUUID(), eventName: name, ...context, placement: placement ?? null }) }).catch(() => undefined);
-}
+import {emitMatchEvent as emit,type MatchEventContext as Context} from './events';
 
 export function MatchClientActions({ context, canonicalUrl, shareText, labels }: {
   context: Context; canonicalUrl: string; shareText: string; labels: { share: string; copied: string };
@@ -22,10 +10,6 @@ export function MatchClientActions({ context, canonicalUrl, shareText, labels }:
   const oddsRef = useRef<HTMLSpanElement>(null);
   useEffect(() => {
     emit('match_open', context, 'match_header');
-    const odds = document.getElementById('odds');
-    if (!odds) return;
-    const observer = new IntersectionObserver(entries => { if (entries.some(entry => entry.isIntersecting)) emit('odds_module_view', context, 'match_odds'); }, { threshold: 0.35 });
-    observer.observe(odds); return () => observer.disconnect();
   }, [context]);
 
   async function share() {

@@ -6,6 +6,7 @@ import { FixtureStatus } from '@/domain/enums';
 import type { MatchCenterView, MatchModule, MatchReadResult } from './types';
 import type { MatchModuleMeta, PostgresMatchCenterRepository } from './repository';
 import { isLiveSnapshotStale, latestSnapshotAt } from './rules';
+import {loadOddsComparisons} from '@/odds/runtime';
 
 const emptyMeta = (state: MatchModule<unknown>['state']): Omit<MatchModule<unknown>, 'data'> => ({ state, providerUpdatedAt: null, lastSuccessfulRefreshAt: null, snapshotAt: null });
 
@@ -34,7 +35,7 @@ export class MatchCenterLoader {
       this.cached(header.id, locale, 'player-statistics', 300, () => this.repository.playerPerformances(header.id)),
       this.cached(header.id, locale, 'standings', 600, () => this.repository.standings(header)),
       this.cached(header.id, locale, 'form', 600, () => this.repository.form(header)),
-      this.cached(header.id, locale, 'odds', 300, () => this.repository.odds(header)),
+      loadOddsComparisons(header.id,locale),
     ] as const;
     const [eventsResult, statisticsResult, lineupsResult, playerStatisticsResult, standingsResult, formResult, oddsResult] = await Promise.allSettled(calls);
     const value = <T>(result: PromiseSettledResult<T>, fallback: T): T => result.status === 'fulfilled' ? result.value : fallback;
@@ -50,7 +51,8 @@ export class MatchCenterLoader {
       playerStatistics: state(playerStatisticsResult, { ...emptyMeta(playerStatisticsData.length?'AVAILABLE':defaultState), data: playerStatisticsData }),
       standings: state(standingsResult, wrap('STANDINGS', standingsData, header.competitionType === 'DOMESTIC_CUP' ? 'NOT_APPLICABLE' : 'NO_DATA_IN_WINDOW')),
       form: state(formResult, { ...emptyMeta(formData.home.length || formData.away.length ? 'AVAILABLE' : 'NO_DATA_IN_WINDOW'), data: formData }),
-      odds: state(oddsResult, { ...emptyMeta(oddsData.length ? 'AVAILABLE' : 'NO_DATA_IN_WINDOW'), data: oddsData }),
+      odds: { ...emptyMeta('NO_DATA_IN_WINDOW'), data: [] },
+      oddsComparisons: oddsData,
       snapshotAt, liveSnapshotStale: isLiveSnapshotStale(header.status, header.providerUpdatedAt ?? snapshotAt), providerRequests: 0 };
     return { kind: 'found', match };
   }

@@ -3,6 +3,7 @@ import { FixtureStatus, ProviderCode, ProviderEntityType, TeamType } from '@/dom
 import { domainId, newDomainId } from '@/domain/ids';
 import type { ProviderMappingService } from '@/domain/provider-mapping';
 import type { SportmonksFixturePayload, SportmonksLeaguePayload, SportmonksSeasonPayload, SportmonksTeamPayload } from './types';
+import { sportmonksUtc } from './utc';
 
 const statusMap: Record<string, FixtureStatus> = {
   NS: FixtureStatus.SCHEDULED, TBA: FixtureStatus.SCHEDULED, NOT_STARTED: FixtureStatus.SCHEDULED, SCHEDULED: FixtureStatus.SCHEDULED,
@@ -44,7 +45,7 @@ export class SportmonksNormalizer {
   async season(raw: SportmonksSeasonPayload): Promise<Season> {
     return { id: domainId<'Season'>(await this.id(ProviderEntityType.SEASON, String(raw.id))),
       competitionId: domainId<'Competition'>(await this.id(ProviderEntityType.COMPETITION, String(raw.league_id))), name: raw.name,
-      startsAt: raw.starting_at ? new Date(raw.starting_at) : null, endsAt: raw.ending_at ? new Date(raw.ending_at) : null,
+      startsAt: raw.starting_at ? sportmonksUtc(raw.starting_at) : null, endsAt: raw.ending_at ? sportmonksUtc(raw.ending_at) : null,
       isCurrent: raw.is_current ?? false };
   }
 
@@ -67,11 +68,11 @@ export class SportmonksNormalizer {
       competitionId: domainId<'Competition'>(await this.id(ProviderEntityType.COMPETITION, String(raw.league_id))),
       seasonId: raw.season_id === null ? null : domainId<'Season'>(await this.id(ProviderEntityType.SEASON, String(raw.season_id))),
       homeTeamId: domainId<'Team'>(await this.id(ProviderEntityType.TEAM, String(home.id))),
-      awayTeamId: domainId<'Team'>(await this.id(ProviderEntityType.TEAM, String(away.id))), kickoff: new Date(raw.starting_at),
+      awayTeamId: domainId<'Team'>(await this.id(ProviderEntityType.TEAM, String(away.id))), kickoff: sportmonksUtc(raw.starting_at, raw.starting_at_timestamp),
       status: mapSportmonksFixtureStatus(state),
       homeScore: currentScore(raw, home.id), awayScore: currentScore(raw, away.id),
-      createdAt: raw.created_at ? new Date(raw.created_at) : now, updatedAt: now,
-      providerUpdatedAt: raw.updated_at ? new Date(raw.updated_at) : null,
+      createdAt: raw.created_at ? sportmonksUtc(raw.created_at) : now, updatedAt: now,
+      providerUpdatedAt: raw.updated_at ? sportmonksUtc(raw.updated_at) : null,
     };
   }
 }

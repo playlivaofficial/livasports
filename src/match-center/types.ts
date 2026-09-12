@@ -1,5 +1,6 @@
 import type { FixtureStatus } from '@/domain/enums';
 import type { SiteLocale } from '@/config/i18n';
+import type {OddsComparison} from '@/odds/types';
 
 export type MatchModuleState = 'AVAILABLE' | 'NOT_YET_AVAILABLE' | 'NOT_COVERED' | 'NO_DATA_IN_WINDOW' | 'NOT_APPLICABLE' | 'ERROR' | 'STALE';
 
@@ -45,6 +46,7 @@ export interface MatchCenterView {
   standings: MatchModule<MatchStandingView[]>;
   form: MatchModule<MatchFormView>;
   odds: MatchModule<MatchOddsPriceView[]>;
+  oddsComparisons?: OddsComparison[];
   snapshotAt: string | null;
   liveSnapshotStale: boolean;
   providerRequests: 0;

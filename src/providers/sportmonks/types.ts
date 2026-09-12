@@ -11,6 +11,7 @@ export interface SportmonksFixturePayload {
   season_id: number | null;
   state_id: number;
   starting_at: string;
+  starting_at_timestamp?: number;
   participants?: SportmonksParticipant[];
   scores?: Array<{ description?: string; score?: { goals?: number }; participant_id?: number }>;
   state?: { name?: string; developer_name?: string };
