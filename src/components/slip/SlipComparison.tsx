@@ -7,6 +7,7 @@ import {comparisonCopy} from '@/slip/comparison-copy';
 import {selectionLabel,slipCopy} from '@/slip/localization';
 import {formatCombinedOdds} from '@/slip/decimal';
 import {emitComparisonEvent} from '@/slip/comparison-events';
+import {AffiliateLink} from '@/components/commercial/AffiliateLink';
 
 export function SlipComparison({locale,selections,value,checking}:{locale:SiteLocale;selections:SavedSelection[];value:Comparison|null;checking:boolean}){
   const text=comparisonCopy[locale],slip=slipCopy[locale];const section=useRef<HTMLElement>(null);
@@ -35,17 +36,15 @@ export function SlipComparison({locale,selections,value,checking}:{locale:SiteLo
       {selections.length===1?<p className="slip-comparison-note">{text.one}</p>:null}
       {!value.bookmakers.length?<p className="slip-comparison-note">{text.noBookmaker}</p>:value.bookmakers.map(b=>{
         const missing=b.selectionQuotes.filter(q=>q.decimalOdds===null);
-        const query=new URLSearchParams({locale,selections:JSON.stringify(selections.map(s=>canonicalSelection(s)))});
         return <article className={`slip-bookmaker${b.best?' is-best':''}`} key={b.bookmakerId} aria-labelledby={`slip-bookmaker-${b.bookmakerId}`} data-bookmaker={b.bookmakerId} data-complete={b.complete}>
           <header><h4 id={`slip-bookmaker-${b.bookmakerId}`}>{b.displayName}</h4><span aria-label={`${text.available}: ${b.availableSelectionCount}/${b.requiredSelectionCount}`}>{b.availableSelectionCount}/{b.requiredSelectionCount}</span></header>
           {b.best?<p className="slip-best-label">{b.tiedBest?text.tie:text.best}</p>:null}
           <p className="slip-coverage-state">{b.complete?text.complete:b.availableSelectionCount?text.partial:text.none}</p>
           {b.combinedDecimalOdds?<p className="slip-combined"><span>{text.combined}</span><strong>{formatCombinedOdds(b.combinedDecimalOdds,locale)}</strong></p>:<p className="slip-comparison-note">{text.noTotal}</p>}
           {missing.length?<details className="slip-missing" open><summary>{text.missing} ({missing.length})</summary><ul>{missing.map(q=><li key={selectionKey(q.selection)}><strong>{q.fixture?`${q.fixture.home} × ${q.fixture.away}`:slip.missing}</strong><span>{slip.markets[q.selection.market]} · {selectionLabel(q.selection,locale,q.fixture)}</span><span>{slip.states[q.state]}</span></li>)}</ul></details>:null}
-          {b.ctaState==='ENABLED'?<><a className="slip-bookmaker-cta" href={`/go/slip/${b.bookmakerId}?${query}`} target="_blank" rel="sponsored nofollow noopener noreferrer" aria-label={`${text.cta} · ${b.displayName}`} onClick={()=>emitComparisonEvent('slip_bookmaker_click',locale,selections,b)}>{text.cta}<span aria-hidden="true">↗</span></a><p className="slip-comparison-note">{text.destination}</p></>:b.complete?<p className="slip-comparison-note">{text.gated}</p>:null}
+          {b.ctaState==='ENABLED'?<AffiliateLink className="slip-bookmaker-cta" context={{locale,placement:'slip_bookmaker_comparison',bookmaker:b.bookmakerId as 'betsson'|'betano.bet.br',selections:selections.map(s=>canonicalSelection(s)! )}}/>:b.complete?<p className="slip-comparison-note">{text.gated}</p>:null}
         </article>;
       })}
-      {value.bookmakers.some(b=>b.ctaState==='ENABLED')?<p className="slip-comparison-note">{text.disclosure}</p>:null}
     </>}
   </section>;
 }

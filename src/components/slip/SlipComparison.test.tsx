@@ -1,4 +1,5 @@
-import {describe,it,expect} from 'vitest';
+import {describe,it,expect,vi} from 'vitest';
+vi.mock('@/affiliate/client',async()=>{const {displayOffer}=await import('@/affiliate/fixtures.test-support');return {useCommercialOffer:()=>displayOffer(),privacyOptOut:()=>false,qaBrowser:()=>true};});
 import {renderToStaticMarkup} from 'react-dom/server';
 import {SlipComparison} from './SlipComparison';
 import {buildSlipComparison} from '@/slip/comparison';

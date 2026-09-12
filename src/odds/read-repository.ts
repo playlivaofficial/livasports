@@ -2,7 +2,7 @@ import 'server-only';
 import type {QueryExecutor} from '@/database/client';
 import type {SiteLocale} from '@/config/i18n';
 import type {OddsReadSnapshot,ReadOddsQuote} from './types';
-import {safeAffiliateDestination} from './affiliate';
+import {activeCampaignSql,availableDestination} from '@/affiliate/availability';
 import {eligibleSource} from './geo';
 import type {QueryResultRow} from 'pg';
 import {verifiedGeo} from './geo';
@@ -14,7 +14,7 @@ function oddsReadSql(selector:'id'|'publicIds'){
   return `SELECT f.id AS canonical_fixture_id,f.public_id,f.kickoff,f.status AS fixture_status,
     ht.name AS home_name,at.name AS away_name,
     CASE WHEN $2='BR' THEN competition.display_name_pt_br ELSE competition.display_name_es_mx END AS competition_name,
-    o.*,b.provider_slug,b.display_name,g.verification_state,
+    o.*,b.provider_slug,b.display_name,g.verification_state,${activeCampaignSql} AS active_campaigns,
     b.enabled AND b.comparison_enabled AND g.odds_enabled AND g.comparison_enabled AND g.verified_at IS NOT NULL AS geo_eligible,
     fm.livasports_entity_id=f.id AND hm.livasports_entity_id=f.home_team_id AND am.livasports_entity_id=f.away_team_id
       AND cm.livasports_entity_id=f.competition_id AND mr.fixture_id=f.id AND mr.state IN ('EXACT','HIGH_CONFIDENCE')
@@ -46,7 +46,7 @@ function hydrateOddsSnapshot(rows:QueryResultRow[],fixtureId:string,locale:SiteL
       providerUpdatedAt:row.provider_updated_at?date(row.provider_updated_at):null,observedAt:date(row.observed_at),persistedAt:date(row.persisted_at),lastSuccessfulRefreshAt:date(row.last_successful_refresh_at),
       sourceDomain:row.source_domain,providerKickoff:date(row.provider_kickoff),geoEligible:Boolean(row.geo_eligible&&sourceEligible&&row.mapping_verified)};
     snapshot.quotes.push(quote);
-    const destination=quote.geoEligible?safeAffiliateDestination(quote.bookmaker,locale,row.destination):null;
+    const destination=quote.geoEligible?availableDestination(quote.bookmaker,locale,row.destination,row.active_campaigns,'match_odds_table')?.url:null;
     if(destination)snapshot.destinations[quote.bookmaker]=destination;
   }
   return snapshot;
@@ -80,7 +80,7 @@ export async function readSlipComparison(db:QueryExecutor,publicIds:readonly str
   // Two bounded queries regardless of selection/bookmaker count. No history or provider gateway.
   const fixtures=await readPublicOddsFixtures(db,publicIds,locale);
   if(!publicIds.length)return {fixtures,bookmakers:[],destinations:{}};
-  const {rows}=await db.query(`SELECT b.provider_slug,b.display_name,b.affiliate_status,g.verification_state,
+  const {rows}=await db.query(`SELECT b.provider_slug,b.display_name,b.affiliate_status,g.verification_state,${activeCampaignSql} AS active_campaigns,
     CASE WHEN b.affiliate_status='ACTIVE' AND g.affiliate_enabled AND al.enabled AND al.approved_at IS NOT NULL
       AND al.campaign_verified AND al.approved_placement='match-odds' THEN al.destination_url END AS destination
     FROM bookmakers b JOIN bookmaker_geo_availability g ON g.bookmaker_id=b.id
@@ -93,10 +93,10 @@ export async function readSlipComparison(db:QueryExecutor,publicIds:readonly str
   for(const row of rows){
     if(!verifiedGeo(row.verification_state,locale)||(row.provider_slug==='betano.bet.br'&&locale!=='br'))continue;
     if(bookmakers.some(b=>b.bookmakerId===row.provider_slug))throw new Error('AMBIGUOUS_BOOKMAKER_CONFIGURATION');
-    const destination=safeAffiliateDestination(row.provider_slug,locale,row.destination);
+    const configured=availableDestination(row.provider_slug,locale,row.destination,row.active_campaigns,'slip_bookmaker_comparison');const destination=configured?.url??null;
     if(destination)destinations[row.provider_slug]=destination;
     bookmakers.push({bookmakerId:row.provider_slug,displayName:row.display_name,geoEligibility:{locale,eligible:true},
-      affiliateEligibility:{approved:row.affiliate_status==='ACTIVE',destinationConfigured:destination!==null}});
+      affiliateEligibility:{approved:row.affiliate_status==='ACTIVE',destinationConfigured:destination!==null,...(configured?{destinationType:configured.type}:{})}});
   }
   return {fixtures,bookmakers,destinations};
 }

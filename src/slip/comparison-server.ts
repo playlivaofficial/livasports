@@ -35,15 +35,5 @@ export async function currentSlipDestination(bookmaker:string,selections:Canonic
   const result=buildSlipComparison(selections,locale,data.fixtures,data.bookmakers).bookmakers.find(b=>b.bookmakerId===bookmaker);
   return result?.complete&&result.ctaState==='ENABLED'?data.destinations[bookmaker]??null:null;
 }
-export async function slipOutboundRequest(request:Request,bookmaker:string,resolve=currentSlipDestination):Promise<Response>{
-  const url=new URL(request.url),locale=url.searchParams.get('locale');let selections;
-  try{selections=JSON.parse(url.searchParams.get('selections')??'null');}catch{selections=null;}
-  const parsed=parseResolutionRequest({locale,selections});
-  if(url.href.length>4096||!parsed||![...url.searchParams.keys()].every(k=>['locale','selections'].includes(k)&&url.searchParams.getAll(k).length===1)||!['betsson','betano.bet.br'].includes(bookmaker))
-    return new Response(null,{status:400,headers});
-  const fallback=()=>new Response(null,{status:303,headers:{...headers,Location:new URL(`/${parsed.locale}?slip=unavailable`,url.origin).href}});
-  try{const destination=await resolve(bookmaker,parsed.selections,parsed.locale);
-    if(destination)return new Response(null,{status:303,headers:{...headers,Location:destination}});
-  }catch{/* A failed recheck never opens the bookmaker. */}
-  return fallback();
-}
+// Compatibility export; all actual redirect responses use the M8 boundary.
+export {legacySlipRequest as slipOutboundRequest} from '@/affiliate/server';

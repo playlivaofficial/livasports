@@ -3,7 +3,7 @@
 import {readFile,writeFile} from 'node:fs/promises';
 import {browserQA,delay} from './browser-qa-driver.mjs';
 const base=process.argv[2]??'http://localhost:3300';if(!['http://localhost:3300','https://livasports.com'].includes(base))throw Error('QA_ORIGIN_NOT_ALLOWED');
-const production=base.startsWith('https'),prefix=production?'m7-production':'m7-real';
+const production=base.startsWith('https'),milestone=process.argv.includes('--m8')?'m8':'m7',prefix=production?milestone+'-production':milestone+'-real';
 const stub=process.argv.includes('--stub-telemetry');if(production&&stub)throw Error('PRODUCTION_CANNOT_STUB');
 const audit=JSON.parse(await readFile('output/m6-audit-private.json','utf8'));
 const stored={version:1,selections:audit.samples.slice(0,10).map(s=>({fixturePublicId:s.public_id,market:'MATCH_WINNER',outcome:'HOME',line:null,scope:'FULL_TIME_REGULATION',addedAt:new Date().toISOString()}))};

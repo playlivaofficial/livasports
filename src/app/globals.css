@@ -1,4 +1,6 @@
 @import "tailwindcss";
+
+.match-affiliate-cta { display: inline-flex; min-height: 44px; min-width: 44px; align-items: center; justify-content: center; gap: 3px; }
 @import "../slip/slip.css";
 
 :root {
@@ -611,6 +613,27 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .sponsor-slot { overflow: hidden; border-radius: var(--radius-md); background: var(--color-surface); }
 .sponsor-slot>span { display: block; padding: .3rem .5rem; color: var(--color-text-muted); font-size: .55rem; text-transform: uppercase; }
 .sponsor-slot img { display: block; width: 100%; height: auto; }
+.commercial-sponsor { margin: 1rem 0; overflow: hidden; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); }
+.commercial-sponsor img { display: block; width: 100%; height: auto; object-fit: contain; }
+.commercial-label { display: block; padding: .35rem .6rem; font-size: .65rem; color: var(--color-text-muted); }
+.commercial-sponsor p, .commercial-caption { color: var(--color-text-muted); font-size: .65rem; line-height: 1.5; overflow-wrap: anywhere; }
+.commercial-sponsor p { padding: .45rem .6rem; margin: 0; }
+.affiliate-action a { display: inline-flex; align-items: center; min-height: 44px; }
+.affiliate-action .commercial-caption { margin: .35rem 0; max-width: 32rem; }
+.pregame-table .affiliate-action { min-width: 76px; max-width: 130px; }
+.pregame-table .commercial-caption { font-size: .55rem; }
+.sponsor-mobile_inline, .sponsor-profile_mobile_inline { display: none; }
+@media (min-width: 1200px) {
+  .sports-layout:has(> .sponsor-home_right_rail) { grid-template-columns: 200px minmax(0,1fr) 240px; }
+  .sports-layout > .sponsor-home_right_rail { align-self: start; margin-top: 0; }
+}
+@media (max-width: 1199px) { .sponsor-home_right_rail { display: none; } }
+@media (max-width: 767px) {
+  .commercial-sponsor[class*="right_rail"], .commercial-sponsor[class*="top_"] { display: none; }
+  .sponsor-mobile_inline, .sponsor-profile_mobile_inline { display: block; }
+  .sponsor-match_inline, .sponsor-team_inline, .sponsor-player_inline { display: none; }
+  .commercial-sponsor img { max-height: 160px; }
+}
 
 @media (max-width: 900px) {
   .profile-layout { grid-template-columns: minmax(0,1fr); }

@@ -1,11 +1,12 @@
 'use client';
-import {useEffect,useRef,useState} from 'react';
+import {useCallback,useEffect,useRef,useState} from 'react';
 import type {OddsComparison,OddsMarket,OddsCell} from '@/odds/types';
 import {SELECTIONS} from '@/odds/types';
 import {emitMatchEvent,type MatchEventContext} from './events';
 import {addSlipSelection,useSlip} from '@/slip/client';
 import {canonicalSelection,selectionKey,SLIP_SCOPE} from '@/slip/types';
 import {slipCopy,selectionLabel} from '@/slip/localization';
+import {AffiliateLink,commercialCopy} from '@/components/commercial/AffiliateLink';
 
 const copy={
   br:{title:'Compare as odds',pregame:'Pré-jogo · 90 minutos',markets:{MATCH_WINNER:'Resultado final',TOTAL_GOALS:'Gols · 2,5',BTTS:'Ambas marcam'},
@@ -23,6 +24,8 @@ export function PregameOdds({initial,context,fixturePublicId}:{initial:OddsCompa
   const [clock,setClock]=useState<number|null>(null);const root=useRef<HTMLElement>(null);const visible=useRef(false);
   const text=copy[context.locale];const selected=comparisons.find(c=>c.market===market);const sent=useRef(new Set<string>());
   const selectedMarket=useRef(market);
+  const [commercial,setCommercial]=useState<Record<string,boolean>>({});
+  const onAvailability=useCallback((bookmaker:string,available:boolean)=>setCommercial(current=>current[bookmaker]===available?current:{...current,[bookmaker]:available}),[]);
   useEffect(()=>{
     let stopped=false;let inFlight=false;let lastAttempt=0;const abort=new AbortController();
     const tick=()=>setClock(Date.now());
@@ -64,10 +67,11 @@ export function PregameOdds({initial,context,fixturePublicId}:{initial:OddsCompa
             aria-label={`${pressed?slipText.selected:slipText.add}: ${slipText.markets[market]}, ${selectionLabel(intent,context.locale)}, ${priceLabel}, ${row.name}`}
             onClick={()=>addSlipSelection(intent,context.locale,cell.expiresAt!,row.bookmaker)}>{pressed?<span className="slip-selected-indicator" aria-hidden="true">✓</span>:null}{priceLabel}{best?<span className="sr-only"> {text.best}</span>:null}</button>:
             <span className={`pregame-price${best?' is-best':''}${!current?' is-unavailable':''}`} title={best?text.best:!current?unavailable:undefined}>{priceLabel}{best?<span className="sr-only"> {text.best}</span>:null}</span>}</td>;})}
-          <td>{row.action&&row.cells.some(cellCurrent)?<a href={row.action} rel="sponsored nofollow noopener" onClick={()=>emitMatchEvent('odds_bookmaker_click',context,'match_odds',{market,bookmaker:row.bookmaker})}>{text.visit} ↗</a>:<span className="odds-no-action">—</span>}</td></tr>)}</tbody></table>:null}
+          <td>{row.action&&row.cells.some(cellCurrent)&&fixturePublicId?<AffiliateLink compact className="match-affiliate-cta" onAvailability={onAvailability} context={{locale:context.locale,placement:'match_odds_table',bookmaker:row.bookmaker as 'betsson'|'betano.bet.br',fixturePublicId,market}}/>:<span className="odds-no-action">—</span>}</td></tr>)}</tbody></table>:null}
       {!available?<p className="pregame-empty" role="status">{unavailable}</p>:available===1?<p className="odds-note">{text.single}</p>:null}
       {selected?.observedAt?<p className="odds-freshness">{text.observed} <time dateTime={selected.observedAt}>{date(selected.observedAt)}</time>{selected.providerUpdatedAt?<span> · {text.changed}: {date(selected.providerUpdatedAt)}</span>:null}</p>:null}
     </div>
-    <p className="affiliate-disclosure">{selected?.rows.some(r=>r.action&&r.cells.some(cellCurrent))?`${text.disclosure} `:''}{text.responsible}</p>
+    {Object.values(commercial).some(Boolean)?<p className="affiliate-disclosure">{commercialCopy[context.locale].destination} {commercialCopy[context.locale].disclosure}</p>:null}
+    <p className="affiliate-disclosure">{text.responsible}</p>
   </section>;
 }

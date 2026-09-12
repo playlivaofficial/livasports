@@ -2,12 +2,12 @@ import type {SiteLocale} from '@/config/i18n';
 import type {CanonicalSelection,ResolvedSelection,SelectionState,SlipResolution} from './types';
 
 export type ComparisonState='EMPTY_SLIP'|'ONE_SELECTION'|'MULTI_SELECTION_NO_BOOKMAKER'|'ONE_COMPLETE_BOOKMAKER'|'MULTIPLE_COMPLETE_BOOKMAKERS'|'PARTIAL_BOOKMAKER_COVERAGE'|'STALE_SELECTION'|'MATCH_STARTED'|'MISSING_SELECTION_PRICE'|'MIXED_VALIDITY';
-export type OutboundCapability='NONE'|'HOMEPAGE'|'MARKET_DEEPLINK'|'PREFILLED_SLIP';
+export type OutboundCapability='NONE'|'HOMEPAGE'|'SPORTSBOOK'|'MARKET_DEEPLINK'|'PREFILLED_SLIP';
 export interface BookmakerConfig {
   bookmakerId:string;
   displayName:string;
   geoEligibility:{locale:SiteLocale;eligible:boolean};
-  affiliateEligibility:{approved:boolean;destinationConfigured:boolean};
+  affiliateEligibility:{approved:boolean;destinationConfigured:boolean;destinationType?:'HOMEPAGE'|'SPORTSBOOK'};
 }
 export interface SelectionQuote {
   selection:CanonicalSelection;
