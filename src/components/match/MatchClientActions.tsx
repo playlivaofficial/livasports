@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import {emitMatchEvent as emit,type MatchEventContext as Context} from './events';
+import {SectionNav} from '@/components/sports/SectionNav';
 
 export function MatchClientActions({ context, canonicalUrl, shareText, labels }: {
   context: Context; canonicalUrl: string; shareText: string; labels: { share: string; copied: string };
@@ -25,7 +26,5 @@ export function MatchClientActions({ context, canonicalUrl, shareText, labels }:
 }
 
 export function MatchSectionNav({ context, items }: { context: Context; items: Array<{ href: string; label: string }> }) {
-  return <nav className="match-tabs" aria-label={context.locale === 'br' ? 'Seções da partida' : 'Secciones del partido'}>
-    {items.map(item => <a key={item.href} href={item.href} onClick={() => emit('match_tab_view', context, item.href.slice(1))}>{item.label}</a>)}
-  </nav>;
+  return <SectionNav className="match-tabs" label={context.locale === 'br' ? 'Seções da partida' : 'Secciones del partido'} context={context} items={items}/>;
 }

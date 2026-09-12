@@ -42,9 +42,9 @@ export function KickoffTime({ locale, kickoff }: { locale: SiteLocale; kickoff: 
   </time>;
 }
 
-export function TeamIdentity({ name, shortName, imageUrl }: { name: string; shortName?: string | null; imageUrl?: string | null }) {
+export function TeamIdentity({ name, shortName, imageUrl, size=26 }: { name: string; shortName?: string | null; imageUrl?: string | null; size?:26|80|104 }) {
   return <span className="team-identity">
-    <TeamMark initials={teamInitials(shortName || name)} imageUrl={imageUrl} />
+    <TeamMark initials={teamInitials(shortName || name)} imageUrl={imageUrl} size={size} />
     <span className="team-name">{name}</span>
   </span>;
 }

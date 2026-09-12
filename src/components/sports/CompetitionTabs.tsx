@@ -52,7 +52,7 @@ export function FixtureSummary({ locale, live, upcoming, finished }: { locale: S
     { label: dictionary.statuses.FINISHED, value: finished, className: '' },
   ];
 
-  return <section className="context-panel" aria-label={dictionary.labels.overview}>
+  return <section className="context-panel scoreboard-summary" aria-label={dictionary.labels.overview}>
     <h2 className="context-panel-title">{dictionary.labels.overview}</h2>
     <div className="status-summary">
       {rows.map(row => <div className="summary-item" key={row.label}>

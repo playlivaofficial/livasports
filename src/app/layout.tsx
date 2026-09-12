@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import './visual-system.css';
 import {Suspense} from 'react';
 import {SlipShell} from '@/components/slip/SlipShell';
 

@@ -12,7 +12,7 @@ export function CompetitionSection({ locale, section, pagePath }: { locale: Site
   const dictionary = getDictionary(locale);
   const id = competitionAnchor(section.slug ?? section.competition);
 
-  return <section id={id} aria-labelledby={`${id}-title`} className="competition-section">
+  return <section id={id} aria-labelledby={`${id}-title`} className="competition-section" data-group={section.group}>
     <header className="competition-header">
       <div className="competition-name-wrap">
         <span className="competition-emblem" aria-hidden="true">{initials(section.competition)}</span>

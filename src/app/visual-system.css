@@ -1,0 +1,276 @@
+/* G1: shared sports hierarchy, with restrained Brazil accents. No remote fonts or imagery. */
+:root { --color-gold: #e5c668; --color-blue: #81a9e8; }
+.app-shell { background: radial-gradient(ellipse at 65% 0, #14304255, transparent 34rem), var(--color-bg); }
+.app-shell[lang="pt-BR"] { background: radial-gradient(ellipse at 70% 0, #1d45332e, transparent 34rem), var(--color-bg); }
+.app-header { background: #071019f5; border-bottom-color: #263647; }
+.header-inner { gap: 2.5rem; }
+.brand { min-height: 44px; font-size: 1.38rem; letter-spacing: -.055em; }
+.brand-mark { width: 36px; height: 36px; border: 0; border-radius: 10px 3px 10px 3px; background: var(--color-accent); color: #07201b; }
+.brand-mark svg { width: 30px; height: 30px; }
+.brand-mark::after { display: none; }
+.nav-link { min-height: 44px; gap: .45rem; font-size: .875rem; }
+.nav-link[aria-current="page"] { background: #172c2c; color: #8ff0cc; }
+.nav-link[aria-current="page"]::after { bottom: -14px; height: 3px; }
+.nav-live-dot { width: 6px; height: 6px; flex: 0 0 auto; border-radius: 50%; background: var(--color-live); }
+.locale-switcher { gap: 2px; padding: 3px; border: 1px solid var(--color-border); border-radius: 12px; }
+.locale-link { min-width: 44px; min-height: 44px; font-size: .75rem; color: var(--color-text-secondary); }
+.locale-link[aria-current="true"] { background: #233140; border-color: transparent; }
+.app-shell[lang="pt-BR"] .locale-link[aria-current="true"] { box-shadow: inset 0 -2px var(--color-gold); }
+.page-container { padding-top: 2rem; }
+.page-header { position: relative; margin-bottom: 1.5rem; }
+.page-context { font-size: .72rem; letter-spacing: .065em; color: var(--color-text-secondary); }
+.page-context>span:first-child { color: var(--color-gold); }
+.page-context-dot { background: var(--color-accent); }
+.page-title { font-size: clamp(1.9rem, 3vw, 2.65rem); letter-spacing: -.055em; line-height: 1.15; font-weight: 800; }
+.page-description { font-size: .88rem; margin-top: .5rem; }
+.freshness { opacity: 1; font-size: .72rem; }
+.scoreboard-summary { display: flex; width: fit-content; max-width: 100%; margin-bottom: 1.5rem; overflow: visible; border: 0; background: transparent; border-radius: 0; }
+.scoreboard-summary .context-panel-title { display: none; }
+.scoreboard-summary .status-summary { display: flex; gap: .6rem; }
+.scoreboard-summary .summary-item { min-width: 150px; min-height: 54px; gap: .6rem; padding: .6rem .9rem; border: 1px solid var(--color-border); border-radius: 10px; background: #10202c; }
+.summary-label { font-size: .8rem; }
+.summary-count { font-size: 1.1rem; font-variant-numeric: tabular-nums; }
+.sports-layout { grid-template-columns: 210px minmax(0,1fr); gap: 24px; }
+.context-rail { top: calc(var(--header-height) + 1.25rem); }
+.competition-panel { border: 0; border-radius: 0; background: transparent; }
+.competition-panel .context-panel-title { padding: 0 .6rem .9rem; border: 0; font-size: .72rem; letter-spacing: .1em; }
+.competition-tabs { max-height: calc(100dvh - var(--header-height) - 5rem); padding: 0 4px 1rem; scrollbar-width: thin; scrollbar-color: #304053 transparent; }
+.competition-tab { min-height: 44px; font-size: .79rem; line-height: 1.4; padding: .5rem .65rem; }
+.competition-tab-group-label { padding: .55rem .65rem; font-size: .65rem; }
+.fixture-list { gap: 1.4rem; }
+.fixture-section-group { min-width: 0; }
+.competition-section { border-color: #233443; border-radius: 12px; box-shadow: none; }
+.competition-header { min-height: 56px; padding-inline: 18px; background: #152330; }
+.competition-section[data-group="BRAZIL"] .competition-header { box-shadow: inset 3px 0 var(--color-accent); }
+.competition-section[data-group="AMERICAS"] .competition-header { box-shadow: inset 3px 0 var(--color-gold); }
+.competition-emblem { width: 30px; height: 30px; border-radius: 8px; color: var(--color-text-secondary); background: #20333f; border: 0; font-size: .67rem; }
+.competition-title { font-size: .94rem; letter-spacing: -.015em; white-space: normal; overflow-wrap: anywhere; }
+.competition-count { font-size: .73rem; }
+.fixture-table-head { min-height: 30px; font-size: .65rem; letter-spacing: .045em; border-bottom-color: #1a2a38; }
+.fixture-row,.fixture-table-head { grid-template-columns: 92px minmax(0,1fr) 56px 114px; }
+.fixture-row { min-height: 84px; padding-block: 10px; border-bottom-color: #20303d; }
+.fixture-main-link { min-height: 60px; grid-template-columns: 92px minmax(0,1fr) 56px; }
+.fixture-row:hover { background: #18302f; }
+.fixture-row:has(.fixture-main-link:focus-visible) { background: #18302f; }
+.team-stack { gap: 8px; }
+.team-identity { grid-template-columns: 26px minmax(0,1fr); gap: 10px; }
+.team-mark { width: 26px; height: 26px; border-radius: 6px; background: #0a1620; border-color: transparent; }
+.team-logo { border-radius: 0; background: transparent; }
+.team-name { font-size: .91rem; font-weight: 650; white-space: normal; overflow-wrap: anywhere; line-height: 1.35; }
+.score-stack { gap: 8px; }
+.score-value { min-height: 26px; font-size: 1.2rem; line-height: 26px; font-weight: 800; }
+.fixture-row.is-live .score-value { color: var(--color-live); }
+.kickoff-time { font-size: .88rem; font-weight: 750; }
+.kickoff-date { font-size: .7rem; }
+.status-badge { font-size: .68rem; font-weight: 600; }
+.competition-empty-state { min-height: 48px; font-size: .8rem; }
+.match-container,.profile-container { width: min(100%, 82rem); padding-top: 1rem; }
+.match-back,.profile-back { font-size: .82rem; margin-bottom: .3rem; }
+.match-hero,.profile-hero { border-color: #2a3d48; border-radius: 16px; background: linear-gradient(120deg, #19384766, #13222f 50%, #1e413566); box-shadow: none; }
+.match-hero::after,.profile-hero::after { content: ''; position: absolute; pointer-events: none; width: 220px; height: 220px; right: -90px; bottom: -130px; border: 1px solid #68caaa22; border-radius: 50%; }
+.match-competition { min-height: 58px; padding: .5rem 140px; flex-wrap: wrap; gap: .5rem .9rem; font-size: .83rem; border-color: #324b525e; }
+.match-competition b { padding: .4rem .65rem; font-size: .65rem; letter-spacing: .03em; }
+.match-hero[data-status="LIVE"] .match-competition b,.match-hero[data-status="HALFTIME"] .match-competition b { color: var(--color-live); background: var(--color-live-soft); }
+.match-scoreboard { grid-template-columns: minmax(0,1fr) 13rem minmax(0,1fr); padding: 2.3rem 2rem; }
+.match-team .team-mark { width: 80px; height: 80px; border: 0; background: #0b192866; border-radius: 16px; }
+.match-team .team-name { font-size: 1.15rem; line-height: 1.3; font-weight: 750; }
+.match-score { gap: .5rem; }
+.match-score strong { font-size: 4rem; line-height: 1.05; letter-spacing: -.05em; font-weight: 850; }
+.match-score strong span { color: #789397; }
+.match-score.is-scheduled strong { font-size: 3.15rem; }
+.match-score time { font-size: .78rem; }
+.match-score small { font-size: .7rem; }
+.match-actions { top: 7px; right: 12px; }
+.match-share { min-height: 44px; min-width: 44px; font-size: .75rem; border-color: #49616d; }
+.match-tabs,.profile-tabs { margin-block: 1.3rem; padding: 0; border: 0; border-bottom: 1px solid #344753; border-radius: 0; background: #0b1723f5; }
+.match-tabs a,.profile-tabs a { min-height: 50px; font-size: .82rem; border-radius: 0; padding: .5rem .9rem; }
+.match-tabs a:hover,.profile-tabs a:hover { box-shadow: inset 0 -2px var(--color-accent); }
+.match-tabs a[aria-current="location"],.profile-tabs a[aria-current="location"] { box-shadow: inset 0 -3px var(--color-accent); color: var(--color-accent); background: #19332d55; }
+.match-content-grid { grid-template-columns: minmax(0,1fr) 300px; gap: 24px; }
+.match-main-column,.profile-main { gap: 24px; }
+.match-panel,.profile-panel,.match-context section,.profile-rail>section { box-shadow: none; border-color: #1f323f; padding: 22px; border-radius: 12px; }
+.match-panel h2,.profile-panel h2 { font-size: 1.12rem; letter-spacing: -.025em; font-weight: 750; margin-bottom: 20px; }
+.match-panel h3,.profile-panel h3 { font-size: .85rem; font-weight: 650; }
+.match-context h2,.profile-rail h2 { font-size: .94rem; font-weight: 700; }
+.match-context dt,.match-facts span { font-size: .7rem; }
+.match-context dd,.match-facts strong { font-size: .84rem; }
+.match-facts div { background: transparent; border-left: 2px solid #42615e; border-radius: 0; padding: .2rem .8rem; }
+.match-module-empty,.profile-empty { background: transparent; border: 0; padding: .5rem 0; font-size: .82rem; line-height: 1.6; }
+.event-list li { min-height: 60px; padding-block: 14px; }
+.event-list time { font-size: .86rem; }
+.event-list strong { font-size: .85rem; }
+.event-list span { font-size: .76rem; }
+.event-dot { box-shadow: 0 0 0 4px var(--color-accent-soft); }
+.stat-row span { font-size: .82rem; }
+.stat-row strong { font-size: 1rem; }
+.stat-bar { height: 6px; margin-top: 10px; }
+.stat-bar b { background: var(--color-blue); }
+.lineup-team { background: #111f2c; border-radius: 8px; }
+.lineup-team h3 { font-size: .94rem; }
+.lineup-meta,.lineup-team h4 { font-size: .75rem; }
+.lineup-team li { min-height: 48px; font-size: .83rem; }
+.lineup-team li a { display: inline-flex; align-items: center; min-height: 44px; }
+.lineup-team li small { font-size: .7rem; white-space: normal; }
+.player-performance-grid article { background: transparent; border-bottom: 1px solid var(--color-border); border-radius: 0; }
+.player-performance-grid a { font-size: .82rem; display: inline-flex; min-height: 44px; align-items: center; }
+.player-performance-grid small,.player-performance-grid p { font-size: .73rem; }
+.form-block { background: #101f2b; }
+.form-block li { min-height: 34px; font-size: .76rem; grid-template-columns: 25px minmax(0,1fr); }
+.form-block h3 small { font-size: .7rem; }
+.form-result { width: 24px; height: 24px; }
+.standing-scroll table { font-size: .8rem; }
+.standing-scroll th,.standing-scroll td { height: 44px; }
+.standing-scroll thead th { font-size: .72rem; }
+.profile-hero { position: relative; padding: 30px; min-height: 180px; gap: 24px; }
+.profile-hero>.team-mark,.player-profile-hero .player-avatar.is-large { width: 104px; height: 104px; border-radius: 20px; background: #101d2a; }
+.profile-hero h1 { font-size: clamp(2rem,4vw,3.3rem); font-weight: 800; margin-block: .4rem .8rem; line-height: 1.1; }
+.profile-hero>div>span { font-size: .75rem; color: var(--color-gold); }
+.profile-hero-facts { gap: .5rem 1.2rem; }
+.profile-hero-facts small { font-size: .8rem; line-height: 1.45; }
+.profile-team-link { min-height: 44px; font-size: .86rem; }
+.profile-layout { grid-template-columns: minmax(0,1fr) 300px; gap: 24px; }
+.profile-overview-grid { gap: 0; }
+.profile-overview-grid>article { border-radius: 0; background: transparent; padding: 16px; border-bottom: 1px solid var(--color-border); }
+.profile-overview-grid>article:nth-child(odd) { border-right: 1px solid var(--color-border); }
+.profile-overview-grid p { font-size: .8rem; }
+.profile-overview-grid .profile-match-row { grid-template-columns: 1fr auto; gap: .5rem; }
+.profile-overview-grid .profile-match-row strong { grid-column: 1; grid-row: 1; font-size: 1.1rem; }
+.profile-overview-grid .profile-match-row b { grid-column: 2; grid-row: 1/4; }
+.profile-overview-grid .profile-match-row time,.profile-overview-grid .profile-match-competition { grid-column: 1; grid-row: auto; }
+.profile-form-strip a { width: 44px; height: 44px; font-size: .84rem; }
+.profile-form-strip a[data-result="win"] { background: var(--color-accent-soft); color: var(--color-accent); border-color: #2e6254; }
+.profile-form-strip a[data-result="loss"] { background: var(--color-live-soft); color: var(--color-live); }
+.profile-position strong { font-size: 2rem; }
+.profile-position span { font-size: .8rem; }
+.competition-chips>span { border: 0; border-radius: 6px; font-size: .78rem; background: #1b2c39; }
+.competition-chips small { font-size: .7rem; }
+.competition-chips a { min-height: 44px; display: inline-flex; align-items: center; }
+.profile-match-row { grid-template-columns: 8.5rem 9rem minmax(0,1fr) auto; min-height: 68px; }
+.profile-match-row time,.profile-match-row span { font-size: .74rem; line-height: 1.5; }
+.profile-match-row strong { font-size: .85rem; }
+.profile-match-row b { font-size: .73rem; }
+.profile-match-row b.is-finished { font-size: .95rem; }
+.profile-standing-grid article { background: #111f2b; }
+.profile-standing-grid article>span { font-size: .82rem; }
+.profile-standing-grid article>span small,.profile-standing-grid article>div { font-size: .73rem; }
+.profile-standing-grid article>strong { font-size: 1.6rem; }
+.squad-grid { gap: 0 16px; }
+.squad-card { min-height: 76px; background: transparent; border-bottom-color: var(--color-border); border-radius: 0; }
+.squad-card strong { font-size: .84rem; white-space: normal; }
+.squad-card small { font-size: .74rem; }
+.profile-stat-contexts article { border: 1px solid var(--color-border); background: transparent; }
+.profile-context-label,.profile-context-nav a { font-size: .78rem; }
+.profile-context-nav small,.profile-stat-contexts header span { font-size: .72rem; }
+.profile-stat-contexts header strong { font-size: .83rem; }
+.profile-stat-grid>div { min-height: 92px; gap: .5rem; }
+.profile-stat-grid span { font-size: .78rem; }
+.profile-stat-grid strong { font-size: 1.55rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.profile-rail strong { font-size: .82rem; }
+.profile-rail span { font-size: .76rem; }
+.player-facts { gap: 0; }
+.player-facts div { background: transparent; border-bottom: 1px solid var(--color-border); border-radius: 0; padding: 16px 8px; }
+.player-facts dt { font-size: .7rem; }
+.player-facts dd { font-size: .91rem; }
+.player-match-row small { font-size: .74rem; }
+.profile-key-stats { background: #10212a; }
+.profile-latest-appearance { min-height: 76px; background: #122532; }
+.profile-latest-appearance>span { font-size: .72rem; }
+.profile-latest-appearance strong { font-size: .92rem; }
+.profile-latest-appearance small { font-size: .76rem; }
+/* A visible keyboard outline is retained even where earlier components reset it. */
+.app-shell :is(a,button,summary):focus-visible { outline: 2px solid var(--color-accent) !important; outline-offset: 3px; }
+
+
+@media(max-width:1100px) {
+  .match-content-grid,.profile-layout { grid-template-columns: minmax(0,1fr); }
+  .match-context,.profile-rail { display: none; }
+}
+@media(max-width:900px) {
+  :root { --header-height: 106px; }
+  .header-inner { gap: 0 1rem; padding-top: 6px; }
+  .brand { font-size: 1.25rem; min-height: 48px; }
+  .brand-mark { width: 32px; height: 32px; }
+  .locale-switcher { padding: 0; border: 0; }
+  .main-nav { min-height: 50px; justify-content: space-between; }
+  .nav-link { min-height: 50px; font-size: .81rem; border-radius: 0; }
+  .nav-link[aria-current="page"] { background: transparent; }
+  .nav-link[aria-current="page"]::after { bottom: 0; }
+  .sports-layout { grid-template-columns: minmax(0,1fr); gap: 16px; }
+  .context-rail { position: static; }
+  .competition-tabs { padding: 0; max-height: none; }
+  .competition-panel .context-panel-title { display: none; }
+  .competition-tab { min-height: 44px; padding-inline: 14px; }
+  .fixture-row,.fixture-table-head { grid-template-columns: 92px minmax(0,1fr) 56px 100px; }
+  .match-scoreboard { grid-template-columns: minmax(0,1fr) 11rem minmax(0,1fr); }
+}
+@media(max-width:620px) {
+  .header-inner { padding-inline: 12px; }
+  .main-nav { width: calc(100% + 24px); max-width: calc(100% + 24px); margin-inline: -12px; padding-inline: 10px; gap: 0; }
+  .nav-link { padding-inline: 10px; }
+  .locale-link { min-height: 44px; min-width: 44px; }
+  .page-container { padding: 20px 16px 32px; }
+  .page-context { font-size: .67rem; letter-spacing: .015em; }
+  .page-title { font-size: 1.85rem; margin-top: 6px; }
+  .page-description { font-size: .84rem; line-height: 1.5; }
+  .freshness { margin-top: 8px; font-size: .7rem; }
+  .scoreboard-summary { width: 100%; margin-bottom: 16px; }
+  .scoreboard-summary .status-summary { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 6px; }
+  .scoreboard-summary .summary-item { grid-template-columns: 6px minmax(0,1fr); gap: 3px 6px; min-width: 0; min-height: 60px; padding: 7px 8px; }
+  .summary-label { font-size: .68rem; overflow: visible; }
+  .summary-count { grid-column: 2; font-size: 1.25rem; }
+  .fixture-content { margin-inline: -16px; }
+  .competition-section { border-radius: 0; border-inline: 0; }
+  .competition-header { padding-inline: 16px; gap: 8px; min-height: 56px; }
+  .competition-name-wrap { gap: 8px; }
+  .competition-title { font-size: .86rem; }
+  .competition-emblem { width: 26px; height: 26px; font-size: .6rem; }
+  .competition-count { font-size: .7rem; }
+  .fixture-row { grid-template-columns: 70px minmax(0,1fr) 28px; padding: 10px 16px; min-height: 84px; }
+  .fixture-main-link { grid-template-columns: 70px minmax(0,1fr) 28px; }
+  .team-identity { grid-template-columns: 24px minmax(0,1fr); gap: 8px; }
+  .team-mark { width: 24px; height: 24px; }
+  .team-name { font-size: .84rem; }
+  .score-value { font-size: 1.1rem; }
+  .kickoff-time { font-size: .82rem; }
+  .status-badge { font-size: .62rem; }
+  .match-container,.profile-container { padding-inline: 16px; }
+  .match-back,.profile-back { font-size: .78rem; }
+  .match-hero { border-radius: 12px; }
+  .match-competition { min-height: 58px; padding: .6rem 58px .6rem 12px; justify-content: flex-start; font-size: .76rem; gap: 6px 8px; }
+  .match-competition span { max-width: 100%; white-space: normal; }
+  .match-competition b { font-size: .6rem; padding: .25rem .5rem; }
+  .match-actions { right: 7px; top: 7px; }
+  .match-share { width: 44px; }
+  .match-scoreboard { grid-template-columns: minmax(0,1fr) 96px minmax(0,1fr); gap: 6px; padding: 24px 10px; }
+  .match-team .team-mark { width: 52px; height: 52px; border-radius: 10px; }
+  .match-team .team-name { font-size: .83rem; line-height: 1.4; }
+  .match-score strong { font-size: 2.3rem; }
+  .match-score.is-scheduled strong { font-size: 1.8rem; }
+  .match-score time { font-size: .68rem; line-height: 1.5; }
+  .match-score small { font-size: .65rem; }
+  .match-tabs,.profile-tabs { margin: 16px -16px; padding-inline: 8px; }
+  .match-tabs a,.profile-tabs a { min-height: 48px; font-size: .78rem; padding-inline: 12px; white-space: nowrap; }
+  .profile-tabs { overflow-x: auto; }
+  .profile-tabs a { flex: 1 0 auto; }
+  .match-main-column { margin-inline: -16px; }
+  .match-panel,.profile-panel { border-radius: 0; border-inline: 0; padding: 20px 16px; }
+  .profile-panel { margin-inline: -16px; }
+  .match-main-column,.profile-main { gap: 12px; }
+  .match-panel h2,.profile-panel h2 { font-size: 1.05rem; margin-bottom: 16px; }
+  .match-facts { gap: 8px; }
+  .profile-hero { min-height: 160px; gap: 16px; margin-inline: -16px; padding: 24px 16px; border-radius: 0; border-inline: 0; }
+  .profile-hero>.team-mark,.player-profile-hero .player-avatar.is-large { width: 72px; height: 72px; border-radius: 14px; }
+  .profile-hero h1 { font-size: 1.85rem; margin-block: .4rem .6rem; }
+  .profile-hero-facts small { font-size: .75rem; }
+  .profile-overview-grid>article { padding: 16px 0; }
+  .profile-overview-grid>article:first-child { padding-top: 0; }
+  .profile-overview-grid>article:nth-child(odd) { border-right: 0; }
+  .profile-match-row,.player-match-row { grid-template-columns: 74px minmax(0,1fr) auto; gap: 6px; }
+  .profile-match-row time,.profile-match-row span { font-size: .7rem; }
+  .profile-match-row strong { font-size: .81rem; }
+  .profile-match-row b { font-size: .66rem; padding-inline: .4rem; }
+  .profile-match-row .profile-match-competition,.player-match-row>span { white-space: normal; }
+  .profile-stat-grid>div { min-height: 84px; }
+  .player-facts dd { font-size: .84rem; }
+}
+@media(prefers-reduced-motion:reduce) { *,*::before,*::after { animation: none !important; scroll-behavior: auto !important; } }

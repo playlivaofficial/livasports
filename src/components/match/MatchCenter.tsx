@@ -178,15 +178,17 @@ export function MatchCenter({ locale, match, replay = false }: { locale: SiteLoc
   const context={fixtureId:match.header.id,competitionId:match.header.competitionId,locale};
   const kickoff=new Intl.DateTimeFormat(dictionary.locale,{dateStyle:'medium',timeStyle:'short',timeZone:dictionary.timeZone}).format(new Date(match.header.kickoff));
   const displayStatus=replay?FixtureStatus.LIVE:match.header.status;
+  const scheduled=displayStatus===FixtureStatus.SCHEDULED&&match.header.homeScore===null&&match.header.awayScore===null;
+  const kickoffTime=new Intl.DateTimeFormat(dictionary.locale,{hour:'2-digit',minute:'2-digit',timeZone:dictionary.timeZone}).format(new Date(match.header.kickoff));
   return <div lang={dictionary.locale} className="app-shell match-shell"><SiteHeader locale={locale} activePage="football" localeHrefs={alternate} contentId="match-content"/>
     <main id="match-content" className="match-container"><Link href={localeRoutes[locale].football} className="match-back">← {text.back}</Link>
       {replay?<p className="replay-label">{text.replay}</p>:null}
       {!replay?<SponsoredSlot context={{locale,pagePath:canonical,placement:'match_top_banner'}}/>:null}
       {!replay&&match.liveSnapshotStale?<p className="stale-live-label">{text.liveStale}</p>:null}
-      <header className="match-hero"><div className="match-competition"><span>{match.header.competition}</span><b>{statusLabel(locale,displayStatus)}</b></div>
-        <div className="match-scoreboard"><div className="match-team"><Link href={teamPath(locale,match.header.home.publicId,match.header.home.name)}><TeamIdentity name={match.header.home.name} shortName={match.header.home.shortName} imageUrl={match.header.home.imageUrl}/></Link></div>
-          <div className="match-score"><strong>{match.header.homeScore??'—'} <span>–</span> {match.header.awayScore??'—'}</strong><time dateTime={match.header.kickoff}>{kickoff}</time><small>{text.timezone}</small></div>
-          <div className="match-team is-away"><Link href={teamPath(locale,match.header.away.publicId,match.header.away.name)}><TeamIdentity name={match.header.away.name} shortName={match.header.away.shortName} imageUrl={match.header.away.imageUrl}/></Link></div></div>
+      <header className="match-hero" data-status={displayStatus}><div className="match-competition"><span>{match.header.competition}</span><b>{statusLabel(locale,displayStatus)}</b></div>
+        <div className="match-scoreboard"><div className="match-team"><Link href={teamPath(locale,match.header.home.publicId,match.header.home.name)}><TeamIdentity name={match.header.home.name} shortName={match.header.home.shortName} imageUrl={match.header.home.imageUrl} size={80}/></Link></div>
+          <div className={`match-score${scheduled?' is-scheduled':''}`}><strong>{scheduled?kickoffTime:<>{match.header.homeScore??'—'} <span>–</span> {match.header.awayScore??'—'}</>}</strong><time dateTime={match.header.kickoff}>{kickoff}</time><small>{text.timezone}</small></div>
+          <div className="match-team is-away"><Link href={teamPath(locale,match.header.away.publicId,match.header.away.name)}><TeamIdentity name={match.header.away.name} shortName={match.header.away.shortName} imageUrl={match.header.away.imageUrl} size={80}/></Link></div></div>
         <MatchClientActions context={context} canonicalUrl={`https://livasports.com${canonical}`} shareText={`${match.header.home.name} x ${match.header.away.name}`} labels={{share:text.share,copied:text.copied}}/>
       </header>
       <MatchSectionNav context={context} items={[{href:'#summary',label:text.summary},{href:'#statistics',label:text.statistics},{href:'#lineups',label:text.lineups},

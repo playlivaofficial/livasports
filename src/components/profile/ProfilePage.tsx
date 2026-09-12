@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import {SectionNav} from '@/components/sports/SectionNav';
 import { SiteHeader } from '@/components/sports/SiteHeader';
 import { TeamMark } from '@/components/sports/TeamMark';
 import { FixtureStatus } from '@/domain/enums';
@@ -59,7 +60,7 @@ function Nav({ locale, player = false }: { locale: SiteLocale; player?: boolean 
   const text = copy[locale];
   const items = player ? [['#overview',text.playerOverview],['#matches',text.playerMatches],['#statistics',text.playerStats]]
     : [['#overview',text.overview],['#matches',text.matches],['#standings',text.standings],['#squad',text.squad],['#statistics',text.statistics]];
-  return <nav className="profile-tabs" aria-label={locale === 'br' ? 'Seções do perfil' : 'Secciones del perfil'}>{items.map(([href,label])=><a key={href} href={href}>{label}</a>)}</nav>;
+  return <SectionNav className="profile-tabs" label={locale === 'br' ? 'Seções do perfil' : 'Secciones del perfil'} items={items.map(([href,label])=>({href,label}))}/>;
 }
 function MatchRow({ locale, row, teamId }: { locale: SiteLocale; row: ProfileFixture; teamId?: string }) {
   const dictionary = getDictionary(locale); const date = new Intl.DateTimeFormat(dictionary.locale,{dateStyle:'medium',timeStyle:'short',timeZone:dictionary.timeZone}).format(new Date(row.kickoff));
@@ -98,7 +99,7 @@ function Stats({ locale, rows }: { locale: SiteLocale; rows: ProfileStatistic[] 
 function TeamHeader({ locale, profile }: { locale: SiteLocale; profile: TeamProfileView }) {
   const text=copy[locale]; const country=localizedCountry(locale,profile.country); const facts=[[profile.foundedYear?`${text.founded} ${profile.foundedYear}`:null,null],
     [profile.venue?`${text.venue}: ${profile.venue}${profile.venueCity?` · ${profile.venueCity}`:''}`:null,null],[profile.coach?`${text.coach}: ${profile.coach}`:null,null]].filter(item=>item[0]);
-  return <header className="profile-hero"><TeamMark initials={initials(profile.name)} imageUrl={profile.imageUrl}/><div><span>{country??''}</span><h1>{profile.name}</h1>
+  return <header className="profile-hero"><TeamMark initials={initials(profile.name)} imageUrl={profile.imageUrl} size={104}/><div><span>{country??''}</span><h1>{profile.name}</h1>
     <div className="profile-hero-facts">{facts.map(([value],i)=><small key={`${value}:${i}`}>{value}</small>)}</div></div></header>;
 }
 function Squad({ locale, profile }: { locale: SiteLocale; profile: TeamProfileView }) {
@@ -122,7 +123,7 @@ export function TeamProfilePage({ locale, profile }: { locale: SiteLocale; profi
       <div className="profile-layout"><div className="profile-main">
         <section id="overview" className="profile-panel"><h2>{text.overview}</h2><div className="profile-overview-grid"><article><h3>{text.next}</h3>{profile.upcoming[0]?<MatchRow locale={locale} row={profile.upcoming[0]} teamId={profile.id}/>:<p>{text.noData}</p>}</article>
           <article><h3>{text.competitions}</h3><div className="competition-chips">{visibleContexts.map(item=><span key={item.seasonId}>{item.competition}<small>{item.season}</small></span>)}</div></article>
-          <article><h3>{text.recent}</h3>{recentForm.length?<div className="profile-form-strip">{recentForm.map(row=>{const mine=row.home.id===profile.id?row.homeScore:row.awayScore;const theirs=row.home.id===profile.id?row.awayScore:row.homeScore;const result=mine===null||theirs===null?'—':mine>theirs?(locale==='br'?'V':'G'):mine<theirs?(locale==='br'?'D':'P'):'E';return <Link key={row.id} href={matchPath(locale,row.publicId,row.home.name,row.away.name)} title={`${row.home.name} × ${row.away.name}`}>{result}</Link>;})}</div>:<p>{text.noData}</p>}</article>
+          <article><h3>{text.recent}</h3>{recentForm.length?<div className="profile-form-strip">{recentForm.map(row=>{const mine=row.home.id===profile.id?row.homeScore:row.awayScore;const theirs=row.home.id===profile.id?row.awayScore:row.homeScore;const result=mine===null||theirs===null?'—':mine>theirs?(locale==='br'?'V':'G'):mine<theirs?(locale==='br'?'D':'P'):'E';return <Link key={row.id} href={matchPath(locale,row.publicId,row.home.name,row.away.name)} title={`${row.home.name} × ${row.away.name}`} data-result={mine===null||theirs===null?'unknown':mine>theirs?'win':mine<theirs?'loss':'draw'}>{result}</Link>;})}</div>:<p>{text.noData}</p>}</article>
           <article><h3>{text.standings}</h3>{primaryStanding?<p className="profile-position"><strong>{primaryStanding.position}º</strong><span>{primaryStanding.competition} · {primaryStanding.season}</span></p>:<p>{text.noData}</p>}</article></div></section>
         <section id="matches" className="profile-panel"><h2>{text.matches}</h2>{profile.upcoming.length||profile.recent.length?<div className="profile-match-list">
           {profile.upcoming.slice(0,5).map(row=><MatchRow key={row.id} locale={locale} row={row} teamId={profile.id}/>)}{profile.recent.slice(0,8).map(row=><MatchRow key={row.id} locale={locale} row={row} teamId={profile.id}/>)}</div>:<p className="profile-empty">{text.noData}</p>}</section>

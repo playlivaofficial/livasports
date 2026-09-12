@@ -13,12 +13,12 @@ function safeSportmonksImage(value?: string | null): string | null {
   }
 }
 
-export function TeamMark({ initials, imageUrl }: { initials: string; imageUrl?: string | null }) {
+export function TeamMark({ initials, imageUrl, size=26 }: { initials: string; imageUrl?: string | null; size?:26|80|104 }) {
   const safeUrl = safeSportmonksImage(imageUrl);
   const [imageAvailable, setImageAvailable] = useState(Boolean(safeUrl));
 
   return <span className="team-mark" aria-hidden="true">
     <span>{initials}</span>
-    {safeUrl && imageAvailable ? <Image className="team-logo" src={safeUrl} width={26} height={26} alt="" loading="lazy" onError={() => setImageAvailable(false)} /> : null}
+    {safeUrl && imageAvailable ? <Image className="team-logo" src={safeUrl} width={size} height={size} alt="" loading={size===26?'lazy':'eager'} onError={() => setImageAvailable(false)} /> : null}
   </span>;
 }
