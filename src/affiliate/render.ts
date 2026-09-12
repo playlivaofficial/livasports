@@ -1,7 +1,7 @@
 import 'server-only';
 import {cache} from 'react';
 import {headers} from 'next/headers';
-import {geoAllowed} from './policy';
+import {analyticsAllowed,geoAllowed} from './policy';
 import {signingKey} from './tokens';
 import {affiliateDatabase} from './runtime';
 import {readCampaigns,readPageContext} from './repository';
@@ -12,6 +12,8 @@ const page=cache((locale:'br'|'mx',pagePath:string,competitionSlug?:string)=>rea
 export async function renderOffer(context:CommercialContext){
   try{const key=signingKey();if(!key)return null;const h=await headers(),request=new Request('https://livasports.com',{headers:h});
     if(!geoAllowed(request,context.locale))return null;
-    const offer=await resolveOffer(context,{...offerDependencies(affiliateDatabase()),campaigns,page:c=>page(c.locale,c.pagePath,c.competitionSlug)});return offer?publicOffer(offer,key):null;
+    const offer=await resolveOffer(context,{...offerDependencies(affiliateDatabase()),campaigns,page:c=>page(c.locale,c.pagePath,c.competitionSlug)});
+    if(offer?.creative?.delivery==='BETSSON_EMBED'&&!analyticsAllowed(request))return null;
+    return offer?publicOffer(offer,key,Date.now(),process.env.AFFILIATE_ANALYTICS_MODE==='consent'?'consent':'anonymous'):null;
   }catch{return null;}
 }

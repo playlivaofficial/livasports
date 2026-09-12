@@ -22,12 +22,12 @@ export async function M2SportsPage({ locale, page }: { locale: SiteLocale; page:
   return <div lang={dictionary.locale} className="app-shell">
     <SiteHeader locale={locale} activePage={page} />
     <main id="fixtures-content" className="page-container">
-      <PageHeader locale={locale} page={page} currentDate={data.currentDate} freshness={data.sportsData.freshness} />
       <SponsoredSlot context={{locale,pagePath:localeRoutes[locale][page],placement:'home_top_banner'}}/>
+      <PageHeader locale={locale} page={page} currentDate={data.currentDate} freshness={data.sportsData.freshness} />
       <SponsoredSlot context={{locale,pagePath:localeRoutes[locale][page],placement:'mobile_inline'}}/>
+      <FixtureSummary locale={locale} live={live} upcoming={upcoming} finished={finished} />
       <div className="sports-layout">
         <aside className="context-rail">
-          <FixtureSummary locale={locale} live={live} upcoming={upcoming} finished={finished} />
           <CompetitionTabs locale={locale} sections={data.sections} />
         </aside>
         <div className="fixture-content">

@@ -6,6 +6,7 @@ import {buildSlipComparison} from '../src/slip/comparison.ts';
 import {resolveSelection} from '../src/slip/resolution.ts';
 import {buildComparison} from '../src/odds/comparison.ts';
 const base='http://localhost:3300';if(process.argv[2]&&process.argv[2]!==base)throw Error('REPLAY_LOCAL_ONLY');
+const milestone=process.argv.includes('--g1')?'g1':'m8';
 const audit=JSON.parse(await readFile('output/m6-audit-private.json','utf8'));
 const browser=await browserQA(),checks=[],layouts=[],events=[];let page,scenario='complete',price='2.10',expiryMs=900000,kickoffMs=3600000;
 const check=(name,pass,detail)=>{checks.push({name,pass,detail});if(!pass)throw Error('QA_FAILED: '+name);};
@@ -55,7 +56,7 @@ async function reopen(){await page.key('Escape');await page.click('.slip-trigger
 async function compare(){await page.click('.slip-compare-jump');await page.wait('!!document.querySelector(".slip-bookmaker")');}
 async function capture(label,width=390){await page.viewport(width,width===1440?1000:844);await delay(100);
   await page.evaluate(`(()=>{let badge=document.getElementById('m7-qa-badge');if(!badge){badge=document.createElement('div');badge.id='m7-qa-badge';badge.style.cssText='position:fixed;top:53px;left:12px;z-index:1000;pointer-events:none;background:#513610;color:#ffe1a4;padding:3px 6px;font:10px sans-serif;border-radius:3px';document.body.appendChild(badge)}badge.textContent=location.pathname.startsWith('/mx')?'SIMULACIÓN LOCAL · DATOS DE PRUEBA':'SIMULAÇÃO LOCAL · DADOS DE TESTE';})()`);
-  const layout=await page.screenshot(`output/m8-replay-${label}-${width}.png`);layouts.push({label,...layout});check(`${label} no overflow ${width}`,!layout.overflow);
+  const layout=await page.screenshot(`output/${milestone}-replay-${label}-${width}.png`);layouts.push({label,...layout});check(`${label} no overflow ${width}`,!layout.overflow);
   check(`${label} header remains visible ${width}`,await page.evaluate('(()=>{const p=document.querySelector(".slip-panel"),h=document.querySelector(".slip-heading");return !p||(p.scrollTop===0&&h.getBoundingClientRect().top>=p.getBoundingClientRect().top)})()'));}
 try{
   page=await browser.newPage();await intercept(page);await page.navigate(base+'/br');await page.click('.slip-trigger');
@@ -112,5 +113,5 @@ try{
   check('comparison analytics recorded after actual visibility',events.some(e=>e.eventName==='slip_comparison_view')&&events.some(e=>e.eventName==='slip_best_price_view'));
   check('visible M8 impressions are separately classified QA',events.some(e=>e.eventName==='affiliate_impression')&&events.filter(e=>e.eventName==='affiliate_impression').every(e=>e.qa===true));
   const result={status:'PASS',mode:'LOCAL_CONTROLLED_REPLAY',checks,layouts,metrics:page.metrics,analytics:events.filter(e=>e.placement==='slip-comparison').length};
-  await writeFile('output/m8-browser-qa-private.json',JSON.stringify(result,null,2));console.info(JSON.stringify({status:result.status,mode:result.mode,checks,metrics:page.metrics}));
-}catch(error){console.error(error.message);if(page)await page.screenshot('output/m8-replay-failure.png').catch(()=>{});process.exitCode=1;}finally{await browser.close();}
+  await writeFile(`output/${milestone}-browser-qa-private.json`,JSON.stringify(result,null,2));console.info(JSON.stringify({status:result.status,mode:result.mode,checks,metrics:page.metrics}));
+}catch(error){console.error(error.message);if(page)await page.screenshot(`output/${milestone}-replay-failure.png`).catch(()=>{});process.exitCode=1;}finally{await browser.close();}

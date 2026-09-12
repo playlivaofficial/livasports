@@ -31,7 +31,7 @@ export async function resolveOffer(context:CommercialContext,deps:OfferDependenc
   const candidates=(await deps.campaigns(context.locale)).filter(c=>campaignDestination(c,context,now));
   const eligible=candidates.flatMap<{campaign:Campaign;creative:Creative|null}>(c=>{
     if(!isSponsorPlacement(context.placement))return [{campaign:c,creative:null}];
-    const creatives=c.creatives.filter(s=>validCreative(s,context,now));return creatives.length===1?[{campaign:c,creative:creatives[0]}]:[];
+    const creatives=c.creatives.filter(s=>validCreative(s,context,now,c.operatorCampaignId));return creatives.length===1?[{campaign:c,creative:creatives[0]}]:[];
   });
   // Ambiguous commercial configuration fails closed; no commission-based choice.
   if(eligible.length!==1)return null;const {campaign,creative}=eligible[0];if(expectedCampaign&&campaign.id!==expectedCampaign)return null;
@@ -40,9 +40,10 @@ export async function resolveOffer(context:CommercialContext,deps:OfferDependenc
   if(!isSponsorPlacement(context.placement)){const priceExpiry=await deps.pricing(context,campaign.bookmaker,now);if(priceExpiry===null||priceExpiry<=now)return null;expiresAt=Math.min(expiresAt,priceExpiry);}
   return {campaign,context:{...context,bookmaker:campaign.bookmaker},page,expiresAt,creative};
 }
-export function publicOffer(offer:VerifiedOffer,key:string,now=Date.now()):PublicOffer{
-  const token=signOffer({v:1,viewId:randomUUID(),campaignId:offer.campaign.id,context:offer.context,expiresAt:offer.expiresAt},key);
+export function publicOffer(offer:VerifiedOffer,key:string,now=Date.now(),embedPermission?:'anonymous'|'consent'):PublicOffer{
+  if(offer.creative?.delivery==='BETSSON_EMBED'&&!embedPermission)throw Error('EMBED_PRIVACY_PERMISSION_REQUIRED');
+  const token=signOffer({v:1,viewId:randomUUID(),campaignId:offer.campaign.id,context:offer.context,expiresAt:offer.expiresAt,...(offer.creative?.delivery==='BETSSON_EMBED'?{embedPermission}:{})},key);
   const c=offer.creative;return {bookmaker:offer.campaign.bookmaker,placement:offer.context.placement,
     href:`/go/${offer.campaign.bookmaker}/${offer.context.placement}?offer=${token}`,token,expiresAt:new Date(offer.expiresAt).toISOString(),resolvedAt:new Date(now).toISOString(),
-    destinationType:offer.campaign.destinationType,creative:c?{id:c.id,placement:c.placement,locale:c.locale,imageUrl:c.imageUrl,imageAlt:c.imageAlt,width:c.width,height:c.height}:null};
+    destinationType:offer.campaign.destinationType,...(c?.delivery==='BETSSON_EMBED'?{embedPermission}:{}),creative:c?{id:c.id,placement:c.placement,locale:c.locale,imageUrl:c.imageUrl,imageAlt:c.imageAlt,width:c.width,height:c.height,...(c.delivery==='BETSSON_EMBED'?{delivery:'BETSSON_EMBED' as const}:{})}:null};
 }

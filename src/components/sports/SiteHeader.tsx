@@ -13,11 +13,11 @@ export function SiteHeader({ locale, activePage, localeHrefs, contentId = 'fixtu
       <a className="skip-link" href={`#${contentId}`}>{dictionary.labels.skipToContent}</a>
       <div className="header-inner">
         <Link href={routes.home} className="brand" aria-label={`LivaSports · ${dictionary.countryName}`}>
-          <span className="brand-mark" aria-hidden="true">LS</span>
+          <span className="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><path d="M10 7v18h13v-5h-8V7z" fill="currentColor"/><path d="m20 7 5 5-5 5" stroke="currentColor" strokeWidth="3" strokeLinejoin="round"/></svg></span>
           <span>Liva<span className="brand-accent">Sports</span></span>
         </Link>
         <nav aria-label={dictionary.labels.primaryNavigation} className="main-nav">
-          {items.map(([key, href, label]) => <Link key={key} href={href} aria-current={activePage === key ? 'page' : undefined} className="nav-link">{label}</Link>)}
+          {items.map(([key, href, label]) => <Link key={key} href={href} aria-current={activePage === key ? 'page' : undefined} className={`nav-link nav-${key}`}>{key==='live'?<span className="nav-live-dot" aria-hidden="true"/>:null}{label}</Link>)}
         </nav>
         <div className="locale-switcher" aria-label={dictionary.countryName}>
           <Link href={localeHrefs?.br ?? localeRoutes.br[activePage]} className="locale-link" aria-current={locale === 'br' ? 'true' : undefined} hrefLang="pt-BR">BR</Link>

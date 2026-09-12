@@ -53,3 +53,8 @@ output/m7-*-failure.png
 !output/m8-checkpoint.md
 output/m8-*-failure.png
 output/m8-replay-match-cta-*.png
+!output/g1-report.md
+!output/g1-checkpoint.md
+output/g1-*.png
+output/g1-evidence/
+output/g1-*.log

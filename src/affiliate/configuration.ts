@@ -5,7 +5,7 @@ import {campaignDestination,isSponsorPlacement,validCreative} from './policy';
 export interface CampaignConfiguration {
   bookmaker:'betsson'|'betano.bet.br';locale:'br'|'mx';operatorCampaignId:string;destinationUrl:string;destinationType:'HOMEPAGE'|'SPORTSBOOK';
   enabled:boolean;validFrom:string;validUntil:string;placements:Placement[];domains:string[];approvalReference:string;
-  creatives?:Array<{id:string;placement:Placement;imageUrl:string;imageAlt:string;width:number;height:number;approvalReference:string}>;
+  creatives?:Array<{id:string;placement:Placement;imageUrl?:string;imageAlt:string;width:number;height:number;approvalReference:string;delivery?:'IMAGE'|'BETSSON_EMBED';embedSourceUrl?:string}>;
 }
 export function parseCampaignConfiguration(value:unknown):CampaignConfiguration|null{
   if(!value||typeof value!=='object'||Array.isArray(value))return null;const c=value as CampaignConfiguration;
@@ -18,8 +18,8 @@ export function parseCampaignConfiguration(value:unknown):CampaignConfiguration|
   const campaign={enabled:true,approved:true,affiliateApproved:true,geoEligible:true,locale:c.locale,bookmaker:c.bookmaker,placements:c.placements,domains:c.domains,
     destination:c.destinationUrl,destinationType:c.destinationType,operatorCampaignId:c.operatorCampaignId,startsAt:c.validFrom,endsAt:c.validUntil} as Campaign;
   if(!campaignDestination(campaign,{locale:c.locale,pagePath:'/'+c.locale,placement:c.placements[0]},Date.parse(c.validFrom)))return null;
-  if(c.creatives!==undefined&&(!Array.isArray(c.creatives)||c.creatives.length>17||new Set(c.creatives.map(s=>s?.id)).size!==c.creatives.length||new Set(c.creatives.map(s=>s?.placement)).size!==c.creatives.length||c.creatives.some(s=>!s||Object.keys(s).some(k=>!['id','placement','imageUrl','imageAlt','width','height','approvalReference'].includes(k))||typeof s.id!=='string'||!/^[-a-zA-Z0-9_]{1,100}$/.test(s.id)||typeof s.imageAlt!=='string'||typeof s.approvalReference!=='string'||!s.approvalReference.trim()||s.approvalReference.length>500||!c.placements.includes(s.placement)||!isSponsorPlacement(s.placement)||
-    !validCreative({...s,locale:c.locale,approved:true,enabled:true,startsAt:null,endsAt:null},{locale:c.locale,pagePath:'/'+c.locale,placement:s.placement},Date.now()))))return null;
+  if(c.creatives!==undefined&&(!Array.isArray(c.creatives)||c.creatives.length>17||new Set(c.creatives.map(s=>s?.id)).size!==c.creatives.length||new Set(c.creatives.map(s=>s?.placement)).size!==c.creatives.length||c.creatives.some(s=>!s||Object.keys(s).some(k=>!['id','placement','imageUrl','imageAlt','width','height','approvalReference','delivery','embedSourceUrl'].includes(k))||typeof s.id!=='string'||!/^[-a-zA-Z0-9_]{1,100}$/.test(s.id)||typeof s.imageAlt!=='string'||typeof s.approvalReference!=='string'||!s.approvalReference.trim()||s.approvalReference.length>500||!c.placements.includes(s.placement)||!isSponsorPlacement(s.placement)||s.delivery==='BETSSON_EMBED'&&c.bookmaker!=='betsson'||
+    !validCreative({...s,imageUrl:s.imageUrl??null,locale:c.locale,approved:true,enabled:true,startsAt:null,endsAt:null},{locale:c.locale,pagePath:'/'+c.locale,placement:s.placement},Date.now(),c.operatorCampaignId))))return null;
   return c;
 }
 export async function configureCampaign(db:DatabaseClient,c:CampaignConfiguration){if(!parseCampaignConfiguration(c))throw Error('INVALID_APPROVED_CONFIGURATION');return db.transaction(async q=>{
@@ -36,9 +36,9 @@ export async function configureCampaign(db:DatabaseClient,c:CampaignConfiguratio
   await q.query('UPDATE affiliate_campaigns SET enabled=false,updated_at=now() WHERE affiliate_link_id=$1 AND id<>$2',[link.id,campaign.id]);
   // Omitted creatives are disabled; campaign edits cannot leave an old ad active.
   await q.query('UPDATE profile_sponsor_campaigns SET enabled=false WHERE affiliate_campaign_id=$1',[campaign.id]);
-  for(const s of c.creatives??[]){const saved=await q.query(`INSERT INTO profile_sponsor_campaigns(id,affiliate_campaign_id,enabled,locale,placement,label,image_url,image_alt,approved_at,approval_reference,creative_width,creative_height,starts_at,ends_at)
-    VALUES($1,$2,$3,$4,$5,$6,$7,$8,now(),$9,$10,$11,$12,$13) ON CONFLICT(id) DO UPDATE SET enabled=excluded.enabled,locale=excluded.locale,placement=excluded.placement,label=excluded.label,image_url=excluded.image_url,image_alt=excluded.image_alt,approved_at=now(),approval_reference=excluded.approval_reference,creative_width=excluded.creative_width,creative_height=excluded.creative_height,starts_at=excluded.starts_at,ends_at=excluded.ends_at,updated_at=now()
+  for(const s of c.creatives??[]){const saved=await q.query(`INSERT INTO profile_sponsor_campaigns(id,affiliate_campaign_id,enabled,locale,placement,label,image_url,image_alt,approved_at,approval_reference,creative_width,creative_height,starts_at,ends_at,delivery_type,embed_source_url)
+    VALUES($1,$2,$3,$4,$5,$6,$7,$8,now(),$9,$10,$11,$12,$13,$14,$15) ON CONFLICT(id) DO UPDATE SET enabled=excluded.enabled,locale=excluded.locale,placement=excluded.placement,label=excluded.label,image_url=excluded.image_url,image_alt=excluded.image_alt,approved_at=now(),approval_reference=excluded.approval_reference,creative_width=excluded.creative_width,creative_height=excluded.creative_height,starts_at=excluded.starts_at,ends_at=excluded.ends_at,delivery_type=excluded.delivery_type,embed_source_url=excluded.embed_source_url,updated_at=now()
     WHERE profile_sponsor_campaigns.affiliate_campaign_id=excluded.affiliate_campaign_id`,
-    [s.id,campaign.id,c.enabled,c.locale,s.placement,c.locale==='br'?'Publicidade':'Publicidad',s.imageUrl,s.imageAlt,s.approvalReference,s.width,s.height,c.validFrom,c.validUntil]);if(saved.rowCount!==1)throw Error('CREATIVE_BELONGS_TO_ANOTHER_CAMPAIGN');}
+    [s.id,campaign.id,c.enabled,c.locale,s.placement,c.locale==='br'?'Publicidade':'Publicidad',s.imageUrl??null,s.imageAlt,s.approvalReference,s.width,s.height,c.validFrom,c.validUntil,s.delivery??'IMAGE',s.embedSourceUrl??null]);if(saved.rowCount!==1)throw Error('CREATIVE_BELONGS_TO_ANOTHER_CAMPAIGN');}
   return {campaignId:campaign.id,bookmaker:c.bookmaker,locale:c.locale,enabled:c.enabled,destinationConfigured:true};
 });}

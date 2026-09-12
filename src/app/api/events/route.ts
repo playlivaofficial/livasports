@@ -2,7 +2,7 @@ import { databaseUrl, PostgresDatabaseClient } from '@/database/client';
 import {parseSlipEvent,recordSlipEvent,slipEvents} from '@/slip/analytics-server';
 import {parseComparisonEvent,recordComparisonEvent,comparisonEvents} from '@/slip/comparison-analytics-server';
 import {boundedJson} from '@/slip/server';
-import {impressionRequest} from '@/affiliate/server';
+import {embedClickRequest,impressionRequest} from '@/affiliate/server';
 
 const names = new Set(['match_open','match_tab_view','odds_module_view','odds_market_view','odds_bookmaker_click','odds_unavailable_view','affiliate_outbound_click','match_share']);
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -15,6 +15,7 @@ export async function POST(request: Request): Promise<Response> {
   try{body=await boundedJson(request,8192) as Record<string,unknown>|null;}
   catch(error){return new Response(null,{status:error instanceof Error&&error.message==='BODY_TOO_LARGE'?413:400});}
   if(body?.eventName==='affiliate_impression')return impressionRequest(request,body);
+  if(body?.eventName==='affiliate_embed_click')return embedClickRequest(request,body);
   if(body&&uuid.test(String(body.eventId??''))&&comparisonEvents.has(String(body.eventName??''))){
     const event=parseComparisonEvent(body);if(!event)return new Response(null,{status:400});
     const connection=databaseUrl();if(!connection)return new Response(null,{status:503});
