@@ -12,7 +12,7 @@ export const slipCopy={
     markets:{MATCH_WINNER:'Resultado final',TOTAL_GOALS:'Total de gols · 2,5',BTTS:'Ambas marcam'},
     outcomes:{HOME:'Mandante',DRAW:'Empate',AWAY:'Visitante',OVER:'Mais de 2,5',UNDER:'Menos de 2,5',YES:'Sim',NO:'Não'},
     states:{CURRENT:'Odd atual',PRICE_CHANGED:'Odd atualizada',STALE:'Odd desatualizada',UNAVAILABLE:'Odd indisponível',SUSPENDED:'Mercado suspenso',CLOSED:'Mercado encerrado',MATCH_STARTED:'Partida iniciada',MATCH_FINISHED:'Partida encerrada'},
-    notices:{ADDED:'Seleção adicionada',REPLACED:'Seleção substituída',REMOVED:'Seleção removida',CLEARED:'Bilhete limpo',UNCHANGED:'Seleção já está no bilhete',LIMIT:'Você pode adicionar até 10 seleções.',EXPIRED:'Esta odd não está mais disponível.',
+    notices:{OUTBOUND_UNAVAILABLE:'Não foi possível abrir a casa. Confira as odds atuais do bilhete.',ADDED:'Seleção adicionada',REPLACED:'Seleção substituída',REMOVED:'Seleção removida',CLEARED:'Bilhete limpo',UNCHANGED:'Seleção já está no bilhete',LIMIT:'Você pode adicionar até 10 seleções.',EXPIRED:'Esta odd não está mais disponível.',
       RECOVERED:'O bilhete salvo foi recuperado. Seleções incompatíveis foram removidas.',UNSUPPORTED_VERSION:'Este bilhete usa uma versão não compatível. Você pode começar um novo.',STORAGE_UNAVAILABLE:'Não foi possível salvar no navegador. O bilhete ficará disponível somente nesta página.'}},
   mx:{title:'Mi boleto',selections:'selecciones',selection:'selección',close:'Cerrar boleto',remove:'Quitar',clear:'Borrar todo',clearQuestion:'¿Quitar todas las selecciones?',
     confirmClear:'Sí, borrar',cancel:'Cancelar',replace:'Reemplazar selección',replaceQuestion:'Ya tienes una selección de este partido en el boleto.',replaceWith:'Nueva selección',
@@ -24,7 +24,7 @@ export const slipCopy={
     markets:{MATCH_WINNER:'Resultado final',TOTAL_GOALS:'Total de goles · 2.5',BTTS:'Ambos anotan'},
     outcomes:{HOME:'Local',DRAW:'Empate',AWAY:'Visitante',OVER:'Más de 2.5',UNDER:'Menos de 2.5',YES:'Sí',NO:'No'},
     states:{CURRENT:'Cuota actual',PRICE_CHANGED:'Cuota actualizada',STALE:'Cuota desactualizada',UNAVAILABLE:'Cuota no disponible',SUSPENDED:'Mercado suspendido',CLOSED:'Mercado cerrado',MATCH_STARTED:'Partido iniciado',MATCH_FINISHED:'Partido finalizado'},
-    notices:{ADDED:'Selección agregada',REPLACED:'Selección reemplazada',REMOVED:'Selección eliminada',CLEARED:'Boleto vacío',UNCHANGED:'La selección ya está en tu boleto',LIMIT:'Puedes agregar hasta 10 selecciones.',EXPIRED:'Esta cuota ya no está disponible.',
+    notices:{OUTBOUND_UNAVAILABLE:'No se pudo abrir la casa. Revisa las cuotas actuales del boleto.',ADDED:'Selección agregada',REPLACED:'Selección reemplazada',REMOVED:'Selección eliminada',CLEARED:'Boleto vacío',UNCHANGED:'La selección ya está en tu boleto',LIMIT:'Puedes agregar hasta 10 selecciones.',EXPIRED:'Esta cuota ya no está disponible.',
       RECOVERED:'Se recuperó tu boleto. Se quitaron las selecciones incompatibles.',UNSUPPORTED_VERSION:'Este boleto usa una versión no compatible. Puedes empezar uno nuevo.',STORAGE_UNAVAILABLE:'No se pudo guardar en el navegador. El boleto solo estará disponible en esta página.'}},
 } satisfies Record<SiteLocale,{states:Record<SelectionState,string>;[key:string]:unknown}>;
 export function selectionLabel(s:CanonicalSelection,locale:SiteLocale,fixture?:ResolvedSelection['fixture']):string {

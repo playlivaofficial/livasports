@@ -4,12 +4,14 @@ import type {SiteLocale} from '@/config/i18n';
 import {guardResolved,markPriceChange} from './resolution';
 import {canonicalSelection,selectionKey,type SavedSelection,type SlipResolution,type ResolvedSelection} from './types';
 import {emitSlipEvent} from './events';
+import type {FullSlipResolution} from './comparison-types';
+import {guardSlipComparison} from './comparison';
 
 // Session memory only: prices are never part of localStorage or canonical identity.
 const observations=new Map<string,{price:string;changed:boolean;valid:boolean}>();
 export function useSlipResolution(selections:SavedSelection[],locale:SiteLocale){
   const signature=JSON.stringify({locale,selections:selections.map(s=>canonicalSelection(s))});
-  const [data,setData]=useState<{signature:string;body:SlipResolution;received:number}|null>(null);
+  const [data,setData]=useState<{signature:string;body:SlipResolution&Partial<Pick<FullSlipResolution,'comparison'>>;received:number}|null>(null);
   const [failure,setFailure]=useState<string|null>(null);
   const [online,setOnline]=useState(true);
   const [clock,setClock]=useState({wall:0,mono:0});
@@ -22,11 +24,14 @@ export function useSlipResolution(selections:SavedSelection[],locale:SiteLocale)
       if(stopped||busy||!input.selections.length||!navigator.onLine||document.visibilityState!=='visible'||Date.now()-lastAttempt<15000)return;
       busy=true;lastAttempt=Date.now();active=new AbortController();const timeout=setTimeout(()=>active?.abort(),10000);
       try{
-        const response=await fetch('/api/slip/resolve',{method:'POST',headers:{'content-type':'application/json'},body:signature,cache:'no-store',signal:active.signal});
+        const response=await fetch('/api/slip/compare',{method:'POST',headers:{'content-type':'application/json'},body:signature,cache:'no-store',signal:active.signal});
         if(!response.ok)throw new Error('READ_FAILED');
-        const body=await response.json() as SlipResolution;
+        const body=await response.json() as FullSlipResolution;
         if(body.locale!==input.locale||body.providerRequests!==0||!Array.isArray(body.selections)||body.selections.length!==input.selections.length||
           !Number.isFinite(Date.parse(body.resolvedAt))||body.selections.some((s,i)=>!canonicalSelection(s.selection,true)||selectionKey(s.selection)!==selectionKey(input.selections[i])))throw new Error('INVALID_RESPONSE');
+        if(body.comparison&&(body.comparison.version!==1||body.comparison.locale!==input.locale||!Array.isArray(body.comparison.bookmakers)||body.comparison.bookmakers.length>2||
+          body.comparison.bookmakers.some(b=>!['betsson','betano.bet.br'].includes(b.bookmakerId)||b.geoEligibility.locale!==input.locale||
+            b.selectionQuotes.length!==input.selections.length||b.selectionQuotes.some((q,i)=>!canonicalSelection(q.selection,true)||selectionKey(q.selection)!==selectionKey(input.selections[i])))))throw new Error('INVALID_COMPARISON');
         if(stopped)return;
         body.selections=body.selections.map(value=>{
           const key=`${input.locale}:${selectionKey(value.selection)}`;const previous=observations.get(key);
@@ -50,6 +55,16 @@ export function useSlipResolution(selections:SavedSelection[],locale:SiteLocale)
   const current=data?.signature===signature?data:null;
   const failed=failure===signature;
   const now=current?Math.max(clock.wall,Date.parse(current.body.resolvedAt)+Math.max(0,clock.mono-current.received)):clock.wall;
+  const deadlines=current?[...current.body.selections.flatMap(v=>[v.closesAt,v.price?.expiresAt]),
+    ...(current.body.comparison?.bookmakers.flatMap(b=>b.selectionQuotes.flatMap(q=>[q.closesAt,q.expiresAt]))??[])]
+    .filter((v):v is string=>typeof v==='string').map(Date.parse).filter(v=>Number.isFinite(v)&&v>now):[];
+  const deadline=deadlines.length?Math.min(...deadlines):null;
+  useEffect(()=>{
+    if(deadline===null)return;
+    // Wake at the exact known boundary as well as ticking/polling; hidden tabs recheck on visibility.
+    const timer=setTimeout(()=>setClock({wall:Date.now(),mono:performance.now()}),Math.min(2147483647,Math.max(1,deadline-now+1)));
+    return()=>clearTimeout(timer);
+  },[deadline,now]);
   const resolved=current?.body.selections.map(v=>guardResolved(v,now,online&&!failed))??[];
   const invalidSignature=JSON.stringify(resolved.filter(v=>!v.price).map(v=>v.selection));
   useEffect(()=>{
@@ -57,7 +72,8 @@ export function useSlipResolution(selections:SavedSelection[],locale:SiteLocale)
       if(previous?.valid){observations.set(key,{...previous,valid:false});emitSlipEvent('slip_state_invalidated',locale,selection);}
     }
   },[invalidSignature,locale]);
-  return {resolved,failed,online,checking:!current&&!failed,resolvedAt:current?.body.resolvedAt??null};
+  const comparison=current?.body.comparison?guardSlipComparison(current.body.comparison,selections.length,now,online&&!failed):null;
+  return {resolved,comparison,failed,online,checking:!current&&!failed,resolvedAt:current?.body.resolvedAt??null};
 }
 
 export function resolvedByKey(values:ResolvedSelection[]){return new Map(values.map(v=>[selectionKey(v.selection),v]));}

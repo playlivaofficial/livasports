@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { extname, resolve } from 'node:path';
 
 const root = process.cwd();
@@ -8,9 +8,10 @@ const files = execFileSync('git', ['ls-files', '--cached', '--others', '--exclud
 const forbiddenPaths = files.filter(file => /(^|\/)\.env(?:$|\.local$|\.(?:production|development|test)(?:\.local)?$)|(^|\/)\.vercel\//i.test(file));
 const textExtensions = new Set(['','.cjs','.css','.html','.js','.json','.md','.mjs','.sql','.ts','.tsx','.txt','.yml','.yaml']);
 const textFiles = files.filter(file => textExtensions.has(extname(file).toLowerCase()));
-const envFiles = ['.env','.env.local','.env.production.local','.env.m5-1.local'].filter(file => existsSync(resolve(root,file)));
+const envFiles = readdirSync(root).filter(file => /^\.env(?:\.|$)/.test(file)&&file!=='.env.example');
 const sensitiveNames = /(?:API_KEY|DATABASE_URL|POSTGRES_PASSWORD|PGPASSWORD|VERCEL_OIDC_TOKEN|CRON_SECRET|AFFILIATE_URL|AFFILIATE_DESTINATION)$/;
 const sensitiveValues = [];
+for(const [name,value] of Object.entries(process.env))if(sensitiveNames.test(name)&&value&&value.length>=12)sensitiveValues.push(value);
 for (const file of envFiles) {
   for (const line of readFileSync(resolve(root,file),'utf8').split(/\r?\n/)) {
     const match = /^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/.exec(line);

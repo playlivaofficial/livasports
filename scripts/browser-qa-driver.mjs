@@ -28,14 +28,14 @@ export async function browserQA(){
     const targets=await fetch(`http://${host}/json/list`).then(r=>r.json());const target=targets.find(t=>t.id===targetId);
     const c=await connection(target.webSocketDebuggerUrl);const metrics={providers:0,slipReads:0,errors:[],failed:[]};
     c.on('Runtime.exceptionThrown',v=>metrics.errors.push(v.exceptionDetails?.exception?.description??v.exceptionDetails?.text));
-    c.on('Network.requestWillBeSent',v=>{if(/^https:\/\/api\.(sportmonks\.com|oddspapi\.io)\//.test(v.request.url))metrics.providers++;if(v.request.url.includes('/api/slip/resolve'))metrics.slipReads++;});
+    c.on('Network.requestWillBeSent',v=>{if(/^https:\/\/api\.(sportmonks\.com|oddspapi\.io)\//.test(v.request.url))metrics.providers++;if(/\/api\/slip\/(resolve|compare)/.test(v.request.url))metrics.slipReads++;});
     c.on('Network.responseReceived',v=>{if(v.response.status>=500)metrics.failed.push({url:v.response.url.split('?')[0],status:v.response.status});});
     await c.send('Page.enable');await c.send('Runtime.enable');await c.send('Network.enable');
     const evaluate=async expression=>{const r=await c.send('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true});if(r.exceptionDetails)throw new Error(r.exceptionDetails.exception?.description??r.exceptionDetails.text);return r.result.value;};
     const wait=async(expression,timeout=15000)=>{const start=Date.now();while(Date.now()-start<timeout){if(await evaluate(expression))return;await delay(150);}throw new Error(`UI_WAIT_FAILED: ${expression.slice(0,140)}`);};
     const viewport=async(w,h=844)=>{width=w;height=h;await c.send('Emulation.setDeviceMetricsOverride',{width:w,height:h,deviceScaleFactor:1,mobile:w<=430});};
     await viewport(width,height);
-    await c.send('Page.addScriptToEvaluateOnNewDocument',{source:`window.__qaCLS=0;new PerformanceObserver(list=>{for(const e of list.getEntries())if(!e.hadRecentInput)window.__qaCLS+=e.value}).observe({type:'layout-shift',buffered:true});`});
+    await c.send('Page.addScriptToEvaluateOnNewDocument',{source:`window.__qaCLS=0;window.__qaShiftWindow=null;new PerformanceObserver(list=>{for(const e of list.getEntries())if(!e.hadRecentInput){let w=window.__qaShiftWindow;if(!w||e.startTime-w.last>=1000||e.startTime-w.start>=5000)w={start:e.startTime,last:e.startTime,sum:0};w.last=e.startTime;w.sum+=e.value;window.__qaShiftWindow=w;window.__qaCLS=Math.max(window.__qaCLS,w.sum)}}).observe({type:'layout-shift',buffered:true});`});
     const page={c,metrics,evaluate,wait,viewport,targetId,
       navigate:async url=>{await evaluate('window.__qaOldDocument=true');await c.send('Page.navigate',{url});await wait('!window.__qaOldDocument && document.readyState==="complete" && !!document.querySelector(".slip-trigger:not(:disabled)")',30000);await delay(350);},
       reload:async()=>{await evaluate('window.__qaOldDocument=true');await c.send('Page.reload');await wait('!window.__qaOldDocument && document.readyState==="complete" && !!document.querySelector(".slip-trigger:not(:disabled)")',30000);},

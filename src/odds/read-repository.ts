@@ -5,6 +5,8 @@ import type {OddsReadSnapshot,ReadOddsQuote} from './types';
 import {safeAffiliateDestination} from './affiliate';
 import {eligibleSource} from './geo';
 import type {QueryResultRow} from 'pg';
+import {verifiedGeo} from './geo';
+import type {BookmakerConfig} from '@/slip/comparison-types';
 
 export interface InternalOddsRead extends OddsReadSnapshot { destinations:Record<string,string>; }
 // Both readers use the same source, mapping and GEO predicates. The selector is internal, never SQL from a client.
@@ -71,4 +73,30 @@ export async function readPublicOddsFixtures(db:QueryExecutor,publicIds:readonly
       // Destinations are intentionally excluded: M6 resolves intent, not commercial actions.
       snapshot:{kickoff:internal.kickoff,fixtureStatus:internal.fixtureStatus,quotes:internal.quotes}}];
   }));
+}
+
+export interface SlipComparisonRead {fixtures:Map<string,PublicOddsFixtureRead>;bookmakers:BookmakerConfig[];destinations:Record<string,string>;}
+export async function readSlipComparison(db:QueryExecutor,publicIds:readonly string[],locale:SiteLocale):Promise<SlipComparisonRead>{
+  // Two bounded queries regardless of selection/bookmaker count. No history or provider gateway.
+  const fixtures=await readPublicOddsFixtures(db,publicIds,locale);
+  if(!publicIds.length)return {fixtures,bookmakers:[],destinations:{}};
+  const {rows}=await db.query(`SELECT b.provider_slug,b.display_name,b.affiliate_status,g.verification_state,
+    CASE WHEN b.affiliate_status='ACTIVE' AND g.affiliate_enabled AND al.enabled AND al.approved_at IS NOT NULL
+      AND al.campaign_verified AND al.approved_placement='match-odds' THEN al.destination_url END AS destination
+    FROM bookmakers b JOIN bookmaker_geo_availability g ON g.bookmaker_id=b.id
+    JOIN countries c ON c.id=g.country_id
+    LEFT JOIN affiliate_links al ON al.bookmaker_id=b.id AND al.country_id=c.id
+    WHERE c.iso2=$1 AND b.enabled AND b.comparison_enabled AND g.odds_enabled AND g.comparison_enabled
+      AND g.verified_at IS NOT NULL AND b.provider_slug IN ('betsson','betano.bet.br')
+    ORDER BY b.provider_slug LIMIT 4`,[locale==='br'?'BR':'MX']);
+  const destinations:Record<string,string>={};const bookmakers:BookmakerConfig[]=[];
+  for(const row of rows){
+    if(!verifiedGeo(row.verification_state,locale)||(row.provider_slug==='betano.bet.br'&&locale!=='br'))continue;
+    if(bookmakers.some(b=>b.bookmakerId===row.provider_slug))throw new Error('AMBIGUOUS_BOOKMAKER_CONFIGURATION');
+    const destination=safeAffiliateDestination(row.provider_slug,locale,row.destination);
+    if(destination)destinations[row.provider_slug]=destination;
+    bookmakers.push({bookmakerId:row.provider_slug,displayName:row.display_name,geoEligibility:{locale,eligible:true},
+      affiliateEligibility:{approved:row.affiliate_status==='ACTIVE',destinationConfigured:destination!==null}});
+  }
+  return {fixtures,bookmakers,destinations};
 }

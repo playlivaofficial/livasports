@@ -1,7 +1,7 @@
 'use client';
 import {useCallback,useEffect,useRef,useState} from 'react';
 import Link from 'next/link';
-import {usePathname} from 'next/navigation';
+import {usePathname,useSearchParams} from 'next/navigation';
 import type {SiteLocale} from '@/config/i18n';
 import {matchPath} from '@/match-center/routes';
 import {FEEDBACK_EVENT,feedback,slipStore,useSlip,type SlipFeedback} from '@/slip/client';
@@ -10,11 +10,13 @@ import {selectionKey,SLIP_LIMIT,type SavedSelection} from '@/slip/types';
 import {selectionLabel,slipCopy} from '@/slip/localization';
 import {emitSlipEvent} from '@/slip/events';
 import {resolvedByKey,useSlipResolution} from '@/slip/use-resolution';
+import {SlipComparison} from './SlipComparison';
+import {comparisonCopy} from '@/slip/comparison-copy';
 
 function TicketIcon(){return <svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 3h14v6a3 3 0 0 0 0 6v6l-3-2-4 2-4-2-3 2v-6a3 3 0 0 0 0-6V3Z" stroke="currentColor" strokeWidth="1.5"/><path d="M9 8h6M9 12h6M9 16h3" stroke="currentColor" strokeWidth="1.5"/></svg>;}
 
 function SlipDrawer({locale,selections,pending,onPending,onClose,storageNotice,message}:{locale:SiteLocale;selections:SavedSelection[];pending:SlipFeedback|null;onPending:(v:SlipFeedback|null)=>void;onClose:()=>void;storageNotice:StorageNotice;message:string|null}){
-  const text=slipCopy[locale];const {resolved,failed,online,checking,resolvedAt}=useSlipResolution(selections,locale);
+  const text=slipCopy[locale];const {resolved,comparison,failed,online,checking,resolvedAt}=useSlipResolution(selections,locale);
   const byKey=resolvedByKey(resolved);const [confirmClear,setConfirmClear]=useState(false);
   const closeRef=useRef<HTMLButtonElement>(null);const panel=useRef<HTMLElement>(null);
   useEffect(()=>{closeRef.current?.focus();const escape=(event:KeyboardEvent)=>{if(event.key==='Escape'){event.preventDefault();onClose();}};
@@ -49,6 +51,8 @@ function SlipDrawer({locale,selections,pending,onPending,onClose,storageNotice,m
       {confirmClear?<section className="slip-confirm" aria-label={text.clear}><strong>{text.clearQuestion}</strong><div><button type="button" onClick={clear}>{text.confirmClear}</button><button type="button" onClick={()=>{setConfirmClear(false);closeRef.current?.focus();}}>{text.cancel}</button></div></section>:null}
       {!selections.length?<div className="slip-empty"><span className="slip-empty-icon"><TicketIcon/></span><h3>{text.emptyTitle}</h3><p>{text.empty}</p><Link href={locale==='br'?'/br/futebol':'/mx/futbol'} onClick={onClose}>{text.browse} →</Link></div>:<>
         <div className="slip-summary"><div><span>{selections.length}/{SLIP_LIMIT} {text.selections}</span><small>{text.scope}</small></div><button type="button" onClick={()=>selections.length>1?setConfirmClear(true):clear()}>{text.clear}</button></div>
+        <button className="slip-compare-jump" type="button" onClick={()=>{const target=panel.current?.querySelector<HTMLElement>('#slip-comparison');const body=panel.current?.querySelector<HTMLElement>('.slip-body');
+          if(target&&body){target.focus({preventScroll:true});body.scrollTo({top:body.scrollTop+target.getBoundingClientRect().top-body.getBoundingClientRect().top-8,behavior:'instant'});}}}>{comparisonCopy[locale].jump}</button>
         {!online||failed?<p className="slip-notice">{!online?text.offline:text.retry}</p>:null}
         <ol className="slip-list">{selections.map((s,index)=>{const view=byKey.get(selectionKey(s));const fixture=view?.fixture;const title=fixture?`${fixture.home} × ${fixture.away}`:text.missing;
           return <li className="slip-item" key={selectionKey(s)} data-selection={selectionKey(s)} data-state={view?.state??'PENDING'}>
@@ -61,6 +65,7 @@ function SlipDrawer({locale,selections,pending,onPending,onClose,storageNotice,m
               {view?.price?<small>{view.price.bookmakerName} · {view.price.best?text.best:text.reference}</small>:view?.reason==='NO_VERIFIED_GEO'?<small>{text.geo}</small>:null}</div>
           </li>;
         })}</ol>
+        <SlipComparison locale={locale} selections={selections} value={comparison} checking={checking}/>
         {resolvedAt?<p className="slip-verified">{text.updated}: <time dateTime={resolvedAt}>{date(resolvedAt)}</time><br/>{currentCount}/{selections.length} {text.currentCount}</p>:null}
       </>}
     </div>
@@ -70,8 +75,9 @@ function SlipDrawer({locale,selections,pending,onPending,onClose,storageNotice,m
 
 export function SlipShell(){
   const pathname=usePathname();const locale:SiteLocale=pathname?.split('/')[1]==='mx'?'mx':'br';
+  const outboundUnavailable=useSearchParams().get('slip')==='unavailable';
   const {slip,notice:storageNotice,ready}=useSlip();const text=slipCopy[locale];
-  const [open,setOpen]=useState(false);const [pending,setPending]=useState<SlipFeedback|null>(null);const [notice,setNotice]=useState<string|null>(null);
+  const [open,setOpen]=useState(outboundUnavailable);const [pending,setPending]=useState<SlipFeedback|null>(null);const [notice,setNotice]=useState<string|null>(outboundUnavailable?'OUTBOUND_UNAVAILABLE':null);
   const trigger=useRef<HTMLButtonElement>(null);
   useEffect(()=>{slipStore.reload();const storage=(e:StorageEvent)=>{if(e.key===STORAGE_KEY||e.key===null)slipStore.reload();};
     const action=(e:Event)=>{const value=(e as CustomEvent<SlipFeedback>).detail;
