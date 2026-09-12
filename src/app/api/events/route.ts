@@ -1,4 +1,5 @@
 import { databaseUrl, PostgresDatabaseClient } from '@/database/client';
+import {parseSlipEvent,recordSlipEvent,slipEvents} from '@/slip/analytics-server';
 
 const names = new Set(['match_open','match_tab_view','odds_module_view','odds_market_view','odds_bookmaker_click','odds_unavailable_view','affiliate_outbound_click','match_share']);
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -10,6 +11,13 @@ export async function POST(request: Request): Promise<Response> {
   const payload=await request.text().catch(()=>'');
   if(new TextEncoder().encode(payload).byteLength>2048)return new Response(null,{status:413});
   const body=(()=>{try{return JSON.parse(payload) as Record<string,unknown>;}catch{return null;}})();
+  if(body&&uuid.test(String(body.eventId??''))&&slipEvents.has(String(body.eventName??''))){
+    const event=parseSlipEvent(body);if(!event)return new Response(null,{status:400});
+    const connection=databaseUrl();if(!connection)return new Response(null,{status:503});
+    const db=new PostgresDatabaseClient(connection);
+    try{await recordSlipEvent(db,event);return new Response(null,{status:204});}
+    catch{return new Response(null,{status:503});}finally{await db.close();}
+  }
   if(!body||!uuid.test(String(body.eventId??''))||!uuid.test(String(body.fixtureId??''))||!uuid.test(String(body.competitionId??''))||
     !names.has(String(body.eventName??''))||!['br','mx'].includes(String(body.locale??''))) return new Response(null,{status:400});
   const connectionString=databaseUrl(); if(!connectionString) return new Response(null,{status:503});

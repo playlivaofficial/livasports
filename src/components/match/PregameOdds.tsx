@@ -3,6 +3,9 @@ import {useEffect,useRef,useState} from 'react';
 import type {OddsComparison,OddsMarket,OddsCell} from '@/odds/types';
 import {SELECTIONS} from '@/odds/types';
 import {emitMatchEvent,type MatchEventContext} from './events';
+import {addSlipSelection,useSlip} from '@/slip/client';
+import {canonicalSelection,selectionKey,SLIP_SCOPE} from '@/slip/types';
+import {slipCopy,selectionLabel} from '@/slip/localization';
 
 const copy={
   br:{title:'Compare as odds',pregame:'Pré-jogo · 90 minutos',markets:{MATCH_WINNER:'Resultado final',TOTAL_GOALS:'Gols · 2,5',BTTS:'Ambas marcam'},
@@ -14,7 +17,8 @@ const copy={
     empty:'Las cuotas aún no están disponibles para este partido.',stale:'Cuotas desactualizadas — pendientes de verificación.',closed:'Las cuotas prepartido ya no están disponibles.',suspended:'Mercado suspendido temporalmente.',
     observed:'Verificado el',changed:'Último cambio informado',single:'Una casa disponible en este mercado.',responsible:'18+. Apuesta con responsabilidad.',disclosure:'Podemos recibir una comisión por enlaces de socios. Esto no cambia el orden de las cuotas.'},
 };
-export function PregameOdds({initial,context}:{initial:OddsComparison[];context:MatchEventContext}){
+export function PregameOdds({initial,context,fixturePublicId}:{initial:OddsComparison[];context:MatchEventContext;fixturePublicId?:string}){
+  const saved=useSlip();const slipText=slipCopy[context.locale];
   const [comparisons,setComparisons]=useState(initial);const [market,setMarket]=useState<OddsMarket>('MATCH_WINNER');
   const [clock,setClock]=useState<number|null>(null);const root=useRef<HTMLElement>(null);const visible=useRef(false);
   const text=copy[context.locale];const selected=comparisons.find(c=>c.market===market);const sent=useRef(new Set<string>());
@@ -22,7 +26,7 @@ export function PregameOdds({initial,context}:{initial:OddsComparison[];context:
   useEffect(()=>{
     let stopped=false;let inFlight=false;let lastAttempt=0;const abort=new AbortController();
     const tick=()=>setClock(Date.now());
-    async function refresh(){if(stopped||inFlight||!visible.current||document.visibilityState!=='visible'||Date.now()-lastAttempt<60000)return;
+    async function refresh(){if(stopped||inFlight||!navigator.onLine||!visible.current||document.visibilityState!=='visible'||Date.now()-lastAttempt<60000)return;
       inFlight=true;lastAttempt=Date.now();tick();try{const response=await fetch(`/api/odds/${context.fixtureId}?locale=${context.locale}`,{cache:'no-store',signal:abort.signal});
         if(response.ok){const body=await response.json();if(!stopped&&Array.isArray(body.comparisons))setComparisons(body.comparisons);}
       }catch{/* Expiry still applies when refresh is unavailable. */}finally{inFlight=false;}}
@@ -53,8 +57,13 @@ export function PregameOdds({initial,context}:{initial:OddsComparison[];context:
       {selected?.rows.length?<table className="pregame-table"><thead><tr><th scope="col">{text.house}</th>{SELECTIONS[market].map(outcome=><th scope="col" key={outcome}>{text.outcomes[outcome]}</th>)}<th scope="col">{text.action}</th></tr></thead>
         <tbody>{selected.rows.map(row=><tr key={row.bookmaker}><th scope="row">{row.name}</th>{row.cells.map(cell=>{
           const current=cellCurrent(cell);const best=current&&cell.best&&selected.rows.filter(r=>r.cells.some(c=>c.outcome===cell.outcome&&cellCurrent(c))).length>=2;
-          return <td key={cell.outcome}><span className={`pregame-price${best?' is-best':''}${!current?' is-unavailable':''}`} title={best?text.best:!current?unavailable:undefined}>
-            {current?new Intl.NumberFormat(context.locale==='br'?'pt-BR':'es-MX',{minimumFractionDigits:2,maximumFractionDigits:2}).format(Number(cell.decimalOdds)):'—'}{best?<span className="sr-only"> {text.best}</span>:null}</span></td>;})}
+          const intent=canonicalSelection({fixturePublicId,market,outcome:cell.outcome,line:selected.line,scope:SLIP_SCOPE});
+          const pressed=intent?saved.slip.selections.some(s=>selectionKey(s)===selectionKey(intent)):false;
+          const priceLabel=current?new Intl.NumberFormat(context.locale==='br'?'pt-BR':'es-MX',{minimumFractionDigits:2,maximumFractionDigits:2}).format(Number(cell.decimalOdds)):'—';
+          return <td key={cell.outcome}>{current&&intent?<button type="button" className={`pregame-price slip-odds-button${best?' is-best':''}`} aria-pressed={pressed} disabled={!saved.ready}
+            aria-label={`${pressed?slipText.selected:slipText.add}: ${slipText.markets[market]}, ${selectionLabel(intent,context.locale)}, ${priceLabel}, ${row.name}`}
+            onClick={()=>addSlipSelection(intent,context.locale,cell.expiresAt!,row.bookmaker)}>{pressed?<span className="slip-selected-indicator" aria-hidden="true">✓</span>:null}{priceLabel}{best?<span className="sr-only"> {text.best}</span>:null}</button>:
+            <span className={`pregame-price${best?' is-best':''}${!current?' is-unavailable':''}`} title={best?text.best:!current?unavailable:undefined}>{priceLabel}{best?<span className="sr-only"> {text.best}</span>:null}</span>}</td>;})}
           <td>{row.action&&row.cells.some(cellCurrent)?<a href={row.action} rel="sponsored nofollow noopener" onClick={()=>emitMatchEvent('odds_bookmaker_click',context,'match_odds',{market,bookmaker:row.bookmaker})}>{text.visit} ↗</a>:<span className="odds-no-action">—</span>}</td></tr>)}</tbody></table>:null}
       {!available?<p className="pregame-empty" role="status">{unavailable}</p>:available===1?<p className="odds-note">{text.single}</p>:null}
       {selected?.observedAt?<p className="odds-freshness">{text.observed} <time dateTime={selected.observedAt}>{date(selected.observedAt)}</time>{selected.providerUpdatedAt?<span> · {text.changed}: {date(selected.providerUpdatedAt)}</span>:null}</p>:null}

@@ -158,7 +158,7 @@ function Standings({ locale, match }: { locale: SiteLocale; match: MatchCenterVi
 }
 
 function Odds({ locale, match }: { locale: SiteLocale; match: MatchCenterView }) {
-  return <PregameOdds key={`${match.header.id}:${locale}`} initial={match.oddsComparisons??[]} context={{fixtureId:match.header.id,competitionId:match.header.competitionId,locale}}/>;
+  return <PregameOdds key={`${match.header.id}:${locale}`} fixturePublicId={match.header.publicId} initial={match.oddsComparisons??[]} context={{fixtureId:match.header.id,competitionId:match.header.competitionId,locale}}/>;
 }
 
 function PlayerPerformances({locale,match}:{locale:SiteLocale;match:MatchCenterView}){
