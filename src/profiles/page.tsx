@@ -27,7 +27,7 @@ export async function profileMetadata(paramPromise: Promise<{ profile: string }>
   const canonical = entity === 'team' ? teamPath(locale, profile.publicId, profile.name) : playerPath(locale, profile.publicId, profile.name);
   const br = entity === 'team' ? teamPath('br', profile.publicId, profile.name) : playerPath('br', profile.publicId, profile.name);
   const mx = entity === 'team' ? teamPath('mx', profile.publicId, profile.name) : playerPath('mx', profile.publicId, profile.name);
-  return { title: `${profile.name}: ${metadataCopy[locale][entity]} | LivaSports`, description,
+  return { title: `${profile.name}: ${metadataCopy[locale][entity]}`, description,
     robots: profile.indexable ? { index: true, follow: true } : { index: false, follow: true },
     alternates: { canonical, languages: { 'pt-BR': br, 'es-MX': mx } },
     openGraph: { type: 'website', siteName: 'LivaSports', title: profile.name, description, url: canonical,
