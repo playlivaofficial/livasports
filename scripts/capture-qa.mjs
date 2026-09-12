@@ -1,11 +1,12 @@
 import { spawn } from 'node:child_process';
-import { mkdir, rm, writeFile } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { basename, dirname, join, resolve } from 'node:path';
+import { tmpdir } from 'node:os';
 import process from 'node:process';
-import { randomUUID } from 'node:crypto';
 
 const [url, widthText, heightText, output, market, advanceMinutesText] = process.argv.slice(2);
-const advanceMinutes=Number(advanceMinutesText||0);
+const waitForRealExpiry=advanceMinutesText==='wait-expiry';
+const advanceMinutes=waitForRealExpiry?0:Number(advanceMinutesText||0);
 if(advanceMinutes&&(!['localhost','127.0.0.1'].includes(new URL(url).hostname)||advanceMinutes<0||advanceMinutes>10080))throw new Error('Clock replay is local QA only');
 const width = Number(widthText);
 const height = Number(heightText);
@@ -14,8 +15,8 @@ if (!url || !Number.isInteger(width) || !Number.isInteger(height) || !output) {
 }
 
 const chromePath = process.env.CHROME_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
-const profile = resolve('.next', `qa-chrome-${process.pid}-${randomUUID()}`);
-await mkdir(profile, { recursive: true });
+const profileRoot=resolve(tmpdir());
+const profile=await mkdtemp(join(profileRoot,'livasports-qa-'));
 const chrome = spawn(chromePath, [
   '--headless=new', '--disable-gpu', '--hide-scrollbars', '--no-first-run', '--remote-debugging-port=0',
   `--user-data-dir=${profile}`, 'about:blank',
@@ -104,6 +105,12 @@ try {
     await send('Runtime.evaluate',{expression:`Date.now=(()=>{const original=Date.now;return ()=>original()+${advanceMinutes*60000}})();document.documentElement.dataset.qaClockReplay=${JSON.stringify(String(advanceMinutes))}`});
     await new Promise(resolveWait=>setTimeout(resolveWait,1500));
   }
+  if(waitForRealExpiry){
+    const observation=await send('Runtime.evaluate',{returnByValue:true,expression:`({at:document.querySelector('#odds time')?.dateTime,active:document.querySelectorAll('#odds .pregame-price:not(.is-unavailable)').length})`});
+    const deadline=Date.parse(observation.result.value.at)+15*60000+2000;
+    if(!observation.result.value.active||!Number.isFinite(deadline)||deadline-Date.now()>16*60000)throw new Error('No bounded current-odds expiry sample');
+    while(Date.now()<deadline){console.info(JSON.stringify({stage:'REAL_EXPIRY_WAIT',remainingSeconds:Math.ceil((deadline-Date.now())/1000)}));await new Promise(resolveWait=>setTimeout(resolveWait,Math.min(30000,deadline-Date.now())));}
+  }
   const measured = await send('Runtime.evaluate', { returnByValue: true, expression: `(() => ({
     title: document.title,
     readyState: document.readyState,
@@ -121,6 +128,7 @@ try {
     ,oddsText: document.querySelector('#odds')?.textContent ?? null
     ,oddsTop: document.querySelector('#odds')?.getBoundingClientRect().top ?? null
     ,oddsScrollWidth: document.querySelector('#odds')?.scrollWidth ?? null
+    ,activePriceCells: document.querySelectorAll('#odds .pregame-price:not(.is-unavailable)').length
     ,overflowElements: [...document.querySelectorAll('body *')].filter(element => {
       const rect = element.getBoundingClientRect(); return rect.right > document.documentElement.clientWidth + 1 || rect.left < -1;
     }).slice(0,12).map(element => ({ tag: element.tagName, className: element.className, right: Math.round(element.getBoundingClientRect().right), width: Math.round(element.getBoundingClientRect().width), scrollWidth: element.scrollWidth }))
@@ -131,7 +139,7 @@ try {
   await writeFile(target, Buffer.from(screenshot.data, 'base64'));
   const metrics = measured.result.value;
   const report={ url, viewport: { width, height }, output: target,
-    providerApiRequests,javascriptExceptions,failedAppResponses,localClockReplayMinutes:advanceMinutes,
+    providerApiRequests,javascriptExceptions,failedAppResponses,localClockReplayMinutes:advanceMinutes,waitedForRealExpiry:waitForRealExpiry,
     horizontalOverflow: metrics.scrollWidth > metrics.clientWidth || metrics.bodyScrollWidth > metrics.clientWidth, ...metrics };
   if(output.includes('m5-'))await writeFile(target.replace(/\.png$/,'.metrics-private.json'),JSON.stringify(report,null,2));
   console.info(JSON.stringify(report));
@@ -139,7 +147,6 @@ try {
   await send('Browser.close').catch(() => undefined);
   socket.close();
   await new Promise(resolveExit => chrome.once('exit', resolveExit));
-  const expectedRoot=resolve('.next');
-  if (!profile.startsWith(expectedRoot + '\\') || !profile.includes('qa-chrome-')) throw new Error('Unsafe QA cleanup path');
+  if (dirname(profile)!==profileRoot || !basename(profile).startsWith('livasports-qa-')) throw new Error('Unsafe QA cleanup path');
   await rm(profile, { recursive: true, force: true });
 }

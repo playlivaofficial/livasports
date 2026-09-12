@@ -1,5 +1,5 @@
 {
-  "at": "2026-09-12T11:48:23.517Z",
+  "at": "2026-09-12T12:12:16.579Z",
   "counts": {
     "competitions": "34",
     "seasons": "42",
@@ -7,7 +7,7 @@
     "fixtures": "904",
     "mappings": "2595",
     "quotes": "651",
-    "history": "846"
+    "history": "1022"
   },
   "fixtures": [
     {
@@ -417,30 +417,30 @@
       "competition": "brasileirao-serie-a",
       "market": "MATCH_WINNER",
       "fixtures": 19,
-      "completeAtObservation": 17,
-      "activeAtObservation": 17,
+      "completeAtObservation": 16,
+      "activeAtObservation": 16,
       "completenessStatus": "PARTIAL PASS",
-      "coveragePercent": 89.5
+      "coveragePercent": 84.2
     },
     {
       "bookmaker": "betano.bet.br",
       "competition": "brasileirao-serie-a",
       "market": "TOTAL_GOALS",
       "fixtures": 19,
-      "completeAtObservation": 17,
-      "activeAtObservation": 17,
+      "completeAtObservation": 16,
+      "activeAtObservation": 16,
       "completenessStatus": "PARTIAL PASS",
-      "coveragePercent": 89.5
+      "coveragePercent": 84.2
     },
     {
       "bookmaker": "betano.bet.br",
       "competition": "brasileirao-serie-a",
       "market": "BTTS",
       "fixtures": 19,
-      "completeAtObservation": 17,
-      "activeAtObservation": 17,
+      "completeAtObservation": 16,
+      "activeAtObservation": 16,
       "completenessStatus": "PARTIAL PASS",
-      "coveragePercent": 89.5
+      "coveragePercent": 84.2
     },
     {
       "bookmaker": "betano.bet.br",
@@ -477,60 +477,60 @@
       "competition": "liga-mx",
       "market": "MATCH_WINNER",
       "fixtures": 7,
-      "completeAtObservation": 5,
-      "activeAtObservation": 5,
+      "completeAtObservation": 4,
+      "activeAtObservation": 4,
       "completenessStatus": "PARTIAL PASS",
-      "coveragePercent": 71.4
+      "coveragePercent": 57.1
     },
     {
       "bookmaker": "betano.bet.br",
       "competition": "liga-mx",
       "market": "TOTAL_GOALS",
       "fixtures": 7,
-      "completeAtObservation": 5,
-      "activeAtObservation": 5,
+      "completeAtObservation": 4,
+      "activeAtObservation": 4,
       "completenessStatus": "PARTIAL PASS",
-      "coveragePercent": 71.4
+      "coveragePercent": 57.1
     },
     {
       "bookmaker": "betano.bet.br",
       "competition": "liga-mx",
       "market": "BTTS",
       "fixtures": 7,
-      "completeAtObservation": 5,
-      "activeAtObservation": 5,
+      "completeAtObservation": 4,
+      "activeAtObservation": 4,
       "completenessStatus": "PARTIAL PASS",
-      "coveragePercent": 71.4
+      "coveragePercent": 57.1
     },
     {
       "bookmaker": "betano.bet.br",
       "competition": "premier-league",
       "market": "MATCH_WINNER",
       "fixtures": 20,
-      "completeAtObservation": 20,
-      "activeAtObservation": 20,
-      "completenessStatus": "PASS",
-      "coveragePercent": 100
+      "completeAtObservation": 18,
+      "activeAtObservation": 18,
+      "completenessStatus": "PARTIAL PASS",
+      "coveragePercent": 90
     },
     {
       "bookmaker": "betano.bet.br",
       "competition": "premier-league",
       "market": "TOTAL_GOALS",
       "fixtures": 20,
-      "completeAtObservation": 20,
-      "activeAtObservation": 20,
-      "completenessStatus": "PASS",
-      "coveragePercent": 100
+      "completeAtObservation": 18,
+      "activeAtObservation": 18,
+      "completenessStatus": "PARTIAL PASS",
+      "coveragePercent": 90
     },
     {
       "bookmaker": "betano.bet.br",
       "competition": "premier-league",
       "market": "BTTS",
       "fixtures": 20,
-      "completeAtObservation": 20,
-      "activeAtObservation": 20,
-      "completenessStatus": "PASS",
-      "coveragePercent": 100
+      "completeAtObservation": 18,
+      "activeAtObservation": 18,
+      "completenessStatus": "PARTIAL PASS",
+      "coveragePercent": 90
     },
     {
       "bookmaker": "betsson",
@@ -568,7 +568,7 @@
       "market": "MATCH_WINNER",
       "fixtures": 4,
       "completeAtObservation": 4,
-      "activeAtObservation": 3,
+      "activeAtObservation": 4,
       "completenessStatus": "PASS",
       "coveragePercent": 100
     },
@@ -578,7 +578,7 @@
       "market": "TOTAL_GOALS",
       "fixtures": 4,
       "completeAtObservation": 4,
-      "activeAtObservation": 3,
+      "activeAtObservation": 4,
       "completenessStatus": "PASS",
       "coveragePercent": 100
     },
@@ -588,7 +588,7 @@
       "market": "BTTS",
       "fixtures": 4,
       "completeAtObservation": 4,
-      "activeAtObservation": 3,
+      "activeAtObservation": 4,
       "completenessStatus": "PASS",
       "coveragePercent": 100
     },
@@ -628,7 +628,7 @@
       "market": "MATCH_WINNER",
       "fixtures": 20,
       "completeAtObservation": 20,
-      "activeAtObservation": 7,
+      "activeAtObservation": 6,
       "completenessStatus": "PASS",
       "coveragePercent": 100
     },
@@ -638,7 +638,7 @@
       "market": "TOTAL_GOALS",
       "fixtures": 20,
       "completeAtObservation": 20,
-      "activeAtObservation": 7,
+      "activeAtObservation": 6,
       "completenessStatus": "PASS",
       "coveragePercent": 100
     },
@@ -648,7 +648,7 @@
       "market": "BTTS",
       "fixtures": 20,
       "completeAtObservation": 20,
-      "activeAtObservation": 7,
+      "activeAtObservation": 6,
       "completenessStatus": "PASS",
       "coveragePercent": 100
     }
@@ -679,6 +679,30 @@
       "line": null
     },
     {
+      "fixtureId": "48611d6f-0a48-4f87-84fc-3befd389141d",
+      "competition": "brasileirao-serie-a",
+      "bookmaker": "betano.bet.br",
+      "market": "MATCH_WINNER",
+      "outcome": "HOME",
+      "line": null
+    },
+    {
+      "fixtureId": "48611d6f-0a48-4f87-84fc-3befd389141d",
+      "competition": "brasileirao-serie-a",
+      "bookmaker": "betano.bet.br",
+      "market": "MATCH_WINNER",
+      "outcome": "DRAW",
+      "line": null
+    },
+    {
+      "fixtureId": "48611d6f-0a48-4f87-84fc-3befd389141d",
+      "competition": "brasileirao-serie-a",
+      "bookmaker": "betano.bet.br",
+      "market": "MATCH_WINNER",
+      "outcome": "AWAY",
+      "line": null
+    },
+    {
       "fixtureId": "57ecbdc5-02e1-4625-bfd6-117c6b3b5c6b",
       "competition": "brasileirao-serie-a",
       "bookmaker": "betano.bet.br",
@@ -719,6 +743,22 @@
       "line": 2.5
     },
     {
+      "fixtureId": "48611d6f-0a48-4f87-84fc-3befd389141d",
+      "competition": "brasileirao-serie-a",
+      "bookmaker": "betano.bet.br",
+      "market": "TOTAL_GOALS",
+      "outcome": "OVER",
+      "line": 2.5
+    },
+    {
+      "fixtureId": "48611d6f-0a48-4f87-84fc-3befd389141d",
+      "competition": "brasileirao-serie-a",
+      "bookmaker": "betano.bet.br",
+      "market": "TOTAL_GOALS",
+      "outcome": "UNDER",
+      "line": 2.5
+    },
+    {
       "fixtureId": "57ecbdc5-02e1-4625-bfd6-117c6b3b5c6b",
       "competition": "brasileirao-serie-a",
       "bookmaker": "betano.bet.br",
@@ -751,6 +791,22 @@
       "line": null
     },
     {
+      "fixtureId": "48611d6f-0a48-4f87-84fc-3befd389141d",
+      "competition": "brasileirao-serie-a",
+      "bookmaker": "betano.bet.br",
+      "market": "BTTS",
+      "outcome": "YES",
+      "line": null
+    },
+    {
+      "fixtureId": "48611d6f-0a48-4f87-84fc-3befd389141d",
+      "competition": "brasileirao-serie-a",
+      "bookmaker": "betano.bet.br",
+      "market": "BTTS",
+      "outcome": "NO",
+      "line": null
+    },
+    {
       "fixtureId": "57ecbdc5-02e1-4625-bfd6-117c6b3b5c6b",
       "competition": "brasileirao-serie-a",
       "bookmaker": "betano.bet.br",
@@ -935,6 +991,30 @@
       "line": null
     },
     {
+      "fixtureId": "47df86ce-184b-4c86-be57-fd754897d65e",
+      "competition": "liga-mx",
+      "bookmaker": "betano.bet.br",
+      "market": "MATCH_WINNER",
+      "outcome": "HOME",
+      "line": null
+    },
+    {
+      "fixtureId": "47df86ce-184b-4c86-be57-fd754897d65e",
+      "competition": "liga-mx",
+      "bookmaker": "betano.bet.br",
+      "market": "MATCH_WINNER",
+      "outcome": "DRAW",
+      "line": null
+    },
+    {
+      "fixtureId": "47df86ce-184b-4c86-be57-fd754897d65e",
+      "competition": "liga-mx",
+      "bookmaker": "betano.bet.br",
+      "market": "MATCH_WINNER",
+      "outcome": "AWAY",
+      "line": null
+    },
+    {
       "fixtureId": "163a5145-f354-4ba4-9d26-d52a1e1f634d",
       "competition": "liga-mx",
       "bookmaker": "betano.bet.br",
@@ -983,6 +1063,22 @@
       "line": null
     },
     {
+      "fixtureId": "47df86ce-184b-4c86-be57-fd754897d65e",
+      "competition": "liga-mx",
+      "bookmaker": "betano.bet.br",
+      "market": "TOTAL_GOALS",
+      "outcome": "OVER",
+      "line": 2.5
+    },
+    {
+      "fixtureId": "47df86ce-184b-4c86-be57-fd754897d65e",
+      "competition": "liga-mx",
+      "bookmaker": "betano.bet.br",
+      "market": "TOTAL_GOALS",
+      "outcome": "UNDER",
+      "line": 2.5
+    },
+    {
       "fixtureId": "163a5145-f354-4ba4-9d26-d52a1e1f634d",
       "competition": "liga-mx",
       "bookmaker": "betano.bet.br",
@@ -1013,6 +1109,22 @@
       "market": "TOTAL_GOALS",
       "outcome": "UNDER",
       "line": 2.5
+    },
+    {
+      "fixtureId": "47df86ce-184b-4c86-be57-fd754897d65e",
+      "competition": "liga-mx",
+      "bookmaker": "betano.bet.br",
+      "market": "BTTS",
+      "outcome": "YES",
+      "line": null
+    },
+    {
+      "fixtureId": "47df86ce-184b-4c86-be57-fd754897d65e",
+      "competition": "liga-mx",
+      "bookmaker": "betano.bet.br",
+      "market": "BTTS",
+      "outcome": "NO",
+      "line": null
     },
     {
       "fixtureId": "163a5145-f354-4ba4-9d26-d52a1e1f634d",
@@ -1041,6 +1153,118 @@
     {
       "fixtureId": "c5a53e5b-92c0-42c6-8274-e3fb6fc0fb2d",
       "competition": "liga-mx",
+      "bookmaker": "betano.bet.br",
+      "market": "BTTS",
+      "outcome": "NO",
+      "line": null
+    },
+    {
+      "fixtureId": "5dac1128-aa0c-4698-98b0-11e5786d0b92",
+      "competition": "premier-league",
+      "bookmaker": "betano.bet.br",
+      "market": "MATCH_WINNER",
+      "outcome": "HOME",
+      "line": null
+    },
+    {
+      "fixtureId": "5dac1128-aa0c-4698-98b0-11e5786d0b92",
+      "competition": "premier-league",
+      "bookmaker": "betano.bet.br",
+      "market": "MATCH_WINNER",
+      "outcome": "DRAW",
+      "line": null
+    },
+    {
+      "fixtureId": "5dac1128-aa0c-4698-98b0-11e5786d0b92",
+      "competition": "premier-league",
+      "bookmaker": "betano.bet.br",
+      "market": "MATCH_WINNER",
+      "outcome": "AWAY",
+      "line": null
+    },
+    {
+      "fixtureId": "967a73b3-e48b-40f0-8452-e13ff13f07d9",
+      "competition": "premier-league",
+      "bookmaker": "betano.bet.br",
+      "market": "MATCH_WINNER",
+      "outcome": "HOME",
+      "line": null
+    },
+    {
+      "fixtureId": "967a73b3-e48b-40f0-8452-e13ff13f07d9",
+      "competition": "premier-league",
+      "bookmaker": "betano.bet.br",
+      "market": "MATCH_WINNER",
+      "outcome": "DRAW",
+      "line": null
+    },
+    {
+      "fixtureId": "967a73b3-e48b-40f0-8452-e13ff13f07d9",
+      "competition": "premier-league",
+      "bookmaker": "betano.bet.br",
+      "market": "MATCH_WINNER",
+      "outcome": "AWAY",
+      "line": null
+    },
+    {
+      "fixtureId": "5dac1128-aa0c-4698-98b0-11e5786d0b92",
+      "competition": "premier-league",
+      "bookmaker": "betano.bet.br",
+      "market": "TOTAL_GOALS",
+      "outcome": "OVER",
+      "line": 2.5
+    },
+    {
+      "fixtureId": "5dac1128-aa0c-4698-98b0-11e5786d0b92",
+      "competition": "premier-league",
+      "bookmaker": "betano.bet.br",
+      "market": "TOTAL_GOALS",
+      "outcome": "UNDER",
+      "line": 2.5
+    },
+    {
+      "fixtureId": "967a73b3-e48b-40f0-8452-e13ff13f07d9",
+      "competition": "premier-league",
+      "bookmaker": "betano.bet.br",
+      "market": "TOTAL_GOALS",
+      "outcome": "OVER",
+      "line": 2.5
+    },
+    {
+      "fixtureId": "967a73b3-e48b-40f0-8452-e13ff13f07d9",
+      "competition": "premier-league",
+      "bookmaker": "betano.bet.br",
+      "market": "TOTAL_GOALS",
+      "outcome": "UNDER",
+      "line": 2.5
+    },
+    {
+      "fixtureId": "5dac1128-aa0c-4698-98b0-11e5786d0b92",
+      "competition": "premier-league",
+      "bookmaker": "betano.bet.br",
+      "market": "BTTS",
+      "outcome": "YES",
+      "line": null
+    },
+    {
+      "fixtureId": "5dac1128-aa0c-4698-98b0-11e5786d0b92",
+      "competition": "premier-league",
+      "bookmaker": "betano.bet.br",
+      "market": "BTTS",
+      "outcome": "NO",
+      "line": null
+    },
+    {
+      "fixtureId": "967a73b3-e48b-40f0-8452-e13ff13f07d9",
+      "competition": "premier-league",
+      "bookmaker": "betano.bet.br",
+      "market": "BTTS",
+      "outcome": "YES",
+      "line": null
+    },
+    {
+      "fixtureId": "967a73b3-e48b-40f0-8452-e13ff13f07d9",
+      "competition": "premier-league",
       "bookmaker": "betano.bet.br",
       "market": "BTTS",
       "outcome": "NO",
@@ -1050,10 +1274,10 @@
   "timestamps": {
     "providerMissing": 0,
     "oldestProviderChange": "2026-09-05T18:16:33.234Z",
-    "newestProviderChange": "2026-09-12T11:39:25.115Z",
-    "oldestObservation": "2026-09-12T11:39:47.046Z",
-    "newestObservation": "2026-09-12T11:39:51.840Z",
-    "expiredObservations": 0
+    "newestProviderChange": "2026-09-12T11:56:00.636Z",
+    "oldestObservation": "2026-09-12T11:56:43.127Z",
+    "newestObservation": "2026-09-12T11:56:47.738Z",
+    "expiredObservations": 651
   },
   "geos": [
     {
@@ -1264,10 +1488,64 @@
       "completed_at": "2026-09-12T11:39:51.840Z",
       "http_status": 200,
       "outcome": "SUCCEEDED"
+    },
+    {
+      "endpoint": "/v4/odds-by-tournaments",
+      "safe_query": {
+        "language": "en",
+        "bookmaker": "betano.bet.br",
+        "verbosity": "3",
+        "oddsFormat": "decimal",
+        "tournamentIds": "325,27464,17,384"
+      },
+      "started_at": "2026-09-12T11:56:41.826Z",
+      "completed_at": "2026-09-12T11:56:43.127Z",
+      "http_status": 200,
+      "outcome": "SUCCEEDED"
+    },
+    {
+      "endpoint": "/v4/odds-by-tournaments",
+      "safe_query": {
+        "language": "en",
+        "bookmaker": "betsson",
+        "verbosity": "3",
+        "oddsFormat": "decimal",
+        "tournamentIds": "325,27464,17,384"
+      },
+      "started_at": "2026-09-12T11:56:46.671Z",
+      "completed_at": "2026-09-12T11:56:47.738Z",
+      "http_status": 200,
+      "outcome": "SUCCEEDED"
+    }
+  ],
+  "latestResponses": [
+    {
+      "bookmaker": "betano.bet.br",
+      "observedAt": "2026-09-12T11:56:43.127Z",
+      "returnedFixtures": 39,
+      "returnedSelections": 273,
+      "tournamentIds": [
+        "325",
+        "27464",
+        "17",
+        "384"
+      ]
+    },
+    {
+      "bookmaker": "betsson",
+      "observedAt": "2026-09-12T11:56:47.738Z",
+      "returnedFixtures": 50,
+      "returnedSelections": 350,
+      "tournamentIds": [
+        "325",
+        "27464",
+        "17",
+        "384"
+      ]
     }
   ],
   "providerUsage": {
-    "oddsPapi": 13,
+    "oddsPapi": 15,
     "sportmonks": 2,
     "normalNavigation": 0
   },
@@ -1882,7 +2160,7 @@
     ]
   },
   "idempotency": {
-    "at": "2026-09-12T11:46:55.482Z",
+    "at": "2026-09-12T11:59:00.045Z",
     "results": [
       {
         "bookmaker": "betano.bet.br",

@@ -1,6 +1,7 @@
 import {writeFile,readFile} from 'node:fs/promises';
 import {databaseUrl,PostgresDatabaseClient} from '../src/database/client';
 import {SELECTIONS,ODDS_TTL_MS} from '../src/odds/types';
+import type {OddsSnapshot} from '../src/odds/types';
 const db=new PostgresDatabaseClient(databaseUrl()!);
 try{
   const counts=(await db.query(`SELECT (SELECT count(*) FROM competitions WHERE enabled) AS competitions,(SELECT count(*) FROM seasons) AS seasons,
@@ -9,6 +10,7 @@ try{
   const fixtures=(await db.query(`SELECT f.id,f.public_id,c.slug,f.kickoff,f.status,m.provider_entity_id FROM fixtures f JOIN competitions c ON c.id=f.competition_id
     JOIN provider_entity_mappings m ON m.livasports_entity_id=f.id AND m.provider='ODDSPAPI' AND m.entity_type='FIXTURE' ORDER BY c.slug,f.kickoff`)).rows;
   const quotes=(await db.query(`SELECT o.*,b.provider_slug FROM odds_current o JOIN bookmakers b ON b.id=o.bookmaker_id ORDER BY fIXTURE_id,b.provider_slug,market_code,outcome_code`)).rows;
+  const snapshots=(await db.query('SELECT DISTINCT ON(bookmaker) payload FROM odds_sync_snapshots WHERE applied_at IS NOT NULL ORDER BY bookmaker,observed_at DESC')).rows.map(r=>r.payload as OddsSnapshot);
   const requests=(await db.query('SELECT endpoint,safe_query,started_at,completed_at,http_status,outcome FROM odds_provider_requests ORDER BY started_at')).rows;
   const corrections=(await db.query(`SELECT f.id,f.public_id,f.status,m.metadata->'m5KickoffCorrection' AS evidence FROM provider_entity_mappings m JOIN fixtures f ON f.id=m.livasports_entity_id
     WHERE m.provider='SPORTMONKS' AND m.entity_type='FIXTURE' AND m.metadata ? 'm5KickoffCorrection' ORDER BY f.id`)).rows;
@@ -16,8 +18,10 @@ try{
     JOIN bookmakers b ON b.id=g.bookmaker_id JOIN countries c ON c.id=g.country_id ORDER BY b.provider_slug,c.iso2`)).rows;
   const missing=[];const coverage=[];
   for(const bookmaker of ['betano.bet.br','betsson'])for(const competition of [...new Set(fixtures.map(f=>f.slug))])for(const [market,outcomes] of Object.entries(SELECTIONS)){
+    const latest=snapshots.find(s=>s.bookmaker===bookmaker);
+    const returned=new Set(latest?.quotes.map(q=>`${q.providerFixtureId}:${q.market}:${q.outcome}`));
     const group=fixtures.filter(f=>f.slug===competition);let complete=0,active=0;
-    for(const f of group){const found=quotes.filter(q=>q.fixture_id===f.id&&q.provider_slug===bookmaker&&q.market_code===market);
+    for(const f of group){const found=quotes.filter(q=>q.fixture_id===f.id&&q.provider_slug===bookmaker&&q.market_code===market&&returned.has(`${q.provider_fixture_id}:${q.market_code}:${q.outcome_code}`));
       if(outcomes.every(o=>found.some(q=>q.outcome_code===o)))complete++;
       if(outcomes.every(o=>found.some(q=>q.outcome_code===o&&q.status==='ACTIVE')))active++;
       for(const outcome of outcomes)if(!found.some(q=>q.outcome_code===outcome))missing.push({fixtureId:f.id,competition,bookmaker,market,outcome,line:market==='TOTAL_GOALS'?2.5:null});
@@ -32,7 +36,8 @@ try{
     newestObservation:quotes.map(q=>q.observed_at?.toISOString()).filter(Boolean).sort().at(-1)??null,
     expiredObservations:quotes.filter(q=>!q.observed_at||Date.now()-q.observed_at.getTime()>=ODDS_TTL_MS).length};
   const replay=JSON.parse(await readFile('output/m5-ingestion-private.json','utf8'));
-  const report={at:new Date().toISOString(),counts,fixtures,coverage,missing,timestamps,geos,requests,
+  const latestResponses=snapshots.map(s=>({bookmaker:s.bookmaker,observedAt:s.observedAt,returnedFixtures:s.fixtures.length,returnedSelections:s.quotes.length,tournamentIds:s.tournamentIds}));
+  const report={at:new Date().toISOString(),counts,fixtures,coverage,missing,timestamps,geos,requests,latestResponses,
     providerUsage:{oddsPapi:requests.length,sportmonks:2,normalNavigation:0},
     kickoffCorrection:{changed:corrections.length,timezoneOnly:corrections.filter(c=>c.evidence.reason==='UTC_PARSE_DEFECT_PROVEN').length,
       timezonePlusScheduleChange:corrections.filter(c=>c.evidence.reason!=='UTC_PARSE_DEFECT_PROVEN').length,canonicalIdsPreserved:true,publicIdsPreserved:true,unverifiedFixturesNotShifted:Number(counts.fixtures)-corrections.length,corrections},
@@ -43,6 +48,7 @@ try{
     'Observed feed completeness is separate from executable current prices, GEO eligibility and commercial approval. Expired/suspended/GEO-unverified quotes cannot be best odds.','',
     `Database: ${counts.competitions} enabled competitions; ${counts.seasons} seasons; ${counts.teams} teams; ${counts.fixtures} fixtures; ${counts.mappings} mappings; ${counts.quotes} current quote records; ${counts.history} meaningful history records.`,
     '',`Provider usage: ${requests.length} OddsPapi requests (failed attempts included); 2 narrow Sportmonks diagnostic requests; normal navigation 0.`,
+    '',...latestResponses.map(s=>`Latest ${s.bookmaker} response at ${s.observedAt}: ${s.returnedFixtures} fixtures; ${s.returnedSelections} normalized selections. Retained closed historical quote records are excluded from latest-response coverage.`),
     '', '| Bookmaker | Competition | Market | Complete/sample | Active at observation | Coverage | Result |','|---|---|---|---:|---:|---:|---|',
     ...coverage.map(c=>`| ${c.bookmaker} | ${c.competition} | ${c.market} | ${c.completeAtObservation}/${c.fixtures} | ${c.activeAtObservation} | ${c.coveragePercent}% | ${c.completenessStatus} |`),
     '',`Missing selections: ${missing.length}. See the JSON report for every exact canonical fixture/market/outcome. No missing price was replaced with zero.`,
