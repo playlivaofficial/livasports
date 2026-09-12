@@ -4,7 +4,15 @@ import type {SiteLocale} from '@/config/i18n';
 const hosts:Record<string,readonly string[]>={
   'betano.bet.br:br':['betano.bet.br','www.betano.bet.br'],
   'betsson:br':['betsson.bet.br','www.betsson.bet.br'],
+  'betsson:mx':['betsson.mx','www.betsson.mx'],
 };
+export const ODDS_PLACEMENT='match-odds';
+export function validOutboundRequest(bookmaker:string,query:URLSearchParams){
+  const fixture=query.get('fixtureId')??'';
+  return ['betano.bet.br','betsson'].includes(bookmaker)&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(fixture)&&
+    ['br','mx'].includes(query.get('locale')??'')&&['MATCH_WINNER','TOTAL_GOALS','BTTS'].includes(query.get('market')??'')&&query.get('placement')===ODDS_PLACEMENT&&
+    [...query.keys()].every(k=>['fixtureId','locale','market','placement'].includes(k)&&query.getAll(k).length===1);
+}
 export function safeAffiliateDestination(bookmaker:string,locale:SiteLocale,destination:unknown):string|null{
   if(typeof destination!=='string')return null;
   try{const url=new URL(destination);if(url.protocol!=='https:'||url.username||url.password||url.port||!hosts[`${bookmaker}:${locale}`]?.includes(url.hostname))return null;

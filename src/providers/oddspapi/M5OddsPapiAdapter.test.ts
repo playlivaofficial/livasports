@@ -5,7 +5,7 @@ function database(consumed=50):DatabaseClient{
   const query=vi.fn(async(sql:string)=>({rows:sql.includes('max(started_at)')?[{at:null}]:sql.includes('FROM odds_budget_baselines')?[{hard_limit:5000,consumed}]:[{id:'job'}],rowCount:1}));
   return {query:query as unknown as DatabaseClient['query'],transaction:async work=>work({query:query as unknown as DatabaseClient['query']}),close:async()=>undefined};
 }
-afterEach(()=>vi.restoreAllMocks());
+afterEach(()=>{vi.restoreAllMocks();vi.useRealTimers();});
 describe('bounded OddsPapi worker transport',()=>{
   it('uses one singular bookmaker, batches tournaments, and never requests live/props',async()=>{
     const fetch=vi.spyOn(globalThis,'fetch').mockResolvedValue(Response.json([]));const db=database();const p=new M5OddsPapiAdapter(db,'test-secret-key','job',1);
@@ -25,5 +25,11 @@ describe('bounded OddsPapi worker transport',()=>{
   it('rejects unsubscribed bookmakers and tournament requests before fetching',async()=>{
     const fetch=vi.spyOn(globalThis,'fetch');const p=new M5OddsPapiAdapter(database(),'test-key','job');
     await expect(p.snapshot('betano.mx',['325'])).rejects.toThrow('OUT_OF_SCOPE');await expect(p.snapshot('betsson',['999'])).rejects.toThrow('OUT_OF_SCOPE');expect(fetch).not.toHaveBeenCalled();
+  });
+  it('retries a temporary failure only once within the durable run cap',async()=>{
+    vi.useFakeTimers();const fetch=vi.spyOn(globalThis,'fetch').mockImplementation(async()=>Response.json({message:'temporary'},{status:503}));
+    const p=new M5OddsPapiAdapter(database(),'test-only','job',4);const attempt=p.snapshot('betsson',['325']);
+    const rejected=expect(attempt).rejects.toThrow('503');await vi.runAllTimersAsync();await rejected;
+    expect(fetch).toHaveBeenCalledTimes(2);expect(p.requestCount()).toBe(2);vi.useRealTimers();
   });
 });

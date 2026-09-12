@@ -8,8 +8,8 @@ const files = execFileSync('git', ['ls-files', '--cached', '--others', '--exclud
 const forbiddenPaths = files.filter(file => /(^|\/)\.env(?:$|\.local$|\.(?:production|development|test)(?:\.local)?$)|(^|\/)\.vercel\//i.test(file));
 const textExtensions = new Set(['','.cjs','.css','.html','.js','.json','.md','.mjs','.sql','.ts','.tsx','.txt','.yml','.yaml']);
 const textFiles = files.filter(file => textExtensions.has(extname(file).toLowerCase()));
-const envFiles = ['.env','.env.local','.env.production.local'].filter(file => existsSync(resolve(root,file)));
-const sensitiveNames = /(?:API_KEY|DATABASE_URL|POSTGRES_PASSWORD|VERCEL_OIDC_TOKEN)$/;
+const envFiles = ['.env','.env.local','.env.production.local','.env.m5-1.local'].filter(file => existsSync(resolve(root,file)));
+const sensitiveNames = /(?:API_KEY|DATABASE_URL|POSTGRES_PASSWORD|PGPASSWORD|VERCEL_OIDC_TOKEN|CRON_SECRET|AFFILIATE_URL|AFFILIATE_DESTINATION)$/;
 const sensitiveValues = [];
 for (const file of envFiles) {
   for (const line of readFileSync(resolve(root,file),'utf8').split(/\r?\n/)) {

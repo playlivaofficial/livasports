@@ -6,11 +6,11 @@ import {emitMatchEvent,type MatchEventContext} from './events';
 
 const copy={
   br:{title:'Compare as odds',pregame:'Pré-jogo · 90 minutos',markets:{MATCH_WINNER:'Resultado final',TOTAL_GOALS:'Gols · 2,5',BTTS:'Ambas marcam'},
-    outcomes:{HOME:'1',DRAW:'X',AWAY:'2',OVER:'Mais de 2,5',UNDER:'Menos de 2,5',YES:'Sim',NO:'Não'},house:'Casa',action:'Ação',visit:'Ver na casa',best:'Melhor odd',
+    outcomes:{HOME:'1',DRAW:'X',AWAY:'2',OVER:'Mais de 2,5',UNDER:'Menos de 2,5',YES:'Sim',NO:'Não'},house:'Casa',action:'Ação',visit:'Ver odds',best:'Melhor odd',
     empty:'Odds ainda não disponíveis para esta partida.',stale:'Odds desatualizadas — aguardando nova verificação.',closed:'As odds pré-jogo não estão mais disponíveis.',suspended:'Mercado temporariamente suspenso.',
     observed:'Verificado em',changed:'Última mudança informada',single:'Uma casa disponível neste mercado.',responsible:'18+. Aposte com responsabilidade.',disclosure:'Podemos receber comissão pelos links de parceiros. Isso não altera a ordem das odds.'},
   mx:{title:'Compara las cuotas',pregame:'Prepartido · 90 minutos',markets:{MATCH_WINNER:'Resultado final',TOTAL_GOALS:'Goles · 2.5',BTTS:'Ambos anotan'},
-    outcomes:{HOME:'1',DRAW:'X',AWAY:'2',OVER:'Más de 2.5',UNDER:'Menos de 2.5',YES:'Sí',NO:'No'},house:'Casa',action:'Acción',visit:'Ver en la casa',best:'Mejor cuota',
+    outcomes:{HOME:'1',DRAW:'X',AWAY:'2',OVER:'Más de 2.5',UNDER:'Menos de 2.5',YES:'Sí',NO:'No'},house:'Casa',action:'Acción',visit:'Ver cuotas',best:'Mejor cuota',
     empty:'Las cuotas aún no están disponibles para este partido.',stale:'Cuotas desactualizadas — pendientes de verificación.',closed:'Las cuotas prepartido ya no están disponibles.',suspended:'Mercado suspendido temporalmente.',
     observed:'Verificado el',changed:'Último cambio informado',single:'Una casa disponible en este mercado.',responsible:'18+. Apuesta con responsabilidad.',disclosure:'Podemos recibir una comisión por enlaces de socios. Esto no cambia el orden de las cuotas.'},
 };
