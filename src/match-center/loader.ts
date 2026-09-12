@@ -31,20 +31,23 @@ export class MatchCenterLoader {
       this.cached(header.id, locale, 'events', 60, () => this.repository.events(header.id)),
       this.cached(header.id, locale, 'statistics', 120, () => this.repository.statistics(header.id)),
       this.cached(header.id, locale, 'lineups', 300, () => this.repository.lineups(header.id)),
+      this.cached(header.id, locale, 'player-statistics', 300, () => this.repository.playerPerformances(header.id)),
       this.cached(header.id, locale, 'standings', 600, () => this.repository.standings(header)),
       this.cached(header.id, locale, 'form', 600, () => this.repository.form(header)),
       this.cached(header.id, locale, 'odds', 300, () => this.repository.odds(header)),
     ] as const;
-    const [eventsResult, statisticsResult, lineupsResult, standingsResult, formResult, oddsResult] = await Promise.allSettled(calls);
+    const [eventsResult, statisticsResult, lineupsResult, playerStatisticsResult, standingsResult, formResult, oddsResult] = await Promise.allSettled(calls);
     const value = <T>(result: PromiseSettledResult<T>, fallback: T): T => result.status === 'fulfilled' ? result.value : fallback;
     const state = <T>(result: PromiseSettledResult<T>, requested: MatchModule<T>): MatchModule<T> => result.status === 'fulfilled' ? requested : { ...requested, state: 'ERROR' };
     const eventsData = value(eventsResult, []); const statisticsData = value(statisticsResult, []); const lineupsData = value(lineupsResult, []);
-    const standingsData = value(standingsResult, []); const formData = value(formResult, { home: [], away: [], headToHead: [] }); const oddsData = value(oddsResult, []);
+    const playerStatisticsData=value(playerStatisticsResult,[]); const standingsData = value(standingsResult, []);
+    const formData = value(formResult, { home: [], away: [], headToHead: [] }); const oddsData = value(oddsResult, []);
     const snapshotAt = latestSnapshotAt(Object.values(stateMap).map(meta => meta.snapshotAt));
     const match: MatchCenterView = { header,
       events: state(eventsResult, wrap('EVENTS', eventsData, defaultState)),
       statistics: state(statisticsResult, wrap('STATISTICS', statisticsData, defaultState)),
       lineups: state(lineupsResult, wrap('LINEUPS', lineupsData, defaultState)),
+      playerStatistics: state(playerStatisticsResult, { ...emptyMeta(playerStatisticsData.length?'AVAILABLE':defaultState), data: playerStatisticsData }),
       standings: state(standingsResult, wrap('STANDINGS', standingsData, header.competitionType === 'DOMESTIC_CUP' ? 'NOT_APPLICABLE' : 'NO_DATA_IN_WINDOW')),
       form: state(formResult, { ...emptyMeta(formData.home.length || formData.away.length ? 'AVAILABLE' : 'NO_DATA_IN_WINDOW'), data: formData }),
       odds: state(oddsResult, { ...emptyMeta(oddsData.length ? 'AVAILABLE' : 'NO_DATA_IN_WINDOW'), data: oddsData }),

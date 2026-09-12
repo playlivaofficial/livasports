@@ -11,7 +11,7 @@ export interface MatchModule<T> {
   snapshotAt: string | null;
 }
 
-export interface MatchTeamView { id: string; name: string; shortName: string | null; imageUrl: string | null; }
+export interface MatchTeamView { id: string; publicId: string; name: string; shortName: string | null; imageUrl: string | null; }
 export interface MatchScoreView { description: string; home: number | null; away: number | null; }
 export interface MatchHeaderView {
   id: string; publicId: string; locale: SiteLocale; competitionId: string; competition: string; competitionSlug: string;
@@ -24,12 +24,14 @@ export interface MatchHeaderView {
 export interface MatchEventView {
   id: string; type: string; periodId: number | null; minute: number | null; extraMinute: number | null;
   teamId: string | null; playerName: string | null; relatedPlayerName: string | null; result: string | null;
-  detail: string | null; rescinded: boolean;
+  playerPublicId: string | null; relatedPlayerPublicId: string | null; detail: string | null; rescinded: boolean;
 }
 export interface MatchStatisticView { type: string; home: number | string | null; away: number | string | null; unit: string | null; scope: string; }
-export interface MatchLineupPlayerView { id: string; teamId: string; name: string; starter: boolean; positionId: number | null; formationField: string | null; jerseyNumber: number | null; }
+export interface MatchLineupPlayerView { id: string; playerPublicId: string | null; teamId: string; name: string; starter: boolean; positionId: number | null; formationField: string | null; jerseyNumber: number | null; statistics: Array<{ code:string; label:string; value:number|string }>; }
 export interface MatchLineupTeamView { teamId: string; formation: string | null; coach: string | null; starters: MatchLineupPlayerView[]; substitutes: MatchLineupPlayerView[]; }
-export interface MatchStandingView { teamId: string; team: string; position: number; played: number | null; won: number | null; drawn: number | null; lost: number | null; goalsFor: number | null; goalsAgainst: number | null; goalDifference: number | null; points: number | null; highlighted: boolean; }
+export interface MatchPlayerPerformanceView { playerId: string; playerPublicId: string; player: string; teamId: string; team: string;
+  statistics: Array<{ code:string; label:string; value:number|string }> }
+export interface MatchStandingView { teamId: string; teamPublicId: string; team: string; position: number; played: number | null; won: number | null; drawn: number | null; lost: number | null; goalsFor: number | null; goalsAgainst: number | null; goalDifference: number | null; points: number | null; highlighted: boolean; }
 export interface MatchHistoryView { id: string; publicId: string; kickoff: string; home: string; away: string; homeScore: number | null; awayScore: number | null; status: FixtureStatus; perspective: 'W' | 'D' | 'L' | null; }
 export interface MatchFormView { home: MatchHistoryView[]; away: MatchHistoryView[]; headToHead: MatchHistoryView[]; }
 export interface MatchOddsPriceView { bookmaker: string; market: string; outcome: string; line: number | null; decimalOdds: number; providerUpdatedAt: string; affiliateEligible: boolean; affiliateUrl: string | null; }
@@ -39,6 +41,7 @@ export interface MatchCenterView {
   events: MatchModule<MatchEventView[]>;
   statistics: MatchModule<MatchStatisticView[]>;
   lineups: MatchModule<MatchLineupTeamView[]>;
+  playerStatistics: MatchModule<MatchPlayerPerformanceView[]>;
   standings: MatchModule<MatchStandingView[]>;
   form: MatchModule<MatchFormView>;
   odds: MatchModule<MatchOddsPriceView[]>;

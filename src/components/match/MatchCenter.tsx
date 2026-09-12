@@ -4,6 +4,7 @@ import { getDictionary, localeRoutes, type SiteLocale } from '@/config/i18n';
 import type { MatchCenterView, MatchEventView, MatchModule, MatchStatisticView } from '@/match-center/types';
 import { matchPath } from '@/match-center/routes';
 import { eventMinute } from '@/match-center/rules';
+import { playerPath, teamPath } from '@/profiles/routes';
 import { SiteHeader } from '@/components/sports/SiteHeader';
 import { TeamIdentity } from '@/components/sports/FixtureCard';
 import { MatchClientActions, MatchSectionNav } from './MatchClientActions';
@@ -18,7 +19,7 @@ const copy = {
     played: 'J', won: 'V', draw: 'E', lost: 'D', goals: 'Gols', points: 'Pts', share: 'Compartilhar', copied: 'Link copiado',
     oddsUnavailable: 'Nenhuma odd pré-jogo válida e elegível disponível.', disclosure: 'Podemos receber uma comissão pelos links de parceiros. Isso não altera a ordem das odds.', responsible: '18+. Aposte com responsabilidade.',
     pending: 'Ainda não disponível para esta partida.', noData: 'Nenhum dado registrado para esta partida.', notCovered: 'Este dado não está coberto pelo provedor.', temporaryError: 'Este módulo está temporariamente indisponível.', liveStale: 'Atualização ao vivo atrasada — exibindo o último snapshot salvo.',
-    replay: 'Reprodução de teste — dados históricos; não é uma partida ao vivo.',
+    replay: 'Reprodução de teste — dados históricos; não é uma partida ao vivo.', playerPerformance:'Desempenho individual',
   },
   mx: {
     back: 'Volver a los partidos', summary: 'Resumen', statistics: 'Estadísticas', lineups: 'Alineaciones', meetings: 'Enfrentamientos', standings: 'Clasificación', odds: 'Cuotas',
@@ -28,7 +29,7 @@ const copy = {
     played: 'PJ', won: 'G', draw: 'E', lost: 'P', goals: 'Goles', points: 'Pts', share: 'Compartir', copied: 'Enlace copiado',
     oddsUnavailable: 'No hay cuotas prepartido válidas y elegibles.', disclosure: 'Podemos recibir una comisión por enlaces de socios. Esto no cambia el orden de las cuotas.', responsible: '18+. Apuesta con responsabilidad.',
     pending: 'Aún no está disponible para este partido.', noData: 'No hay datos registrados para este partido.', notCovered: 'Este dato no está cubierto por el proveedor.', temporaryError: 'Este módulo no está disponible temporalmente.', liveStale: 'La actualización en vivo está retrasada — se muestra la última captura guardada.',
-    replay: 'Reproducción de prueba — datos históricos; no es un partido en vivo.',
+    replay: 'Reproducción de prueba — datos históricos; no es un partido en vivo.', playerPerformance:'Rendimiento individual',
   },
 } as const;
 
@@ -71,6 +72,12 @@ const scoreLabels: Record<SiteLocale, Record<string,string>> = {
   br: { PENALTIES:'Pênaltis',EXTRA_TIME:'Prorrogação',AGGREGATE:'Agregado' },
   mx: { PENALTIES:'Penales',EXTRA_TIME:'Tiempo extra',AGGREGATE:'Global' },
 };
+const playerStatisticLabels: Record<SiteLocale,Record<string,string>>={
+  br:{MINUTES_PLAYED:'min',MINUTES:'min',GOALS:'gols',ASSISTS:'assist.',YELLOWCARDS:'amarelos',REDCARDS:'vermelhos',
+    SHOTS:'finalizações',SHOTS_TOTAL:'finalizações',SHOTS_ON_TARGET:'no gol',SAVES:'defesas',PASSES:'passes',RATING:'nota'},
+  mx:{MINUTES_PLAYED:'min',MINUTES:'min',GOALS:'goles',ASSISTS:'asist.',YELLOWCARDS:'amarillas',REDCARDS:'rojas',
+    SHOTS:'tiros',SHOTS_TOTAL:'tiros',SHOTS_ON_TARGET:'a puerta',SAVES:'atajadas',PASSES:'pases',RATING:'nota'},
+};
 function prioritizedStats(rows: MatchStatisticView[]) {
   const preferred = preferredStats.flatMap(rule => rows.filter(row => rule.test(row.type)));
   return [...preferred, ...rows].filter((row, index, all) => all.findIndex(item => item.type === row.type && item.scope === row.scope) === index);
@@ -107,7 +114,10 @@ function Summary({ locale, match }: { locale: SiteLocale; match: MatchCenterView
     <div className="match-facts">{facts.map(([label,value]) => <div key={label}><span>{label}</span><strong>{value}</strong></div>)}</div>
     <ScoreBreakdown locale={locale} match={match} />
     {match.events.data.length ? <><h3>{text.timeline}</h3><ol className="event-list">{match.events.data.filter(event => !event.rescinded).map(event => <li key={event.id}>
-      <time>{minute(event)}</time><span className="event-dot" aria-hidden="true"/><div><strong>{eventLabels[locale][event.type] ?? event.type}</strong><span>{event.playerName}{event.relatedPlayerName ? ` · ${event.relatedPlayerName}` : ''}{event.result ? ` · ${event.result}` : ''}</span></div>
+      <time>{minute(event)}</time><span className="event-dot" aria-hidden="true"/><div><strong>{eventLabels[locale][event.type] ?? event.type}</strong><span>
+        {event.playerName ? event.playerPublicId ? <Link href={playerPath(locale,event.playerPublicId,event.playerName)}>{event.playerName}</Link> : event.playerName : null}
+        {event.relatedPlayerName ? <> · {event.relatedPlayerPublicId ? <Link href={playerPath(locale,event.relatedPlayerPublicId,event.relatedPlayerName)}>{event.relatedPlayerName}</Link> : event.relatedPlayerName}</> : null}
+        {event.result ? ` · ${event.result}` : ''}</span></div>
     </li>)}</ol></> : <ModuleState locale={locale} module={match.events} />}
   </section>;
 }
@@ -122,11 +132,15 @@ function Statistics({ locale, module }: { locale: SiteLocale; module: MatchCente
 
 function Lineups({ locale, match }: { locale: SiteLocale; match: MatchCenterView }) {
   const text=copy[locale];
+  const playerRow=(player:MatchCenterView['lineups']['data'][number]['starters'][number])=>{const visible=(player.statistics??[])
+    .filter(row=>Boolean(playerStatisticLabels[locale][row.code])).slice(0,4);
+    return <li key={player.id}><span>{player.jerseyNumber??'—'}</span><div>{player.playerPublicId?<Link href={playerPath(locale,player.playerPublicId,player.name)}>{player.name}</Link>:player.name}
+      {visible.length?<small>{visible.map(row=>`${row.value} ${playerStatisticLabels[locale][row.code]}`).join(' · ')}</small>:null}</div></li>;};
   return <section id="lineups" className="match-panel"><h2>{text.lineups}</h2>{match.lineups.data.length ? <div className="lineup-columns">{match.lineups.data.map(team => {
     const identity=team.teamId===match.header.home.id?match.header.home:match.header.away;
     return <article className="lineup-team" key={team.teamId}><h3>{identity.name}</h3><p className="lineup-meta">{team.formation?`${text.formation} ${team.formation}`:''}{team.coach?` · ${text.coach}: ${team.coach}`:''}</p>
-      <h4>{text.starters}</h4><ol>{team.starters.map(player=><li key={player.id}><span>{player.jerseyNumber??'—'}</span>{player.name}</li>)}</ol>
-      <h4>{text.bench}</h4><ol>{team.substitutes.map(player=><li key={player.id}><span>{player.jerseyNumber??'—'}</span>{player.name}</li>)}</ol>
+      <h4>{text.starters}</h4><ol>{team.starters.map(playerRow)}</ol>
+      <h4>{text.bench}</h4><ol>{team.substitutes.map(playerRow)}</ol>
     </article>;
   })}</div>:<ModuleState locale={locale} module={match.lineups} pending={text.lineupPending}/>}</section>;
 }
@@ -139,7 +153,7 @@ function Form({ locale, match }: { locale: SiteLocale; match: MatchCenterView })
 
 function Standings({ locale, match }: { locale: SiteLocale; match: MatchCenterView }) {
   const text=copy[locale];
-  return <section id="standings" className="match-panel"><h2>{text.standings}</h2>{match.standings.data.length?<div className="standing-scroll"><table><thead><tr><th>#</th><th>{getDictionary(locale).labels.teams}</th><th>{text.played}</th><th>{text.won}</th><th>{text.draw}</th><th>{text.lost}</th><th>{text.goals}</th><th>{text.points}</th></tr></thead><tbody>{match.standings.data.map(row=><tr key={row.teamId} className={row.highlighted?'is-highlighted':undefined}><td>{row.position}</td><th>{row.team}</th><td>{row.played??'—'}</td><td>{row.won??'—'}</td><td>{row.drawn??'—'}</td><td>{row.lost??'—'}</td><td>{row.goalsFor===null||row.goalsAgainst===null?'—':`${row.goalsFor}:${row.goalsAgainst}`}</td><td><strong>{row.points??'—'}</strong></td></tr>)}</tbody></table></div>:<ModuleState locale={locale} module={match.standings}/>}</section>;
+  return <section id="standings" className="match-panel"><h2>{text.standings}</h2>{match.standings.data.length?<div className="standing-scroll"><table><thead><tr><th>#</th><th>{getDictionary(locale).labels.teams}</th><th>{text.played}</th><th>{text.won}</th><th>{text.draw}</th><th>{text.lost}</th><th>{text.goals}</th><th>{text.points}</th></tr></thead><tbody>{match.standings.data.map(row=><tr key={row.teamId} className={row.highlighted?'is-highlighted':undefined}><td>{row.position}</td><th><Link href={teamPath(locale,row.teamPublicId,row.team)}>{row.team}</Link></th><td>{row.played??'—'}</td><td>{row.won??'—'}</td><td>{row.drawn??'—'}</td><td>{row.lost??'—'}</td><td>{row.goalsFor===null||row.goalsAgainst===null?'—':`${row.goalsFor}:${row.goalsAgainst}`}</td><td><strong>{row.points??'—'}</strong></td></tr>)}</tbody></table></div>:<ModuleState locale={locale} module={match.standings}/>}</section>;
 }
 
 function Odds({ locale, match }: { locale: SiteLocale; match: MatchCenterView }) {
@@ -148,6 +162,16 @@ function Odds({ locale, match }: { locale: SiteLocale; match: MatchCenterView })
     {match.odds.data.length?<div className="match-odds-grid">{match.odds.data.map((row,index)=><div key={`${row.bookmaker}:${row.market}:${row.outcome}:${row.line}:${index}`}><span>{row.bookmaker}</span><small>{row.market} · {row.outcome}{row.line!==null?` ${row.line}`:''}</small><strong>{row.decimalOdds.toFixed(2)}</strong></div>)}</div>:<p className="match-module-empty">{text.oddsUnavailable}</p>}
     <p className="affiliate-disclosure">{text.disclosure} {text.responsible}</p>
   </section>;
+}
+
+function PlayerPerformances({locale,match}:{locale:SiteLocale;match:MatchCenterView}){
+  const rows=match.playerStatistics.data;
+  if(!rows.length)return null;
+  return <section id="player-statistics" className="match-panel"><h2>{copy[locale].playerPerformance}</h2><div className="player-performance-grid">{rows.map(row=>{
+    const stats=row.statistics.filter(item=>Boolean(playerStatisticLabels[locale][item.code])).slice(0,5);
+    return stats.length?<article key={row.playerId}><div><Link href={playerPath(locale,row.playerPublicId,row.player)}>{row.player}</Link><small>{row.team}</small></div>
+      <p>{stats.map(item=><span key={item.code}><strong>{item.value}</strong> {playerStatisticLabels[locale][item.code]}</span>)}</p></article>:null;
+  })}</div></section>;
 }
 
 export function MatchCenter({ locale, match, replay = false }: { locale: SiteLocale; match: MatchCenterView; replay?: boolean }) {
@@ -161,13 +185,14 @@ export function MatchCenter({ locale, match, replay = false }: { locale: SiteLoc
       {replay?<p className="replay-label">{text.replay}</p>:null}
       {!replay&&match.liveSnapshotStale?<p className="stale-live-label">{text.liveStale}</p>:null}
       <header className="match-hero"><div className="match-competition"><span>{match.header.competition}</span><b>{statusLabel(locale,displayStatus)}</b></div>
-        <div className="match-scoreboard"><div className="match-team"><TeamIdentity name={match.header.home.name} shortName={match.header.home.shortName} imageUrl={match.header.home.imageUrl}/></div>
+        <div className="match-scoreboard"><div className="match-team"><Link href={teamPath(locale,match.header.home.publicId,match.header.home.name)}><TeamIdentity name={match.header.home.name} shortName={match.header.home.shortName} imageUrl={match.header.home.imageUrl}/></Link></div>
           <div className="match-score"><strong>{match.header.homeScore??'—'} <span>–</span> {match.header.awayScore??'—'}</strong><time dateTime={match.header.kickoff}>{kickoff}</time><small>{text.timezone}</small></div>
-          <div className="match-team is-away"><TeamIdentity name={match.header.away.name} shortName={match.header.away.shortName} imageUrl={match.header.away.imageUrl}/></div></div>
+          <div className="match-team is-away"><Link href={teamPath(locale,match.header.away.publicId,match.header.away.name)}><TeamIdentity name={match.header.away.name} shortName={match.header.away.shortName} imageUrl={match.header.away.imageUrl}/></Link></div></div>
         <MatchClientActions context={context} canonicalUrl={`https://livasports.com${canonical}`} shareText={`${match.header.home.name} x ${match.header.away.name}`} labels={{share:text.share,copied:text.copied}}/>
       </header>
-      <MatchSectionNav context={context} items={[{href:'#summary',label:text.summary},{href:'#statistics',label:text.statistics},{href:'#lineups',label:text.lineups},{href:'#meetings',label:text.meetings},{href:'#standings',label:text.standings},{href:'#odds',label:text.odds}]}/>
-      <div className="match-content-grid"><div className="match-main-column"><Summary locale={locale} match={match}/><Statistics locale={locale} module={match.statistics}/><Lineups locale={locale} match={match}/><Form locale={locale} match={match}/><Standings locale={locale} match={match}/><Odds locale={locale} match={match}/></div>
+      <MatchSectionNav context={context} items={[{href:'#summary',label:text.summary},{href:'#statistics',label:text.statistics},{href:'#lineups',label:text.lineups},
+        ...(match.playerStatistics.data.length?[{href:'#player-statistics',label:text.playerPerformance}]:[]),{href:'#meetings',label:text.meetings},{href:'#standings',label:text.standings},{href:'#odds',label:text.odds}]}/>
+      <div className="match-content-grid"><div className="match-main-column"><Summary locale={locale} match={match}/><Statistics locale={locale} module={match.statistics}/><Lineups locale={locale} match={match}/><PlayerPerformances locale={locale} match={match}/><Form locale={locale} match={match}/><Standings locale={locale} match={match}/><Odds locale={locale} match={match}/></div>
         <aside className="match-context"><section><h2>{text.summary}</h2><dl><div><dt>{text.season}</dt><dd>{match.header.season??'—'}</dd></div><div><dt>{text.stage}</dt><dd>{match.header.stage ? stageLabels[locale][match.header.stage] ?? match.header.stage : '—'}</dd></div><div><dt>{text.venue}</dt><dd>{match.header.venue??'—'}</dd></div></dl></section></aside></div>
       {!replay?<LiveRefreshBoundary publicId={match.header.publicId} locale={locale} status={match.header.status} snapshotAt={match.snapshotAt}/>:null}
     </main></div>;

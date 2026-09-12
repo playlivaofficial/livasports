@@ -5,6 +5,7 @@ import { MatchCenter } from '@/components/match/MatchCenter';
 import type { SiteLocale } from '@/config/i18n';
 import { loadMatchCenter } from './runtime';
 import { matchPath, parseMatchParam, slugifyMatch } from './routes';
+import { teamPath } from '@/profiles/routes';
 
 const localeTag = { br: 'pt-BR', mx: 'es-MX' } as const;
 const metadataCopy = {
@@ -44,7 +45,10 @@ export async function MatchRoutePage({ params, locale }: { params: Promise<{ mat
   const canonical = `https://livasports.com${matchPath(locale, parsed.publicId, result.match.header.home.name, result.match.header.away.name)}`;
   const jsonLd = [{ '@context': 'https://schema.org', '@type': 'SportsEvent', name: `${result.match.header.home.name} x ${result.match.header.away.name}`,
     startDate: result.match.header.kickoff, eventStatus: result.match.header.status, url: canonical,
-    homeTeam: { '@type': 'SportsTeam', name: result.match.header.home.name }, awayTeam: { '@type': 'SportsTeam', name: result.match.header.away.name },
+    homeTeam: { '@type': 'SportsTeam', name: result.match.header.home.name,
+      url: `https://livasports.com${teamPath(locale,result.match.header.home.publicId,result.match.header.home.name)}` },
+    awayTeam: { '@type': 'SportsTeam', name: result.match.header.away.name,
+      url: `https://livasports.com${teamPath(locale,result.match.header.away.publicId,result.match.header.away.name)}` },
     location: result.match.header.venue ? { '@type': 'Place', name: result.match.header.venue, address: result.match.header.venueCity ?? undefined } : undefined },
   { '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [
     { '@type': 'ListItem', position: 1, name: 'LivaSports', item: `https://livasports.com/${locale}` },

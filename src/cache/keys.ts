@@ -11,7 +11,11 @@ export const cacheKeys = {
   fixturesLive: (locale: SiteLocale) => `${prefix}:fixtures:live:${locale}`,
   fixturesCompetition: (competitionId: string) => `${prefix}:fixtures:competition:${clean(competitionId)}`,
   fixture: (fixtureId: string) => `${prefix}:fixture:${clean(fixtureId)}`,
-  matchModule: (fixtureId: string, locale: SiteLocale, scope: string) => `${prefix}:match:v1:${clean(fixtureId)}:${locale}:${clean(scope)}`,
+  matchModule: (fixtureId: string, locale: SiteLocale, scope: string) => `${prefix}:match:v2:${clean(fixtureId)}:${locale}:${clean(scope)}`,
+  teamProfile: (publicId: string, locale: SiteLocale) => `${prefix}:profile:v2:team:${clean(publicId)}:${locale}`,
+  playerProfile: (publicId: string, locale: SiteLocale) => `${prefix}:profile:v2:player:${clean(publicId)}:${locale}`,
+  teamProfileTag: (publicId: string) => `${prefix}:profile:team:${clean(publicId)}`,
+  playerProfileTag: (publicId: string) => `${prefix}:profile:player:${clean(publicId)}`,
   standings: (competitionId: string) => `${prefix}:standings:${clean(competitionId)}`,
   odds: (fixtureId: string) => `${prefix}:odds:${clean(fixtureId)}`,
 } as const;

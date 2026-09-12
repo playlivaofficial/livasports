@@ -8,6 +8,7 @@ export type SportId = DomainId<'Sport'>;
 export type CompetitionId = DomainId<'Competition'>;
 export type SeasonId = DomainId<'Season'>;
 export type TeamId = DomainId<'Team'>;
+export type PlayerId = DomainId<'Player'>;
 export type FixtureId = DomainId<'Fixture'>;
 export type BookmakerId = DomainId<'Bookmaker'>;
 export type MarketId = DomainId<'Market'>;
