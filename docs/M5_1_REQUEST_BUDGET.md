@@ -30,7 +30,7 @@ Fewer refreshes never extend the 15-minute expiry. This is a cost-sensitive poli
 - One public feed at 15m all day: 2,880 calls/30 days. Two public feeds at 30m have the same base cost.
 - Staggered tournament due times, daily probes and retries are bounded by **100 billable routine calls per rolling 24h**, independent of browser traffic: maximum 3,000/30 days (3,100/31).
 - Separate planning reserve: diagnostics 50, retries 100, fixture discovery 100, mapping reconciliation 50, manual emergencies 50 = **350**. This conservative estimate includes retry headroom even though routine retries also count toward the rolling cap.
-- Original conservative known usage 65 + 3,000 + 350 = **3,415/30-day planning envelope**. Actual usage after controlled checks is recorded in the final report.
+- Original conservative known usage 65 + 3,000 + 350 = **3,415/30-day planning envelope**. After the two controlled M5.1 billable batches, usage is 67 and the updated envelope is **3,417**. The unmetered account check is recorded separately. Final safe headroom is 4,433 below the internal 4,500 limit; this is conservative local accounting, not a new remote account reading.
 - Routine lifetime stop: **4,000** including external baseline and all local counted calls. Internal absolute stop: **4,500**. Paid plan: **5,000**. No automatic escalation into the reserved band.
 - Read-only simulation of the frozen real inventory through the actual reset: **641** predicted future billable calls, max 71/day. No new future fixture arrivals were invented; this is an inventory forecast, not a subscription-wide promise. Raw daily simulation stays in ignored operator evidence.
 

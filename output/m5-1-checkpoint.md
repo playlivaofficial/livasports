@@ -1,29 +1,27 @@
-# M5.1 checkpoint
+# M5.1 final release checkpoint
 
-2026-09-12: **SAFE CHECKPOINT — MAIN RELEASE BLOCKED BY APPROVAL REVIEW**. On `codex/m5-1-odds-activation`, implementation `58d8725202ed391b81373e952218a30a4458b3b0` pushed, based on clean synchronized main `1c93365`. M5.1 scope only. Additive migration009 applied and repeated as no-op. Controlled local protected invocation passed; 1 billable OddsPapi request and 1 unmetered account check. No Sportmonks request, timestamp repair or ingestion restart.
+2026-09-12: **RELEASED AND VERIFIED; STOP AT M5.1**. The explicit final user approval resolved the earlier main-release block. Feature `codex/m5-1-odds-activation`: implementation `58d8725202ed391b81373e952218a30a4458b3b0`, final checkpoint `ae853b7cf252978415ffd040e3bd2d696a659b34`, both pushed. Main application merge **`846577113c189a721ea66ae5855ef8b7b4c7d2fc`**, pushed normally and synchronized with origin/main. No force-push, Sportmonks request, timestamp repair or ingestion restart.
 
-Neon remains source of truth: 34 competitions, 904 fixtures, 50 odds fixture mappings, 651 retained quotes, 1,047 history rows. No active/stale odds worker or pending snapshot. Duplicate lease and two saved-response replays passed with zero provider calls/writes. Local route regression, all requested rendered cases and five-width price rendering passed. Final gates: Node6 + Vitest189, typecheck/lint/build/secret scan PASS. Local server stopped. No background sync or office scheduler is running.
+Neon audit 12:59:40 UTC: **34 enabled competitions, 904 fixtures, 50 odds fixture mappings, 651 retained current quote rows, 1,069 meaningful history rows**. No active/stale odds worker, pending snapshot, duplicate quote/history or orphan odds. Migration 009 repeated as no-op; duplicate lease and two post-production saved-response replays passed with zero provider calls/current/history/closure writes. Final gates: Node6 + Vitest189 (195 tests), typecheck/lint/build/secret scan PASS. Local server stopped. No background sync or office scheduler is running.
 
-Vercel existing project only. Production `CRON_SECRET` securely provisioned; `ODDS_AUTOMATION_ENABLED=false`. No recurring scheduler is running. Betsson generic GEO remains gated, both affiliate CTAs remain absent. No destinations exist in current secure configuration. Never claim otherwise.
+Existing Vercel project `nikapopkha3-4447s-projects/livasports` only. GitHub-triggered deployment **`dpl_7b5KdHUSDGSer2cphzVQdNQpAKjM` READY**, application commit `8465771`. Full production route/security/cache/expiry/visual QA passed with one documented transient existing profile-cache DB timeout; targeted BR/MX pages recovered without code or data changes. See `output/m5-1-report.md`. This report/checkpoint and screenshots are a final evidence-only follow-up; resolve their own publication hash from Git history and the exact final deployment from the completion response.
 
-Resume with `git status`, `output/m5-1-report.md`, and `pnpm m5.1:audit` / `pnpm m5.1:plan` (zero provider calls). Do not run a paid refresh merely to inspect state. Existing `pnpm m5.1:replay` proves snapshot idempotency; `pnpm m5.1:run` is an intentional, capped CONTROLLED refresh only. Do not start M6/M7/M8.
+Production scheduler authentication is securely provisioned; `ODDS_AUTOMATION_ENABLED=false`. **Continuous automation NOT operational**; automatic invocation/refresh fields are null. Betsson BR/MX remains GENERIC_UNVERIFIED and public gated. Betano pricing is BR-only; both affiliate CTAs remain absent. No real approved destination exists. No service purchase/upgrade or unrelated project change occurred.
 
-Exact resume point: implementation and local QA are complete and the feature is pushed. The safety reviewer rejected the main merge/push before it ran, requiring explicit conversational confirmation despite the attached brief's release section. Do not bypass that refusal. Obtain the user's explicit approval to merge/push/deploy M5.1, then verify the feature and origin/main state and continue ONLY release/production QA.
+M5.1 provider usage: **3 HTTP calls = 2 billable OddsPapi batches + 1 unmetered account check; Sportmonks 0**. Local batch: 18 fixtures/126 quotes/25 history changes. Production batch: 20 fixtures/140 quotes/22 history changes, at 12:57:24 UTC. Immediate repeats: zero requests. Internal conservative usage 67, safe headroom 4,433 through the verified October 2 reset. A controlled proof is not automation.
 
-Main/origin main still equal `1c93365caa98a23faadc55e6cd2a21cdee1270d5`. Existing M5 production remains READY at `dpl_Fo8ySZAbv2usSq9HSECXMPdMe73p`; it is NOT an M5.1 deployment. The report/checkpoint-only follow-up commit on the feature records this state; use feature HEAD for its exact hash.
+BR/MX routes, 34/34 competition navigation, Match Center, profiles, sitemap, canonical/404 behavior and desktop/mobile layouts are preserved. Normal navigation providerRequests=0. Real production 15-minute expiry was observed on an open page without clock manipulation. No unapproved CTA or exposed secret.
 
-After explicit release approval:
+No new work is pending automatically. Future authorized inspection only:
 
 ```sh
 git fetch origin
 git status --short --branch
-git rev-parse HEAD origin/codex/m5-1-odds-activation main origin/main
-git switch main
-git merge --no-ff codex/m5-1-odds-activation -m "merge: release M5.1 guarded odds activation"
-git push origin main
-pnpm dlx vercel@48.10.1 deploy --prod --yes --scope nikapopkha3-4447s-projects
+git rev-parse HEAD origin/main
+pnpm m5.1:audit
+pnpm m5.1:plan
 ```
 
-Use only the existing linked project (`prj_AWVpxaSj2mI7RI7MlwmrnMW6Ogvr`). Inspect deployment metadata first to avoid a duplicate if GitHub already starts one. After READY, use `scripts/m5-1-http-qa.ts https://livasports.com --invoke` with the ignored production scheduler environment for ONE bounded production proof, then DB-only integrity/replay checks, `scripts/m5-route-qa.ts`, `scripts/m5-1-navigation-qa.ts`, rendered QA and remote secret scan. Never print the secret; never make provider calls for ordinary route tests. Record actual final deployment/commit/usage and stop at M5.1.
+Load credentials only from ignored server environment files. Never print or commit their values. `pnpm m5.1:run` and HTTP `--invoke` intentionally consume quota; they are not inspection commands. Do not repeat the successful controlled production proof or deploy again unnecessarily. Saved-response replay is provider-free. Use only existing project ID `prj_AWVpxaSj2mI7RI7MlwmrnMW6Ogvr` if a future explicitly authorized release is needed.
 
-Continuous automation still separately requires user-approved infrastructure. It must remain disabled on Hobby; no purchases or upgrades are authorized. Betsson GEO and actual affiliate destination evidence remain missing. Do not redo the prior audit, full ingestion, timestamp correction or controlled local refresh.
+Continuous automation still separately requires approved suitable infrastructure and observed automatic ticks. It must remain disabled on the current Hobby setup. Betsson GEO and actual affiliate destination evidence remain missing. Do not redo full ingestion or timestamp corrections. **Do not start M6, M7 or M8.**
