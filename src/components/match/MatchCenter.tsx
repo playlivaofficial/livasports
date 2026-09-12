@@ -9,6 +9,7 @@ import { SiteHeader } from '@/components/sports/SiteHeader';
 import { TeamIdentity } from '@/components/sports/FixtureCard';
 import { MatchClientActions, MatchSectionNav } from './MatchClientActions';
 import { LiveRefreshBoundary } from './LiveRefreshBoundary';
+import {PregameOdds} from './PregameOdds';
 
 const copy = {
   br: {
@@ -157,11 +158,7 @@ function Standings({ locale, match }: { locale: SiteLocale; match: MatchCenterVi
 }
 
 function Odds({ locale, match }: { locale: SiteLocale; match: MatchCenterView }) {
-  const text=copy[locale];
-  return <section id="odds" className="match-panel commercial-panel"><div className="commercial-heading"><div><span className="age-label">18+</span><h2>{text.odds}</h2></div></div>
-    {match.odds.data.length?<div className="match-odds-grid">{match.odds.data.map((row,index)=><div key={`${row.bookmaker}:${row.market}:${row.outcome}:${row.line}:${index}`}><span>{row.bookmaker}</span><small>{row.market} · {row.outcome}{row.line!==null?` ${row.line}`:''}</small><strong>{row.decimalOdds.toFixed(2)}</strong></div>)}</div>:<p className="match-module-empty">{text.oddsUnavailable}</p>}
-    <p className="affiliate-disclosure">{text.disclosure} {text.responsible}</p>
-  </section>;
+  return <PregameOdds key={`${match.header.id}:${locale}`} initial={match.oddsComparisons??[]} context={{fixtureId:match.header.id,competitionId:match.header.competitionId,locale}}/>;
 }
 
 function PlayerPerformances({locale,match}:{locale:SiteLocale;match:MatchCenterView}){
