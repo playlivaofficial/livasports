@@ -51,6 +51,7 @@ The player page renders persisted identity and football evidence:
 - links back to the canonical team and M4 Match Center.
 
 Rating uses the provider `average` value ahead of `total`. Verified zero values remain zero; absent values remain absent.
+Provider position and country labels are mapped to native PT-BR/ES-MX football vocabulary; an unknown provider position is omitted instead of leaking English UI.
 
 ## M4 integration
 

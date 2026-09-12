@@ -38,7 +38,7 @@ Checkpoint timestamp: 2026-09-12T13:34:36+04:00
 - Branch: `codex/m4-1-team-player-profiles`.
 - Base commit: `e2e8b0fdccb65b286e9da8ab1216c6f007fbdda8`.
 - No ingestion process is active.
-- Final local gates are PASS: Node 6/6, Vitest 90/90, typecheck, lint, production build, migration audit, M4/M4.1 integrity audits, and secret scan.
+- Final local gates are PASS: Node 6/6, Vitest 93/93, typecheck, lint, production build, migration audit, M4/M4.1 integrity audits, and secret scan.
 - Feature commit/push, safe main merge/push, existing-project deployment, and production QA are the remaining operations.
 
 ## Resume rule

@@ -4,6 +4,7 @@ import { TeamMark } from '@/components/sports/TeamMark';
 import { FixtureStatus } from '@/domain/enums';
 import { getDictionary, localeRoutes, type SiteLocale } from '@/config/i18n';
 import { matchPath } from '@/match-center/routes';
+import { localizedCountry, localizedPosition } from '@/profiles/localization';
 import { playerPath, teamPath } from '@/profiles/routes';
 import type { PlayerMatchLog, PlayerProfileView, ProfileFixture, ProfileModule, ProfileStatistic, SquadPlayer, TeamProfileView } from '@/profiles/types';
 import { SponsoredSlot } from './SponsoredSlot';
@@ -95,9 +96,9 @@ function Stats({ locale, rows }: { locale: SiteLocale; rows: ProfileStatistic[] 
   </article>)}</div></>;
 }
 function TeamHeader({ locale, profile }: { locale: SiteLocale; profile: TeamProfileView }) {
-  const text=copy[locale]; const facts=[[profile.country,null],[profile.foundedYear?`${text.founded} ${profile.foundedYear}`:null,null],
+  const text=copy[locale]; const country=localizedCountry(locale,profile.country); const facts=[[profile.foundedYear?`${text.founded} ${profile.foundedYear}`:null,null],
     [profile.venue?`${text.venue}: ${profile.venue}${profile.venueCity?` · ${profile.venueCity}`:''}`:null,null],[profile.coach?`${text.coach}: ${profile.coach}`:null,null]].filter(item=>item[0]);
-  return <header className="profile-hero"><TeamMark initials={initials(profile.name)} imageUrl={profile.imageUrl}/><div><span>{profile.country??''}</span><h1>{profile.name}</h1>
+  return <header className="profile-hero"><TeamMark initials={initials(profile.name)} imageUrl={profile.imageUrl}/><div><span>{country??''}</span><h1>{profile.name}</h1>
     <div className="profile-hero-facts">{facts.map(([value],i)=><small key={`${value}:${i}`}>{value}</small>)}</div></div></header>;
 }
 function Squad({ locale, profile }: { locale: SiteLocale; profile: TeamProfileView }) {
@@ -107,7 +108,7 @@ function Squad({ locale, profile }: { locale: SiteLocale; profile: TeamProfileVi
   return <><p className="profile-context-label">{selected.competition} · {selected.season}</p><div className="squad-groups">{groups.map(([label,filter])=>{
     const rows=selected.players.filter(filter);return rows.length?<section key={label}><h3>{label}</h3><div className="squad-grid">{rows.map(player=><Link key={player.id} href={playerPath(locale,player.publicId,player.name)} className="squad-card">
       <PlayerAvatar name={player.name} imageUrl={player.imageUrl}/>
-      <span><strong>{player.name}</strong><small>{player.position??label}{player.jerseyNumber!==null?` · ${text.jersey} ${player.jerseyNumber}`:''}</small></span></Link>)}</div></section>:null;})}</div></>;
+      <span><strong>{player.name}</strong><small>{localizedPosition(locale,player.position)??label}{player.jerseyNumber!==null?` · ${text.jersey} ${player.jerseyNumber}`:''}</small></span></Link>)}</div></section>:null;})}</div></>;
 }
 
 export function TeamProfilePage({ locale, profile }: { locale: SiteLocale; profile: TeamProfileView }) {
@@ -139,13 +140,14 @@ function age(dateOfBirth:string){const birth=birthDate(dateOfBirth);if(!birth)re
 export function PlayerProfilePage({ locale, profile }: { locale: SiteLocale; profile: PlayerProfileView }) {
   const text=copy[locale],dictionary=getDictionary(locale); const alternate={br:playerPath('br',profile.publicId,profile.name),mx:playerPath('mx',profile.publicId,profile.name)};
   const parsedBirth=profile.dateOfBirth?birthDate(profile.dateOfBirth):null,playerAge=profile.dateOfBirth?age(profile.dateOfBirth):null;
-  const facts=[[text.nationality,profile.nationality??profile.country],[text.position,profile.detailedPosition??profile.position],
+  const position=localizedPosition(locale,profile.detailedPosition,profile.position);
+  const facts=[[text.nationality,localizedCountry(locale,profile.nationality??profile.country)],[text.position,position],
     [text.birth,parsedBirth?new Intl.DateTimeFormat(dictionary.locale,{dateStyle:'medium',timeZone:'UTC'}).format(parsedBirth):null],
     [text.age,playerAge===null?null:`${playerAge} ${text.years}`],[text.height,profile.heightCm?`${profile.heightCm} cm`:null],[text.weight,profile.weightKg?`${profile.weightKg} kg`:null]].filter(([,value])=>value);
   const overviewStats=profile.statistics.data.slice(0,4),recentAppearance=profile.matches.data[0];
   return <div lang={dictionary.locale} className="app-shell profile-shell"><SiteHeader locale={locale} activePage="football" localeHrefs={alternate} contentId="profile-content"/>
     <main id="profile-content" className="profile-container"><Link className="profile-back" href={profile.currentTeam?teamPath(locale,profile.currentTeam.publicId,profile.currentTeam.name):localeRoutes[locale].football}>← {text.back}</Link>
-      <header className="profile-hero player-profile-hero"><PlayerAvatar name={profile.name} imageUrl={profile.imageUrl} large/><div><span>{profile.position??''}</span><h1>{profile.name}</h1>
+      <header className="profile-hero player-profile-hero"><PlayerAvatar name={profile.name} imageUrl={profile.imageUrl} large/><div><span>{position??''}</span><h1>{profile.name}</h1>
         {profile.currentTeam?<Link className="profile-team-link" href={teamPath(locale,profile.currentTeam.publicId,profile.currentTeam.name)}><TeamMark initials={initials(profile.currentTeam.name)} imageUrl={profile.currentTeam.imageUrl}/>{profile.currentTeam.name}</Link>:null}</div></header>
       <SponsoredSlot campaign={null}/><Nav locale={locale} player/><div className="profile-layout"><div className="profile-main">
         <section id="overview" className="profile-panel"><h2>{text.playerOverview}</h2><dl className="player-facts">{facts.map(([label,value])=><div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>

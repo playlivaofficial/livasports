@@ -15,6 +15,7 @@ M4.1 adds production-grade PT-BR/ES-MX team and player profiles, stable canonica
 - Player identity, current squad context, biography fields when real, season statistics, and recent match logs.
 - Match Center team, lineup, event, standings, and player-performance links.
 - Real team/player images with initials fallback.
+- Native PT-BR/ES-MX country and player-position labels; unknown provider positions are omitted instead of leaking English.
 - Localized missing/partial/not-covered/error/stale states; missing values never become zero.
 - Dynamic DB-only team/player sitemap with canonical and `hreflang` pairs.
 - Sponsor schema/component/eligibility/event contracts with zero active campaigns and zero empty ad gaps.
@@ -95,7 +96,7 @@ Controlled team coverage is Flamengo 37 squad/43 stats, América 34/41, and Fulh
 ## Final local release gates
 
 - Node tests: PASS — 6/6.
-- Vitest: PASS — 90/90 across 28 files.
+- Vitest: PASS — 93/93 across 29 files.
 - Typecheck: PASS.
 - Lint: PASS with zero warnings.
 - Next.js 16.3.4 production build: PASS.
