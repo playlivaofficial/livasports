@@ -1,8 +1,10 @@
 import {describe,it,expect} from 'vitest';
 import {eligibleSource,verifiedGeo} from './geo';
 describe('documented pricing GEO boundary',()=>{
-  it('generic Betsson stays gated despite approval or an erroneous verified flag',()=>{
-    for(const state of ['VERIFIED_BR','VERIFIED_BR_MX','GENERIC_UNVERIFIED'])expect(eligibleSource('betsson','br',state,'www.betsson.com')).toBe(false);
+  it('accepts owner-confirmed Betsson BR even with generic feed naming, but still requires GEO verification',()=>{
+    for(const state of ['VERIFIED_BR','VERIFIED_BR_MX'])expect(eligibleSource('betsson','br',state,'www.betsson.com')).toBe(true);
+    for(const state of ['GENERIC_UNVERIFIED','VERIFIED_MX','NOT_ELIGIBLE'])expect(eligibleSource('betsson','br',state,'www.betsson.com')).toBe(false);
+    expect(eligibleSource('betsson','mx','VERIFIED_MX','www.betsson.com')).toBe(false);
   });
   it('requires both jurisdiction evidence and the corresponding source domain',()=>{
     expect(eligibleSource('betsson','br','VERIFIED_BR','www.betsson.bet.br')).toBe(true);

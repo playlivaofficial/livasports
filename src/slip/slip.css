@@ -76,3 +76,26 @@ button.slip-odds-button[aria-pressed=true] { border-color:var(--color-accent); b
   button.slip-odds-button { font-size:.75rem; }
 }
 @media(prefers-reduced-motion:reduce) {.guest-slip *,button.slip-odds-button { scroll-behavior:auto; transition:none; }}
+.slip-compare-jump { display:flex; align-items:center; min-height:44px; margin:0 0 .5rem; padding:0; border:0; background:none; color:var(--color-accent); font-size:.74rem !important; text-decoration:underline; text-underline-offset:3px; }
+.slip-comparison { min-width:0; margin:1rem 0; padding-top:1rem; border-top:1px solid var(--color-border-strong); scroll-margin-top:.6rem; }
+/* The inner body scrolls; focus/scrollIntoView must never move the fixed header/footer. */
+.slip-panel { overflow:clip; }
+.slip-comparison h3 { margin:0 0 .4rem; font-size:.9rem; }
+.slip-comparison-intro,.slip-comparison-note { margin:.4rem 0 .65rem; color:var(--color-text-muted); font-size:.66rem; line-height:1.55; overflow-wrap:anywhere; }
+.slip-bookmaker { min-width:0; margin:.75rem 0; padding:.8rem; border:1px solid var(--color-border-strong); border-radius:.6rem; background:var(--color-bg); }
+.slip-bookmaker.is-best { border-color:var(--color-accent); }
+.slip-bookmaker>header { display:flex; align-items:center; justify-content:space-between; gap:.6rem; }
+.slip-bookmaker h4 { margin:0; font-size:.85rem; overflow-wrap:anywhere; }
+.slip-bookmaker>header>span { flex:0 0 auto; font-family:var(--font-numeric); font-size:.75rem; color:var(--color-text-secondary); }
+.slip-best-label { margin:.6rem 0; color:var(--color-accent); font-size:.65rem; line-height:1.45; }
+.slip-coverage-state { margin:.45rem 0; font-size:.65rem; color:var(--color-text-secondary); }
+.slip-combined { display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:.3rem .75rem; margin:.65rem 0; }
+.slip-combined>span { color:var(--color-text-secondary); font-size:.7rem; }
+.slip-combined strong { max-width:100%; overflow-wrap:anywhere; font-family:var(--font-numeric); font-size:1.3rem; font-variant-numeric:tabular-nums; }
+.slip-missing { font-size:.65rem; color:var(--color-warning); }
+.slip-missing summary { cursor:pointer; min-height:44px; align-content:center; line-height:1.5; }
+.slip-missing ul { margin:0; padding:0 0 0 1rem; }
+.slip-missing li { margin:.5rem 0 .75rem; overflow-wrap:anywhere; line-height:1.55; }
+.slip-missing li>strong,.slip-missing li>span { display:block; }
+.slip-missing li>strong { color:var(--color-text-secondary); }
+.slip-bookmaker-cta { display:flex; justify-content:space-between; align-items:center; gap:.5rem; min-height:44px; margin-top:.6rem; padding:.55rem .75rem; border:1px solid var(--color-accent); border-radius:.4rem; background:var(--color-accent-soft); color:var(--color-accent); font-size:.75rem; font-weight:700; }

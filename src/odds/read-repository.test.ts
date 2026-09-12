@@ -10,9 +10,10 @@ describe('DB-only odds navigation',()=>{
     expect(query).toHaveBeenCalledTimes(1);expect(query.mock.calls[0][0]).toContain('LIMIT 50');expect(fetch).not.toHaveBeenCalled();
     expect(result.quotes[0].decimalOdds).toBe('2.12345678');expect(result.quotes[0].geoEligible).toBe(true);expect(result.destinations).toEqual({});fetch.mockRestore();
   });
-  it('independently denies BR-to-MX substitution and generic Betsson despite a mistaken DB geo flag',async()=>{
+  it('denies BR-to-MX substitution and accepts confirmed Betsson BR regardless of generic feed naming',async()=>{
     expect((await readOddsSnapshot({query:vi.fn().mockResolvedValue({rows:[row]})},'f','mx')).quotes[0].geoEligible).toBe(false);
-    expect((await readOddsSnapshot({query:vi.fn().mockResolvedValue({rows:[{...row,provider_slug:'betsson',source_domain:'www.betsson.com'}]})},'f','br')).quotes[0].geoEligible).toBe(false);
+    expect((await readOddsSnapshot({query:vi.fn().mockResolvedValue({rows:[{...row,provider_slug:'betsson',source_domain:'www.betsson.com'}]})},'f','br')).quotes[0].geoEligible).toBe(true);
+    expect((await readOddsSnapshot({query:vi.fn().mockResolvedValue({rows:[{...row,provider_slug:'betsson',source_domain:'www.betsson.com',verification_state:'GENERIC_UNVERIFIED'}]})},'f','br')).quotes[0].geoEligible).toBe(false);
   });
   it('denies quotes after a canonical participant/competition mapping changes',async()=>{
     expect((await readOddsSnapshot({query:vi.fn().mockResolvedValue({rows:[{...row,mapping_verified:false}]})},'f','br')).quotes[0].geoEligible).toBe(false);
