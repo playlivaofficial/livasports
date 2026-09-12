@@ -1,8 +1,8 @@
 # LivaSports M5.1 — Odds Commercial Activation
 
-Status: safe implementation complete; final release gates and deployment evidence being finalized. Continuous automation and commercial Betsson activation remain explicitly gated, not falsely reported as operational.
+Status: **IMPLEMENTATION + LOCAL QA PASS; MAIN RELEASE BLOCKED BY APPROVAL CHECK**. Continuous automation and commercial Betsson activation remain explicitly gated, not falsely reported as operational. M5.1 has not been deployed.
 
-Base: main `1c93365`, verified equal to origin/main. Feature branch `codex/m5-1-odds-activation`. No M5 ingestion rerun, Sportmonks call, subscription change, timestamp correction or later milestone.
+Base: main `1c93365`, verified equal to origin/main. Feature branch `codex/m5-1-odds-activation`, implementation commit `58d8725202ed391b81373e952218a30a4458b3b0`, pushed successfully. No M5 ingestion rerun, Sportmonks call, subscription change, timestamp correction or later milestone.
 
 ## Completed verification before release
 
@@ -37,12 +37,19 @@ Production-only scheduler secret was generated directly in the existing Vercel s
 
 ## Final release evidence
 
-Pending final gate rerun, Git release and existing-project production QA. This section must be completed after deployment; it is not a claim of release success.
+- All final local gates passed: 6 Node tests, 189 Vitest tests (44 files), typecheck, lint, production build, secret scan and diff whitespace check.
+- Final local protected health/auth/disabled-automation checks passed. Googlebot-style SSR, initial/repeat/mobile match loads, odds endpoint, locale switch and team/player reads passed. OddsPapi HTTP ledger remained 17 and Sportmonks cumulative accounting remained 262 throughout navigation: **normal navigation providerRequests=0**.
+- Local server logs demonstrate odds-cache MISS → HIT and zero-provider navigation. The local QA server was stopped; no office scheduler is running.
+- Main merge/push was rejected by the release safety reviewer before execution. It requires explicit confirmation in the conversation for the consequential main-branch publication. No workaround or indirect deployment was attempted.
+- Main remains `1c93365caa98a23faadc55e6cd2a21cdee1270d5`, equal to origin/main. Feature code is preserved on GitHub. The following checkpoint/report-only commit records this blocked state; its hash can be resolved from the feature branch HEAD.
+- Existing production is unchanged: `dpl_Fo8ySZAbv2usSq9HSECXMPdMe73p`, READY, main `1c93365`. **M5.1 production QA is NOT EXECUTED**, because its release was blocked. This existing M5 deployment is not presented as M5.1 success.
+- Final M5.1 provider usage to this checkpoint: **2 HTTP calls, 1 billable + 1 unmetered; Sportmonks 0**. Both succeeded. No automated provider invocation occurred.
 
 ## Remaining activation actions
 
-1. User approval for a suitable commercial scheduler/hosting arrangement; configure a five-minute protected tick, then observe real automatic operation before claiming YES.
-2. Explicit evidence that the paid Betsson feed is usable for the intended jurisdiction.
-3. Actual approved Betsson destination/campaign and GEO. Betano CTA additionally requires its own affiliate approval.
+1. Explicit conversational confirmation to merge the prepared M5.1 feature into main, push main and deploy to the existing Vercel project. Then run the bounded production scheduler proof and full production QA before reporting release success.
+2. Separately, user approval for a suitable commercial scheduler/hosting arrangement; configure a five-minute protected tick, then observe real automatic operation before claiming YES.
+3. Explicit evidence that the paid Betsson feed is usable for the intended jurisdiction.
+4. Actual approved Betsson destination/campaign and GEO. Betano CTA additionally requires its own affiliate approval.
 
 Sources and full procedures: `docs/M5_1_ODDS_ACTIVATION.md`, `docs/M5_1_SCHEDULER.md`, `docs/M5_1_REQUEST_BUDGET.md`, `docs/M5_1_BETSSON_GEO.md`, `docs/M5_1_AFFILIATE_ACTIVATION.md`.
