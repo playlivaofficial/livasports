@@ -1,5 +1,5 @@
 import type {
-  BookmakerId, CompetitionId, CountryId, FixtureId, MarketId, OddsQuoteId, SeasonId, SportId, TeamId,
+  BookmakerId, CompetitionId, CountryId, FixtureId, MarketId, OddsQuoteId, PlayerId, SeasonId, SportId, TeamId,
 } from './ids';
 import { AffiliateStatus, FixtureStatus, MarketCode, OddsQuoteStatus, OutcomeCode, TeamType } from './enums';
 
@@ -8,6 +8,7 @@ export interface Sport { id: SportId; code: string; name: string; }
 export interface Competition { id: CompetitionId; sportId: SportId; countryId: CountryId | null; name: string; slug: string; }
 export interface Season { id: SeasonId; competitionId: CompetitionId; name: string; startsAt: Date | null; endsAt: Date | null; isCurrent?: boolean; }
 export interface Team { id: TeamId; sportId: SportId; countryId: CountryId | null; name: string; shortName: string | null; imageUrl?: string | null; type?: TeamType; }
+export interface Player { id: PlayerId; sportId: SportId; name: string; displayName: string; imageUrl: string | null; position: string | null; }
 
 export interface Fixture {
   id: FixtureId;

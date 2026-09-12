@@ -19,6 +19,8 @@ output/*.md
 !output/m3-6-checkpoint.md
 !output/m4-report.md
 !output/m4-checkpoint.md
+!output/m4-1-report.md
+!output/m4-1-checkpoint.md
 output/m3-5-screenshots/*
 !output/m3-5-screenshots/final-br-futebol-1440x900.png
 !output/m3-5-screenshots/final-br-home-390x844.png
