@@ -37,7 +37,7 @@ function summarize(config:BookmakerConfig,quotes:SelectionQuote[]):BookmakerSlip
     missingSelections:quotes.filter(q=>q.state==='UNAVAILABLE'&&q.reason!=='INVALID_QUOTE'),
     invalidSelections:quotes.filter(q=>q.state!=='CURRENT'&&(q.state!=='UNAVAILABLE'||q.reason==='INVALID_QUOTE')),
     complete,selectionQuotes:quotes,combinedDecimalOdds:complete?combined:null,best:false,tiedBest:false,
-    ctaState:!complete?'INCOMPLETE':affiliate?'ENABLED':'AFFILIATE_UNAVAILABLE',outboundCapability:affiliate?'HOMEPAGE':'NONE'};
+    ctaState:!complete?'INCOMPLETE':affiliate?'ENABLED':'AFFILIATE_UNAVAILABLE',outboundCapability:affiliate?(config.affiliateEligibility.destinationType??'HOMEPAGE'):'NONE'};
 }
 function finish(locale:SiteLocale,count:number,bookmakers:BookmakerSlip[]):SlipComparison {
   const complete=bookmakers.filter(b=>b.complete);

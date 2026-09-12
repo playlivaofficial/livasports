@@ -49,3 +49,7 @@ output/m3-6-screenshots/*
 !output/m7-report.md
 !output/m7-checkpoint.md
 output/m7-*-failure.png
+!output/m8-report.md
+!output/m8-checkpoint.md
+output/m8-*-failure.png
+output/m8-replay-match-cta-*.png

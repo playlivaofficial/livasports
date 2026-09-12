@@ -14,7 +14,7 @@ export function validOutboundRequest(bookmaker:string,query:URLSearchParams){
     [...query.keys()].every(k=>['fixtureId','locale','market','placement'].includes(k)&&query.getAll(k).length===1);
 }
 export function safeAffiliateDestination(bookmaker:string,locale:SiteLocale,destination:unknown):string|null{
-  if(typeof destination!=='string')return null;
+  if(typeof destination!=='string'||destination.length>4096||/[\s\\\u0000-\u001f\u007f]/.test(destination)||/%0[ad]/i.test(destination))return null;
   try{const url=new URL(destination);if(url.protocol!=='https:'||url.username||url.password||url.port||!hosts[`${bookmaker}:${locale}`]?.includes(url.hostname))return null;
     return url.toString();}catch{return null;}
 }

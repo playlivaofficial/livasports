@@ -10,6 +10,7 @@ import { TeamIdentity } from '@/components/sports/FixtureCard';
 import { MatchClientActions, MatchSectionNav } from './MatchClientActions';
 import { LiveRefreshBoundary } from './LiveRefreshBoundary';
 import {PregameOdds} from './PregameOdds';
+import {SponsoredSlot} from '@/components/commercial/SponsoredSlot';
 
 const copy = {
   br: {
@@ -180,6 +181,7 @@ export function MatchCenter({ locale, match, replay = false }: { locale: SiteLoc
   return <div lang={dictionary.locale} className="app-shell match-shell"><SiteHeader locale={locale} activePage="football" localeHrefs={alternate} contentId="match-content"/>
     <main id="match-content" className="match-container"><Link href={localeRoutes[locale].football} className="match-back">← {text.back}</Link>
       {replay?<p className="replay-label">{text.replay}</p>:null}
+      {!replay?<SponsoredSlot context={{locale,pagePath:canonical,placement:'match_top_banner'}}/>:null}
       {!replay&&match.liveSnapshotStale?<p className="stale-live-label">{text.liveStale}</p>:null}
       <header className="match-hero"><div className="match-competition"><span>{match.header.competition}</span><b>{statusLabel(locale,displayStatus)}</b></div>
         <div className="match-scoreboard"><div className="match-team"><Link href={teamPath(locale,match.header.home.publicId,match.header.home.name)}><TeamIdentity name={match.header.home.name} shortName={match.header.home.shortName} imageUrl={match.header.home.imageUrl}/></Link></div>
@@ -189,8 +191,9 @@ export function MatchCenter({ locale, match, replay = false }: { locale: SiteLoc
       </header>
       <MatchSectionNav context={context} items={[{href:'#summary',label:text.summary},{href:'#statistics',label:text.statistics},{href:'#lineups',label:text.lineups},
         ...(match.playerStatistics.data.length?[{href:'#player-statistics',label:text.playerPerformance}]:[]),{href:'#meetings',label:text.meetings},{href:'#standings',label:text.standings},{href:'#odds',label:text.odds}]}/>
-      <div className="match-content-grid"><div className="match-main-column"><Summary locale={locale} match={match}/><Statistics locale={locale} module={match.statistics}/><Lineups locale={locale} match={match}/><PlayerPerformances locale={locale} match={match}/><Form locale={locale} match={match}/><Standings locale={locale} match={match}/><Odds locale={locale} match={match}/></div>
-        <aside className="match-context"><section><h2>{text.summary}</h2><dl><div><dt>{text.season}</dt><dd>{match.header.season??'—'}</dd></div><div><dt>{text.stage}</dt><dd>{match.header.stage ? stageLabels[locale][match.header.stage] ?? match.header.stage : '—'}</dd></div><div><dt>{text.venue}</dt><dd>{match.header.venue??'—'}</dd></div></dl></section></aside></div>
+      {!replay?<SponsoredSlot context={{locale,pagePath:canonical,placement:'mobile_inline'}}/>:null}
+      <div className="match-content-grid"><div className="match-main-column"><Summary locale={locale} match={match}/><Statistics locale={locale} module={match.statistics}/><Lineups locale={locale} match={match}/><PlayerPerformances locale={locale} match={match}/><Form locale={locale} match={match}/><Standings locale={locale} match={match}/><Odds locale={locale} match={match}/>{!replay?<SponsoredSlot context={{locale,pagePath:canonical,placement:'match_inline'}}/>:null}</div>
+        <aside className="match-context"><section><h2>{text.summary}</h2><dl><div><dt>{text.season}</dt><dd>{match.header.season??'—'}</dd></div><div><dt>{text.stage}</dt><dd>{match.header.stage ? stageLabels[locale][match.header.stage] ?? match.header.stage : '—'}</dd></div><div><dt>{text.venue}</dt><dd>{match.header.venue??'—'}</dd></div></dl></section>{!replay?<SponsoredSlot context={{locale,pagePath:canonical,placement:'match_right_rail'}}/>:null}</aside></div>
       {!replay?<LiveRefreshBoundary publicId={match.header.publicId} locale={locale} status={match.header.status} snapshotAt={match.snapshotAt}/>:null}
     </main></div>;
 }

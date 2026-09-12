@@ -4,6 +4,7 @@ import {compareSlipRequest,currentSlipDestination,slipOutboundRequest} from './c
 import {parseComparisonEvent,recordComparisonEvent} from './comparison-analytics-server';
 import {readSlipComparison} from '@/odds/read-repository';
 import {comparisonFixture} from './comparison-fixtures.test-support';
+import {campaign,dependencies,key} from '@/affiliate/fixtures.test-support';
 
 afterEach(()=>vi.restoreAllMocks());
 const payload=()=>({locale:'br',selections:comparisonFixture().selections});
@@ -42,15 +43,16 @@ describe('M7 request/security boundary',()=>{
     }
   });
   it('outbound does not accept arbitrary destinations, duplicate arguments or provider identity',async()=>{
-    const query=new URLSearchParams({locale:'br',selections:JSON.stringify(payload().selections)});const resolve=vi.fn().mockResolvedValue(null);
-    for(const suffix of ['&url=https://evil.invalid','&locale=mx','&destination=evil'])expect((await slipOutboundRequest(new Request(`https://livasports.com/go/slip/betsson?${query}${suffix}`),'betsson',resolve)).status).toBe(400);
-    expect(resolve).not.toHaveBeenCalled();const unavailable=await slipOutboundRequest(new Request(`https://livasports.com/go/slip/betsson?${query}`),'betsson',resolve);
+    const query=new URLSearchParams({locale:'br',selections:JSON.stringify(payload().selections)}),c=campaign(),deps=dependencies(c);const pricing=vi.fn().mockResolvedValue(null);deps.pricing=pricing;
+    const service={deps,key,geo:()=>true,defer:vi.fn(),click:vi.fn(),impression:vi.fn()};
+    for(const suffix of ['&url=https://evil.invalid','&locale=mx','&destination=evil'])expect((await slipOutboundRequest(new Request(`https://livasports.com/go/slip/betsson?${query}${suffix}`),'betsson',service)).status).toBe(400);
+    expect(pricing).not.toHaveBeenCalled();const unavailable=await slipOutboundRequest(new Request(`https://livasports.com/go/slip/betsson?${query}`),'betsson',service);
     expect(unavailable.headers.get('location')).toBe('https://livasports.com/br?slip=unavailable');
-    resolve.mockResolvedValue('https://betsson.bet.br/?partner=test-only');const r=await slipOutboundRequest(new Request(`https://livasports.com/go/slip/betsson?${query}`),'betsson',resolve);
+    pricing.mockResolvedValue(Date.now()+60000);const r=await slipOutboundRequest(new Request(`https://livasports.com/go/slip/betsson?${query}`),'betsson',service);
     expect(r.status).toBe(303);expect(r.headers.get('referrer-policy')).toBe('no-referrer');expect(r.headers.get('cache-control')).toContain('no-store');
   });
   it('queries only current quotes and bookmaker configuration in two bounded queries for ten selections',async()=>{
-    const query=vi.fn().mockResolvedValueOnce({rows:[]}).mockResolvedValueOnce({rows:[{provider_slug:'betsson',display_name:'Betsson',affiliate_status:'ACTIVE',verification_state:'VERIFIED_BR',destination:'https://betsson.bet.br/?partner=test-only'}]});
+    const query=vi.fn().mockResolvedValueOnce({rows:[]}).mockResolvedValueOnce({rows:[{provider_slug:'betsson',display_name:'Betsson',affiliate_status:'ACTIVE',verification_state:'VERIFIED_BR',destination:'https://betsson.bet.br/?partner=test-only',active_campaigns:[{type:'HOMEPAGE',placements:['slip_bookmaker_comparison'],domains:['betsson.bet.br']}]}]});
     const fetch=vi.spyOn(globalThis,'fetch');const r=await readSlipComparison({query},comparisonFixture(10).selections.map(s=>s.fixturePublicId),'br');
     expect(query).toHaveBeenCalledTimes(2);expect(query.mock.calls[0][0]).toContain('ANY($1::text[])');expect(query.mock.calls[0][0]).toContain('LIMIT 500');
     expect(query.mock.calls.every(c=>!c[0].includes('odds_history'))).toBe(true);expect(r.bookmakers[0].affiliateEligibility.destinationConfigured).toBe(true);expect(fetch).not.toHaveBeenCalled();

@@ -9,7 +9,7 @@ const forbiddenPaths = files.filter(file => /(^|\/)\.env(?:$|\.local$|\.(?:produ
 const textExtensions = new Set(['','.cjs','.css','.html','.js','.json','.md','.mjs','.sql','.ts','.tsx','.txt','.yml','.yaml']);
 const textFiles = files.filter(file => textExtensions.has(extname(file).toLowerCase()));
 const envFiles = readdirSync(root).filter(file => /^\.env(?:\.|$)/.test(file)&&file!=='.env.example');
-const sensitiveNames = /(?:API_KEY|DATABASE_URL|POSTGRES_PASSWORD|PGPASSWORD|VERCEL_OIDC_TOKEN|CRON_SECRET|AFFILIATE_URL|AFFILIATE_DESTINATION)$/;
+const sensitiveNames = /(?:API_KEY|DATABASE_URL|POSTGRES_PASSWORD|PGPASSWORD|VERCEL_OIDC_TOKEN|CRON_SECRET|AFFILIATE_URL|AFFILIATE_DESTINATION|AFFILIATE_SIGNING_SECRET|POSTBACK_SECRET)$/;
 const sensitiveValues = [];
 for(const [name,value] of Object.entries(process.env))if(sensitiveNames.test(name)&&value&&value.length>=12)sensitiveValues.push(value);
 for (const file of envFiles) {
@@ -28,7 +28,7 @@ for (const file of textFiles) {
   if (sensitiveValues.some(value => content.includes(value)) || genericCredential) leaks.push(file);
 }
 const clientFiles = textFiles.filter(file => /^src\/(app|components)\//.test(file));
-const clientSecretReferences = clientFiles.filter(file => /SPORTMONKS_API_KEY|ODDSPAPI_API_KEY|DATABASE_URL|POSTGRES_PASSWORD|VERCEL_OIDC_TOKEN/.test(readFileSync(resolve(root,file),'utf8')));
+const clientSecretReferences = clientFiles.filter(file => /SPORTMONKS_API_KEY|ODDSPAPI_API_KEY|DATABASE_URL|POSTGRES_PASSWORD|VERCEL_OIDC_TOKEN|AFFILIATE_SIGNING_SECRET|POSTBACK_SECRET/.test(readFileSync(resolve(root,file),'utf8')));
 
 const urlArg = process.argv.find(arg => arg.startsWith('--url='));
 let remoteDocuments = 0;

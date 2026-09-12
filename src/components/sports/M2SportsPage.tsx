@@ -1,5 +1,6 @@
 import { connection } from 'next/server';
-import { getDictionary, type PageKey, type SiteLocale } from '@/config/i18n';
+import { getDictionary, localeRoutes, type PageKey, type SiteLocale } from '@/config/i18n';
+import {SponsoredSlot} from '@/components/commercial/SponsoredSlot';
 import { loadM3PageData } from '@/delivery/runtime';
 import { FixtureStatus } from '@/domain/enums';
 import { CompetitionTabs, FixtureSummary } from './CompetitionTabs';
@@ -22,6 +23,8 @@ export async function M2SportsPage({ locale, page }: { locale: SiteLocale; page:
     <SiteHeader locale={locale} activePage={page} />
     <main id="fixtures-content" className="page-container">
       <PageHeader locale={locale} page={page} currentDate={data.currentDate} freshness={data.sportsData.freshness} />
+      <SponsoredSlot context={{locale,pagePath:localeRoutes[locale][page],placement:'home_top_banner'}}/>
+      <SponsoredSlot context={{locale,pagePath:localeRoutes[locale][page],placement:'mobile_inline'}}/>
       <div className="sports-layout">
         <aside className="context-rail">
           <FixtureSummary locale={locale} live={live} upcoming={upcoming} finished={finished} />
@@ -31,9 +34,10 @@ export async function M2SportsPage({ locale, page }: { locale: SiteLocale; page:
           {data.sportsData.state === 'unavailable' ? <ProviderErrorNotice locale={locale} provider="sports" /> : null}
           {fixtures.length > 0 && (data.oddsData.state === 'unavailable' || data.oddsData.state === 'not-configured') ? <ProviderErrorNotice locale={locale} provider="odds" /> : null}
           {data.sections.length > 0
-            ? <FixtureList locale={locale} sections={data.sections} />
+            ? <FixtureList locale={locale} sections={data.sections} pagePath={localeRoutes[locale][page]}/>
             : <EmptyState locale={locale} live={page === 'live'} coverageUnavailable={mexicoNoCoverage} />}
         </div>
+        <SponsoredSlot context={{locale,pagePath:localeRoutes[locale][page],placement:'home_right_rail'}}/>
       </div>
     </main>
   </div>;

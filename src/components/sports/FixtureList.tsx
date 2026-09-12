@@ -2,12 +2,13 @@ import { getDictionary, type SiteLocale } from '@/config/i18n';
 import type { CompetitionSectionView } from '@/delivery/types';
 import { competitionAnchor } from './CompetitionTabs';
 import { FixtureCard } from './FixtureCard';
+import {SponsoredSlot} from '@/components/commercial/SponsoredSlot';
 
 function initials(value: string): string {
   return value.split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]).join('').toLocaleUpperCase();
 }
 
-export function CompetitionSection({ locale, section }: { locale: SiteLocale; section: CompetitionSectionView }) {
+export function CompetitionSection({ locale, section, pagePath }: { locale: SiteLocale; section: CompetitionSectionView;pagePath?:string }) {
   const dictionary = getDictionary(locale);
   const id = competitionAnchor(section.slug ?? section.competition);
 
@@ -28,9 +29,10 @@ export function CompetitionSection({ locale, section }: { locale: SiteLocale; se
       </div>
       <div>{section.fixtures.map(fixture => <FixtureCard key={fixture.id} locale={locale} fixture={fixture} />)}</div>
     </> : <p className="competition-empty-state" role="status">{dictionary.labels.competitionEmptyPeriod}</p>}
+    {pagePath&&section.slug?<SponsoredSlot context={{locale,pagePath,placement:'competition_inline',competitionSlug:section.slug}}/>:null}
   </section>;
 }
 
-export function FixtureList({ locale, sections }: { locale: SiteLocale; sections: readonly CompetitionSectionView[] }) {
-  return <div className="fixture-list">{sections.map(section => <CompetitionSection key={section.competition} locale={locale} section={section} />)}</div>;
+export function FixtureList({ locale, sections, pagePath }: { locale: SiteLocale; sections: readonly CompetitionSectionView[];pagePath?:string }) {
+  return <div className="fixture-list">{sections.map((section,index) => <CompetitionSection key={section.competition} locale={locale} section={section} pagePath={index===0?pagePath:undefined}/>)}</div>;
 }

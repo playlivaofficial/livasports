@@ -1,0 +1,13 @@
+# M8 attribution
+
+`affiliate_impressions` records a signed eligible view only after the link/creative is at least 50% in the viewport for one continuous second in a visible tab. Loaded creative pixels and visible layout are required. SSR, offscreen/hidden slots, hover, prefetch and disabled campaigns do not count. The view UUID deduplicates repeated delivery. The server revalidates current campaign, GEO, page and price eligibility.
+
+`affiliate_clicks` uses a random opaque UUID per accepted activation. Stored context: time, internal bookmaker/campaign IDs, placement, locale/GEO, canonical page type/path and fixture/team/player/competition IDs where applicable, selection count and aggregate market counts, destination capability, issued redirect status, traffic classification and a keyed dedup value. The slip does not store a second full selection history in analytics. Canonical identities are resolved from sports records; client provider IDs or arbitrary metadata are rejected.
+
+Human click classification requires signed render context and browser navigation/user-activation headers. Explicit QA, headless client activation and programmatic UI activation are classified separately. Headers are signals, not proof of a unique human; no fingerprint is introduced to improve classification. Unknown API/legacy requests are excluded. QA can navigate when all security gates pass but cannot inflate the human funnel.
+
+Repeated clicks from the same rendered view share a keyed ten-second time bucket; duplicate persistence is ignored while navigation remains functional. At a bucket boundary two legitimate activations can be recorded. Impression IDs are unique. Best-effort per-campaign ingestion ceilings are 120 clicks and 600 impressions per minute; these are load safeguards, not unique-user measurement or a globally serialized rate limiter.
+
+The protected health report groups eligible impressions/clicks by campaign, placement, locale/GEO and page type, with a masked campaign-to-bookmaker mapping. CTR is human clicks / human impressions and is null when no eligible impression denominator exists. QA counts are separate. Existing `odds_module_view` and `slip_comparison_view` product telemetry is exposed separately as legacy unclassified traffic that can include QA. A generic page-view measurement is not configured. No downstream conversion rate or revenue-per-click is claimed.
+
+Writes run after response with bounded DB timeouts. A write/scheduling failure can lose an event; it cannot redirect to an unverified destination or prevent a verified navigation. No durable external queue or analytics SDK was added.

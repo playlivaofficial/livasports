@@ -1,4 +1,5 @@
-import {slipOutboundRequest} from '@/slip/comparison-server';
+import {legacySlipRequest,commercialHeaders} from '@/affiliate/server';
 export async function GET(request:Request,{params}:{params:Promise<{bookmaker:string}>}){
-  return slipOutboundRequest(request,(await params).bookmaker);
+  return legacySlipRequest(request,(await params).bookmaker);
 }
+export async function HEAD(){return new Response(null,{status:204,headers:commercialHeaders});}
