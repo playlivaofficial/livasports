@@ -1,6 +1,6 @@
 # LivaSports M4.1 — Release Checkpoint
 
-Checkpoint timestamp: 2026-09-12T13:34:36+04:00
+Checkpoint timestamp: 2026-09-12T14:19:02+04:00
 
 ## Completed
 
@@ -35,12 +35,15 @@ Checkpoint timestamp: 2026-09-12T13:34:36+04:00
 
 ## Release state
 
-- Branch: `codex/m4-1-team-player-profiles`.
-- Base commit: `e2e8b0fdccb65b286e9da8ab1216c6f007fbdda8`.
+- Status: **COMPLETE — PRODUCTION-VERIFIED**.
+- Feature commit: `2f07b5bdeeaf475874451260fb658fafbe01a38e`; pushed to `origin/codex/m4-1-team-player-profiles`.
+- Main merge: `2881ca2`; final production code commit: `0bd5daa35b7a0dc7d6f1a4b27e70a986f6eeb88e`.
+- Production deployment: `dpl_5QyxzNLhzedcrYC18PyfkgxiYiuw` in the existing `nikapopkha3-4447s-projects/livasports` project; status READY.
 - No ingestion process is active.
-- Final local gates are PASS: Node 6/6, Vitest 93/93, typecheck, lint, production build, migration audit, M4/M4.1 integrity audits, and secret scan.
-- Feature commit/push, safe main merge/push, existing-project deployment, and production QA are the remaining operations.
+- Final local gates are PASS: Node 6/6, Vitest 94/94, typecheck, lint, production build, idempotent migration, M4/M4.1 integrity audits, and secret scan.
+- Production routes, canonical redirects/404, HTTPS/`www`, BR/MX profiles and matches, sitemap eligibility, cache MISS/SET/HIT behavior, provider-free navigation, and remote secret scan are PASS.
+- The release QA caught and fixed duplicate metadata branding, untranslated provider position labels, and thin-player sitemap eligibility before final sign-off.
 
-## Resume rule
+## Stop rule
 
-Do not run `m4.1:sample` or either provider-audit script again. Resume by inspecting the staged secret scan, commit/push the feature branch, merge without force into `main`, deploy only the already-linked LivaSports Vercel project, and run production QA. Stop after M4.1.
+M4.1 is complete. Do not run `m4.1:sample` or either provider-audit script again without a new approved evidence gap. Do not start M5/M6/M7/M8 automatically.

@@ -2,7 +2,7 @@
 
 ## Overall status
 
-**PASS — IMPLEMENTATION, DATA, AND LOCAL RELEASE GATES COMPLETE; PRODUCTION RELEASE PENDING**
+**PASS — RELEASED AND PRODUCTION-VERIFIED**
 
 M4.1 adds production-grade PT-BR/ES-MX team and player profiles, stable canonical identity, Match Center links, fixture-level player statistics, honest partial-data states, SEO discovery, cache/database-only navigation, and disabled-by-default sponsor support. No M5/M6/M7/M8 scope was started.
 
@@ -17,7 +17,7 @@ M4.1 adds production-grade PT-BR/ES-MX team and player profiles, stable canonica
 - Real team/player images with initials fallback.
 - Native PT-BR/ES-MX country and player-position labels; unknown provider positions are omitted instead of leaking English.
 - Localized missing/partial/not-covered/error/stale states; missing values never become zero.
-- Dynamic DB-only team/player sitemap with canonical and `hreflang` pairs.
+- Dynamic DB-only team/player sitemap with canonical and `hreflang` pairs; thin lineup-only players remain accessible with `noindex,follow` but are excluded from sitemap discovery.
 - Sponsor schema/component/eligibility/event contracts with zero active campaigns and zero empty ad gaps.
 
 ## Provider capability evidence
@@ -96,7 +96,7 @@ Controlled team coverage is Flamengo 37 squad/43 stats, América 34/41, and Fulh
 ## Final local release gates
 
 - Node tests: PASS — 6/6.
-- Vitest: PASS — 93/93 across 29 files.
+- Vitest: PASS — 94/94 across 29 files.
 - Typecheck: PASS.
 - Lint: PASS with zero warnings.
 - Next.js 16.3.4 production build: PASS.
@@ -105,4 +105,31 @@ Controlled team coverage is Flamengo 37 squad/43 stats, América 34/41, and Fulh
 - M4 regression audit: PASS; 34 enabled competitions and zero canonical mapping gaps.
 - Local secret scan: PASS; tracked/unignored environment files 0, credential leaks 0, client secret references 0.
 
-Final feature/main commit hashes, GitHub push status, Vercel deployment ID, and production smoke/SEO/mobile/cache/log/secret results are recorded after the authorized production release completes. The final assistant handoff is the authoritative release identifier record because those identifiers do not exist before commit/deploy.
+## Production release
+
+- Feature branch commit: `2f07b5bdeeaf475874451260fb658fafbe01a38e`.
+- Main merge commit: `2881ca2`.
+- Production code commit after QA fixes: `0bd5daa35b7a0dc7d6f1a4b27e70a986f6eeb88e`.
+- GitHub: feature branch and `main` pushed without force; local code-release HEAD matched `origin/main`.
+- Existing Vercel project only: `nikapopkha3-4447s-projects/livasports`.
+- Production deployment: `dpl_5QyxzNLhzedcrYC18PyfkgxiYiuw` — READY.
+- Production aliases: `https://livasports.com`, `https://www.livasports.com`, and the existing Vercel aliases.
+
+## Production verification
+
+- HTTPS apex, `www` to apex redirect, root locale redirect, `/br`, `/mx`, representative BR/MX team pages, representative BR/MX player pages, a partial player page, representative BR/MX Match Center pages, canonical 308 redirect, real 404, sitemap, and `/api/internal/health`: PASS.
+- Rendered PT-BR profile title, position, country/date formatting, canonical URL, PT-BR/ES-MX `hreflang`, `index,follow`, real image, internal links, and zero blank sponsor output: PASS.
+- Production profile viewport exposed by the QA browser (1265 px content width): no horizontal overflow and zero broken images. Exact 375/390/430/768/1440 responsive states were already inspected locally on the same compiled CSS before release.
+- Production sitemap: eligible Agustín Rossi profile present; thin Bernardo Schons Zortea profile absent. The thin page itself remains available and `noindex,follow`.
+- Cache runtime log: MISS -> DEDUPLICATED -> SET -> HIT on a cold profile, followed by repeat HIT. Ordinary profile navigation remains database/cache-only with `providerRequests = 0` by runtime contract and tests.
+- Production runtime log capture contained the expected cache diagnostics and no unexpected warning/error for the controlled requests.
+- Remote secret scan: PASS — 9 production documents/bundles scanned, credential leaks 0; local tracked/unignored environment files 0, credential leaks 0, and client secret references 0.
+
+## Remaining limitations
+
+- Detailed enrichment remains intentionally bounded to three representative teams and four season-stat players; all other persisted identities show honest partial/unavailable states.
+- Coach names were not verified in the controlled provider sample.
+- Automatic 24/7 profile refresh is not operational on the current hosting setup; the safe manual leased worker is operational.
+- Active sponsor campaigns remain 0, so no sponsored placement is rendered.
+
+M4.1 is complete. No M5/M6/M7/M8 scope was started.
