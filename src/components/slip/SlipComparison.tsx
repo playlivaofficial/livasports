@@ -9,7 +9,7 @@ import {formatCombinedOdds} from '@/slip/decimal';
 import {emitComparisonEvent} from '@/slip/comparison-events';
 import {AffiliateLink} from '@/components/commercial/AffiliateLink';
 
-export function SlipComparison({locale,selections,value,checking}:{locale:SiteLocale;selections:SavedSelection[];value:Comparison|null;checking:boolean}){
+export function SlipComparison({locale,selections,value,checking,uiLocale}:{locale:SiteLocale;selections:SavedSelection[];value:Comparison|null;checking:boolean;uiLocale?:'br'|'mx'|'en'}){
   const text=comparisonCopy[locale],slip=slipCopy[locale];const section=useRef<HTMLElement>(null);
   const eventSignature=JSON.stringify({locale,selections:selections.map(s=>canonicalSelection(s)),bookmakers:value?.bookmakers??null});
   useEffect(()=>{
@@ -42,7 +42,7 @@ export function SlipComparison({locale,selections,value,checking}:{locale:SiteLo
           <p className="slip-coverage-state">{b.complete?text.complete:b.availableSelectionCount?text.partial:text.none}</p>
           {b.combinedDecimalOdds?<p className="slip-combined"><span>{text.combined}</span><strong>{formatCombinedOdds(b.combinedDecimalOdds,locale)}</strong></p>:<p className="slip-comparison-note">{text.noTotal}</p>}
           {missing.length?<details className="slip-missing" open><summary>{text.missing} ({missing.length})</summary><ul>{missing.map(q=><li key={selectionKey(q.selection)}><strong>{q.fixture?`${q.fixture.home} × ${q.fixture.away}`:slip.missing}</strong><span>{slip.markets[q.selection.market]} · {selectionLabel(q.selection,locale,q.fixture)}</span><span>{slip.states[q.state]}</span></li>)}</ul></details>:null}
-          {b.ctaState==='ENABLED'?<AffiliateLink className="slip-bookmaker-cta" context={{locale,placement:'slip_bookmaker_comparison',bookmaker:b.bookmakerId as 'betsson'|'betano.bet.br',selections:selections.map(s=>canonicalSelection(s)! )}}/>:b.complete?<p className="slip-comparison-note">{text.gated}</p>:null}
+          {b.ctaState==='ENABLED'?<AffiliateLink className="slip-bookmaker-cta" uiLocale={uiLocale} context={{locale,placement:'slip_bookmaker_comparison',bookmaker:b.bookmakerId as 'betsson'|'betano.bet.br',selections:selections.map(s=>canonicalSelection(s)! )}}/>:b.complete?<p className="slip-comparison-note">{text.gated}</p>:null}
         </article>;
       })}
     </>}

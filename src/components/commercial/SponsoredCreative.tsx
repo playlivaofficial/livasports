@@ -36,11 +36,11 @@ function PublisherEmbed({offer,onFailure}:{offer:PublicOffer;onFailure:()=>void}
   return <div ref={box} className="sponsor-embed-box" data-ready={ready} style={{width:c.width,maxWidth:'100%',aspectRatio:`${c.width}/${c.height}`}}>
     {load?<iframe ref={frame} title={`${c.imageAlt} · Publicidade · 18+`} width={c.width} height={c.height} loading="lazy" {...{credentialless:''}}
       sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox" referrerPolicy="no-referrer" allow="camera 'none'; microphone 'none'; geolocation 'none'; payment 'none'; fullscreen 'none'"
-      src={`/api/commercial/creative?offer=${offer.token}`} style={{transform:`scale(${scale})`}}/>:null}
+      src={`/api/commercial/creative?offer=${offer.token}`} style={{transform:`scale(${scale})`,background:'transparent'}}/>:null}
   </div>;
 }
 
-export function SponsoredCreative({offer,locale}:{offer:PublicOffer;locale:'br'|'mx'}){
+export function SponsoredCreative({offer,locale}:{offer:PublicOffer;locale:'br'|'mx'|'en'}){
   const [expired,setExpired]=useState(false),[failed,setFailed]=useState(false);
   useEffect(()=>{const timer=setTimeout(()=>setExpired(true),Math.max(1,Date.parse(offer.expiresAt)-Math.max(Date.now(),Date.parse(offer.resolvedAt))));return()=>clearTimeout(timer);},[offer]);
   const c=offer.creative;if(!c||expired||failed)return null;const text=commercialCopy[locale];

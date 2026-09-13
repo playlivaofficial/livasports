@@ -40,7 +40,8 @@ describe('G1 approved publisher embed boundary',()=>{
   it('serves only an isolated non-indexable document with exact-host CSP',async()=>{
     const f=await fixture(),r=await creativeRequest(f.request(),f.services),body=await r.text(),csp=r.headers.get('content-security-policy')!;
     expect(r.status).toBe(200);expect(r.headers.get('cache-control')).toBe('private, no-store');expect(r.headers.get('x-robots-tag')).toContain('noindex');
-    expect(csp).toContain('sandbox allow-scripts allow-popups allow-popups-to-escape-sandbox');expect(csp).not.toContain('allow-same-origin');expect(csp).not.toContain('unsafe-eval');expect(csp).not.toContain('https:;');expect(csp).toContain("frame-ancestors 'self'");
+    expect(csp).toContain('sandbox allow-scripts allow-popups allow-popups-to-escape-sandbox');expect(csp).not.toContain('allow-same-origin');expect(csp).toContain("'unsafe-eval'");expect(csp).not.toContain('https:;');expect(csp).toContain("frame-ancestors 'self'");
+    expect(body).toContain('if(!ready)send(\'failed\')');
     expect(body).toContain(source().replaceAll('&','&amp;'));expect(body.match(/<script/g)).toHaveLength(2);expect(body).toContain('e.isTrusted');expect(body).not.toContain('document.cookie');expect(f.tasks).toHaveLength(0);
   });
   it.each(['cross-site','top-level','geo','disabled','expired','no-grant','dnt','gpc','wrong-source'])('denies an unsafe/ineligible frame: %s',async change=>{

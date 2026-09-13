@@ -15,7 +15,7 @@ import {comparisonCopy} from '@/slip/comparison-copy';
 
 function TicketIcon(){return <svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 3h14v6a3 3 0 0 0 0 6v6l-3-2-4 2-4-2-3 2v-6a3 3 0 0 0 0-6V3Z" stroke="currentColor" strokeWidth="1.5"/><path d="M9 8h6M9 12h6M9 16h3" stroke="currentColor" strokeWidth="1.5"/></svg>;}
 
-function SlipDrawer({locale,selections,pending,onPending,onClose,storageNotice,message}:{locale:SiteLocale;selections:SavedSelection[];pending:SlipFeedback|null;onPending:(v:SlipFeedback|null)=>void;onClose:()=>void;storageNotice:StorageNotice;message:string|null}){
+function SlipDrawer({locale,uiLocale,selections,pending,onPending,onClose,storageNotice,message}:{locale:SiteLocale;uiLocale:'br'|'mx'|'en';selections:SavedSelection[];pending:SlipFeedback|null;onPending:(v:SlipFeedback|null)=>void;onClose:()=>void;storageNotice:StorageNotice;message:string|null}){
   const text=slipCopy[locale];const {resolved,comparison,failed,online,checking,resolvedAt}=useSlipResolution(selections,locale);
   const byKey=resolvedByKey(resolved);const [confirmClear,setConfirmClear]=useState(false);
   const closeRef=useRef<HTMLButtonElement>(null);const panel=useRef<HTMLElement>(null);
@@ -65,7 +65,7 @@ function SlipDrawer({locale,selections,pending,onPending,onClose,storageNotice,m
               {view?.price?<small>{view.price.bookmakerName} · {view.price.best?text.best:text.reference}</small>:view?.reason==='NO_VERIFIED_GEO'?<small>{text.geo}</small>:null}</div>
           </li>;
         })}</ol>
-        <SlipComparison locale={locale} selections={selections} value={comparison} checking={checking}/>
+        <SlipComparison locale={locale} uiLocale={uiLocale} selections={selections} value={comparison} checking={checking}/>
         {resolvedAt?<p className="slip-verified">{text.updated}: <time dateTime={resolvedAt}>{date(resolvedAt)}</time><br/>{currentCount}/{selections.length} {text.currentCount}</p>:null}
       </>}
     </div>
@@ -74,7 +74,8 @@ function SlipDrawer({locale,selections,pending,onPending,onClose,storageNotice,m
 }
 
 export function SlipShell(){
-  const pathname=usePathname();const locale:SiteLocale=pathname?.split('/')[1]==='mx'?'mx':'br';
+  const pathname=usePathname();const segment=pathname?.split('/')[1];const locale:SiteLocale=segment==='mx'?'mx':'br';
+  const uiLocale=segment==='en'?'en':locale;
   const outboundUnavailable=useSearchParams().get('slip')==='unavailable';
   const {slip,notice:storageNotice,ready}=useSlip();const text=slipCopy[locale];
   const [open,setOpen]=useState(outboundUnavailable);const [pending,setPending]=useState<SlipFeedback|null>(null);const [notice,setNotice]=useState<string|null>(outboundUnavailable?'OUTBOUND_UNAVAILABLE':null);
@@ -95,6 +96,6 @@ export function SlipShell(){
       <button type="button" className="slip-trigger" ref={trigger} aria-expanded={open} aria-controls="guest-slip-drawer" disabled={!ready} onClick={()=>{if(open)close();else{setNotice(null);setOpen(true);emitSlipEvent('slip_open',locale);}}}>
         <TicketIcon/><span className="slip-trigger-text"><span>{text.title}</span>{message&&!open?<small aria-hidden="true">{message}</small>:null}</span><span className="slip-count">{slip.selections.length}</span><span aria-hidden="true">{open?'⌄':'↑'}</span>
       </button></div>
-    <div id="guest-slip-drawer">{open?<SlipDrawer locale={locale} selections={slip.selections} pending={pending} onPending={setPending} onClose={close} storageNotice={storageNotice} message={message}/>:null}</div>
+    <div id="guest-slip-drawer">{open?<SlipDrawer locale={locale} uiLocale={uiLocale} selections={slip.selections} pending={pending} onPending={setPending} onClose={close} storageNotice={storageNotice} message={message}/>:null}</div>
   </div>;
 }

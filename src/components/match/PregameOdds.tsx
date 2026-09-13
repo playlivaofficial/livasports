@@ -72,11 +72,11 @@ export function PregameOdds({initial,context,fixturePublicId,uiLocale}:{initial:
             aria-label={`${pressed?slipText.selected:slipText.add}: ${slipText.markets[market]}, ${selectionLabel(intent,context.locale)}, ${priceLabel}, ${row.name}`}
             onClick={()=>addSlipSelection(intent,commercialLocale,cell.expiresAt!,row.bookmaker)}>{pressed?<span className="slip-selected-indicator" aria-hidden="true">✓</span>:null}{priceLabel}{best?<span className="sr-only"> {text.best}</span>:null}</button>:
             <span className={`pregame-price${best?' is-best':''}${!current?' is-unavailable':''}`} title={best?text.best:!current?unavailable:undefined}>{priceLabel}{best?<span className="sr-only"> {text.best}</span>:null}</span>}</td>;})}
-          <td>{row.action&&row.cells.some(cellCurrent)&&fixturePublicId?<AffiliateLink compact className="match-affiliate-cta" onAvailability={onAvailability} context={{locale:commercialLocale,placement:'match_odds_table',bookmaker:row.bookmaker as 'betsson'|'betano.bet.br',fixturePublicId,market}}/>:<span className="odds-no-action">—</span>}</td></tr>)}</tbody></table>:null}
+          <td>{row.action&&row.cells.some(cellCurrent)&&fixturePublicId?<AffiliateLink compact className="match-affiliate-cta" uiLocale={presentation} onAvailability={onAvailability} context={{locale:commercialLocale,placement:'match_odds_table',bookmaker:row.bookmaker as 'betsson'|'betano.bet.br',fixturePublicId,market}}/>:<span className="odds-no-action">—</span>}</td></tr>)}</tbody></table>:null}
       {!available?<p className="pregame-empty" role="status">{unavailable}</p>:available===1?<p className="odds-note">{text.single}</p>:null}
       {selected?.observedAt?<p className="odds-freshness">{text.observed} <time dateTime={selected.observedAt}>{date(selected.observedAt)}</time>{selected.providerUpdatedAt?<span> · {text.changed}: {date(selected.providerUpdatedAt)}</span>:null}</p>:null}
     </div>
-    {Object.values(commercial).some(Boolean)?<p className="affiliate-disclosure">{commercialCopy[context.locale].destination} {commercialCopy[context.locale].disclosure}</p>:null}
+    {Object.values(commercial).some(Boolean)?<p className="affiliate-disclosure">{commercialCopy[presentation].destination} {commercialCopy[presentation].disclosure}</p>:null}
     <p className="affiliate-disclosure">{text.responsible}</p>
   </section>;
 }

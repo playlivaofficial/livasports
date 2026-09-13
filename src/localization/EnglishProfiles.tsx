@@ -11,6 +11,8 @@ import {englishCountry as localizedCountry,englishPosition as localizedPosition}
 import type { PlayerMatchLog, PlayerProfileView, ProfileFixture, ProfileModule, ProfileStatistic, SquadPlayer, TeamProfileView } from '@/profiles/types';
 
 import { PlayerAvatar } from '@/components/profile/PlayerAvatar';
+import { SponsoredSlot } from '@/components/commercial/SponsoredSlot';
+import { teamPath as brTeamPath, playerPath as brPlayerPath } from '@/profiles/routes';
 
 
 const copy={en:{"back":"Back to football","overview":"Overview","matches":"Matches","standings":"Standings","squad":"Squad","statistics":"Statistics","next":"Next match","recent":"Recent results","competitions":"Current competitions","founded":"Founded","venue":"Stadium","coach":"Coach","noData":"No data is available at the moment.","notIngested":"Details are not yet available for this profile.","notCovered":"This information is not covered by the source.","notApplicable":"This section does not apply to this context.","temporary":"This section is temporarily unavailable.","stale":"Showing the latest saved information.","goalkeepers":"Goalkeepers","defenders":"Defenders","midfielders":"Midfielders","forwards":"Forwards","other":"Other","played":"P","won":"W","drawn":"D","lost":"L","goals":"Goals","points":"Pts","jersey":"Number","seasonContext":"Season / competition","playerOverview":"Overview","playerMatches":"Matches","playerStats":"Statistics","team":"Current team","nationality":"Nationality","position":"Position","birth":"Date of birth","age":"Age","height":"Height","weight":"Weight","years":"years","appearances":"Recent appearances","starter":"Starter","substitute":"Substitute","opponent":"Opponent","unavailable":"Not recorded","minutes":"min","shots":"shots","onTarget":"on target","saves":"saves","rating":"rating"}} as const;
@@ -88,7 +90,9 @@ export function EnglishTeamProfilePage({ locale, profile }: { locale: SiteLocale
   const recentForm=profile.recent.slice(0,5); const primaryStanding=profile.standings.data[0];
   return <div lang={dictionary.locale} className="app-shell profile-shell english-sports"><SiteHeader locale={locale} activePage="football" localeHrefs={alternate} contentId="profile-content"/>
     <main id="profile-content" className="profile-container"><Link className="profile-back" href={localeRoutes[locale].football}>← {text.back}</Link>
-      <TeamHeader locale={locale} profile={profile}/><Nav locale={locale}/>
+      <TeamHeader locale={locale} profile={profile}/>
+      <SponsoredSlot copyLocale="en" context={{locale:'br',pagePath:brTeamPath('br',profile.publicId,profile.name),placement:'profile_mobile_inline'}}/>
+      <Nav locale={locale}/>
       <div className="profile-layout"><div className="profile-main">
         <section id="overview" className="profile-panel"><h2>{text.overview}</h2><div className="profile-overview-grid"><article><h3>{text.next}</h3>{profile.upcoming[0]?<MatchRow locale={locale} row={profile.upcoming[0]} teamId={profile.id}/>:<p>{text.noData}</p>}</article>
           <article><h3>{text.competitions}</h3><div className="competition-chips">{visibleContexts.map(item=><span key={item.seasonId}>{item.competition}<small>{item.season}</small></span>)}</div></article>
@@ -99,7 +103,7 @@ export function EnglishTeamProfilePage({ locale, profile }: { locale: SiteLocale
         <section id="standings" className="profile-panel"><h2>{text.standings}</h2>{profile.standings.data.length?<div className="profile-standing-grid">{profile.standings.data.map((row,i)=><article key={`${row.competition}:${row.season}:${row.stage}:${i}`}><span>{row.competition}<small>{row.season}{row.stage?` · ${row.stage}`:''}</small></span><strong>{row.position}</strong><div><span>{text.played} {row.played??'—'}</span><span>{text.won} {row.won??'—'}</span><span>{text.drawn} {row.drawn??'—'}</span><span>{text.lost} {row.lost??'—'}</span><span>{text.points} {row.points??'—'}</span></div></article>)}</div>:<State locale={locale} module={profile.standings}/>}</section>
         <section id="squad" className="profile-panel"><h2>{text.squad}</h2><Squad locale={locale} profile={profile}/></section>
         <section id="statistics" className="profile-panel"><h2>{text.statistics}</h2>{profile.statistics.data.length?<Stats locale={locale} rows={profile.statistics.data}/>:<State locale={locale} module={profile.statistics}/>}</section>
-      </div><aside className="profile-rail"><section><h2>{text.competitions}</h2>{visibleContexts.map(item=><div key={item.seasonId}><strong>{item.competition}</strong><span>{item.season}</span></div>)}</section></aside></div>
+      </div><aside className="profile-rail"><SponsoredSlot copyLocale="en" context={{locale:'br',pagePath:brTeamPath('br',profile.publicId,profile.name),placement:'team_right_rail'}}/><section><h2>{text.competitions}</h2>{visibleContexts.map(item=><div key={item.seasonId}><strong>{item.competition}</strong><span>{item.season}</span></div>)}</section></aside></div>
     </main></div>;
 }
 
@@ -119,6 +123,7 @@ export function EnglishPlayerProfilePage({ locale, profile }: { locale: SiteLoca
     <main id="profile-content" className="profile-container"><Link className="profile-back" href={profile.currentTeam?teamPath(locale,profile.currentTeam.publicId,profile.currentTeam.name):localeRoutes[locale].football}>← {text.back}</Link>
       <header className="profile-hero player-profile-hero"><PlayerAvatar name={profile.name} imageUrl={profile.imageUrl} large/><div><span>{position??''}</span><h1>{profile.name}</h1>
         {profile.currentTeam?<Link className="profile-team-link" href={teamPath(locale,profile.currentTeam.publicId,profile.currentTeam.name)}><TeamMark initials={initials(profile.currentTeam.name)} imageUrl={profile.currentTeam.imageUrl}/>{profile.currentTeam.name}</Link>:null}</div></header>
+      <SponsoredSlot copyLocale="en" context={{locale:'br',pagePath:brPlayerPath('br',profile.publicId,profile.name),placement:'profile_mobile_inline'}}/>
       <Nav locale={locale} player/><div className="profile-layout"><div className="profile-main">
         <section id="overview" className="profile-panel"><h2>{text.playerOverview}</h2><dl className="player-facts">{facts.map(([label,value])=><div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
           {profile.contexts.length?<div className="competition-chips">{profile.contexts.slice(0,8).map(item=><span key={`${item.teamId}:${item.seasonId}`}><Link href={teamPath(locale,item.teamPublicId,item.team)}>{item.team}</Link><small>{item.competition} · {item.season}</small></span>)}</div>:null}
@@ -126,6 +131,6 @@ export function EnglishPlayerProfilePage({ locale, profile }: { locale: SiteLoca
           {recentAppearance?<Link className="profile-latest-appearance" href={matchPath(locale,recentAppearance.publicId,recentAppearance.home.name,recentAppearance.away.name)}><span>{text.appearances}</span><strong>{recentAppearance.opponent}</strong><small>{appearanceDetails(locale,recentAppearance).join(' · ')}</small></Link>:null}</section>
         <section id="matches" className="profile-panel"><h2>{text.appearances}</h2>{profile.matches.data.length?<div className="profile-match-list">{profile.matches.data.map(row=><Link key={row.id} href={matchPath(locale,row.publicId,row.home.name,row.away.name)} className="profile-match-row player-match-row"><time>{new Intl.DateTimeFormat(dictionary.locale,{dateStyle:'short',timeZone:dictionary.timeZone}).format(new Date(row.kickoff))}</time><span>{row.competition}</span><strong>{row.opponent}</strong><b>{row.homeScore===null||row.awayScore===null?dictionary.statuses[row.status]:`${row.homeScore}–${row.awayScore}`}</b><small>{appearanceDetails(locale,row).join(' · ')}</small></Link>)}</div>:<State locale={locale} module={profile.matches}/>}</section>
         <section id="statistics" className="profile-panel"><h2>{text.playerStats}</h2>{profile.statistics.data.length?<Stats locale={locale} rows={profile.statistics.data}/>:<State locale={locale} module={profile.statistics}/>}</section>
-      </div><aside className="profile-rail"><section><h2>{text.playerOverview}</h2>{facts.map(([label,value])=><div key={label}><strong>{label}</strong><span>{value}</span></div>)}</section></aside></div>
+      </div><aside className="profile-rail"><SponsoredSlot copyLocale="en" context={{locale:'br',pagePath:brPlayerPath('br',profile.publicId,profile.name),placement:'player_right_rail'}}/><section><h2>{text.playerOverview}</h2>{facts.map(([label,value])=><div key={label}><strong>{label}</strong><span>{value}</span></div>)}</section></aside></div>
     </main></div>;
 }
