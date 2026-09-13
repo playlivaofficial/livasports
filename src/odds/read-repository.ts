@@ -8,7 +8,7 @@ import type {BookmakerConfig} from '@/slip/comparison-types';
 import {commercialIso2,commercialLocale,type CommercialGeo} from './commercial-geo';
 
 export interface InternalOddsRead extends OddsReadSnapshot { destinations:Record<string,string>; }
-// Both readers use the same source, mapping and GEO predicates. The selector is internal, never SQL from a client.
+// All readers share verified source/mapping checks. Visitor GEO only controls destinations.
 function oddsJoin(selector:'id'|'publicIds'|'fixtureIds'){
   const market=selector==='fixtureIds'?" AND o.market_code='MATCH_WINNER' AND o.line IS NULL":'';
   return `LEFT JOIN odds_current o ON o.fixture_id=f.id AND o.scope='FULL_TIME_REGULATION' AND o.phase='PREGAME'${market}`;
@@ -21,6 +21,9 @@ function oddsReadSql(selector:'id'|'publicIds'|'fixtureIds'){
     CASE WHEN $2='BR' THEN competition.display_name_pt_br ELSE competition.display_name_es_mx END AS competition_name,
     o.*,b.provider_slug,b.display_name,g.verification_state,${activeCampaignSql} AS active_campaigns,
     b.enabled AND b.comparison_enabled AND g.odds_enabled AND g.comparison_enabled AND g.verified_at IS NOT NULL AS geo_eligible,
+    source_country.iso2 AS source_geo,source_geo.verification_state AS source_verification_state,
+    b.enabled AND b.comparison_enabled AND source_geo.odds_enabled AND source_geo.comparison_enabled
+      AND source_geo.verified_at IS NOT NULL AS display_eligible,
     fm.livasports_entity_id=f.id AND hm.livasports_entity_id=f.home_team_id AND am.livasports_entity_id=f.away_team_id
       AND cm.livasports_entity_id=f.competition_id AND mr.fixture_id=f.id AND mr.state IN ('EXACT','HIGH_CONFIDENCE')
       AND (fm.metadata->>'canonicalKickoff')::timestamptz=f.kickoff
@@ -31,6 +34,9 @@ function oddsReadSql(selector:'id'|'publicIds'|'fixtureIds'){
     JOIN teams ht ON ht.id=f.home_team_id JOIN teams at ON at.id=f.away_team_id
     JOIN competitions competition ON competition.id=f.competition_id
     LEFT JOIN bookmakers b ON b.id=o.bookmaker_id
+    LEFT JOIN countries source_country ON source_country.iso2=CASE
+      WHEN lower(o.source_domain) IN ('betsson.mx','www.betsson.mx') THEN 'MX' ELSE 'BR' END
+    LEFT JOIN bookmaker_geo_availability source_geo ON source_geo.bookmaker_id=b.id AND source_geo.country_id=source_country.id
     LEFT JOIN countries co ON co.iso2=$2 LEFT JOIN bookmaker_geo_availability g ON g.bookmaker_id=b.id AND g.country_id=co.id
     LEFT JOIN affiliate_links al ON al.bookmaker_id=b.id AND al.country_id=co.id
     LEFT JOIN provider_entity_mappings fm ON fm.provider='ODDSPAPI' AND fm.entity_type='FIXTURE' AND fm.provider_entity_id=o.provider_fixture_id
@@ -46,13 +52,15 @@ function hydrateOddsSnapshot(rows:QueryResultRow[],fixtureId:string,geo:Commerci
   const locale=commercialLocale(geo);
   const snapshot:InternalOddsRead={kickoff:date(rows[0]?.kickoff),fixtureStatus:String(rows[0]?.fixture_status??'UNKNOWN'),quotes:[],destinations:{}};
   for(const row of rows){if(!row.bookmaker_id)continue;
-    const sourceEligible=eligibleSource(row.provider_slug,geo,row.verification_state,row.source_domain);
+    // A BR feed remains BR content wherever it is read; this grants no commercial eligibility.
+    const sourceEligible=eligibleSource(row.provider_slug,row.source_geo,row.source_verification_state,row.source_domain);
+    const commercialEligible=row.geo_eligible&&eligibleSource(row.provider_slug,geo,row.verification_state,row.source_domain);
     const quote:ReadOddsQuote={fixtureId,providerFixtureId:row.provider_fixture_id,bookmaker:row.provider_slug,bookmakerId:row.bookmaker_id,bookmakerName:row.display_name,
       market:row.market_code,outcome:row.outcome_code,line:row.line===null?null:Number(row.line),decimalOdds:String(row.decimal_odds),status:row.status,scope:row.scope,phase:row.phase,
       providerUpdatedAt:row.provider_updated_at?date(row.provider_updated_at):null,observedAt:date(row.observed_at),persistedAt:date(row.persisted_at),lastSuccessfulRefreshAt:date(row.last_successful_refresh_at),
-      sourceDomain:row.source_domain,providerKickoff:date(row.provider_kickoff),freshnessTtlMinutes:row.freshness_ttl_minutes==null?null:Number(row.freshness_ttl_minutes),geoEligible:Boolean(row.geo_eligible&&sourceEligible&&row.mapping_verified)};
+      sourceDomain:row.source_domain,providerKickoff:date(row.provider_kickoff),freshnessTtlMinutes:row.freshness_ttl_minutes==null?null:Number(row.freshness_ttl_minutes),geoEligible:Boolean(row.display_eligible&&sourceEligible&&row.mapping_verified)};
     snapshot.quotes.push(quote);
-    const destination=quote.geoEligible&&locale?availableDestination(quote.bookmaker,locale,row.destination,row.active_campaigns,'match_odds_table')?.url:null;
+    const destination=quote.geoEligible&&commercialEligible&&locale?availableDestination(quote.bookmaker,locale,row.destination,row.active_campaigns,'match_odds_table')?.url:null;
     if(destination)snapshot.destinations[quote.bookmaker]=destination;
   }
   return snapshot;

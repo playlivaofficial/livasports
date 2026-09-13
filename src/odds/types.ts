@@ -34,7 +34,9 @@ export interface OddsProvider {
 }
 export interface ReadOddsQuote extends NormalizedOddsQuote {
   freshnessTtlMinutes?: number | null;
-  fixtureId: string; bookmakerId: string; bookmakerName: string; geoEligible: boolean;
+  fixtureId: string; bookmakerId: string; bookmakerName: string;
+  /** Legacy field name: verified feed/content eligibility, never visitor affiliate permission. */
+  geoEligible: boolean;
   persistedAt: string; lastSuccessfulRefreshAt: string; providerKickoff: string;
 }
 export interface OddsReadSnapshot { quotes: ReadOddsQuote[]; kickoff: string; fixtureStatus: string; }

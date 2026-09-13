@@ -53,7 +53,7 @@ describe('listing Neon attach',()=>{
     const q=quote();
     return {canonical_fixture_id:fixtureId,kickoff:new Date(q.providerKickoff),fixture_status:'SCHEDULED',bookmaker_id:'b',
       provider_slug:q.bookmaker,display_name:q.bookmakerName,source_domain:q.sourceDomain,verification_state:'VERIFIED_BR',
-      geo_eligible:true,mapping_verified:true,scope:q.scope,phase:q.phase,observed_at:new Date(now),provider_updated_at:new Date(q.providerUpdatedAt!),
+      geo_eligible:true,source_geo:'BR',source_verification_state:'VERIFIED_BR',display_eligible:true,mapping_verified:true,scope:q.scope,phase:q.phase,observed_at:new Date(now),provider_updated_at:new Date(q.providerUpdatedAt!),
       persisted_at:new Date(now),last_successful_refresh_at:new Date(now),provider_kickoff:new Date(q.providerKickoff),
       market_code:'MATCH_WINNER',outcome_code:q.outcome,line:null,decimal_odds:q.decimalOdds,status:'ACTIVE',...overrides};
   };
@@ -78,11 +78,12 @@ describe('listing Neon attach',()=>{
     fetch.mockRestore();
   });
 
-  it('uses request GEO rather than the UI locale for bookmaker eligibility',async()=>{
-    const query=vi.fn().mockResolvedValue({rows:[row()]});
-    const mxPage={...page(),locale:'mx' as const};
-    await attachListingOdds({query},mxPage,now,'BR');
-    expect(query.mock.calls[0][1][1]).toBe('BR');
+  it.each(['br','mx'] as const)('shows BR feed prices on %s pages without eligible commercial GEO',async locale=>{
+    const query=vi.fn().mockResolvedValue({rows:[row({geo_eligible:false})]});
+    const attached=await attachListingOdds({query},{...page(),locale},now,null);
+    expect(query.mock.calls[0][1][1]).toBeNull();
+    expect(attached.sections[0].fixtures[0].odds[0].outcomes[0].prices[0].decimalOdds).toBe(4.45);
+    expect(attached.paidOddsRequests).toBe(0);
     query.mockClear();
     const serieB={...page(),sections:[{...page().sections[0],slug:'brasileirao-serie-b',competition:'Brasileirão Série B'}]};
     await attachListingOdds({query},serieB,now,'BR');

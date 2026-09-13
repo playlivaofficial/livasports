@@ -5,12 +5,24 @@ import {publicOffer,resolveOffer} from './service';
 import {verifyOffer,clickDedup} from './tokens';
 import {recordClick,recordImpression} from './analytics';
 import {campaign,context,dependencies,key} from './fixtures.test-support';
+import {geoAllowed} from './policy';
 afterEach(()=>{vi.restoreAllMocks();vi.unstubAllEnvs();});
 async function fixture(){const tasks:Array<()=>Promise<void>>=[],c=campaign(),deps=dependencies(c);const offer=(await resolveOffer(context(),deps))!,value=publicOffer(offer,key);
   const services:CommercialServices={deps,key,geo:()=>true,defer:fn=>{tasks.push(fn);},click:vi.fn().mockResolvedValue('id'),impression:vi.fn().mockResolvedValue(undefined)};
   const request=(extra:Record<string,string>={},suffix='')=>new Request('https://livasports.com'+value.href+suffix,{headers:{'sec-fetch-user':'?1','sec-fetch-mode':'navigate','sec-fetch-dest':'document','user-agent':'Browser',...extra}});
   return {tasks,c,deps,offer,value,services,request};}
 describe('M8 canonical outbound and attribution',()=>{
+  it.each(['GE','MX','US',''])('does not issue BR banner or odds offers to visitor country %s',async country=>{
+    vi.stubEnv('VERCEL','1');vi.stubEnv('AFFILIATE_QA_GEO','BR');
+    const f=await fixture();f.services.geo=geoAllowed;f.deps.campaigns=vi.fn(f.deps.campaigns);
+    const contexts=[{locale:'br',bookmaker:'betsson',pagePath:'/br',placement:'home_right_rail'},
+      {locale:'br',bookmaker:'betsson',pagePath:'/br/jogo/home-x-away-abcdef0123456789',placement:'match_odds_table',fixturePublicId:'abcdef0123456789',market:'MATCH_WINNER'}];
+    const request=new Request('https://livasports.com/api/commercial/offers',{method:'POST',headers:{'content-type':'application/json','x-vercel-ip-country':country},body:JSON.stringify(contexts)});
+    const response=await offersRequest(request,f.services);
+    expect(response.status).toBe(200);expect(await response.json()).toEqual({offers:[null,null],providerRequests:0});
+    const outbound=await outboundRequest(f.request({'x-vercel-ip-country':country}),'betsson','slip_bookmaker_comparison',f.services);
+    expect(outbound.headers.get('location')??'').not.toContain('betsson.bet.br');expect(f.tasks).toHaveLength(0);
+  });
   it('generates signed opaque context with no destination/operator campaign secret',async()=>{const f=await fixture();expect(verifyOffer(f.value.token,key)).toMatchObject({context:context(),campaignId:f.c.id});expect(f.value.token).not.toContain('approved');expect(JSON.stringify(f.value)).not.toContain('LOCAL_TEST_ONLY');expect(verifyOffer(f.value.token.slice(0,-1)+'Z',key)).toBeNull();expect(verifyOffer(f.value.token,'different-key')).toBeNull();expect(verifyOffer(f.value.token,key,Date.now()+400000)).toBeNull();});
   it('issues safe redirect before best-effort analytics and preserves attribution',async()=>{const f=await fixture(),fetch=vi.spyOn(globalThis,'fetch');const r=await outboundRequest(f.request(),'betsson','slip_bookmaker_comparison',f.services);expect(r.status).toBe(303);expect(r.headers.get('location')).toBe(f.c.destination);expect(r.headers.get('x-robots-tag')).toContain('noindex');expect(f.services.click).not.toHaveBeenCalled();expect(f.tasks).toHaveLength(1);await f.tasks[0]();expect(f.services.click).toHaveBeenCalledWith(expect.objectContaining({page:{pageType:'HOME',pagePath:'/br'},context:context(),campaign:f.c}),expect.stringMatching(/^[a-f0-9-]{36}$/),'HUMAN_CLICK',key);expect(fetch).not.toHaveBeenCalled();});
   it('analytics write failure and missing consent cannot prevent verified navigation',async()=>{const f=await fixture();vi.mocked(f.services.click).mockRejectedValue(new Error('private secret'));vi.spyOn(console,'warn').mockImplementation(()=>{});expect((await outboundRequest(f.request(),'betsson','slip_bookmaker_comparison',f.services)).status).toBe(303);await expect(f.tasks[0]()).resolves.toBeUndefined();f.tasks.length=0;expect((await outboundRequest(f.request({dnt:'1'}),'betsson','slip_bookmaker_comparison',f.services)).status).toBe(303);expect(f.tasks).toHaveLength(0);});
