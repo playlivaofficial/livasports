@@ -9,7 +9,7 @@ export function PreviewControls({authorized,preview,configured,country}:{authori
   return <main className="owner-preview-page"><h1>Owner preview</h1><p>Brazil commercial experience · no VPN needed</p>
     {!configured?<p>Owner access has not been configured.</p>:!authorized?<form onSubmit={login}><label htmlFor="owner-key">Private owner access key</label><input id="owner-key" name="key" type="password" autoComplete="current-password" required maxLength={128}/><button disabled={busy}>Sign in</button></form>:<>
       <p>Connection: {country??'Unknown'} · Brazil preview: <strong>{preview?'ON':'OFF'}</strong></p>
-      <p>Preview clicks and impressions are QA_TEST. Test links open a confirmation here and never send a real conversion to Betsson.</p>
+      <p>Preview clicks and impressions are QA_TEST. Betsson test links open the approved sportsbook. LivaSports does not record these clicks as production conversions.</p>
       <button disabled={busy} onClick={()=>void run({action:'preview',enabled:!preview})}>{preview?'Turn Brazil preview off':'Turn Brazil preview on'}</button>
       <a href="/br">Open Brazil site →</a><button disabled={busy} onClick={()=>void run({action:'logout'})}>Sign out</button><p>Access expires after 8 hours. Keep your access key private.</p>
     </>}{error?<p role="alert">{error}</p>:null}</main>;

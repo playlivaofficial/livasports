@@ -18,7 +18,13 @@ function PublisherEmbed({offer,onFailure}:{offer:PublicOffer;onFailure:()=>void}
       if(event.origin!=='null'||event.source!==frame.current?.contentWindow||!event.data||event.data.type!=='livasports:creative'||event.data.key!==offer.token.slice(-43))return;
       if(event.data.kind==='failed'){onFailure();return;}
       if(event.data.kind==='ready'){setReady(true);return;}
-      if(event.data.kind==='click'&&ready&&!clicked.current&&!denied()&&navigator.userActivation.isActive){clicked.current=true;emitProductEvent({eventName:'affiliate_embed_click',offer:offer.token,...(qaBrowser()?{qa:true}:{})},'g1:click:'+offer.token.slice(-43));}
+      if(event.data.kind==='click'&&ready&&!clicked.current&&!denied()&&navigator.userActivation.isActive){
+        clicked.current=true;
+        if(offer.qaPreview&&offer.bookmaker==='betsson'){
+          // Only the first-party outbound route records this QA click.
+          window.open(offer.href,'_blank','noopener,noreferrer');
+        }else emitProductEvent({eventName:'affiliate_embed_click',offer:offer.token,...(qaBrowser()?{qa:true}:{})},'g1:click:'+offer.token.slice(-43));
+      }
     };
     window.addEventListener('message',message);
     return()=>{size.disconnect();near.disconnect();window.removeEventListener('message',message);document.removeEventListener('visibilitychange',visibility);window.removeEventListener('livasports:privacy-change',visibility);};

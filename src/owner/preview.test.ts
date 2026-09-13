@@ -4,10 +4,12 @@ import {accessKeyHash,authorizedOwnerKey,newOwnerSession,ownerCookie,previewBind
 import {ownerAction,ownerStatus} from './server';
 import {requestCommercialGeo,requestCountry} from '@/odds/commercial-geo';
 import {geoAllowed} from '@/affiliate/policy';
-import {offersRequest,outboundRequest,impressionRequest,creativeRequest,type CommercialServices} from '@/affiliate/server';
+import {offersRequest,outboundRequest,impressionRequest,creativeRequest,embedClickRequest,legacyOutbound,type CommercialServices} from '@/affiliate/server';
 import {campaign,context,dependencies,key} from '@/affiliate/fixtures.test-support';
 import {publicOffer,resolveOffer} from '@/affiliate/service';
-import {verifyOffer} from '@/affiliate/tokens';
+import {signOffer,verifyOffer} from '@/affiliate/tokens';
+import type {CommercialContext} from '@/affiliate/types';
+import {POST as productEvent} from '@/app/api/events/route';
 import {approvedImagePath,qaCreativeDocument} from './creative';
 
 const access='q'.repeat(43),origin='https://livasports.com';
@@ -62,16 +64,64 @@ describe('signed QA offer grants and analytics',()=>{
     expect((await (await offersRequest(req(new Headers({'x-vercel-ip-country':'GE'})),f.services)).json()).offers).toEqual([null]);
     expect((await (await offersRequest(req(sessionHeaders(false)),f.services)).json()).offers).toEqual([null]);
   });
-  it('forces QA_TEST server-side and issues only a first-party confirmation; copied grants never unlock ads',async()=>{
+  it('opens the approved destination with server-forced QA_TEST; copied grants never unlock ads',async()=>{
     const f=await commercialFixture();f.h.set('sec-fetch-site','same-origin');
     const click=(h:Headers)=>outboundRequest(new Request(origin+f.value.href,{headers:h}),'betsson','slip_bookmaker_comparison',f.services);
-    const r=await click(f.h);expect(r.status).toBe(303);expect(r.headers.get('location')).toBe(origin+'/owner/preview/click');
+    const r=await click(f.h);expect(r.status).toBe(303);expect(r.headers.get('location')).toBe(f.c.destination);
     await f.tasks[0]();expect(f.services.click).toHaveBeenCalledWith(expect.anything(),expect.any(String),'QA_TEST',key);
     await impressionRequest(new Request(origin+'/api/events',{headers:f.h}),{eventId:crypto.randomUUID(),eventName:'affiliate_impression',offer:f.value.token},f.services);
     await f.tasks[1]();expect(f.services.impression).toHaveBeenCalledWith(expect.anything(),expect.any(String),'QA_TEST');
     f.tasks.length=0;
     for(const h of [new Headers({'x-vercel-ip-country':'GE'}),new Headers({'x-vercel-ip-country':'BR'}),sessionHeaders(),sessionHeaders(false)]){const denied=await click(h);expect(denied.headers.get('location')).not.toContain('/owner/preview/click');expect(denied.headers.get('location')).not.toContain('betsson.bet.br');}
     expect(f.tasks).toHaveLength(0);
+  });
+  it.each(['home_top_banner','home_right_rail','match_odds_table'] as const)('preserves approved destination and campaign/placement attribution for preview %s',async placement=>{
+    const f=await commercialFixture();
+    const x:CommercialContext=placement==='match_odds_table'?{locale:'br',pagePath:'/br/jogo/home-x-away-abcdef0123456789',placement,bookmaker:'betsson',fixturePublicId:'abcdef0123456789',market:'MATCH_WINNER'}:{locale:'br',pagePath:'/br',placement,bookmaker:'betsson'};
+    f.c.placements.push(placement);
+    if(placement!=='match_odds_table'){
+      f.c.operatorCampaignId='7';f.c.creatives=[{id:'synthetic',locale:'br',placement,imageUrl:null,imageAlt:'Betsson',width:placement==='home_top_banner'?970:300,height:placement==='home_top_banner'?90:250,approved:true,enabled:true,startsAt:null,endsAt:null,delivery:'BETSSON_EMBED',embedSourceUrl:'https://c.bannerflow.net/a/'+'a'.repeat(24)+'?'+new URLSearchParams({display:'image',did:'b'.repeat(24),deeplink:'on',adgroupid:'c'.repeat(24),redirecturl:'https://record.betsson.bet.br/synthetic-test-only/7',media:'123456',campaign:'7'})}];
+    }
+    const offer=(await resolveOffer(x,f.deps))!,value=publicOffer(offer,key,Date.now(),'anonymous',previewBinding(f.h));
+    const token=verifyOffer(value.token,key)!;
+    const fetch=vi.spyOn(globalThis,'fetch');
+    const r=await outboundRequest(new Request(origin+value.href,{headers:f.h}),'betsson',placement,f.services);
+    expect(r.status).toBe(303);expect(r.headers.get('location')).toBe(f.c.destination);expect(f.tasks).toHaveLength(1);
+    await f.tasks[0]();expect(f.services.click).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({campaign:f.c,context:x}),token.viewId,'QA_TEST',key);
+    // A delayed event from the old embed cannot create a second click, even
+    // after the database's normal ten-second duplicate window has elapsed.
+    if(placement!=='match_odds_table'){
+      vi.spyOn(Date,'now').mockReturnValue(Date.now()+11000);
+      const r=await embedClickRequest(new Request(origin+'/api/events',{method:'POST',headers:{...Object.fromEntries(f.h),origin,'sec-fetch-site':'same-origin'}}),{eventId:crypto.randomUUID(),eventName:'affiliate_embed_click',offer:value.token},f.services);
+      expect(r.status).toBe(204);expect(f.tasks).toHaveLength(1);
+    }
+    expect(fetch).not.toHaveBeenCalled();expect(JSON.stringify(value)).not.toContain(f.c.destination!);
+  });
+  it.each(['disabled','unapproved','wrong-domain','expired-offer','expired-quote','url-override','modified-token'])('keeps the signed preview outbound boundary closed: %s',async change=>{
+    const f=await commercialFixture();let href=f.value.href;
+    if(change==='disabled')f.c.enabled=false;
+    if(change==='unapproved')f.c.approved=false;
+    if(change==='wrong-domain')f.c.destination='https://evil.invalid/';
+    if(change==='expired-quote')f.deps.pricing=async()=>null;
+    if(change==='expired-offer')href=href.split('?')[0]+'?offer='+signOffer({...verifyOffer(f.value.token,key)!,expiresAt:Date.now()-1},key);
+    if(change==='url-override')href+='&url=https://evil.invalid';
+    if(change==='modified-token')href+='x';
+    const r=await outboundRequest(new Request(origin+href,{headers:f.h}),'betsson','slip_bookmaker_comparison',f.services);
+    expect(r.headers.get('location')??'').not.toContain('betsson.bet.br');expect(r.headers.get('location')??'').not.toContain('evil.invalid');expect(f.tasks).toHaveLength(0);
+  });
+  it('preserves the normal BR redirect and keeps unsigned preview legacy links first-party',async()=>{
+    const f=await commercialFixture(),value=publicOffer(f.offer,key);
+    const normal=new Request(origin+value.href,{headers:{'x-vercel-ip-country':'BR','sec-fetch-user':'?1','sec-fetch-mode':'navigate','sec-fetch-dest':'document','user-agent':'Browser'}});
+    expect((await outboundRequest(normal,'betsson','slip_bookmaker_comparison',f.services)).headers.get('location')).toBe(f.c.destination);
+    await f.tasks[0]();expect(f.services.click).toHaveBeenCalledWith(expect.objectContaining({campaign:f.c,context:context()}),verifyOffer(value.token,key)!.viewId,'HUMAN_CLICK',key);
+    const legacy=await legacyOutbound(new Request(origin+'/go',{headers:f.h}),context(),f.services);
+    expect(legacy.headers.get('location')).toBe(origin+'/owner/preview/click');expect(f.tasks).toHaveLength(1);
+  });
+  it('drops preview product/conversion events before the unclassified production funnel',async()=>{
+    for(const eventName of ['affiliate_outbound_click','odds_bookmaker_click','REGISTRATION','FTD']){
+      const request=new Request(origin+'/api/events',{method:'POST',headers:{...Object.fromEntries(sessionHeaders()),origin,'content-type':'application/json'},body:JSON.stringify({eventId:crypto.randomUUID(),eventName})});
+      const r=await productEvent(request);expect(r.status).toBe(204);expect(r.headers.get('cache-control')).toBe('private, no-store');
+    }
   });
   it('requires the owner cookie even on the credentialless creative endpoint',async()=>{
     const f=await commercialFixture(),token=publicOffer({...f.offer,context:{locale:'br',pagePath:'/br',placement:'mobile_inline'},creative:{id:'test',placement:'mobile_inline',locale:'br',imageUrl:null,imageAlt:'test',width:320,height:100,approved:true,enabled:true,startsAt:null,endsAt:null,delivery:'BETSSON_EMBED'}},key,Date.now(),'anonymous',previewBinding(f.h)).token;

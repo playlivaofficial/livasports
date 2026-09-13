@@ -73,6 +73,9 @@ export async function embedClickRequest(request:Request,body:Record<string,unkno
   if(!analyticsAllowed(request)||request.headers.get('purpose')||request.headers.get('sec-purpose')||/bot|crawler|spider/i.test(request.headers.get('user-agent')??''))return response(204);
   try{const s=provided??services();if(!s.key)return response(204);const token=verifyOffer(body.offer,s.key);
     if(!token?.embedPermission)return response(400);if(!tokenAllowed(request,token,s))return response(204);
+    // Owner-preview Betsson creatives navigate through the signed outbound route.
+    // That route alone records the click, including for an older mounted creative.
+    if(token.context.bookmaker==='betsson'&&qaRequest(request,token))return response(204);
     const offer=await resolveOffer(token.context,s.deps,Date.now(),token.campaignId);if(offer?.creative?.delivery!=='BETSSON_EMBED')return response(204);
     deferred(s,()=>s.click(offer,token.viewId,qaRequest(request,token)||body.qa||request.headers.get('x-livasports-qa')==='1'?'QA_TEST':'HUMAN_CLICK',s.key!,'EMBED_ACTIVATION'));
     return response(204);
@@ -91,7 +94,7 @@ export async function outboundRequest(request:Request,bookmaker:string,placement
     const traffic=trafficClass(request,true,qaRequest(request,token)||url.searchParams.get('qa')==='1');
     if(analyticsAllowed(request)&&traffic!=='UNKNOWN')deferred(s,()=>s.click(offer,token.viewId,traffic,s.key!));
     console.info(`[LivaSports M8] ${JSON.stringify({event:'redirect-issued',placement,locale:token.context.locale,bookmaker,traffic,providerRequests:0})}`);
-    return new Response(null,{status:303,headers:{...commercialHeaders,Location:qaRequest(request,token)?qaDestination(request):destination}});
+    return new Response(null,{status:303,headers:{...commercialHeaders,Location:qaRequest(request,token)&&bookmaker!=='betsson'?qaDestination(request):destination}});
   }catch{console.warn('[LivaSports M8] {"event":"redirect-config-failed","providerRequests":0}');configurationFailure(provided);return response(503);}
 }
 export async function impressionRequest(request:Request,body:Record<string,unknown>,provided?:CommercialServices):Promise<Response>{
