@@ -15,7 +15,8 @@ export class NextServerCache implements Cache {
   delete(key: string): Promise<void> { return this.memory.delete(key); }
 
   getOrSet<T>(key: string, options: CacheEntryOptions, loader: () => Promise<T>): Promise<CacheResult<T>> {
-    return this.memory.getOrSet(key, options, () => unstable_cache(loader, ['livasports', key], {
+    // Keep process-local entries short so a ticker's cross-instance tag invalidation reaches readers promptly.
+    return this.memory.getOrSet(key, {...options,ttlSeconds:Math.min(options.ttlSeconds,30)}, () => unstable_cache(loader, ['livasports', key], {
       revalidate: options.ttlSeconds,
       tags: [...new Set([key, ...(options.tags ?? [])])],
     })());

@@ -119,7 +119,7 @@ export function EnglishMatchCenter({ locale, match, replay = false, commercialLo
 
   const kickoff=new Intl.DateTimeFormat(dictionary.locale,{dateStyle:'medium',timeStyle:'short',timeZone:dictionary.timeZone}).format(new Date(match.header.kickoff));
   const displayStatus=replay?FixtureStatus.LIVE:match.header.status;
-  const scheduled=displayStatus===FixtureStatus.SCHEDULED&&match.header.homeScore===null&&match.header.awayScore===null;
+  const scheduled=displayStatus===FixtureStatus.SCHEDULED;
   const kickoffTime=new Intl.DateTimeFormat(dictionary.locale,{hour:'2-digit',minute:'2-digit',timeZone:dictionary.timeZone}).format(new Date(match.header.kickoff));
   const brPath=brMatchPath('br',match.header.publicId,match.header.home.name,match.header.away.name);
   const banners=commercialLocale==='br'&&!replay;

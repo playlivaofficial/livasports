@@ -50,7 +50,7 @@ export function TeamIdentity({ name, shortName, imageUrl, size=26 }: { name: str
 }
 
 export function ScoreDisplay({ fixture }: { fixture: FixtureView }) {
-  const missing = fixture.homeScore === null || fixture.awayScore === null;
+  const missing = fixture.status === FixtureStatus.SCHEDULED || fixture.homeScore === null || fixture.awayScore === null;
   return <span className="score-stack" aria-label={missing ? undefined : `${fixture.homeScore} – ${fixture.awayScore}`}>
     <span className={`score-value ${missing ? 'is-empty' : ''}`}>{missing ? '—' : fixture.homeScore}</span>
     <span className={`score-value ${missing ? 'is-empty' : ''}`}>{missing ? '—' : fixture.awayScore}</span>

@@ -33,7 +33,7 @@ try{
   check('edge GEO must match BR and missing GEO stays blocked',geoAllowed(new Request('https://livasports.com',{headers:{'x-vercel-ip-country':'BR'}}),'br',{VERCEL:'1'})&&!geoAllowed(new Request('https://livasports.com',{headers:{'x-vercel-ip-country':'MX'}}),'br',{VERCEL:'1'})&&!geoAllowed(new Request('https://livasports.com'),'br',{VERCEL:'1'}));
   const rows=(await db.query(`SELECT f.public_id FROM fixtures f WHERE f.status='SCHEDULED' AND f.kickoff>now() AND EXISTS(SELECT 1 FROM odds_current o JOIN bookmakers b ON b.id=o.bookmaker_id WHERE o.fixture_id=f.id AND b.provider_slug='betsson' AND o.market_code='MATCH_WINNER' AND o.outcome_code='HOME') ORDER BY f.kickoff LIMIT 10`)).rows;
   const selections=rows.map(r=>({fixturePublicId:r.public_id,scope:SLIP_SCOPE,market:'MATCH_WINNER' as const,outcome:'HOME' as const,line:null}));
-  const data=await readSlipComparison(db,selections.map(s=>s.fixturePublicId),'br');
+  const data=await readSlipComparison(db,selections.map(s=>s.fixturePublicId),'BR');
   const comparison=buildSlipComparison(selections.slice(0,3),'br',data.fixtures,data.bookmakers,Date.now());
   check('Betano odds eligibility remains separate from CTA',comparison.bookmakers.some(b=>b.bookmakerId==='betano.bet.br'&&b.geoEligibility.eligible&&b.ctaState!=='ENABLED'));
   const health=await affiliateHealth(db);

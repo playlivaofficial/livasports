@@ -179,7 +179,7 @@ export function MatchCenter({ locale, match, replay = false, commercialLocale }:
   const context={fixtureId:match.header.id,competitionId:match.header.competitionId,locale};
   const kickoff=new Intl.DateTimeFormat(dictionary.locale,{dateStyle:'medium',timeStyle:'short',timeZone:dictionary.timeZone}).format(new Date(match.header.kickoff));
   const displayStatus=replay?FixtureStatus.LIVE:match.header.status;
-  const scheduled=displayStatus===FixtureStatus.SCHEDULED&&match.header.homeScore===null&&match.header.awayScore===null;
+  const scheduled=displayStatus===FixtureStatus.SCHEDULED;
   const kickoffTime=new Intl.DateTimeFormat(dictionary.locale,{hour:'2-digit',minute:'2-digit',timeZone:dictionary.timeZone}).format(new Date(match.header.kickoff));
   return <div lang={dictionary.locale} className="app-shell match-shell"><SiteHeader locale={locale} activePage="football" localeHrefs={alternate} contentId="match-content"/>
     <main id="match-content" className="match-container"><h1 className="sr-only">{match.header.home.name} × {match.header.away.name}</h1><Link href={localeRoutes[locale].football} className="match-back">← {text.back}</Link>

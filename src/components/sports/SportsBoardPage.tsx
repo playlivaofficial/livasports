@@ -50,7 +50,7 @@ export async function SportsBoardPage({locale,page,searchParams}:{locale:Interfa
     <SiteHeader locale={locale} activePage={page}/>
     <main id="fixtures-content" className="page-container">
       {sponsor('home_top_banner')}
-      <header className="board-heading"><div><span className="board-eyebrow">FOOTBALL</span><h1>{selectedCompetition?.competition??dictionary.pages[page].title}</h1></div>
+      <header className="board-heading"><div><span className="board-eyebrow">{locale==='br'?'FUTEBOL':locale==='mx'?'FÚTBOL':'FOOTBALL'}</span><h1>{selectedCompetition?.competition??dictionary.pages[page].title}</h1></div>
         <span className={`freshness is-${data.sportsData.freshness}`}><span className="freshness-dot"/>{data.sportsData.freshness==='fresh'?text.fresh:data.sportsData.freshness==='stale'?text.delayed:text.unavailable}</span>
       </header>
       {sponsor('mobile_inline')}

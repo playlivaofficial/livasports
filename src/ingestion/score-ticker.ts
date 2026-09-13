@@ -6,6 +6,7 @@ import {SportmonksAdapter} from '@/providers/sportmonks/SportmonksAdapter';
 import {PostgresFootballRepository} from '@/repositories/postgres-football.repository';
 import {PostgresProviderEntityMappingRepository} from '@/repositories/postgres-provider-mapping.repository';
 import {SafeProviderError} from '@/providers/safe-error';
+import type {CacheInvalidator} from '@/cache/invalidation';
 
 export function scoreTickDue(last:{started_at:Date;status:string;error_message?:string|null}|undefined,now=Date.now()):boolean {
   if(!last)return true;
@@ -13,7 +14,7 @@ export function scoreTickDue(last:{started_at:Date;status:string;error_message?:
   return now-last.started_at.getTime()>=cooldown;
 }
 /** Reuses the existing external ticker and sports request accounting. Never invoked by navigation. */
-export async function runScoreTicker(db:DatabaseClient,key:string|undefined){
+export async function runScoreTicker(db:DatabaseClient,key:string|undefined,invalidator?:CacheInvalidator){
   if(!key)return {state:'NOT_CONFIGURED',providerRequests:0};
   return db.transaction(async tx=>{
     if(!(await tx.query("SELECT pg_try_advisory_xact_lock(hashtext('livasports-score-ticker')) AS acquired")).rows[0]?.acquired)
@@ -22,7 +23,7 @@ export async function runScoreTicker(db:DatabaseClient,key:string|undefined){
     if(!scoreTickDue(last as {started_at:Date;status:string;error_message:string}|undefined))return {state:'NOT_DUE',providerRequests:0};
     const repository=new PostgresFootballRepository(db),gateway=new HttpSportmonksGateway(key);
     const mappings=new ProviderMappingService(new PostgresProviderEntityMappingRepository(db));
-    const service=new FootballIngestionService(new SportmonksAdapter(gateway,mappings,code=>repository.findCountryByCode(code)),repository);
+    const service=new FootballIngestionService(new SportmonksAdapter(gateway,mappings,code=>repository.findCountryByCode(code)),repository,undefined,undefined,invalidator);
     try{return {state:'SUCCEEDED',...await service.syncFixtureScores(50)};}
     catch(error){return {state:'FAILED',providerRequests:gateway.requestCount(),error:error instanceof SafeProviderError?'SPORTMONKS_HTTP_'+error.context.status:'SCORES_SYNC_FAILED'};}
   });
