@@ -1,4 +1,5 @@
 import {describe,it,expect,vi} from 'vitest';
+import {freshnessTtlMs} from '@/odds/scheduler-policy';
 import {ComparisonLoader,comparisonCacheKey} from './comparison-loader';
 import {comparisonFixture} from './comparison-fixtures.test-support';
 
@@ -13,7 +14,7 @@ describe('M7 bounded read/cache path',()=>{
     expect(metrics.mock.calls.map(c=>c[0].cache)).toEqual(['MISS','HIT']);expect(fetch).not.toHaveBeenCalled();fetch.mockRestore();
   });
   it('isolates locale and expires cache at the first quote boundary, with no stale-while-error',async()=>{
-    const f=comparisonFixture();let now=f.now+899000;const read=vi.fn().mockResolvedValue(f.data);const loader=new ComparisonLoader(read,()=>now);
+    const f=comparisonFixture();let now=f.now+freshnessTtlMs(1,2)-1000;const read=vi.fn().mockResolvedValue(f.data);const loader=new ComparisonLoader(read,()=>now);
     expect((await loader.resolve(f.selections,'br')).comparison.bookmakers[0].complete).toBe(true);
     now+=1000;expect((await loader.resolve(f.selections,'br')).comparison.bookmakers[0].complete).toBe(false);expect(read).toHaveBeenCalledTimes(2);
     expect((await loader.resolve(f.selections,'mx')).comparison.bookmakers).toEqual([]);expect(read).toHaveBeenCalledTimes(3);

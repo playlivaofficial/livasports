@@ -5,6 +5,7 @@ export type MatchConfidence = 'EXACT' | 'HIGH_CONFIDENCE' | 'AMBIGUOUS' | 'NO_MA
 export const SELECTIONS: Record<OddsMarket, readonly OddsOutcome[]> = {
   MATCH_WINNER: ['HOME','DRAW','AWAY'], TOTAL_GOALS: ['OVER','UNDER'], BTTS: ['YES','NO'],
 };
+/** Near-kickoff one-feed paid interval. Public current-price lifetime follows scheduler cadence plus one tick. */
 export const ODDS_TTL_MS = 15 * 60 * 1000;
 export const KICKOFF_TOLERANCE_MS = 10 * 60 * 1000;
 export interface CanonicalOddsFixture {

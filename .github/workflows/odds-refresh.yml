@@ -1,0 +1,52 @@
+# External ticker for the existing production scheduler. Does not hold provider or database credentials.
+name: Odds scheduler ticker
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: livasports-odds-refresh
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    permissions:
+      contents: none
+    env:
+      CRON_SECRET: ${{ secrets.CRON_SECRET }}
+    steps:
+      - name: Invoke existing production scheduler
+        run: |
+          set -euo pipefail
+          if [ -z "${CRON_SECRET}" ]; then
+            echo "CRON_SECRET is not configured in GitHub Actions" >&2
+            exit 1
+          fi
+          code=$(curl -sS -o /tmp/odds-refresh.json -w '%{http_code}' \
+            --max-time 175 \
+            -X GET 'https://livasports.com/api/internal/odds-refresh' \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            -H 'Accept: application/json' \
+            -H 'Cache-Control: no-store')
+          state=$(jq -r '.state // .error // empty' /tmp/odds-refresh.json)
+          requests=$(jq -r '.requests // 0' /tmp/odds-refresh.json)
+          echo "event=${{ github.event_name }} http=${code} state=${state} requests=${requests}"
+          if [ "${code}" = "409" ]; then
+            echo "healthy overlap: backend lease already running"
+            exit 0
+          fi
+          if [ "${code}" != "200" ]; then
+            echo "scheduler http ${code} state=${state}" >&2
+            exit 1
+          fi
+          if [ "${state}" != "SUCCEEDED" ] && [ "${state}" != "PARTIAL" ]; then
+            echo "unexpected scheduler state ${state}" >&2
+            exit 1
+          fi
+          echo "healthy tick including no-work requests=0"

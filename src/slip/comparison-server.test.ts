@@ -1,5 +1,6 @@
 import {describe,it,expect,vi,afterEach} from 'vitest';
 vi.mock('server-only',()=>({}));
+import {freshnessTtlMs} from '@/odds/scheduler-policy';
 import {compareSlipRequest,currentSlipDestination,slipOutboundRequest} from './comparison-server';
 import {parseComparisonEvent,recordComparisonEvent} from './comparison-analytics-server';
 import {readSlipComparison} from '@/odds/read-repository';
@@ -34,7 +35,7 @@ describe('M7 request/security boundary',()=>{
   });
   it('refuses a CTA with expired, started, partial or unconfigured bookmaker coverage',async()=>{
     for(const scenario of ['expired','started','partial','unconfigured','unapproved']){
-      const f=comparisonFixture(3,Date.now()-(scenario==='expired'?900001:0));const r=f.data.fixtures.get(f.selections[0].fixturePublicId)!;
+      const f=comparisonFixture(3,Date.now()-(scenario==='expired'?freshnessTtlMs(1,2)+1:0));const r=f.data.fixtures.get(f.selections[0].fixturePublicId)!;
       if(scenario==='started'){r.fixture.status='LIVE';r.snapshot.fixtureStatus='LIVE';}
       if(scenario==='partial')r.snapshot.quotes.shift();
       if(scenario==='unconfigured')f.data.bookmakers[0].affiliateEligibility.destinationConfigured=false;

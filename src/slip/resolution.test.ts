@@ -1,7 +1,8 @@
 import {describe,it,expect} from 'vitest';
 import {guardResolved,markPriceChange,resolveSelection,type SlipFixtureRead} from './resolution';
 import {SLIP_SCOPE,type CanonicalSelection} from './types';
-import {ODDS_TTL_MS,type ReadOddsQuote} from '@/odds/types';
+import {freshnessTtlMs} from '@/odds/scheduler-policy';
+import type {ReadOddsQuote} from '@/odds/types';
 const now=Date.parse('2026-09-12T18:00:00Z');
 export const testPick:CanonicalSelection={fixturePublicId:'1111111111111111',scope:SLIP_SCOPE,market:'MATCH_WINNER',outcome:'HOME',line:null};
 const quote:ReadOddsQuote={fixtureId:'test',providerFixtureId:'test-provider',bookmaker:'betano.bet.br',bookmakerId:'test-book',bookmakerName:'Betano BR',market:'MATCH_WINNER',outcome:'HOME',line:null,
@@ -22,10 +23,10 @@ describe('current reference, not a frozen bet',()=>{
     const result=resolveSelection(testPick,{...testRead,snapshot:{...testRead.snapshot,quotes:[{...quote,status}]}},now);
     expect(result.state).toBe(status);expect(result.price).toBeNull();expect(result.selection).toEqual(testPick);
   });
-  it('expires at 15m, even in an open or offline page',()=>{
-    const result=resolveSelection(testPick,testRead,now);
-    expect(resolveSelection(testPick,testRead,now+ODDS_TTL_MS).state).toBe('STALE');
-    expect(guardResolved(result,now+ODDS_TTL_MS).price).toBeNull();expect(guardResolved(result,now,false).price).toBeNull();
+  it('expires at the one-feed cadence plus one tick, even in an open or offline page',()=>{
+    const result=resolveSelection(testPick,testRead,now);const ttl=freshnessTtlMs(1,1);
+    expect(resolveSelection(testPick,testRead,now+ttl).state).toBe('STALE');
+    expect(guardResolved(result,now+ttl).price).toBeNull();expect(guardResolved(result,now,false).price).toBeNull();
   });
   it('never renders a price on an inconsistent unavailable response or an invalid decimal',()=>{
     const value=resolveSelection(testPick,testRead,now);
@@ -58,7 +59,7 @@ describe('current reference, not a frozen bet',()=>{
     const value=resolveSelection(testPick,testRead,now);
     expect(markPriceChange(value,undefined).state).toBe('CURRENT');expect(markPriceChange(value,'2.123456780').state).toBe('CURRENT');
     expect(markPriceChange(value,'2.5').state).toBe('PRICE_CHANGED');
-    expect(guardResolved(markPriceChange(value,'2.5'),now+ODDS_TTL_MS).price).toBeNull();
+    expect(guardResolved(markPriceChange(value,'2.5'),now+freshnessTtlMs(1,1)).price).toBeNull();
     expect(markPriceChange({...value,price:null,state:'SUSPENDED'},'2.5').state).toBe('SUSPENDED');
   });
 });

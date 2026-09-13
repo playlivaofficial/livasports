@@ -1,4 +1,5 @@
 import {describe,it,expect} from 'vitest';
+import {freshnessTtlMs} from '@/odds/scheduler-policy';
 import {buildSlipComparison,guardSlipComparison} from './comparison';
 import {multiplyDecimalOdds,formatCombinedOdds,compareDecimal,validDecimalOdds} from './decimal';
 import {comparisonFixture} from './comparison-fixtures.test-support';
@@ -47,8 +48,8 @@ describe('M7 bookmaker completeness and price-only ranking',()=>{
     const f=comparisonFixture();const r=f.data.fixtures.get(f.selections[0].fixturePublicId)!;r.fixture.status=status;r.snapshot.fixtureStatus=status;
     for(const b of run(f).bookmakers){expect(b.complete).toBe(false);expect(b.invalidSelections).toHaveLength(1);expect(b.ctaState).toBe('INCOMPLETE');}
   });
-  it('expires at the original 15 minute boundary and on the earlier provider kickoff',()=>{
-    const f=comparisonFixture();f.now+=900000;expect(run(f).bookmakers.every(b=>!b.complete&&b.combinedDecimalOdds===null)).toBe(true);
+  it('expires at the two-feed near-kickoff cadence plus one tick, and on the earlier provider kickoff',()=>{
+    const f=comparisonFixture();f.now+=freshnessTtlMs(1,2);expect(run(f).bookmakers.every(b=>!b.complete&&b.combinedDecimalOdds===null)).toBe(true);
     const g=comparisonFixture();g.data.fixtures.get(g.selections[0].fixturePublicId)!.snapshot.quotes[0].providerKickoff=new Date(g.now-1).toISOString();
     expect(run(g).bookmakers[0].selectionQuotes[0].state).toBe('MATCH_STARTED');
   });
@@ -77,7 +78,7 @@ describe('M7 bookmaker completeness and price-only ranking',()=>{
   });
   it('browser clock, offline and error guards withdraw totals, best labels and CTAs while keeping intent',()=>{
     const f=comparisonFixture();const current=run(f);
-    for(const [now,online] of [[f.now+900000,true],[f.now,false],[f.now+3600000,true]] as const){
+    for(const [now,online] of [[f.now+freshnessTtlMs(1,2),true],[f.now,false],[f.now+3600000,true]] as const){
       const guarded=guardSlipComparison(current,3,now,online);for(const b of guarded.bookmakers){expect(b.complete).toBe(false);expect(b.best).toBe(false);expect(b.combinedDecimalOdds).toBeNull();expect(b.ctaState).toBe('INCOMPLETE');expect(b.selectionQuotes.map(q=>q.selection)).toEqual(f.selections);}
     }
     expect(current.bookmakers[0].complete).toBe(true);

@@ -1,4 +1,13 @@
-import { KICKOFF_TOLERANCE_MS, ODDS_TTL_MS, SELECTIONS, type OddsComparison, type OddsMarket, type OddsReadSnapshot, type ReadOddsQuote, type OddsStatus } from './types';
+import { KICKOFF_TOLERANCE_MS, SELECTIONS, type OddsComparison, type OddsMarket, type OddsReadSnapshot, type ReadOddsQuote, type OddsStatus } from './types';
+import { freshnessTtlMs } from './scheduler-policy';
+
+export function publicFeedCount(snapshot:OddsReadSnapshot):number {
+  return new Set(snapshot.quotes.filter(q=>q.geoEligible).map(q=>q.bookmaker)).size;
+}
+export function quoteFreshnessTtlMs(quote:ReadOddsQuote,snapshot:OddsReadSnapshot,now:number):number {
+  const close=Math.min(Date.parse(snapshot.kickoff),Date.parse(quote.providerKickoff));
+  return freshnessTtlMs((close-now)/3600000,publicFeedCount(snapshot));
+}
 
 export function quoteState(quote:ReadOddsQuote,snapshot:OddsReadSnapshot,now:number):OddsStatus {
   if(snapshot.fixtureStatus!=='SCHEDULED'||now>=Math.min(Date.parse(snapshot.kickoff),Date.parse(quote.providerKickoff)))return 'CLOSED';
@@ -7,9 +16,9 @@ export function quoteState(quote:ReadOddsQuote,snapshot:OddsReadSnapshot,now:num
   if(quote.scope!=='FULL_TIME_REGULATION'||quote.phase!=='PREGAME')return 'CLOSED';
   if(quote.status!=='ACTIVE')return quote.status;
   const updated=Date.parse(quote.providerUpdatedAt??'');const observed=Date.parse(quote.observedAt);
-  const refreshed=Date.parse(quote.lastSuccessfulRefreshAt);
-  if(!Number.isFinite(updated)||!Number.isFinite(observed)||!Number.isFinite(refreshed)||observed>now+60000||updated>observed+60000||refreshed>now+60000||
-    now-Math.min(observed,refreshed)>=ODDS_TTL_MS)return 'STALE';
+  const refreshed=Date.parse(quote.lastSuccessfulRefreshAt);const ttl=quoteFreshnessTtlMs(quote,snapshot,now);
+  if(!Number.isFinite(updated)||!Number.isFinite(observed)||!Number.isFinite(refreshed)||ttl<=0||observed>now+60000||updated>observed+60000||refreshed>now+60000||
+    now-Math.min(observed,refreshed)>=ttl)return 'STALE';
   return 'ACTIVE';
 }
 export function buildComparison(snapshot:OddsReadSnapshot,market:OddsMarket,now=Date.now(),actions:Record<string,string>={}):OddsComparison {
@@ -23,7 +32,8 @@ export function buildComparison(snapshot:OddsReadSnapshot,market:OddsMarket,now=
       const matches=prices.filter(q=>q.outcome===outcome);const q=matches[0];
       const state=matches.length===1?quoteState(q,snapshot,now):'UNAVAILABLE';
       const valid=q&&Number.isFinite(Number(q.decimalOdds))&&Number(q.decimalOdds)>1&&Number(q.decimalOdds)<=1000;
-      const expires=q?Math.min(Date.parse(q.observedAt)+ODDS_TTL_MS,Date.parse(q.lastSuccessfulRefreshAt)+ODDS_TTL_MS,Date.parse(snapshot.kickoff),Date.parse(q.providerKickoff)):NaN;
+      const ttl=q?quoteFreshnessTtlMs(q,snapshot,now):0;
+      const expires=q?Math.min(Date.parse(q.observedAt)+ttl,Date.parse(q.lastSuccessfulRefreshAt)+ttl,Date.parse(snapshot.kickoff),Date.parse(q.providerKickoff)):NaN;
       return {outcome,decimalOdds:state==='ACTIVE'&&valid?q.decimalOdds:null,state:valid?state:'UNAVAILABLE' as const,best:false,
         expiresAt:Number.isFinite(expires)?new Date(expires).toISOString():null};
     });

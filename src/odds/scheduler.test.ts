@@ -2,7 +2,7 @@ import {describe,it,expect,vi,beforeEach} from 'vitest';
 import type {DatabaseClient,QueryExecutor} from '@/database/client';
 import {OddsBudgetStopped} from './budget';
 const mocked=vi.hoisted(()=>({snapshot:vi.fn(),persist:vi.fn(),start:vi.fn(),account:vi.fn()}));
-vi.mock('@/providers/oddspapi/M5OddsPapiAdapter',()=>({M5OddsPapiAdapter:class {snapshot=mocked.snapshot;accountPeriod=mocked.account;requestCount(){return 2;}}}));
+vi.mock('@/providers/oddspapi/M5OddsPapiAdapter',()=>({M5OddsPapiAdapter:class {snapshot=mocked.snapshot;accountPeriod=mocked.account;requestCount(){return mocked.snapshot.mock.calls.length;}}}));
 vi.mock('@/providers/oddspapi/m5-normalizer',()=>({M5_TOURNAMENTS:[{id:'325',canonical:'brasileirao-serie-a'}],verifyCatalog:vi.fn()}));
 vi.mock('./ingestion',()=>({startOddsJob:mocked.start,persistSnapshot:mocked.persist,canonicalFixtures:async()=>[{id:'test-only',competition:'brasileirao-serie-a',status:'SCHEDULED',kickoff:new Date(Date.now()+3600000).toISOString()}]}));
 import {runOddsScheduler,safeSchedulerError} from './scheduler';
@@ -29,6 +29,19 @@ describe('scheduler independent failure and durable completion',()=>{
   it('never calls a provider when another lease owns the batch',async()=>{
     mocked.start.mockRejectedValueOnce(new Error('ODDS_WORKER_ALREADY_RUNNING'));
     await expect(runOddsScheduler(database().db,'test-only')).rejects.toThrow('ALREADY_RUNNING');expect(mocked.snapshot).not.toHaveBeenCalled();
+  });
+  it('completes a no-work tick as SUCCEEDED with zero provider calls when nothing is due',async()=>{
+    const query=vi.fn(async(sql:string)=>{
+      if(sql.includes('odds_provider_catalog'))return {rows:[{markets:[],tournaments:[]}],rowCount:1};
+      if(sql.includes('FROM bookmakers b'))return {rows:['betano.bet.br','betsson'].map(provider_slug=>({
+        provider_slug,tournament_id:'325',public_eligible:true,useful_coverage:true,last_success_at:new Date()}))};
+      return {rows:[],rowCount:0};
+    });
+    const typed=query as unknown as QueryExecutor['query'];
+    const idle={query:typed,transaction:async w=>w({query:typed}),close:async()=>{}} as DatabaseClient;
+    const result=await runOddsScheduler(idle,'test-only','AUTOMATIC');
+    expect(result).toMatchObject({state:'SUCCEEDED',requests:0,trigger:'AUTOMATIC',feeds:[]});
+    expect(mocked.snapshot).not.toHaveBeenCalled();expect(mocked.account).not.toHaveBeenCalled();
   });
   it('never persists provider response bodies or arbitrary error messages into health',()=>{
     expect(safeSchedulerError(new Error(JSON.stringify({status:400,message:'private'})))).toBe('ODDSPAPI_HTTP_400');

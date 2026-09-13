@@ -1,5 +1,4 @@
-import {quoteState} from '@/odds/comparison';
-import {ODDS_TTL_MS} from '@/odds/types';
+import {quoteFreshnessTtlMs,quoteState} from '@/odds/comparison';
 import type {SiteLocale} from '@/config/i18n';
 import type {SlipFixtureRead} from './resolution';
 import type {CanonicalSelection} from './types';
@@ -23,7 +22,8 @@ function selectionQuote(selection:CanonicalSelection,read:SlipFixtureRead|null,b
   const state=quoteState(quote,snapshot,now);
   if(state!=='ACTIVE')return {...base,state:['STALE','SUSPENDED','CLOSED'].includes(state)?state:'UNAVAILABLE',reason:null};
   if(!validDecimalOdds(quote.decimalOdds))return {...base,reason:'INVALID_QUOTE'};
-  const expires=Math.min(close,Date.parse(quote.observedAt)+ODDS_TTL_MS,Date.parse(quote.lastSuccessfulRefreshAt)+ODDS_TTL_MS);
+  const ttl=quoteFreshnessTtlMs(quote,snapshot,now);
+  const expires=Math.min(close,Date.parse(quote.observedAt)+ttl,Date.parse(quote.lastSuccessfulRefreshAt)+ttl);
   if(!Number.isFinite(expires)||now>=expires)return {...base,state:'STALE',reason:null};
   return {...base,state:'CURRENT',reason:null,decimalOdds:quote.decimalOdds,expiresAt:new Date(expires).toISOString()};
 }
