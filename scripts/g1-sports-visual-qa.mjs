@@ -44,4 +44,3 @@ try{
   console.log(JSON.stringify({status:'PASS',checks:checks.length,pages:paths.length,maxCLS:Math.max(...layouts.map(x=>x.cls??0)),adRequests}));
 }catch(error){console.error(error.message);process.exitCode=1;if(p)await p.screenshot(`output/g1-evidence/${phase}-failure.png`).catch(()=>{});}
 finally{await b.close();}
-

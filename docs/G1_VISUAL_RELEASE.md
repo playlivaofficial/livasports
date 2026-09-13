@@ -31,4 +31,3 @@ The measured BR home asset delta from deployed M8 is −275 bytes of gzip JavaSc
 Intensive local navigation produced Next.js “destination stream closed early” entries when pending page streams were canceled. Browser checks recorded no page failures or runtime exceptions. Production logs are reviewed separately after deployment.
 
 Only this visual release is authorized for main and the existing LivaSports Vercel project. Final deployed SHA, production QA and the stop-state are recorded in the separate final release report.
-

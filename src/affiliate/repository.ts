@@ -12,7 +12,7 @@ export async function readCampaigns(db:QueryExecutor,locale:'br'|'mx'):Promise<C
     g.affiliate_enabled,g.odds_enabled,g.comparison_enabled,g.verified_at,g.verification_state,
     coalesce((SELECT jsonb_agg(jsonb_build_object('id',s.id,'placement',s.placement,'locale',s.locale,'imageUrl',s.image_url,
       'imageAlt',s.image_alt,'width',s.creative_width,'height',s.creative_height,'approved',s.approved_at IS NOT NULL,
-      'enabled',s.enabled,'startsAt',s.starts_at,'endsAt',s.ends_at)) FROM profile_sponsor_campaigns s WHERE s.affiliate_campaign_id=ac.id),'[]') AS creatives
+      'enabled',s.enabled,'startsAt',s.starts_at,'endsAt',s.ends_at,'delivery',s.delivery_type,'embedSourceUrl',s.embed_source_url)) FROM profile_sponsor_campaigns s WHERE s.affiliate_campaign_id=ac.id),'[]') AS creatives
     FROM affiliate_campaigns ac JOIN affiliate_links al ON al.id=ac.affiliate_link_id
     JOIN bookmakers b ON b.id=al.bookmaker_id JOIN countries c ON c.id=al.country_id
     JOIN bookmaker_geo_availability g ON g.bookmaker_id=b.id AND g.country_id=c.id
@@ -39,7 +39,7 @@ export async function readPageContext(db:QueryExecutor,context:CommercialContext
     return r&&matchPath(locale,r.public_id,r.home,r.away)===context.pagePath?{pageType:type,pagePath:context.pagePath,fixtureId:r.id,competitionId:r.competition_id}:null;
   }
   if(type==='TEAM'||type==='PLAYER'){
-    const r=(await db.query(`SELECT id,public_id,name FROM ${type==='TEAM'?'teams':'players'} WHERE public_id=$1 LIMIT 1`,[publicId])).rows[0];
+    const r=(await db.query(`SELECT id,public_id,${type==='TEAM'?'name':'display_name AS name'} FROM ${type==='TEAM'?'teams':'players'} WHERE public_id=$1 LIMIT 1`,[publicId])).rows[0];
     const path=type==='TEAM'?teamPath:playerPath;
     return r&&path(locale,r.public_id,r.name)===context.pagePath?{pageType:type,pagePath:context.pagePath,...(type==='TEAM'?{teamId:r.id}:{playerId:r.id})}:null;
   }

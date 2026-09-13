@@ -13,7 +13,7 @@ try{
   else if(command==='configure'){
     const file=process.env.LIVASPORTS_AFFILIATE_CONFIG_FILE;if(!file)throw Error('SECURE_CONFIGURATION_FILE_REQUIRED');
     const bytes=await readFile(file);if(bytes.length>32768)throw Error('CONFIGURATION_TOO_LARGE');const config=parseCampaignConfiguration(JSON.parse(bytes.toString('utf8')));if(!config)throw Error('INVALID_APPROVED_CONFIGURATION');
-    for(const creative of config.creatives??[])await access(resolve('public','.'+creative.imageUrl));result=await configureCampaign(db,config);
+    for(const creative of config.creatives??[])if(creative.delivery!=='BETSSON_EMBED')await access(resolve('public','.'+creative.imageUrl));result=await configureCampaign(db,config);
   }else throw Error('UNSUPPORTED_OPERATION');
   console.log(JSON.stringify(result));
 }catch{console.error('M8_OPERATION_FAILED; private configuration is never printed');process.exitCode=1;}finally{await db.close();}

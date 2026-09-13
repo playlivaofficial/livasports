@@ -3,7 +3,8 @@ import type {SiteLocale} from '@/config/i18n';
 // Only jurisdiction-specific destinations. Generic .com never proves BR/MX availability.
 const hosts:Record<string,readonly string[]>={
   'betano.bet.br:br':['betano.bet.br','www.betano.bet.br'],
-  'betsson:br':['betsson.bet.br','www.betsson.bet.br'],
+  // Exact BR tracking host observed in the authenticated approved sportsbook link.
+  'betsson:br':['betsson.bet.br','www.betsson.bet.br','record.betsson.bet.br'],
   'betsson:mx':['betsson.mx','www.betsson.mx'],
 };
 export const ODDS_PLACEMENT='match-odds';

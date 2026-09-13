@@ -34,5 +34,5 @@ export function CompetitionSection({ locale, section, pagePath }: { locale: Site
 }
 
 export function FixtureList({ locale, sections, pagePath }: { locale: SiteLocale; sections: readonly CompetitionSectionView[];pagePath?:string }) {
-  return <div className="fixture-list">{sections.map((section,index) => <CompetitionSection key={section.competition} locale={locale} section={section} pagePath={index===0?pagePath:undefined}/>)}</div>;
+  return <div className="fixture-list">{sections.map((section,index) => <div className="fixture-section-group" key={section.competition}><CompetitionSection locale={locale} section={section} pagePath={index===0?pagePath:undefined}/></div>)}</div>;
 }

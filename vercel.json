@@ -1,0 +1,8 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "git": {
+    "deploymentEnabled": {
+      "codex/g1-betsson-br-visual-refresh": false
+    }
+  }
+}

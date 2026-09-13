@@ -1,5 +1,6 @@
 import {parseResolutionRequest} from '@/slip/types';
 import {safeAffiliateDestination} from '@/odds/affiliate';
+import {embedDimensions,safeBetssonEmbed} from './embed-policy';
 import {placements,type Campaign,type CommercialContext,type Creative,type PageType,type TrafficClass} from './types';
 
 export function pageType(path:string):PageType|null {
@@ -37,11 +38,11 @@ export function campaignDestination(c:Campaign,context:CommercialContext,now:num
   const destination=safeAffiliateDestination(c.bookmaker,c.locale,c.destination);if(!destination)return null;
   return c.domains.includes(new URL(destination).hostname)?destination:null;
 }
-export function validCreative(c:Creative,context:CommercialContext,now:number){
+export function validCreative(c:Creative,context:CommercialContext,now:number,campaignId?:string){
   return c.enabled&&c.approved&&c.placement===context.placement&&c.locale===context.locale&&
     (!c.startsAt||Number.isFinite(Date.parse(c.startsAt))&&now>=Date.parse(c.startsAt))&&(!c.endsAt||Number.isFinite(Date.parse(c.endsAt))&&now<Date.parse(c.endsAt))&&
-    // Approved first-party raster assets only: no remote tracking pixel or executable SVG.
-    /^\/sponsors\/[a-zA-Z0-9/_-]+\.(png|webp|jpg|jpeg|avif)$/.test(c.imageUrl)&&c.imageAlt.trim().length>0&&c.imageAlt.length<=300&&
+    (c.delivery==='BETSSON_EMBED'?c.locale==='br'&&c.imageUrl===null&&embedDimensions(c.placement,c.width,c.height)&&!!campaignId&&!!safeBetssonEmbed(c.embedSourceUrl,campaignId):
+      (!c.delivery||c.delivery==='IMAGE')&&!c.embedSourceUrl&&typeof c.imageUrl==='string'&&/^\/sponsors\/[a-zA-Z0-9/_-]+\.(png|webp|jpg|jpeg|avif)$/.test(c.imageUrl))&&c.imageAlt.trim().length>0&&c.imageAlt.length<=300&&
     Number.isInteger(c.width)&&c.width>=100&&c.width<=2400&&Number.isInteger(c.height)&&c.height>=40&&c.height<=1600;
 }
 export function geoAllowed(request:Request,locale:'br'|'mx',env:Readonly<Record<string,string|undefined>>=process.env){

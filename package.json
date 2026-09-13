@@ -42,6 +42,8 @@
     "m5.1:audit": "node --require ./scripts/tsx-windows-preload.cjs --import tsx --env-file=.env.production.local --env-file=.env scripts/m5-1-cli.ts audit",
     "m5.1:replay": "node --require ./scripts/tsx-windows-preload.cjs --import tsx --env-file=.env.production.local --env-file=.env scripts/m5-1-cli.ts replay",
     "secret:scan": "node scripts/secret-scan.mjs",
+    "qa:g1:publisher": "node --require ./scripts/tsx-windows-preload.cjs --import ./scripts/g1-qa-preload.mjs --import tsx --env-file=.env.local scripts/g1-publisher-db-qa.ts",
+    "qa:g1:commercial": "node --require ./scripts/tsx-windows-preload.cjs --import ./scripts/g1-qa-preload.mjs --import tsx --env-file=.env.local scripts/g1-commercial-qa.ts",
     "cache:warm": "tsx src/cache/warmup-cli.ts",
     "test:validation": "node --test test/*.test.js",
     "test:m1": "vitest run",
