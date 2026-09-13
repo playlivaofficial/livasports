@@ -2,7 +2,8 @@ import type {DatabaseClient,QueryExecutor} from '@/database/client';
 
 export const INTERNAL_LIMIT=4500;
 export const ROUTINE_LIMIT=4000;
-export const DAILY_ROUTINE_LIMIT=100;
+/** 96 keeps the stable two-feed 30m clock. 24 extra covers isolated daily canary batches without starving that clock. */
+export const DAILY_ROUTINE_LIMIT=120;
 export class OddsBudgetStopped extends Error {constructor(public readonly code:string){super(code);this.name='OddsBudgetStopped';}}
 export interface AccountPeriod {start:string;end:string;limit:number;used:number;}
 /** Only documented, bounded subscription windows are accepted. Never derive a calendar-month reset. */

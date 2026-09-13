@@ -3,10 +3,14 @@ import { createHash } from 'node:crypto';
 import { databaseUrl,PostgresDatabaseClient } from '@/database/client';
 import { runMigrations } from '@/database/migrate';
 import { M5OddsPapiAdapter } from '@/providers/oddspapi/M5OddsPapiAdapter';
-import { normalizeM5Snapshot,verifyCatalog } from '@/providers/oddspapi/m5-normalizer';
-import { mergeCatalogTournaments,schedulerTournaments } from '@/providers/oddspapi/tournament-catalog';
-import { canonicalFixtures,endOddsJob,persistSnapshot,startOddsJob } from './ingestion';
+import { M5_TOURNAMENTS, normalizeM5Snapshot,verifyCatalog } from '@/providers/oddspapi/m5-normalizer';
+import { mergeCatalogTournaments,resolveCatalogTournaments,schedulerTournaments } from '@/providers/oddspapi/tournament-catalog';
+import { COVERAGE_DISCOVERY_REQUEST_CAP } from '@/providers/oddspapi/request-limits';
+import {planUtcParseDefectRepair} from './matching';
+import {canonicalFixtures,endOddsJob,persistSnapshot,startOddsJob} from './ingestion';
 import {planOddsRefresh} from './refresh-policy';
+import {budgetHealth} from './budget';
+import {splitProviderBatches} from './scheduler-policy';
 import type { OddsSnapshot } from './types';
 import {runOddsScheduler} from './scheduler';
 
@@ -16,6 +20,68 @@ try {
   const command=process.argv[2]??'verify';
   if(command==='migrate')console.info(JSON.stringify({migrations:await runMigrations(db)}));
   else if(command==='scheduled-refresh')console.info(JSON.stringify(await runOddsScheduler(db,process.env.ODDSPAPI_API_KEY!)));
+  else if(command==='discover-catalog'){
+    const health=await budgetHealth(db);
+    if(!health.verified||Number(health.safeRemaining)<COVERAGE_DISCOVERY_REQUEST_CAP)throw new Error('ODDS_BUDGET_UNVERIFIED_OR_EXHAUSTED');
+    job=await startOddsJob(db);
+    const provider=new M5OddsPapiAdapter(db,process.env.ODDSPAPI_API_KEY!,job,1,false,Date.now()+60000);
+    const data=await provider.providerTournaments();
+    if(!Array.isArray(data))throw new Error('ODDSPAPI_TOURNAMENTS_UNUSABLE');
+    const existing=(await db.query("SELECT tournaments FROM odds_provider_catalog WHERE provider='ODDSPAPI'")).rows[0];
+    if(!existing)throw new Error('ODDS_CATALOG_NOT_VERIFIED');
+    const merged=mergeCatalogTournaments(existing.tournaments,data);
+    await db.query("UPDATE odds_provider_catalog SET tournaments=$1::jsonb,verified_at=now() WHERE provider='ODDSPAPI'",[JSON.stringify(merged)]);
+    const resolved=resolveCatalogTournaments(merged);
+    await endOddsJob(db,job,true);job=null;
+    console.info(JSON.stringify({requests:provider.requestCount(),storedTournaments:merged.length,
+      resolved:resolved.map(row=>({id:row.id,slug:row.slug,category:row.category,canonical:row.canonical})),
+      scheduler:schedulerTournaments(merged).map(row=>row.id)}));
+  }
+  else if(command==='canary-tournament'){
+    const slug=process.argv[3]??'';
+    const health=await budgetHealth(db);
+    if(!health.verified||Number(health.safeRemaining)<COVERAGE_DISCOVERY_REQUEST_CAP)throw new Error('ODDS_BUDGET_UNVERIFIED_OR_EXHAUSTED');
+    const catalog=(await db.query("SELECT markets,tournaments FROM odds_provider_catalog WHERE provider='ODDSPAPI'")).rows[0];
+    if(!catalog)throw new Error('ODDS_CATALOG_NOT_VERIFIED');verifyCatalog(catalog.markets,catalog.tournaments);
+    const candidate=resolveCatalogTournaments(catalog.tournaments).find(row=>row.canonical===slug);
+    if(!candidate)throw new Error('ODDS_TOURNAMENT_UNVERIFIED');
+    if(M5_TOURNAMENTS.some(row=>row.id===candidate.id))throw new Error('ODDS_TOURNAMENT_ALREADY_STABLE');
+    job=await startOddsJob(db);
+    const mapped=[...schedulerTournaments(catalog.tournaments),candidate];
+    const provider=new M5OddsPapiAdapter(db,process.env.ODDSPAPI_API_KEY!,job,4,false,Date.now()+140000,mapped);
+    const results=[];
+    for(const bookmaker of ['betano.bet.br','betsson'] as const){
+      const snapshot=await provider.snapshot(bookmaker,[candidate.id]);
+      results.push(await persistSnapshot(db,job,snapshot));
+      const again=await provider.snapshot(bookmaker,[candidate.id]);
+      results.push(await persistSnapshot(db,job,again));
+    }
+    await endOddsJob(db,job,true);job=null;
+    console.info(JSON.stringify({canonical:candidate.canonical,tournamentId:candidate.id,requests:provider.requestCount(),results}));
+  }
+  else if(command==='repair-utc-kickoffs'){
+    const snapshots=(await db.query(`SELECT DISTINCT ON (bookmaker) payload FROM odds_sync_snapshots
+      WHERE applied_at IS NOT NULL ORDER BY bookmaker,observed_at DESC`)).rows.map(r=>r.payload as OddsSnapshot);
+    const fixtures=await canonicalFixtures(db);
+    const planned=new Map<string,{fixtureId:string;before:string;after:string}>();
+    for(const snapshot of snapshots)for(const fixture of snapshot.fixtures){
+      const repair=planUtcParseDefectRepair(fixture,fixtures);if(!repair)continue;
+      const existing=planned.get(repair.fixtureId);
+      if(existing&&existing.after!==repair.after)throw new Error('ODDS_KICKOFF_REPAIR_CONFLICT');
+      planned.set(repair.fixtureId,repair);
+    }
+    job=await startOddsJob(db);
+    for(const repair of planned.values()){
+      await db.query(`UPDATE fixtures SET kickoff=$2,updated_at=now() WHERE id=$1 AND kickoff=$3`,[repair.fixtureId,repair.after,repair.before]);
+      await db.query(`UPDATE provider_entity_mappings SET metadata=metadata||jsonb_build_object('m5KickoffCorrection',$2::jsonb),updated_at=now()
+        WHERE provider='SPORTMONKS' AND entity_type='FIXTURE' AND livasports_entity_id=$1`,
+        [repair.fixtureId,JSON.stringify({observedAt:new Date().toISOString(),before:repair.before,after:repair.after,reason:'UTC_PARSE_DEFECT_PROVEN'})]);
+    }
+    const results=[];
+    for(const snapshot of snapshots)results.push(await persistSnapshot(db,job,snapshot));
+    await endOddsJob(db,job,true);job=null;
+    console.info(JSON.stringify({providerRequests:0,repairs:planned.size,results:results.map(r=>({bookmaker:r.bookmaker,matchedFixtures:r.matchedFixtures,quotes:r.quotes}))}));
+  }
   else if(command==='import-audit'||command==='refresh'||command==='resume'||command==='replay-latest'){
     job=await startOddsJob(db);let snapshots:OddsSnapshot[]=[];
     if(command==='import-audit'){
@@ -58,10 +124,12 @@ try {
         console.info(JSON.stringify({stage:'ODDS_REFRESH_PLAN',...plan}));
         const provider=new M5OddsPapiAdapter(db,process.env.ODDSPAPI_API_KEY!,job,4,false,Date.now()+140000,mapped);
         for(const bookmaker of ['betano.bet.br','betsson']){
-          const tournaments=mapped.filter(t=>fixtures.some(f=>f.competition===t.canonical&&f.status==='SCHEDULED'&&Date.parse(f.kickoff)>Date.now())).map(t=>t.id);
-          if(!tournaments.length)continue;
-          const snapshot=await provider.snapshot(bookmaker,tournaments);
-          const result=await persistSnapshot(db,job,snapshot);console.info(JSON.stringify(result));
+          const due=mapped.filter(t=>fixtures.some(f=>f.competition===t.canonical&&f.status==='SCHEDULED'&&Date.parse(f.kickoff)>Date.now()))
+            .map(t=>({bookmaker,tournamentId:t.id,fixtures:fixtures.filter(f=>f.competition===t.canonical),publicEligible:true,hasUsefulCoverage:true,lastSuccessAt:null,retryAfter:null}));
+          for(const tournamentIds of splitProviderBatches(due)){
+            const snapshot=await provider.snapshot(bookmaker,tournamentIds);
+            const result=await persistSnapshot(db,job,snapshot);console.info(JSON.stringify(result));
+          }
         }
         console.info(JSON.stringify({requestsThisRun:provider.requestCount()}));
     }else{

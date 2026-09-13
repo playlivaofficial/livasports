@@ -83,5 +83,10 @@ describe('listing Neon attach',()=>{
     const mxPage={...page(),locale:'mx' as const};
     await attachListingOdds({query},mxPage,now,'BR');
     expect(query.mock.calls[0][1][1]).toBe('BR');
+    query.mockClear();
+    const serieB={...page(),sections:[{...page().sections[0],slug:'brasileirao-serie-b',competition:'Brasileirão Série B'}]};
+    await attachListingOdds({query},serieB,now,'BR');
+    expect(query.mock.calls[0][1][1]).toBe('BR');
+    expect(query.mock.calls[0][0]).toContain("o.market_code='MATCH_WINNER'");
   });
 });

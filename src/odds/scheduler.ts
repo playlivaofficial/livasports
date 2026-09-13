@@ -1,6 +1,6 @@
 import type {DatabaseClient} from '@/database/client';
 import {M5OddsPapiAdapter} from '@/providers/oddspapi/M5OddsPapiAdapter';
-import {M5_TOURNAMENTS,verifyCatalog} from '@/providers/oddspapi/m5-normalizer';
+import {verifyCatalog} from '@/providers/oddspapi/m5-normalizer';
 import {schedulerTournaments,type CatalogTournament} from '@/providers/oddspapi/tournament-catalog';
 import {canonicalFixtures,persistSnapshot,startOddsJob} from './ingestion';
 import {budgetHealth,OddsBudgetStopped,reconcileAccountPeriod} from './budget';
@@ -19,7 +19,7 @@ export async function schedulerPlan(db:DatabaseClient,now=new Date(),tournaments
   const [fixtures,records]=await Promise.all([canonicalFixtures(db),db.query(`SELECT b.provider_slug,
     EXISTS(SELECT 1 FROM bookmaker_geo_availability g WHERE g.bookmaker_id=b.id AND g.odds_enabled AND g.comparison_enabled
       AND g.verified_at IS NOT NULL AND g.verification_state IN ('VERIFIED_BR','VERIFIED_MX','VERIFIED_BR_MX')) AS public_eligible,
-    t.tournament_id,t.last_success_at,t.retry_after,
+    t.tournament_id,t.last_success_at,t.retry_after,t.last_error,
     EXISTS(SELECT 1 FROM odds_current o JOIN fixtures f ON f.id=o.fixture_id
       JOIN provider_entity_mappings m ON m.entity_type='COMPETITION' AND m.provider='ODDSPAPI' AND m.livasports_entity_id=f.competition_id
       WHERE m.provider_entity_id=t.tournament_id AND o.bookmaker_id=b.id AND o.status='ACTIVE' AND o.phase='PREGAME'
@@ -29,7 +29,8 @@ export async function schedulerPlan(db:DatabaseClient,now=new Date(),tournaments
   const targets:RefreshTarget[]=SCHEDULER_BOOKMAKERS.flatMap(bookmaker=>catalog.map(t=>{
     const row=records.rows.find(r=>r.provider_slug===bookmaker&&r.tournament_id===t.id);
     return {bookmaker,tournamentId:t.id,fixtures:fixtures.filter(f=>f.competition===t.canonical),publicEligible:row?.public_eligible===true,
-      hasUsefulCoverage:row?.useful_coverage===true,lastSuccessAt:row?.last_success_at?.toISOString()??null,retryAfter:row?.retry_after?.toISOString()??null};
+      hasUsefulCoverage:row?.useful_coverage===true,lastSuccessAt:row?.last_success_at?.toISOString()??null,retryAfter:row?.retry_after?.toISOString()??null,
+      lastError:typeof row?.last_error==='string'?row.last_error:null};
   }));
   return planScheduler(targets,now);
 }
@@ -53,7 +54,6 @@ export async function runOddsScheduler(db:DatabaseClient,key:string,trigger:'CON
       last_automatic_invocation_at=CASE WHEN $2 THEN now() ELSE last_automatic_invocation_at END WHERE id=true`,[job,trigger==='AUTOMATIC']);
     const catalog=(await db.query("SELECT markets,tournaments FROM odds_provider_catalog WHERE provider='ODDSPAPI'")).rows[0];
     if(!catalog)throw new Error('ODDS_CATALOG_UNVERIFIED');verifyCatalog(catalog.markets,catalog.tournaments);
-    // Coverage expansion is paused: oversized OddsPapi batches 400 and known-good 1/X/2 go stale.
     tournaments=schedulerTournaments(catalog.tournaments);
     provider.setCatalog(tournaments);
     await persistCatalogCompetitionMappings(db,tournaments);
@@ -67,7 +67,8 @@ export async function runOddsScheduler(db:DatabaseClient,key:string,trigger:'CON
       const fresh=await db.query("SELECT 1 FROM odds_budget_baselines WHERE now()>=period_start AND now()<period_end AND reconciliation_at>now()-interval '24 hours'");
       if(!fresh.rowCount)await reconcileAccountPeriod(db,await provider.accountPeriod());
       for(const batch of plan.batches){
-        const current=await schedulerPlan(db,new Date(),tournaments);const ids=current.batches.find(b=>b.bookmaker===batch.bookmaker)?.tournamentIds??[];
+        const current=await schedulerPlan(db,new Date(),tournaments);
+        const ids=batch.tournamentIds.filter(id=>current.targets.some(t=>t.bookmaker===batch.bookmaker&&t.tournamentId===id&&t.due));
         if(!ids.length)continue;
         try{
           const snapshot=await provider.snapshot(batch.bookmaker,ids);
@@ -76,7 +77,7 @@ export async function runOddsScheduler(db:DatabaseClient,key:string,trigger:'CON
             quotes:saved.quotes,historyChanges:saved.history_changes,currentWrites:saved.current_writes,closed:saved.closed,observedAt:snapshot.observedAt});
         }catch(error){
           errorCode=safeSchedulerError(error);
-          const persistable=ids.filter(id=>M5_TOURNAMENTS.some(tournament=>tournament.id===id));
+          const persistable=ids.filter(id=>tournaments.some(tournament=>tournament.id===id));
           if(persistable.length){
             try{
               await db.query(`INSERT INTO odds_refresh_targets(bookmaker,tournament_id,last_attempt_at,retry_after,consecutive_failures,last_error)

@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {cadenceIntervalMinutes,freshnessTtlMs,planScheduler,planTarget,type RefreshTarget} from './scheduler-policy';
+import {cadenceIntervalMinutes,freshnessTtlMs,planScheduler,planTarget,splitProviderBatches,type RefreshTarget} from './scheduler-policy';
 const now=new Date('2026-09-30T23:55:00Z');
 const target=(hours:number,overrides:Partial<RefreshTarget>={}):RefreshTarget=>({bookmaker:'betano.bet.br',tournamentId:'325',
   publicEligible:true,hasUsefulCoverage:true,lastSuccessAt:'2026-09-30T20:00:00Z',retryAfter:null,
@@ -18,7 +18,36 @@ describe('shared adaptive pregame scheduler',()=>{
   });
   it('batches multiple due tournaments once per bookmaker and gives nearer matches priority',()=>{
     const p=planScheduler([target(24,{tournamentId:'17'}),target(1),target(0.1,{bookmaker:'betsson',publicEligible:false})],now);
-    expect(p.batches).toHaveLength(1);expect(p.batches[0].tournamentIds).toEqual(['325','17']);expect(p.maximumBillableRequests).toBe(2);
+    expect(p.batches).toHaveLength(1);expect(p.batches[0].tournamentIds).toEqual(['325','17']);expect(p.maximumBillableRequests).toBe(1);
+  });
+  it('never puts more than four IDs in one OddsPapi batch, including a 22-ID regression replay',()=>{
+    const flood=Array.from({length:22},(_,i)=>target(1,{tournamentId:String(100+i),lastSuccessAt:null}));
+    const p=planScheduler(flood,now);
+    expect(p.batches.every(batch=>batch.tournamentIds.length<=4)).toBe(true);
+    expect(p.batches.every(batch=>batch.tournamentIds.length===1)).toBe(true);
+    expect(p.batches).toHaveLength(1);
+    expect(splitProviderBatches(flood).every(batch=>batch.length===1)).toBe(true);
+    expect(splitProviderBatches(flood)).toHaveLength(22);
+    const mixed=[target(1,{tournamentId:'325',lastSuccessAt:null}),target(1,{tournamentId:'27464',lastSuccessAt:null}),
+      target(1,{tournamentId:'17',lastSuccessAt:null}),target(1,{tournamentId:'384',lastSuccessAt:null}),...flood];
+    expect(splitProviderBatches(mixed)[0]).toEqual(['325','27464','17','384']);
+    expect(splitProviderBatches(mixed).slice(1).every(batch=>batch.length===1)).toBe(true);
+  });
+  it('keeps the stable four in their own batch and never mixes a candidate into that request',()=>{
+    const p=planScheduler([target(1,{tournamentId:'325'}),target(1,{tournamentId:'17'}),target(0.5,{tournamentId:'326',lastSuccessAt:null})],now);
+    expect(p.batches).toEqual([
+      expect.objectContaining({tournamentIds:['325','17']}),
+      expect.objectContaining({tournamentIds:['326']}),
+    ]);
+    const idleStable=planScheduler([
+      target(1,{tournamentId:'325',lastSuccessAt:now.toISOString()}),
+      target(1,{tournamentId:'17',lastSuccessAt:now.toISOString()}),
+      target(0.5,{tournamentId:'326',lastSuccessAt:null}),
+    ],now);
+    expect(idleStable.batches).toEqual([expect.objectContaining({tournamentIds:['326']})]);
+  });
+  it('holds expanded coverage to a daily cadence so it cannot starve the stable 30-minute clock',()=>{
+    expect(planTarget(target(1,{tournamentId:'326',lastSuccessAt:null}),2,now)).toMatchObject({intervalMinutes:1440,due:true});
   });
   it('does not repeat a fresh target and honors persistent retry backoff',()=>{
     expect(planTarget(target(1,{lastSuccessAt:now.toISOString()}),1,now).due).toBe(false);

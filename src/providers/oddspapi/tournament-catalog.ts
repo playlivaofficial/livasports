@@ -1,5 +1,5 @@
 import {FOOTBALL_COMPETITION_TARGETS} from '@/config/footballCompetitions';
-import {M5_TOURNAMENTS} from './m5-normalizer';
+import {M5_EXPANDED_TOURNAMENTS,M5_TOURNAMENTS} from './m5-normalizer';
 
 export interface CatalogTournament {
   id: string;
@@ -81,11 +81,20 @@ export function resolveCatalogTournaments(raw: unknown[]): CatalogTournament[] {
   return [...byCanonical.values()];
 }
 
-export function schedulerTournaments(raw: unknown[]): CatalogTournament[] {
-  const pinned = new Set<string>(M5_TOURNAMENTS.map(row => row.id));
-  const resolved = resolveCatalogTournaments(raw).filter(row => pinned.has(row.id));
+export const STABLE_TOURNAMENT_IDS: ReadonlySet<string> = new Set(M5_TOURNAMENTS.map(row => row.id));
+export function isStableOddsTournament(id: string): boolean {
+  return STABLE_TOURNAMENT_IDS.has(id);
+}
+export function schedulerTournaments(raw: unknown[], expanded: readonly {id:string;slug:string;category:string;canonical:string}[]=M5_EXPANDED_TOURNAMENTS): CatalogTournament[] {
+  const resolved = resolveCatalogTournaments(raw);
   const byId = new Map(resolved.map(row => [row.id, row]));
-  return M5_TOURNAMENTS.map(row => byId.get(row.id) ?? {id: row.id, slug: row.slug, category: row.category, canonical: row.canonical});
+  const stable = M5_TOURNAMENTS.map(row => byId.get(row.id) ?? {id: row.id, slug: row.slug, category: row.category, canonical: row.canonical});
+  const extra = expanded.flatMap(row => {
+    const found = byId.get(row.id);
+    if (!found || found.slug !== row.slug || found.category !== row.category || found.canonical !== row.canonical) return [];
+    return [found];
+  });
+  return [...stable, ...extra];
 }
 
 export function mergeCatalogTournaments(existing: unknown[], incoming: unknown[]): unknown[] {

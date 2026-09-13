@@ -16,9 +16,12 @@ describe('public odds read route',()=>{
 
   it('keeps English locale as presentation and uses trusted request GEO for eligibility',async()=>{
     vi.stubEnv('VERCEL','1');
-    const response=await GET(new Request('https://livasports.com/api/odds/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee?locale=en',{headers:{'x-vercel-ip-country':'BR'}}),{params:Promise.resolve({fixtureId:'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'})});
-    expect(response.status).toBe(200);
-    expect(loadOddsComparisons).toHaveBeenCalledWith('aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee','BR');
+    for(const locale of ['br','mx','en'] as const){
+      loadOddsComparisons.mockClear();
+      const response=await GET(new Request(`https://livasports.com/api/odds/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee?locale=${locale}`,{headers:{'x-vercel-ip-country':'BR'}}),{params:Promise.resolve({fixtureId:'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'})});
+      expect(response.status).toBe(200);
+      expect(loadOddsComparisons).toHaveBeenCalledWith('aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee','BR');
+    }
     vi.unstubAllEnvs();
   });
 });

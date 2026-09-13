@@ -33,6 +33,18 @@ describe('bounded OddsPapi worker transport',()=>{
     await expect(new M5OddsPapiAdapter(database(),'test-key','job').snapshot('betsson',['999'])).rejects.toThrow('OUT_OF_SCOPE');
     expect(fetch).toHaveBeenCalledTimes(1);
   });
+  it('rejects an oversized tournament batch before any network call',async()=>{
+    const fetch=vi.spyOn(globalThis,'fetch');
+    const extra={id:'8',slug:'laliga',category:'spain',canonical:'la-liga'};
+    const p=new M5OddsPapiAdapter(database(),'test-key','job',1,false,Date.now()+140000,[
+      {id:'325',slug:'brasileiro-serie-a',category:'brazil',canonical:'brasileirao-serie-a'},
+      {id:'27464',slug:'liga-mx-apertura',category:'mexico',canonical:'liga-mx'},
+      {id:'17',slug:'premier-league',category:'england',canonical:'premier-league'},
+      {id:'384',slug:'copa-libertadores',category:'international-clubs',canonical:'copa-libertadores'},extra,
+    ]);
+    await expect(p.snapshot('betsson',['325','27464','17','384','8'])).rejects.toThrow('ODDS_TOURNAMENT_BATCH_LIMIT');
+    expect(fetch).not.toHaveBeenCalled();
+  });
   it('rejects unsubscribed bookmakers and tournament requests before fetching',async()=>{
     const fetch=vi.spyOn(globalThis,'fetch');const p=new M5OddsPapiAdapter(database(),'test-key','job');
     await expect(p.snapshot('betano.mx',['325'])).rejects.toThrow('OUT_OF_SCOPE');await expect(p.snapshot('betsson',['999'])).rejects.toThrow('OUT_OF_SCOPE');expect(fetch).not.toHaveBeenCalled();

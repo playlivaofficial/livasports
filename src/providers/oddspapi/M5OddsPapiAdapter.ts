@@ -3,6 +3,7 @@ import type { DatabaseClient } from '@/database/client';
 import type { OddsProvider, OddsSnapshot } from '@/odds/types';
 import { M5_TOURNAMENTS, normalizeM5Snapshot } from './m5-normalizer';
 import type { CatalogTournament } from './tournament-catalog';
+import { MAX_TOURNAMENTS_PER_ODDSPAPI_REQUEST } from './request-limits';
 import {reserveOddsRequest,verifiedAccountPeriod} from '@/odds/budget';
 
 type RequestKind='odds'|'account'|'tournaments';
@@ -22,6 +23,7 @@ export class M5OddsPapiAdapter implements OddsProvider {
       :{bookmaker,tournamentIds:tournamentIds.join(','),language:'en',verbosity:'3',oddsFormat:'decimal'};
     const allowed=this.allowedTournamentIds();
     if(kind==='odds'&&(!['betano.bet.br','betsson'].includes(bookmaker)||!tournamentIds.length||tournamentIds.some(id=>!allowed.has(id))))throw new Error('OUT_OF_SCOPE_ODDS_REQUEST');
+    if(kind==='odds'&&tournamentIds.length>MAX_TOURNAMENTS_PER_ODDSPAPI_REQUEST)throw new Error('ODDS_TOURNAMENT_BATCH_LIMIT');
     if(this.used>=this.runCap)throw new Error('ODDS_RUN_CAP_REACHED');
     if(Date.now()+35000>this.deadline)throw new Error('ODDS_RUN_DEADLINE');
     const latest=await this.database.query('SELECT max(started_at) AS at FROM odds_provider_requests');
@@ -44,7 +46,7 @@ export class M5OddsPapiAdapter implements OddsProvider {
       return {data:body,observedAt};
     }catch(error){
       if(status===null)await this.database.query("UPDATE odds_provider_requests SET completed_at=now(),outcome='NETWORK_ERROR' WHERE id=$1",[id]);
-      if(kind!=='account'&&(status===429||status===null||(status>=500&&status<600))&&this.used<this.runCap&&attempt<1&&Date.now()+45000<this.deadline){
+      if(kind==='odds'&&(status===429||status===null||(status>=500&&status<600))&&this.used<this.runCap&&attempt<1&&Date.now()+45000<this.deadline){
         await new Promise(resolve=>setTimeout(resolve,Math.min(10000,(status===429?2500:1000)*2**attempt)));return this.request(bookmaker,tournamentIds,attempt+1,kind);
       }
       if(status===null)throw new Error('ODDSPAPI_NETWORK_ERROR: saved prices preserved; request counted');

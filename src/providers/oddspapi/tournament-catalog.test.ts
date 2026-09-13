@@ -43,9 +43,16 @@ describe('OddsPapi catalog identity', () => {
     expect(catalogNeedsExpansion(baseline, ['brasileirao-serie-a'])).toBe(false);
   });
 
-  it('does not schedule extra catalog tournaments while coverage expansion is paused', () => {
+  it('does not schedule extra catalog tournaments until they are allowlisted and catalog-matched', () => {
     const extra = [...baseline, {tournamentId: 326, tournamentSlug: 'brasileiro-serie-b', categorySlug: 'brazil'}];
     expect(schedulerTournaments(extra).map(row => row.id)).toEqual(['325', '27464', '17', '384']);
+    expect(schedulerTournaments([...baseline, {tournamentId: 390, tournamentSlug: 'brasileiro-serie-b', categorySlug: 'brazil'}]).map(row => row.id)).toEqual(['325', '27464', '17', '384', '390']);
+    expect(schedulerTournaments(extra, [
+      {id: '326', slug: 'brasileiro-serie-b', category: 'brazil', canonical: 'brasileirao-serie-b'},
+    ]).map(row => row.id)).toEqual(['325', '27464', '17', '384', '326']);
+    expect(schedulerTournaments(baseline, [
+      {id: '326', slug: 'brasileiro-serie-b', category: 'brazil', canonical: 'brasileirao-serie-b'},
+    ]).map(row => row.id)).toEqual(['325', '27464', '17', '384']);
   });
 
   it('merges only rule-matched football tournaments into the stored catalog', () => {
