@@ -25,17 +25,29 @@ Publisher QA rehearses migration 013 and the private publisher configuration
 inside one transaction, deliberately rolls back, and compares before/after
 state. Its PASS result includes `rolledBack: true` and `providerRequests: 0`.
 
-Commercial QA uses a database-enforced read-only transaction. Against the
-pre-013 schema, its QA-only query adapter projects the two future creative fields
-as the existing IMAGE delivery type and a null embed source. Actual rows,
-destinations, eligibility filters and production readers remain unchanged.
-With both publisher columns present, it uses the original query unchanged;
-a partially migrated schema fails. The report identifies the inspected schema.
+Commercial QA validates the intended state after a separately authorized
+configuration write. It requires migration 013 recorded exactly once and both
+publisher columns, and runs the original production readers in a database-enforced
+read-only transaction. The former pre-013 query adapter has been removed.
 
-Validation on the preservation branch: publisher 27 checks passed; commercial
-13 checks passed against `PRE_013`. Independent state comparison confirmed
-unchanged campaign, link and creative contents, unchanged attribution/provider
-counts, and absent migration 013 and publisher columns.
+Its expectations are one enabled, approved Betsson BR campaign matching the
+private campaign-1 identity; exact destination and domain equality; the configured
+ten placements; and seven approved, enabled creatives. Each creative must match
+its configured ID, delivery, source, dimensions, placement, locale, alternative
+text and dates, and pass production active-creative validation. Unexpected
+enabled creatives fail, including those under retired campaigns. Disabled
+historical creatives may remain. Betano stays disabled and MX stays isolated.
+
+Health and report serialization are checked for private fields, raw or encoded
+destinations/sources, and opaque tracking values. Safe check names use creative
+ordinals rather than private IDs. Provider counters are compared before and after
+the reads. No production validator or sentinel is changed to make QA pass.
+
+The current three-placement, zero-enabled-creative database state is expected
+to fail this post-configuration QA. Do not configure the live campaign merely to
+make the gate green. Regression tests use synthetic fixtures to verify success
+for the intended state and rejection of incomplete or mismatched state; the
+publisher command continues to provide a rollback-only rehearsal.
 
 Reports remain in ignored `output/*-private.json` files and contain no raw
 destinations. QA success records a rehearsal and a read-only verification;
