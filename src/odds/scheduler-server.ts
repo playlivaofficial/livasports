@@ -2,6 +2,7 @@ import 'server-only';
 import {timingSafeEqual} from 'node:crypto';
 import {databaseUrl,PostgresDatabaseClient} from '@/database/client';
 import {runOddsScheduler,safeSchedulerError,schedulerHealth} from './scheduler';
+import {runScoreTicker} from '@/ingestion/score-ticker';
 
 export function authorizedScheduler(request:Request,secret=process.env.CRON_SECRET){
   const value=request.headers.get('authorization');
@@ -21,8 +22,11 @@ export async function schedulerResponse(request:Request,health=false){
   if(!health&&request.method==='GET'&&!automatic)return Response.json({state:'READY',automationEnabled:false,error:'AUTOMATION_NOT_ACTIVATED'},{status:503,headers});
   try{
     if(health)return Response.json(await schedulerHealth(database(),automatic),{headers});
+    const started=Date.now();
     const result=await runOddsScheduler(database(),process.env.ODDSPAPI_API_KEY!,request.method==='GET'?'AUTOMATIC':'CONTROLLED');
+    const scores=request.method==='GET'&&Date.now()-started<140000
+      ?await runScoreTicker(database(),process.env.SPORTMONKS_API_KEY).catch(()=>({state:'FAILED',providerRequests:0,error:'SCORES_SYNC_FAILED'})):undefined;
     console.info(`[LivaSports M5.1] ${JSON.stringify({event:'odds-scheduler',state:result.state,trigger:result.trigger,requests:result.requests,error:result.error})}`);
-    return Response.json(result,{status:['FAILED','BUDGET_STOPPED'].includes(result.state)?503:200,headers});
+    return Response.json({...result,...(scores?{scores}:{})},{status:['FAILED','BUDGET_STOPPED'].includes(result.state)?503:200,headers});
   }catch(error){const code=safeSchedulerError(error);return Response.json({error:code},{status:code==='ODDS_WORKER_ALREADY_RUNNING'?409:503,headers});}
 }

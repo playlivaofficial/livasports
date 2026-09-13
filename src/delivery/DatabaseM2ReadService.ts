@@ -1,6 +1,6 @@
 import { getDictionary, type PageKey, type SiteLocale } from '@/config/i18n';
 import type { FootballReadRepository } from '@/ingestion/store';
-import { deliveryWindow } from './time';
+import { deliveryWindow,localDayRange } from './time';
 import { filterFixturesForPage, groupFixtureViews, stableSortFixtures } from './fixtures';
 import type { FixtureView, M2PageData, ProviderState } from './types';
 
@@ -10,18 +10,19 @@ const unavailable = (): ProviderState => ({ state: 'unavailable', freshness: 'un
 export class DatabaseM2ReadService {
   constructor(private readonly repository: FootballReadRepository, private readonly now: () => Date = () => new Date()) {}
 
-  async loadOrThrow(locale: SiteLocale, page: PageKey): Promise<M2PageData> {
-    const now = this.now();
+  async loadOrThrow(locale: SiteLocale, page: PageKey, selectedDate?:string, displayTimeZone?:string): Promise<M2PageData> {
+    const now = selectedDate?new Date(selectedDate+'T12:00:00Z'):this.now();
     const dictionary = getDictionary(locale);
-    const base = { locale, page, currentDate: new Intl.DateTimeFormat(dictionary.locale, { dateStyle: 'full', timeZone: dictionary.timeZone }).format(now), timeZone: dictionary.timeZone };
-    const window = deliveryWindow(locale, page, now);
+    const timeZone=displayTimeZone??dictionary.timeZone;
+    const base = { locale, page, currentDate: new Intl.DateTimeFormat(dictionary.locale, { dateStyle: 'full', timeZone }).format(now), timeZone };
+    const window = selectedDate||((page==='home'||page==='today')&&displayTimeZone)?localDayRange(now,timeZone):deliveryWindow(locale,page,now);
       const statuses = page === 'live' ? ['LIVE', 'HALFTIME'] : [];
       const [competitionRows, rows] = await Promise.all([
         this.repository.listCompetitions(dictionary.countryCode),
         this.repository.listFixtures(dictionary.countryCode, window.from, window.to, statuses),
       ]);
       const rowById = new Map(rows.map(row => [row.fixture.id, row]));
-      const selected = stableSortFixtures(filterFixturesForPage(rows.map(row => row.fixture), page, now, dictionary.timeZone));
+      const selected = stableSortFixtures(filterFixturesForPage(rows.map(row => row.fixture), selectedDate?'today':page, now, timeZone));
       const views: FixtureView[] = selected.flatMap(fixture => {
         const row = rowById.get(fixture.id);
         if (!row) return [];

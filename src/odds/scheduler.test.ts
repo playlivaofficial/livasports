@@ -1,6 +1,8 @@
 import {describe,it,expect,vi,beforeEach} from 'vitest';
 import type {DatabaseClient,QueryExecutor} from '@/database/client';
 import {OddsBudgetStopped} from './budget';
+vi.mock('./budget',async importOriginal=>({...await importOriginal<typeof import('./budget')>(),
+  budgetHealth:async()=>({verified:true,routineRemaining:3800,period_end:new Date(Date.now()+19*86400000)})}));
 const mocked=vi.hoisted(()=>({snapshot:vi.fn(),persist:vi.fn(),start:vi.fn(),account:vi.fn(),tournaments:vi.fn(),expanded:[] as Array<{id:string;slug:string;category:string;canonical:string}>}));
 vi.mock('@/providers/oddspapi/M5OddsPapiAdapter',()=>({M5OddsPapiAdapter:class {
   snapshot=mocked.snapshot;accountPeriod=mocked.account;providerTournaments=mocked.tournaments;setCatalog=()=>undefined;
@@ -120,7 +122,7 @@ describe('scheduler independent failure and durable completion',()=>{
     const result=await runOddsScheduler(db,'test-only');
     expect(result.state).toBe('PARTIAL');
     expect(result.error).toBe('ODDSPAPI_HTTP_400');
-    expect(mocked.snapshot.mock.calls.map(call=>call[1])).toEqual([['325'],['326'],['325'],['326']]);
+    expect(mocked.snapshot.mock.calls.map(call=>call[1])).toEqual([['325'],['325'],['326'],['326']]);
     expect(mocked.persist).toHaveBeenCalledTimes(2);
     expect(mocked.snapshot.mock.calls.every(call=>!(call[1] as string[]).includes('325')||!(call[1] as string[]).includes('326'))).toBe(true);
     expect(query.mock.calls.some(call=>{

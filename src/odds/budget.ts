@@ -2,8 +2,8 @@ import type {DatabaseClient,QueryExecutor} from '@/database/client';
 
 export const INTERNAL_LIMIT=4500;
 export const ROUTINE_LIMIT=4000;
-/** 96 keeps the stable two-feed 30m clock. 24 extra covers isolated daily canary batches without starving that clock. */
-export const DAILY_ROUTINE_LIMIT=120;
+/** Burst ceiling only. Each reservation also checks remaining quota / actual subscription days. */
+export const DAILY_ROUTINE_LIMIT=240;
 export class OddsBudgetStopped extends Error {constructor(public readonly code:string){super(code);this.name='OddsBudgetStopped';}}
 export interface AccountPeriod {start:string;end:string;limit:number;used:number;}
 /** Only documented, bounded subscription windows are accepted. Never derive a calendar-month reset. */
@@ -52,10 +52,13 @@ export async function reserveOddsRequest(tx:QueryExecutor,input:{id:string;jobId
   if(!input.unmetered){
     const budget=await tx.query(`SELECT b.hard_limit,b.externally_consumed+(SELECT count(*) FROM odds_provider_requests r
       WHERE r.billable AND r.started_at>=b.period_start AND r.started_at<b.period_end) AS consumed,
-      (SELECT count(*) FROM odds_provider_requests r WHERE r.billable AND r.purpose='SCHEDULED' AND r.started_at>now()-interval '24 hours') AS rolling_day
+      (SELECT count(*) FROM odds_provider_requests r WHERE r.billable AND r.purpose='SCHEDULED' AND r.started_at>now()-interval '24 hours') AS rolling_day,
+      GREATEST(1,EXTRACT(EPOCH FROM (b.period_end-now()))/86400) AS remaining_days
       FROM odds_budget_baselines b WHERE now()>=period_start AND now()<period_end FOR UPDATE`);
     if(budget.rows.length!==1||Number(budget.rows[0].consumed)>=Math.min(input.routine?ROUTINE_LIMIT:INTERNAL_LIMIT,Number(budget.rows[0].hard_limit))||
-      (input.routine&&Number(budget.rows[0].rolling_day)>=DAILY_ROUTINE_LIMIT))throw new OddsBudgetStopped('ODDS_BUDGET_UNVERIFIED_OR_EXHAUSTED');
+      (input.routine&&Number(budget.rows[0].rolling_day)>=Math.min(DAILY_ROUTINE_LIMIT,
+        Math.max(1,Math.floor((ROUTINE_LIMIT-Number(budget.rows[0].consumed))/Math.max(1,Number(budget.rows[0].remaining_days??1)))))))
+      throw new OddsBudgetStopped('ODDS_BUDGET_UNVERIFIED_OR_EXHAUSTED');
   }else{
     // Unmetered account is the ONLY permitted probe after expiry/exhaustion; bounded across restarts.
     const recent=await tx.query("SELECT id FROM odds_provider_requests WHERE endpoint='/v4/account' AND started_at>now()-interval '1 hour' LIMIT 1");

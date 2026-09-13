@@ -7,6 +7,15 @@ const q:ReadOddsQuote={fixtureId:'f',providerFixtureId:'p',bookmaker:'betano.bet
 const snapshot:OddsReadSnapshot={quotes:[q],kickoff:q.providerKickoff,fixtureStatus:'SCHEDULED'};
 const nearTtl=freshnessTtlMs(1,1);
 describe('exact selection comparison',()=>{
+  it('shows a stored pregame quote days before kickoff and does not shorten its lifetime at a tier boundary',()=>{
+    const observed=now-60*60000,kickoff=new Date(now+47.5*3600000).toISOString();
+    const quote={...q,providerKickoff:kickoff,observedAt:new Date(observed).toISOString(),lastSuccessfulRefreshAt:new Date(observed).toISOString(),freshnessTtlMinutes:365};
+    const snap={quotes:[quote],kickoff,fixtureStatus:'SCHEDULED'};
+    expect(buildComparison(snap,'MATCH_WINNER',now).eligiblePrices).toBe(1);
+    expect(quoteState(quote,snap,observed+365*60000-1)).toBe('ACTIVE');
+    expect(quoteState(quote,snap,observed+365*60000)).toBe('STALE');
+    expect(quoteState(quote,snap,Date.parse(kickoff))).toBe('CLOSED');
+  });
   it('preserves precision and never marks one bookmaker best',()=>{
     const c=buildComparison(snapshot,'MATCH_WINNER',now);expect(c.rows[0].cells[0].decimalOdds).toBe('2.12345678');expect(c.rows[0].cells[0].best).toBe(false);expect(c.rows[0].cells[1].decimalOdds).toBe(null);
   });

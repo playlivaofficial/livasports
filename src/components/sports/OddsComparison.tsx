@@ -30,7 +30,7 @@ export function OddsComparison({ locale, fixture, emptyLabel }: { locale: Interf
       : emptyLabel ?? labels.noOdds;
   const cells = MATCH_WINNER_CELLS.map(cell => ({ ...cell, decimalOdds: bestFreshPrice(fixture, cell.outcome) }));
   if (cells.every(cell => cell.decimalOdds === null)) {
-    return <div className="odds-slot"><span className="odds-empty" title={unavailableLabel} aria-label={unavailableLabel}>—</span></div>;
+    return <div className="odds-slot"><span className="odds-empty" title={unavailableLabel} aria-label={unavailableLabel}>{locale==='br'?'Sem odds':locale==='mx'?'Sin cuotas':'No odds'}</span></div>;
   }
   const summary = cells.map(cell => cell.decimalOdds === null ? '—' : cell.decimalOdds.toFixed(2)).join(' / ');
   return <div className="odds-slot" aria-label={`${labels.odds}: ${summary}`}>

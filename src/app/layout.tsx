@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import './visual-system.css';
 import './language.css';
+import './sports-board.css';
 import {Suspense} from 'react';
 import {headers} from 'next/headers';
 import {LegacyPageShell} from '@/localization/LegacyPageShell';

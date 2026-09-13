@@ -26,8 +26,8 @@ function getRuntime(): M3RouteDataLoader | null {
   return runtime;
 }
 
-export function loadM3PageData(locale: SiteLocale, page: PageKey) {
-  return getRuntime()?.load(locale, page) ?? Promise.resolve(emptyDatabasePage(locale, page));
+export function loadM3PageData(locale: SiteLocale, page: PageKey,selectedDate?:string,displayTimeZone?:string) {
+  return getRuntime()?.load(locale, page,selectedDate,displayTimeZone) ?? Promise.resolve(emptyDatabasePage(locale, page));
 }
 
 export const getBrazilHomeData = () => loadM3PageData('br', 'home');

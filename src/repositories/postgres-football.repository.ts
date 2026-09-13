@@ -155,7 +155,9 @@ export class PostgresFootballRepository implements FootballIngestionStore, Footb
 
   async listFixturesForScoreSync(limit: number): Promise<Fixture[]> {
     const result = await this.database.query<Record<string, unknown>>(`SELECT * FROM fixtures WHERE status IN ('SCHEDULED','LIVE','HALFTIME')
-      AND kickoff >= now() - interval '2 days' AND kickoff < now() + interval '2 days' ORDER BY kickoff LIMIT $1`, [limit]);
+      AND kickoff >= now() - interval '2 days' AND kickoff < now() + interval '2 days'
+      ORDER BY CASE WHEN kickoff BETWEEN now()-interval '3 hours' AND now()+interval '10 minutes' THEN 0 ELSE 1 END,
+        updated_at ASC,kickoff LIMIT $1`, [limit]);
     return result.rows.map(row => this.fixture(row));
   }
 

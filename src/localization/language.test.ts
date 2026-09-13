@@ -30,11 +30,12 @@ describe('interface language defaults and commercial isolation',()=>{
     expect(response.headers.has('set-cookie')).toBe(false);
   });
   it('English listing keeps the Odds column and does not treat /en as commercial GEO',()=>{
-    const source=readFileSync(new URL('./EnglishSportsPage.tsx',import.meta.url),'utf8');
+    const source=readFileSync(new URL('../components/sports/SportsBoardPage.tsx',import.meta.url),'utf8');
     expect(source).toContain('OddsComparison');
-    expect(source).toContain("loadM3PageData('br'");
+    expect(source).toContain("loadM3PageData(locale==='en'?'br':locale");
     expect(source).not.toContain("geoEligibility.locale");
-    expect(source).toMatch(/className="sports-layout"[\s\S]*placement:'home_right_rail'/);
+    expect(source).toContain("sponsor('home_right_rail')");
+    expect(source).toContain('requestCommercialGeo(await headers())');
   });
   it('keeps an English-home Betsson rail in the third sports-layout column',()=>{
     const css=readFileSync(new URL('../app/language.css',import.meta.url),'utf8');

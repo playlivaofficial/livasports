@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import type { DatabaseClient, QueryExecutor } from '@/database/client';
 import { matchOddsFixture } from './matching';
+import {freshnessTtlMs} from './scheduler-policy';
 import type { CanonicalOddsFixture, OddsSnapshot, PersistedFixtureMapping } from './types';
 
 export function assertMappingConsistency(mappings:readonly {type:string;external:string;internal:string}[]):void {
@@ -75,9 +76,11 @@ export async function persistSnapshot(db:DatabaseClient,jobId:string,snapshot:Od
       OR (odds_mapping_reviews.observed_at=excluded.observed_at AND odds_mapping_reviews.state IS DISTINCT FROM excluded.state)`,[JSON.stringify(reviews)]);
     const accepted=new Map(matches.filter(m=>m.fixture).map(m=>[m.raw.providerId,m]));
     const quotes=snapshot.quotes.flatMap(q=>{const m=accepted.get(q.providerFixtureId);if(!m?.fixture)return [];
-      return [{...q,fixtureId:m.fixture.id,providerKickoff:m.raw.kickoff,status:m.fixture.status!=='SCHEDULED'||Date.now()>=Math.min(Date.parse(m.fixture.kickoff),Date.parse(m.raw.kickoff))?'CLOSED':q.status}];});
+      const hours=(Math.min(Date.parse(m.fixture.kickoff),Date.parse(m.raw.kickoff))-Date.parse(snapshot.observedAt))/3600000;
+      return [{...q,fixtureId:m.fixture.id,providerKickoff:m.raw.kickoff,freshnessTtlMinutes:freshnessTtlMs(hours,2,snapshot.cadenceScale??1)/60000,
+        status:m.fixture.status!=='SCHEDULED'||Date.now()>=Math.min(Date.parse(m.fixture.kickoff),Date.parse(m.raw.kickoff))?'CLOSED':q.status}];});
     const sourceSql=`SELECT r.*,b.id AS bookmaker_id FROM jsonb_to_recordset($1::jsonb) AS r("fixtureId" uuid,bookmaker text,market text,outcome text,line numeric,
-      "decimalOdds" numeric,status text,scope text,phase text,"providerFixtureId" text,"providerUpdatedAt" timestamptz,"observedAt" timestamptz,"sourceDomain" text,"providerKickoff" timestamptz)
+      "decimalOdds" numeric,status text,scope text,phase text,"providerFixtureId" text,"providerUpdatedAt" timestamptz,"observedAt" timestamptz,"sourceDomain" text,"providerKickoff" timestamptz,"freshnessTtlMinutes" numeric)
       JOIN bookmakers b ON b.provider_slug=r.bookmaker`;
     const changes=await tx.query(`WITH incoming AS(${sourceSql}), changed AS(
       SELECT i.* FROM incoming i LEFT JOIN odds_current o ON o.fixture_id=i."fixtureId" AND o.bookmaker_id=i.bookmaker_id
@@ -85,11 +88,11 @@ export async function persistSnapshot(db:DatabaseClient,jobId:string,snapshot:Od
       WHERE (o.id IS NULL OR o.observed_at<=i."observedAt") AND (o.id IS NULL OR (o.decimal_odds,o.status) IS DISTINCT FROM (i."decimalOdds",i.status))
     ), history AS(INSERT INTO odds_history(fixture_id,bookmaker_id,market_code,outcome_code,line,decimal_odds,provider_updated_at,received_at,status,scope,phase,observed_at)
       SELECT "fixtureId",bookmaker_id,market,outcome,line,"decimalOdds","providerUpdatedAt","observedAt",status,scope,phase,"observedAt" FROM changed RETURNING id),
-    upserted AS(INSERT INTO odds_current(fixture_id,bookmaker_id,market_code,outcome_code,line,decimal_odds,provider_updated_at,received_at,status,scope,phase,provider_fixture_id,source_domain,observed_at,persisted_at,last_successful_refresh_at,provider_kickoff)
-      SELECT "fixtureId",bookmaker_id,market,outcome,line,"decimalOdds","providerUpdatedAt","observedAt",status,scope,phase,"providerFixtureId","sourceDomain","observedAt",now(),"observedAt","providerKickoff" FROM incoming
+    upserted AS(INSERT INTO odds_current(fixture_id,bookmaker_id,market_code,outcome_code,line,decimal_odds,provider_updated_at,received_at,status,scope,phase,provider_fixture_id,source_domain,observed_at,persisted_at,last_successful_refresh_at,provider_kickoff,freshness_ttl_minutes)
+      SELECT "fixtureId",bookmaker_id,market,outcome,line,"decimalOdds","providerUpdatedAt","observedAt",status,scope,phase,"providerFixtureId","sourceDomain","observedAt",now(),"observedAt","providerKickoff","freshnessTtlMinutes" FROM incoming
       ON CONFLICT(fixture_id,bookmaker_id,market_code,outcome_code,(COALESCE(line,-999999.0))) DO UPDATE SET
       decimal_odds=excluded.decimal_odds,provider_updated_at=excluded.provider_updated_at,received_at=excluded.received_at,status=excluded.status,scope=excluded.scope,phase=excluded.phase,
-      provider_fixture_id=excluded.provider_fixture_id,source_domain=excluded.source_domain,observed_at=excluded.observed_at,persisted_at=now(),last_successful_refresh_at=excluded.last_successful_refresh_at,provider_kickoff=excluded.provider_kickoff,updated_at=now()
+      provider_fixture_id=excluded.provider_fixture_id,source_domain=excluded.source_domain,observed_at=excluded.observed_at,persisted_at=now(),last_successful_refresh_at=excluded.last_successful_refresh_at,provider_kickoff=excluded.provider_kickoff,freshness_ttl_minutes=excluded.freshness_ttl_minutes,updated_at=now()
       WHERE odds_current.observed_at IS NULL OR odds_current.observed_at<excluded.observed_at
       OR (odds_current.observed_at=excluded.observed_at AND odds_current.status<>excluded.status) RETURNING id)
       SELECT (SELECT count(*) FROM history)::int AS history_changes,(SELECT count(*) FROM upserted)::int AS current_writes`,[JSON.stringify(quotes)]);

@@ -23,6 +23,7 @@ export interface NormalizedOddsQuote {
   providerUpdatedAt: string | null; observedAt: string; sourceDomain: string | null;
 }
 export interface OddsSnapshot {
+  cadenceScale?: number;
   bookmaker: string; observedAt: string; fixtures: ProviderOddsFixture[]; quotes: NormalizedOddsQuote[];
   rejected: Record<string,number>; tournamentIds: string[];
 }
@@ -32,6 +33,7 @@ export interface OddsProvider {
   snapshot(bookmaker: string, tournamentIds: readonly string[]): Promise<OddsSnapshot>;
 }
 export interface ReadOddsQuote extends NormalizedOddsQuote {
+  freshnessTtlMinutes?: number | null;
   fixtureId: string; bookmakerId: string; bookmakerName: string; geoEligible: boolean;
   persistedAt: string; lastSuccessfulRefreshAt: string; providerKickoff: string;
 }

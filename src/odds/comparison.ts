@@ -6,7 +6,10 @@ export function publicFeedCount(snapshot:OddsReadSnapshot):number {
 }
 export function quoteFreshnessTtlMs(quote:ReadOddsQuote,snapshot:OddsReadSnapshot,now:number):number {
   const close=Math.min(Date.parse(snapshot.kickoff),Date.parse(quote.providerKickoff));
-  return freshnessTtlMs((close-now)/3600000,publicFeedCount(snapshot));
+  if(now>=close)return 0;
+  if(quote.freshnessTtlMinutes!==null&&quote.freshnessTtlMinutes!==undefined)
+    return Number.isFinite(quote.freshnessTtlMinutes)&&quote.freshnessTtlMinutes>0?quote.freshnessTtlMinutes*60000:0;
+  return freshnessTtlMs((close-Date.parse(quote.observedAt))/3600000,publicFeedCount(snapshot));
 }
 
 export function quoteState(quote:ReadOddsQuote,snapshot:OddsReadSnapshot,now:number):OddsStatus {

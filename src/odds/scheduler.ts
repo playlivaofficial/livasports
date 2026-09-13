@@ -16,10 +16,14 @@ export function safeSchedulerError(error:unknown):string {
   return 'ODDS_REFRESH_FAILED';
 }
 export async function schedulerPlan(db:DatabaseClient,now=new Date(),tournaments:readonly CatalogTournament[]=[]){
-  const [fixtures,records]=await Promise.all([canonicalFixtures(db),db.query(`SELECT b.provider_slug,
+  const [budget,fixtures,records]=await Promise.all([budgetHealth(db),canonicalFixtures(db),db.query(`SELECT b.provider_slug,
     EXISTS(SELECT 1 FROM bookmaker_geo_availability g WHERE g.bookmaker_id=b.id AND g.odds_enabled AND g.comparison_enabled
       AND g.verified_at IS NOT NULL AND g.verification_state IN ('VERIFIED_BR','VERIFIED_MX','VERIFIED_BR_MX')) AS public_eligible,
     t.tournament_id,t.last_success_at,t.retry_after,t.last_error,
+    EXISTS(SELECT 1 FROM odds_current legacy JOIN fixtures lf ON lf.id=legacy.fixture_id
+      JOIN provider_entity_mappings lm ON lm.provider='ODDSPAPI' AND lm.entity_type='COMPETITION' AND lm.livasports_entity_id=lf.competition_id
+      WHERE lm.provider_entity_id=t.tournament_id AND legacy.bookmaker_id=b.id AND legacy.status='ACTIVE'
+        AND legacy.freshness_ttl_minutes IS NULL AND lf.status='SCHEDULED' AND lf.kickoff>now()) AS needs_cadence_refresh,
     EXISTS(SELECT 1 FROM odds_current o JOIN fixtures f ON f.id=o.fixture_id
       JOIN provider_entity_mappings m ON m.entity_type='COMPETITION' AND m.provider='ODDSPAPI' AND m.livasports_entity_id=f.competition_id
       WHERE m.provider_entity_id=t.tournament_id AND o.bookmaker_id=b.id AND o.status='ACTIVE' AND o.phase='PREGAME'
@@ -30,9 +34,9 @@ export async function schedulerPlan(db:DatabaseClient,now=new Date(),tournaments
     const row=records.rows.find(r=>r.provider_slug===bookmaker&&r.tournament_id===t.id);
     return {bookmaker,tournamentId:t.id,fixtures:fixtures.filter(f=>f.competition===t.canonical),publicEligible:row?.public_eligible===true,
       hasUsefulCoverage:row?.useful_coverage===true,lastSuccessAt:row?.last_success_at?.toISOString()??null,retryAfter:row?.retry_after?.toISOString()??null,
-      lastError:typeof row?.last_error==='string'?row.last_error:null};
+      lastError:typeof row?.last_error==='string'?row.last_error:null,needsCadenceRefresh:row?.needs_cadence_refresh===true};
   }));
-  return planScheduler(targets,now);
+  return planScheduler(targets,now,budget);
 }
 async function persistCatalogCompetitionMappings(db:DatabaseClient,tournaments:readonly CatalogTournament[]){
   if(!tournaments.length)return;
@@ -44,7 +48,7 @@ async function persistCatalogCompetitionMappings(db:DatabaseClient,tournaments:r
 }
 export async function runOddsScheduler(db:DatabaseClient,key:string,trigger:'CONTROLLED'|'AUTOMATIC'='CONTROLLED'){
   const job=await startOddsJob(db);const started=Date.now();
-  const provider=new M5OddsPapiAdapter(db,key,job,4,true,started+140000);
+  const provider=new M5OddsPapiAdapter(db,key,job,6,true,started+140000);
   let state:SchedulerState='SUCCEEDED';let errorCode:string|null=null;
   const results:Array<Record<string,unknown>>=[];let recovered=0;
   let tournaments:CatalogTournament[]=schedulerTournaments([]);
@@ -60,7 +64,9 @@ export async function runOddsScheduler(db:DatabaseClient,key:string,trigger:'CON
     const pending=(await db.query('SELECT payload FROM odds_sync_snapshots WHERE applied_at IS NULL ORDER BY observed_at LIMIT 3')).rows;
     for(const row of pending){await persistSnapshot(db,job,row.payload as OddsSnapshot);recovered++;}
     if(pending.length===3)throw new Error('ODDS_RECOVERY_PENDING');
+    if(!(await budgetHealth(db)).verified)await reconcileAccountPeriod(db,await provider.accountPeriod());
     const plan=await schedulerPlan(db,new Date(),tournaments);
+    if(!plan.cadence.budgetAvailable&&plan.targets.some(t=>t.fixtures>0))throw new OddsBudgetStopped('ODDS_BUDGET_UNVERIFIED_OR_EXHAUSTED');
     await db.query('UPDATE odds_scheduler_health SET last_discovery_at=now(),fixtures_considered=$1,next_due_at=$2 WHERE id=true',
       [plan.targets.filter(t=>t.bookmaker==='betano.bet.br').reduce((n,t)=>n+t.fixtures,0),plan.nextDueAt]);
     if(plan.batches.length){
@@ -68,13 +74,13 @@ export async function runOddsScheduler(db:DatabaseClient,key:string,trigger:'CON
       if(!fresh.rowCount)await reconcileAccountPeriod(db,await provider.accountPeriod());
       for(const batch of plan.batches){
         const current=await schedulerPlan(db,new Date(),tournaments);
-        const ids=batch.tournamentIds.filter(id=>current.targets.some(t=>t.bookmaker===batch.bookmaker&&t.tournamentId===id&&t.due));
+        const ids=current.batches.find(b=>b.bookmaker===batch.bookmaker&&b.tournamentIds.some(id=>batch.tournamentIds.includes(id)))?.tournamentIds??[];
         if(!ids.length)continue;
         try{
-          const snapshot=await provider.snapshot(batch.bookmaker,ids);
+          const snapshot={...await provider.snapshot(batch.bookmaker,ids),cadenceScale:current.cadence.scale};
           const saved=await persistSnapshot(db,job,snapshot);
           results.push({bookmaker:batch.bookmaker,tournamentIds:ids,returnedFixtures:saved.returnedFixtures,matchedFixtures:saved.matchedFixtures,
-            quotes:saved.quotes,historyChanges:saved.history_changes,currentWrites:saved.current_writes,closed:saved.closed,observedAt:snapshot.observedAt});
+            quotes:saved.quotes,historyChanges:saved.history_changes,currentWrites:saved.current_writes,closed:saved.closed,observedAt:snapshot.observedAt,cadence:current.cadence});
         }catch(error){
           errorCode=safeSchedulerError(error);
           const persistable=ids.filter(id=>tournaments.some(tournament=>tournament.id===id));

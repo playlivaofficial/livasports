@@ -1,0 +1,97 @@
+/* Dense football board. Scope preserves match, profile and approved creative layouts. */
+.sports-board .page-container { padding-top:16px; }
+.sports-board .fixture-content { margin:0; width:auto; max-width:100%; min-width:0; }
+.board-heading { display:flex; justify-content:space-between; align-items:center; gap:16px; margin:12px 0 18px; }
+.board-eyebrow { display:block; font-size:10px; color:var(--color-accent); letter-spacing:.14em; font-weight:750; margin-bottom:4px; }
+.board-heading h1 { font-size:24px; line-height:1.2; letter-spacing:-.04em; font-weight:800; }
+.sports-board .sports-layout { grid-template-columns:190px minmax(0,1fr); gap:20px; }
+.sports-board .sports-layout:has(> .sponsor-home_right_rail) { grid-template-columns:190px minmax(0,1fr) 300px; }
+.board-competitions { max-height:calc(100dvh - 100px); overflow:auto; scrollbar-width:thin; padding-right:8px; }
+.board-competitions h2 { font-size:11px; text-transform:uppercase; letter-spacing:.08em; margin:0 8px 10px; color:var(--color-text-secondary); }
+.board-competitions h3 { font-size:10px; text-transform:uppercase; color:#859aa8; margin:14px 8px 5px; }
+.board-competitions a { display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:32px; padding:6px 8px; font-size:12px; border-radius:4px; line-height:1.35; }
+.board-competitions small { color:#8ca1b0; font-size:10px; font-variant-numeric:tabular-nums; }
+.board-competitions a:hover,.board-competitions a[aria-current=page] { background:#18362f; color:#7bf0c3; }
+.board-toolbar { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:8px; background:#12212d; border:1px solid #283b48; border-radius:6px 6px 0 0; }
+.board-filters { display:flex; gap:3px; }
+.board-filters a { display:flex; align-items:center; gap:6px; min-height:36px; padding:7px 10px; font-size:12px; border-radius:4px; white-space:nowrap; }
+.board-filters b { color:#91a5b3; font-size:10px; }
+.board-filters a[aria-current=page] { background:#27d89b; color:#052c21; font-weight:750; }
+.board-filters a[aria-current=page] b { color:#124d3d; }
+.filter-live::before { content:''; width:5px; height:5px; border-radius:50%; background:#ff596f; }
+.board-calendar,.board-calendar form { display:flex; align-items:center; gap:4px; }
+.board-calendar>a { display:grid; place-items:center; min-width:28px; height:36px; border:1px solid #334754; border-radius:4px; font-size:22px; }
+.board-calendar input { color-scheme:dark; background:#0b1822; color:#d8e5ee; border:1px solid #334754; border-radius:4px; width:126px; font:inherit; font-size:11px; padding:7px 3px; min-height:36px; }
+.board-calendar button { border:1px solid #334754; border-radius:4px; font-size:11px; padding:8px; min-height:36px; background:#1c3341; color:#e9f3f7; cursor:pointer; }
+.board-days { display:flex; overflow-x:auto; scrollbar-width:thin; border:1px solid #283b48; border-top:0; background:#0e1b27; }
+.board-days a { flex:1 0 auto; min-height:38px; padding:11px 10px; text-align:center; font-size:11px; white-space:nowrap; border-bottom:2px solid transparent; }
+.board-days a[aria-current=date] { color:#71edbf; border-bottom-color:#39dda6; background:#17322c; }
+.board-timezone { margin:8px 2px 10px; font-size:10px; color:#8fa5b5; }
+.sports-board .fixture-list { gap:12px; }
+.sports-board .competition-section { border-radius:5px; }
+.sports-board .competition-header { min-height:36px; padding:6px 12px; gap:10px; background:#1b2b37; }
+.sports-board .competition-header>a { min-width:0; flex:1; }
+.sports-board .competition-title { font-size:12px; font-weight:750; }
+.sports-board .competition-count { font-size:10px; white-space:nowrap; }
+.board-odds-heading { font-size:9px; color:#9aafbd; width:114px; text-align:center; }
+.sports-board .fixture-row { min-height:65px; padding:6px 12px; grid-template-columns:minmax(0,1fr) 114px; grid-template-rows:auto; gap:12px; }
+.sports-board .odds-slot { grid-column:2; grid-row:1; padding-top:0; }
+.sports-board .fixture-main-link { display:grid; grid-column:auto; min-height:52px; grid-template-columns:68px minmax(0,1fr) 26px; gap:10px; }
+.sports-board .team-stack,.sports-board .score-stack { gap:4px; }
+.sports-board .team-identity { grid-template-columns:20px minmax(0,1fr); gap:8px; }
+.sports-board .team-mark,.sports-board .team-logo { width:20px; height:20px; }
+.sports-board .team-name { font-size:12px; font-weight:550; line-height:20px; white-space:nowrap; text-overflow:ellipsis; overflow:hidden; }
+.sports-board .score-value { font-size:15px; min-height:20px; line-height:20px; font-weight:800; }
+.sports-board .score-value.is-empty { color:#4b6372; }
+.sports-board .kickoff-time { font-size:12px; font-variant-numeric:tabular-nums; }
+.sports-board .kickoff-date { font-size:10px; margin-top:3px; }
+.sports-board .status-badge { font-size:9px; margin-top:3px; line-height:1.25; padding:0; border:0; background:transparent; white-space:normal; }
+.sports-board .fixture-row.is-live { box-shadow:inset 2px 0 #ff596f; background:#281e2a55; }
+.sports-board .listing-odds { gap:3px; width:100%; }
+.sports-board .listing-odds-cell { min-height:35px; border-radius:4px; background:#142b37; }
+.sports-board .listing-odds-price { font-size:11px; font-variant-numeric:tabular-nums; }
+.sports-board .listing-odds-label { font-size:9px; }
+.sports-board .odds-empty { border:0; background:transparent; width:auto; height:auto; font-size:10px; color:#859baa; }
+.board-empty { padding:35px 18px; border:1px solid #263d4c; border-radius:6px; text-align:center; font-size:13px; }
+.board-empty a { display:inline-block; color:#6de2b8; margin-top:12px; padding:10px; }
+@media(max-width:1199px){
+  .sports-board .sports-layout:has(> .sponsor-home_right_rail) { grid-template-columns:190px minmax(0,1fr); }
+  .board-toolbar { flex-wrap:wrap; }
+}
+@media(max-width:900px){
+  .sports-board .sports-layout,.sports-board .sports-layout:has(> .sponsor-home_right_rail) { grid-template-columns:minmax(0,1fr); gap:12px; }
+  .sports-board .context-rail { display:block; position:static; }
+  .board-competitions { display:flex; gap:5px; overflow:auto; max-height:none; padding:0 0 5px; }
+  .board-competitions h2,.board-competitions h3,.board-competitions small { display:none; }
+  .board-competitions>div { display:contents; }
+  .board-competitions a { flex:none; min-height:36px; border:1px solid #293d4b; padding:6px 9px; white-space:nowrap; font-size:11px; }
+}
+@media(max-width:620px){
+  .sports-board .page-container { padding:12px 8px 90px; }
+  .board-heading { margin:5px 3px 14px; }
+  .board-heading h1 { font-size:20px; }
+  .board-heading .freshness { font-size:9px; max-width:100px; text-align:right; line-height:1.4; }
+  .board-toolbar { gap:7px; padding:6px; }
+  .board-filters { width:100%; justify-content:space-between; }
+  .board-filters a { flex:1; justify-content:center; padding:7px 5px; font-size:11px; gap:4px; min-height:38px; }
+  .board-calendar { width:100%; justify-content:space-between; }
+  .board-calendar form { flex:1; justify-content:center; }
+  .board-calendar input { width:150px; }
+  .board-calendar>a,.board-calendar button { min-width:38px; min-height:36px; }
+  .board-days a { min-height:40px; padding:11px 9px; }
+  .sports-board .competition-header { padding-inline:8px; min-height:36px; }
+  .sports-board .competition-title { font-size:11px; }
+  .board-odds-heading { width:94px; font-size:8px; }
+  .sports-board .competition-count { display:none; }
+  .sports-board .fixture-row { min-height:64px; padding:6px 8px; grid-template-columns:minmax(0,1fr) 94px; gap:7px; }
+  .sports-board .fixture-main-link { grid-template-columns:45px minmax(0,1fr) 20px; gap:5px; min-height:50px; }
+  .sports-board .team-identity { grid-template-columns:17px minmax(0,1fr); gap:5px; }
+  .sports-board .team-mark,.sports-board .team-logo { width:17px; height:17px; }
+  .sports-board .team-name { font-size:11px; line-height:19px; }
+  .sports-board .score-value { font-size:14px; min-height:19px; line-height:19px; }
+  .sports-board .kickoff-time { font-size:10px; }
+  .sports-board .kickoff-date { font-size:9px; }
+  .sports-board .status-badge { font-size:8px; }
+  .sports-board .listing-odds-price { font-size:10px; }
+  .sports-board .odds-empty { font-size:9px; }
+}

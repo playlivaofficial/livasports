@@ -50,7 +50,7 @@ function hydrateOddsSnapshot(rows:QueryResultRow[],fixtureId:string,geo:Commerci
     const quote:ReadOddsQuote={fixtureId,providerFixtureId:row.provider_fixture_id,bookmaker:row.provider_slug,bookmakerId:row.bookmaker_id,bookmakerName:row.display_name,
       market:row.market_code,outcome:row.outcome_code,line:row.line===null?null:Number(row.line),decimalOdds:String(row.decimal_odds),status:row.status,scope:row.scope,phase:row.phase,
       providerUpdatedAt:row.provider_updated_at?date(row.provider_updated_at):null,observedAt:date(row.observed_at),persistedAt:date(row.persisted_at),lastSuccessfulRefreshAt:date(row.last_successful_refresh_at),
-      sourceDomain:row.source_domain,providerKickoff:date(row.provider_kickoff),geoEligible:Boolean(row.geo_eligible&&sourceEligible&&row.mapping_verified)};
+      sourceDomain:row.source_domain,providerKickoff:date(row.provider_kickoff),freshnessTtlMinutes:row.freshness_ttl_minutes==null?null:Number(row.freshness_ttl_minutes),geoEligible:Boolean(row.geo_eligible&&sourceEligible&&row.mapping_verified)};
     snapshot.quotes.push(quote);
     const destination=quote.geoEligible&&locale?availableDestination(quote.bookmaker,locale,row.destination,row.active_campaigns,'match_odds_table')?.url:null;
     if(destination)snapshot.destinations[quote.bookmaker]=destination;

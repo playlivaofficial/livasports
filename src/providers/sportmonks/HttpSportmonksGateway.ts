@@ -24,7 +24,7 @@ export class HttpSportmonksGateway implements SportmonksGateway {
     const url = new URL(path, `${this.baseUrl.replace(/\/$/, '')}/`);
     for (const [key, value] of Object.entries(query)) if (value) url.searchParams.set(key, value);
     this.requests++;
-    const response = await fetch(url, { headers: { Authorization: this.apiKey, Accept: 'application/json' }, cache: 'no-store' });
+    const response = await fetch(url, { headers: { Authorization: this.apiKey, Accept: 'application/json' }, cache: 'no-store', signal:AbortSignal.timeout(20000) });
     const body = await response.json().catch(() => ({})) as SportmonksEnvelope<T>;
     if (!response.ok) throw new SafeProviderError({ provider: 'SPORTMONKS', status: response.status, endpoint: url.pathname,
       query: sanitizeQuery(url.searchParams), code: null,

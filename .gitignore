@@ -45,6 +45,7 @@ output/m3-6-screenshots/*
 !output/m3-6-screenshots/mx-futbol-390x844.png
 
 .vercel
+output/hardening-*
 .env*
 !output/m7-report.md
 !output/m7-checkpoint.md

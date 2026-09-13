@@ -17,8 +17,13 @@ describe('durable subscription request budget',()=>{
     for(const changed of [{request_count:null},{request_count:-1},{request_limit:10000},{valid_until:'2027-01-01T00:00:00Z'},{bookmakers:{}}])
       expect(()=>verifiedAccountPeriod({subscriptions:[{...account.subscriptions[0],...changed}]},new Date('2026-09-15'))).toThrow();
   });
-  it.each([[4000,0],[200,120],[4500,0]])('stops routine calls at %s/%s without inserting a reservation',async(consumed,rolling_day)=>{
+  it.each([[4000,0],[200,240],[4500,0]])('stops routine calls at %s/%s without inserting a reservation',async(consumed,rolling_day)=>{
     const tx=transaction([{hard_limit:5000,consumed,rolling_day}]);await expect(reserveOddsRequest(tx,input)).rejects.toMatchObject({name:'OddsBudgetStopped'});
+    expect(tx.mock.mock.calls.some(([sql])=>sql.includes('INSERT INTO odds_provider_requests'))).toBe(false);
+  });
+  it('paces against the remaining actual subscription period before reaching the daily burst ceiling',async()=>{
+    const tx=transaction([{hard_limit:5000,consumed:3000,rolling_day:100,remaining_days:10}]);
+    await expect(reserveOddsRequest(tx,input)).rejects.toMatchObject({name:'OddsBudgetStopped'});
     expect(tx.mock.mock.calls.some(([sql])=>sql.includes('INSERT INTO odds_provider_requests'))).toBe(false);
   });
   it('holds a budget lock and reserves before any provider fetch; unmetered account alone can reconcile after exhaustion',async()=>{
