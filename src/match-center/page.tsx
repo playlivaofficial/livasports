@@ -5,6 +5,7 @@ import { MatchCenter } from '@/components/match/MatchCenter';
 import type { SiteLocale } from '@/config/i18n';
 import { loadMatchCenter } from './runtime';
 import { matchPath, parseMatchParam, slugifyMatch } from './routes';
+import {languageAlternates,matchPath as interfaceMatchPath} from '@/localization/interface';
 import { teamPath } from '@/profiles/routes';
 
 const localeTag = { br: 'pt-BR', mx: 'es-MX' } as const;
@@ -23,14 +24,14 @@ export async function matchMetadata(paramPromise: Promise<{ match: string }>, lo
   await connection();
   const { match: param } = await paramPromise;
   const { result } = await resolveMatch(param, locale);
-  if (!result || result.kind === 'not-found') return { title: 'Partida não encontrada', robots: { index: false, follow: false } };
+  if (!result || result.kind === 'not-found') return { title: locale==='br'?'Partida não encontrada':'Partido no encontrado', robots: { index: false, follow: false } };
   const { header } = result.match; const copy = metadataCopy[locale];
   const title = `${header.home.name} x ${header.away.name}`;
   const canonical = matchPath(locale, header.publicId, header.home.name, header.away.name);
   const br = matchPath('br', header.publicId, header.home.name, header.away.name);
   const mx = matchPath('mx', header.publicId, header.home.name, header.away.name);
   return { title, description: `${title} ${copy.at} ${header.competition}. ${copy.description}`,
-    alternates: { canonical, languages: { 'pt-BR': br, 'es-MX': mx } },
+    alternates: { canonical, languages: languageAlternates(br,mx,interfaceMatchPath('en',header.publicId,header.home.name,header.away.name)) },
     openGraph: { type: 'website', siteName: 'LivaSports', title, url: canonical, locale: localeTag[locale].replace('-','_'),
       description: `${header.competition} · ${copy.description}` }, other: { 'content-language': localeTag[locale] } };
 }

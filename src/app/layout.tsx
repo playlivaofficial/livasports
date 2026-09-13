@@ -1,8 +1,11 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import './visual-system.css';
+import './language.css';
 import {Suspense} from 'react';
-import {SlipShell} from '@/components/slip/SlipShell';
+import {headers} from 'next/headers';
+import {LegacyPageShell} from '@/localization/LegacyPageShell';
+import {isInterfaceLocale,languageTags} from '@/localization/interface';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://livasports.com'),
@@ -11,6 +14,8 @@ export const metadata: Metadata = {
   robots: process.env.VERCEL_ENV === 'production' ? { index: true, follow: true } : { index: false, follow: false },
 };
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="pt-BR"><body><div className="site-content-wrapper">{children}</div><Suspense fallback={null}><SlipShell/></Suspense></body></html>;
+export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  const value=(await headers()).get('x-livasports-interface-language');
+  const language=isInterfaceLocale(value)?languageTags[value]:'en';
+  return <html lang={language}><body><div className="site-content-wrapper">{children}</div><Suspense fallback={null}><LegacyPageShell/></Suspense></body></html>;
 }

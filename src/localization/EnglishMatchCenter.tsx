@@ -1,85 +1,27 @@
 import Link from 'next/link';
 import { FixtureStatus } from '@/domain/enums';
-import { getDictionary, localeRoutes, type SiteLocale } from '@/config/i18n';
+import {interfaceDictionary as getDictionary,interfaceRoutes as localeRoutes} from './interface';
+type SiteLocale='en';
 import type { MatchCenterView, MatchEventView, MatchModule, MatchStatisticView } from '@/match-center/types';
-import { matchPath } from '@/match-center/routes';
+import {matchPath,teamPath,playerPath} from './interface';
 import { eventMinute } from '@/match-center/rules';
-import { playerPath, teamPath } from '@/profiles/routes';
+
 import { SiteHeader } from '@/components/sports/SiteHeader';
 import { TeamIdentity } from '@/components/sports/FixtureCard';
-import { MatchClientActions, MatchSectionNav } from './MatchClientActions';
-import { LiveRefreshBoundary } from './LiveRefreshBoundary';
-import {PregameOdds} from './PregameOdds';
-import {SponsoredSlot} from '@/components/commercial/SponsoredSlot';
+import {EnglishShare as MatchClientActions} from './EnglishShare';
+import {SectionNav as MatchSectionNav} from '@/components/sports/SectionNav';
+import { LiveRefreshBoundary } from '@/components/match/LiveRefreshBoundary';
 
-const copy = {
-  br: {
-    back: 'Voltar aos jogos', summary: 'Resumo', statistics: 'Estatísticas', lineups: 'Escalações', meetings: 'Confrontos', standings: 'Classificação', odds: 'Odds',
-    timezone: 'Brasília', venue: 'Estádio', round: 'Rodada', stage: 'Fase', season: 'Temporada', timeline: 'Lances importantes', noEvents: 'Nenhum lance detalhado disponível.',
-    lineupPending: 'Escalações ainda não divulgadas.', unavailable: 'Dados não disponíveis para esta partida.', notApplicable: 'Este módulo não se aplica a esta fase.', stale: 'Último retrato disponível',
-    starters: 'Titulares', bench: 'Reservas', coach: 'Técnico', formation: 'Formação', recent: 'Forma recente', h2h: 'Últimos confrontos', sample: 'jogos na amostra', noSample: 'Sem amostra disponível',
-    played: 'J', won: 'V', draw: 'E', lost: 'D', goals: 'Gols', points: 'Pts', share: 'Compartilhar', copied: 'Link copiado',
-    oddsUnavailable: 'Nenhuma odd pré-jogo válida e elegível disponível.', disclosure: 'Podemos receber uma comissão pelos links de parceiros. Isso não altera a ordem das odds.', responsible: '18+. Aposte com responsabilidade.',
-    pending: 'Ainda não disponível para esta partida.', noData: 'Nenhum dado registrado para esta partida.', notCovered: 'Este dado não está coberto pelo provedor.', temporaryError: 'Este módulo está temporariamente indisponível.', liveStale: 'Atualização ao vivo atrasada — exibindo o último snapshot salvo.',
-    replay: 'Reprodução de teste — dados históricos; não é uma partida ao vivo.', playerPerformance:'Desempenho individual',
-  },
-  mx: {
-    back: 'Volver a los partidos', summary: 'Resumen', statistics: 'Estadísticas', lineups: 'Alineaciones', meetings: 'Enfrentamientos', standings: 'Clasificación', odds: 'Cuotas',
-    timezone: 'Ciudad de México', venue: 'Estadio', round: 'Jornada', stage: 'Fase', season: 'Temporada', timeline: 'Eventos importantes', noEvents: 'No hay eventos detallados disponibles.',
-    lineupPending: 'Las alineaciones aún no están disponibles.', unavailable: 'Datos no disponibles para este partido.', notApplicable: 'Este módulo no corresponde a esta fase.', stale: 'Última captura disponible',
-    starters: 'Titulares', bench: 'Suplentes', coach: 'Entrenador', formation: 'Formación', recent: 'Forma reciente', h2h: 'Últimos enfrentamientos', sample: 'partidos en la muestra', noSample: 'Sin muestra disponible',
-    played: 'PJ', won: 'G', draw: 'E', lost: 'P', goals: 'Goles', points: 'Pts', share: 'Compartir', copied: 'Enlace copiado',
-    oddsUnavailable: 'No hay cuotas prepartido válidas y elegibles.', disclosure: 'Podemos recibir una comisión por enlaces de socios. Esto no cambia el orden de las cuotas.', responsible: '18+. Apuesta con responsabilidad.',
-    pending: 'Aún no está disponible para este partido.', noData: 'No hay datos registrados para este partido.', notCovered: 'Este dato no está cubierto por el proveedor.', temporaryError: 'Este módulo no está disponible temporalmente.', liveStale: 'La actualización en vivo está retrasada — se muestra la última captura guardada.',
-    replay: 'Reproducción de prueba — datos históricos; no es un partido en vivo.', playerPerformance:'Rendimiento individual',
-  },
-} as const;
 
-const preferredStats = [/possession/i, /shots total/i, /shots on target/i, /corners/i, /fouls/i, /offsides/i, /yellow cards/i, /red cards/i];
-const eventLabels: Record<SiteLocale, Record<string, string>> = {
-  br: { Goal: 'Gol', Substitution: 'Substituição', Yellowcard: 'Cartão amarelo', 'Yellow Card': 'Cartão amarelo', Redcard: 'Cartão vermelho', 'Red Card': 'Cartão vermelho', Penalty: 'Pênalti', 'Own Goal': 'Gol contra', VAR: 'VAR' },
-  mx: { Goal: 'Gol', Substitution: 'Sustitución', Yellowcard: 'Tarjeta amarilla', 'Yellow Card': 'Tarjeta amarilla', Redcard: 'Tarjeta roja', 'Red Card': 'Tarjeta roja', Penalty: 'Penal', 'Own Goal': 'Autogol', VAR: 'VAR' },
-};
-const statisticLabels: Record<SiteLocale, Record<string, string>> = {
-  br: {
-    'Accurate Crosses':'Cruzamentos certos',Assists:'Assistências',Attacks:'Ataques','Ball Possession %':'Posse de bola','Ball Safe':'Posse segura',
-    'Big Chances Created':'Grandes chances criadas','Big Chances Missed':'Grandes chances perdidas',Corners:'Escanteios','Dangerous Attacks':'Ataques perigosos',
-    'Dribble Attempts':'Tentativas de drible','Duels Won':'Duelos vencidos',Fouls:'Faltas','Free Kicks':'Tiros livres','Goal Attempts':'Tentativas de gol',
-    'Goal Kicks':'Tiros de meta',Goals:'Gols','Hit Woodwork':'Bolas na trave',Injuries:'Lesões',Interceptions:'Interceptações','Key Passes':'Passes decisivos',
-    'Long Passes':'Passes longos',Offsides:'Impedimentos',Passes:'Passes',Saves:'Defesas','Shots Blocked':'Finalizações bloqueadas',
-    'Shots Insidebox':'Finalizações dentro da área','Shots Off Target':'Finalizações para fora','Shots On Target':'Finalizações no gol',
-    'Shots Outsidebox':'Finalizações fora da área','Shots Total':'Finalizações',Substitutions:'Substituições','Successful Dribbles':'Dribles certos',
-    'Successful Dribbles Percentage':'Dribles certos (%)','Successful Headers':'Cabeceios certos','Successful Long Passes':'Passes longos certos',
-    'Successful Long Passes Percentage':'Passes longos certos (%)','Successful Passes':'Passes certos','Successful Passes Percentage':'Passes certos (%)',
-    Tackles:'Desarmes','Tackles Won':'Desarmes vencidos',Throwins:'Laterais','Total Crosses':'Cruzamentos',Yellowcards:'Cartões amarelos',
-  },
-  mx: {
-    'Accurate Crosses':'Centros precisos',Assists:'Asistencias',Attacks:'Ataques','Ball Possession %':'Posesión','Ball Safe':'Posesión segura',
-    'Big Chances Created':'Grandes ocasiones creadas','Big Chances Missed':'Grandes ocasiones falladas',Corners:'Tiros de esquina','Dangerous Attacks':'Ataques peligrosos',
-    'Dribble Attempts':'Intentos de regate','Duels Won':'Duelos ganados',Fouls:'Faltas','Free Kicks':'Tiros libres','Goal Attempts':'Intentos de gol',
-    'Goal Kicks':'Saques de meta',Goals:'Goles','Hit Woodwork':'Tiros al poste',Injuries:'Lesiones',Interceptions:'Intercepciones','Key Passes':'Pases clave',
-    'Long Passes':'Pases largos',Offsides:'Fuera de juego',Passes:'Pases',Saves:'Atajadas','Shots Blocked':'Tiros bloqueados',
-    'Shots Insidebox':'Tiros dentro del área','Shots Off Target':'Tiros desviados','Shots On Target':'Tiros a puerta',
-    'Shots Outsidebox':'Tiros fuera del área','Shots Total':'Tiros',Substitutions:'Sustituciones','Successful Dribbles':'Regates exitosos',
-    'Successful Dribbles Percentage':'Regates exitosos (%)','Successful Headers':'Cabezazos exitosos','Successful Long Passes':'Pases largos precisos',
-    'Successful Long Passes Percentage':'Pases largos precisos (%)','Successful Passes':'Pases precisos','Successful Passes Percentage':'Pases precisos (%)',
-    Tackles:'Entradas','Tackles Won':'Entradas ganadas',Throwins:'Saques de banda','Total Crosses':'Centros',Yellowcards:'Tarjetas amarillas',
-  },
-};
-const stageLabels: Record<SiteLocale, Record<string,string>> = {
-  br: { 'Regular Season':'Temporada regular','Quarter-finals':'Quartas de final','Semi-finals':'Semifinais',Final:'Final' },
-  mx: { 'Regular Season':'Temporada regular','Quarter-finals':'Cuartos de final','Semi-finals':'Semifinales',Final:'Final' },
-};
-const scoreLabels: Record<SiteLocale, Record<string,string>> = {
-  br: { PENALTIES:'Pênaltis',EXTRA_TIME:'Prorrogação',AGGREGATE:'Agregado' },
-  mx: { PENALTIES:'Penales',EXTRA_TIME:'Tiempo extra',AGGREGATE:'Global' },
-};
-const playerStatisticLabels: Record<SiteLocale,Record<string,string>>={
-  br:{MINUTES_PLAYED:'min',MINUTES:'min',GOALS:'gols',ASSISTS:'assist.',YELLOWCARDS:'amarelos',REDCARDS:'vermelhos',
-    SHOTS:'finalizações',SHOTS_TOTAL:'finalizações',SHOTS_ON_TARGET:'no gol',SAVES:'defesas',PASSES:'passes',RATING:'nota'},
-  mx:{MINUTES_PLAYED:'min',MINUTES:'min',GOALS:'goles',ASSISTS:'asist.',YELLOWCARDS:'amarillas',REDCARDS:'rojas',
-    SHOTS:'tiros',SHOTS_TOTAL:'tiros',SHOTS_ON_TARGET:'a puerta',SAVES:'atajadas',PASSES:'pases',RATING:'nota'},
-};
+
+
+const copy={en:{"back":"Back to matches","summary":"Summary","statistics":"Statistics","lineups":"Lineups","meetings":"Head-to-head","standings":"Standings","timezone":"UTC","venue":"Stadium","round":"Round","stage":"Stage","season":"Season","timeline":"Key events","noEvents":"No detailed events are available.","lineupPending":"Lineups have not been announced.","unavailable":"Data is unavailable for this match.","notApplicable":"This section does not apply to this stage.","stale":"Latest available snapshot","starters":"Starting XI","bench":"Substitutes","coach":"Coach","formation":"Formation","recent":"Recent form","h2h":"Previous meetings","sample":"matches in sample","noSample":"No sample available","played":"P","won":"W","draw":"D","lost":"L","goals":"Goals","points":"Pts","share":"Share","copied":"Link copied","pending":"Not yet available for this match.","noData":"No information has been recorded for this match.","notCovered":"This information is not covered by the source.","temporaryError":"This section is temporarily unavailable.","liveStale":"Live updates are delayed. Showing the latest saved information.","replay":"Historical replay — this is not a live match.","playerPerformance":"Player performances"}} as const;
+const preferredStats=[/possession/i,/shots total/i,/shots on target/i,/corners/i,/fouls/i,/offsides/i,/yellow cards/i,/red cards/i];
+const eventLabels:Record<SiteLocale,Record<string,string>>={en:{"Goal":"Goal","Substitution":"Substitution","Yellowcard":"Yellow card","Yellow Card":"Yellow card","Redcard":"Red card","Red Card":"Red card","Penalty":"Penalty","Own Goal":"Own goal","VAR":"VAR"}};
+const statisticLabels:Record<SiteLocale,Record<string,string>>={en:{"Throwins":"Throw-ins","Yellowcards":"Yellow cards","Redcards":"Red cards","Ball Possession %":"Ball possession","Shots Insidebox":"Shots inside the box","Shots Outsidebox":"Shots outside the box"}};
+const stageLabels:Record<SiteLocale,Record<string,string>>={en:{"Regular Season":"Regular season","Quarter-finals":"Quarter-finals","Semi-finals":"Semi-finals","Final":"Final"}};
+const scoreLabels:Record<SiteLocale,Record<string,string>>={en:{"PENALTIES":"Penalties","EXTRA_TIME":"Extra time","AGGREGATE":"Aggregate"}};
+const playerStatisticLabels:Record<SiteLocale,Record<string,string>>={en:{"MINUTES_PLAYED":"min","MINUTES":"min","GOALS":"goals","ASSISTS":"assists","YELLOWCARDS":"yellow cards","REDCARDS":"red cards","SHOTS":"shots","SHOTS_TOTAL":"shots","SHOTS_ON_TARGET":"on target","SAVES":"saves","PASSES":"passes","RATING":"rating"}};
 function prioritizedStats(rows: MatchStatisticView[]) {
   const preferred = preferredStats.flatMap(rule => rows.filter(row => rule.test(row.type)));
   return [...preferred, ...rows].filter((row, index, all) => all.findIndex(item => item.type === row.type && item.scope === row.scope) === index);
@@ -158,10 +100,6 @@ function Standings({ locale, match }: { locale: SiteLocale; match: MatchCenterVi
   return <section id="standings" className="match-panel"><h2>{text.standings}</h2>{match.standings.data.length?<div className="standing-scroll"><table><thead><tr><th>#</th><th>{getDictionary(locale).labels.teams}</th><th>{text.played}</th><th>{text.won}</th><th>{text.draw}</th><th>{text.lost}</th><th>{text.goals}</th><th>{text.points}</th></tr></thead><tbody>{match.standings.data.map(row=><tr key={row.teamId} className={row.highlighted?'is-highlighted':undefined}><td>{row.position}</td><th><Link href={teamPath(locale,row.teamPublicId,row.team)}>{row.team}</Link></th><td>{row.played??'—'}</td><td>{row.won??'—'}</td><td>{row.drawn??'—'}</td><td>{row.lost??'—'}</td><td>{row.goalsFor===null||row.goalsAgainst===null?'—':`${row.goalsFor}:${row.goalsAgainst}`}</td><td><strong>{row.points??'—'}</strong></td></tr>)}</tbody></table></div>:<ModuleState locale={locale} module={match.standings}/>}</section>;
 }
 
-function Odds({ locale, match }: { locale: SiteLocale; match: MatchCenterView }) {
-  return <PregameOdds key={`${match.header.id}:${locale}`} fixturePublicId={match.header.publicId} initial={match.oddsComparisons??[]} context={{fixtureId:match.header.id,competitionId:match.header.competitionId,locale}}/>;
-}
-
 function PlayerPerformances({locale,match}:{locale:SiteLocale;match:MatchCenterView}){
   const rows=match.playerStatistics.data;
   if(!rows.length)return null;
@@ -172,30 +110,30 @@ function PlayerPerformances({locale,match}:{locale:SiteLocale;match:MatchCenterV
   })}</div></section>;
 }
 
-export function MatchCenter({ locale, match, replay = false }: { locale: SiteLocale; match: MatchCenterView; replay?: boolean }) {
+export function EnglishMatchCenter({ locale, match, replay = false }: { locale: SiteLocale; match: MatchCenterView; replay?: boolean }) {
   const text=copy[locale]; const dictionary=getDictionary(locale); const canonical=matchPath(locale,match.header.publicId,match.header.home.name,match.header.away.name);
   const alternate={br:matchPath('br',match.header.publicId,match.header.home.name,match.header.away.name),mx:matchPath('mx',match.header.publicId,match.header.home.name,match.header.away.name)};
-  const context={fixtureId:match.header.id,competitionId:match.header.competitionId,locale};
+
   const kickoff=new Intl.DateTimeFormat(dictionary.locale,{dateStyle:'medium',timeStyle:'short',timeZone:dictionary.timeZone}).format(new Date(match.header.kickoff));
   const displayStatus=replay?FixtureStatus.LIVE:match.header.status;
   const scheduled=displayStatus===FixtureStatus.SCHEDULED&&match.header.homeScore===null&&match.header.awayScore===null;
   const kickoffTime=new Intl.DateTimeFormat(dictionary.locale,{hour:'2-digit',minute:'2-digit',timeZone:dictionary.timeZone}).format(new Date(match.header.kickoff));
-  return <div lang={dictionary.locale} className="app-shell match-shell"><SiteHeader locale={locale} activePage="football" localeHrefs={alternate} contentId="match-content"/>
+  return <div lang={dictionary.locale} className="app-shell match-shell english-sports"><SiteHeader locale={locale} activePage="football" localeHrefs={alternate} contentId="match-content"/>
     <main id="match-content" className="match-container"><h1 className="sr-only">{match.header.home.name} × {match.header.away.name}</h1><Link href={localeRoutes[locale].football} className="match-back">← {text.back}</Link>
       {replay?<p className="replay-label">{text.replay}</p>:null}
-      {!replay?<SponsoredSlot context={{locale,pagePath:canonical,placement:'match_top_banner'}}/>:null}
+
       {!replay&&match.liveSnapshotStale?<p className="stale-live-label">{text.liveStale}</p>:null}
       <header className="match-hero" data-status={displayStatus}><div className="match-competition"><span>{match.header.competition}</span><b>{statusLabel(locale,displayStatus)}</b></div>
         <div className="match-scoreboard"><div className="match-team"><Link href={teamPath(locale,match.header.home.publicId,match.header.home.name)}><TeamIdentity name={match.header.home.name} shortName={match.header.home.shortName} imageUrl={match.header.home.imageUrl} size={80}/></Link></div>
           <div className={`match-score${scheduled?' is-scheduled':''}`}><strong>{scheduled?kickoffTime:<>{match.header.homeScore??'—'} <span>–</span> {match.header.awayScore??'—'}</>}</strong><time dateTime={match.header.kickoff}>{kickoff}</time><small>{text.timezone}</small></div>
           <div className="match-team is-away"><Link href={teamPath(locale,match.header.away.publicId,match.header.away.name)}><TeamIdentity name={match.header.away.name} shortName={match.header.away.shortName} imageUrl={match.header.away.imageUrl} size={80}/></Link></div></div>
-        <MatchClientActions context={context} canonicalUrl={`https://livasports.com${canonical}`} shareText={`${match.header.home.name} x ${match.header.away.name}`} labels={{share:text.share,copied:text.copied}}/>
+        <MatchClientActions canonicalUrl={`https://livasports.com${canonical}`} shareText={`${match.header.home.name} x ${match.header.away.name}`} labels={{share:text.share,copied:text.copied}}/>
       </header>
-      {!replay?<SponsoredSlot context={{locale,pagePath:canonical,placement:'mobile_inline'}}/>:null}
-      <MatchSectionNav context={context} items={[{href:'#summary',label:text.summary},{href:'#statistics',label:text.statistics},{href:'#lineups',label:text.lineups},
-        ...(match.playerStatistics.data.length?[{href:'#player-statistics',label:text.playerPerformance}]:[]),{href:'#meetings',label:text.meetings},{href:'#standings',label:text.standings},{href:'#odds',label:text.odds}]}/>
-      <div className="match-content-grid"><div className="match-main-column"><Summary locale={locale} match={match}/><Statistics locale={locale} module={match.statistics}/><Lineups locale={locale} match={match}/><PlayerPerformances locale={locale} match={match}/><Form locale={locale} match={match}/><Standings locale={locale} match={match}/><Odds locale={locale} match={match}/>{!replay?<SponsoredSlot context={{locale,pagePath:canonical,placement:'match_inline'}}/>:null}</div>
-        <aside className="match-context">{!replay?<SponsoredSlot context={{locale,pagePath:canonical,placement:'match_right_rail'}}/>:null}<section><h2>{text.summary}</h2><dl><div><dt>{text.season}</dt><dd>{match.header.season??'—'}</dd></div><div><dt>{text.stage}</dt><dd>{match.header.stage ? stageLabels[locale][match.header.stage] ?? match.header.stage : '—'}</dd></div><div><dt>{text.venue}</dt><dd>{match.header.venue??'—'}</dd></div></dl></section></aside></div>
-      {!replay?<LiveRefreshBoundary publicId={match.header.publicId} locale={locale} status={match.header.status} snapshotAt={match.snapshotAt}/>:null}
+
+      <MatchSectionNav className="match-tabs" label="Match sections" items={[{href:'#summary',label:text.summary},{href:'#statistics',label:text.statistics},{href:'#lineups',label:text.lineups},
+        ...(match.playerStatistics.data.length?[{href:'#player-statistics',label:text.playerPerformance}]:[]),{href:'#meetings',label:text.meetings},{href:'#standings',label:text.standings}]}/>
+      <div className="match-content-grid"><div className="match-main-column"><Summary locale={locale} match={match}/><Statistics locale={locale} module={match.statistics}/><Lineups locale={locale} match={match}/><PlayerPerformances locale={locale} match={match}/><Form locale={locale} match={match}/><Standings locale={locale} match={match}/></div>
+        <aside className="match-context"><section><h2>{text.summary}</h2><dl><div><dt>{text.season}</dt><dd>{match.header.season??'—'}</dd></div><div><dt>{text.stage}</dt><dd>{match.header.stage ? stageLabels[locale][match.header.stage] ?? match.header.stage : '—'}</dd></div><div><dt>{text.venue}</dt><dd>{match.header.venue??'—'}</dd></div></dl></section></aside></div>
+      {!replay?<LiveRefreshBoundary publicId={match.header.publicId} locale="br" status={match.header.status} snapshotAt={match.snapshotAt}/>:null}
     </main></div>;
 }

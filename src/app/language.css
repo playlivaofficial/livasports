@@ -1,0 +1,13 @@
+.language-picker { position:relative; margin-left:auto; flex:none; z-index:40; font-size:.8rem; }
+.language-picker summary { display:flex; align-items:center; gap:7px; min-height:44px; padding:0 10px; border:1px solid var(--color-border,#233343); border-radius:8px; cursor:pointer; list-style:none; color:var(--color-text,#f4f7fa); background:var(--color-surface,#101b27); }
+.language-picker summary::-webkit-details-marker { display:none; }
+.language-picker form { position:absolute; right:0; top:calc(100% + 8px); width:168px; padding:6px; border:1px solid #334657; border-radius:10px; background:#101b27; box-shadow:0 12px 35px #0008; }
+.language-picker button { width:100%; display:flex; align-items:center; justify-content:space-between; min-height:44px; padding:0 12px; border:0; border-radius:6px; background:transparent; color:#e7eef4; text-align:left; font:inherit; cursor:pointer; }
+.language-picker button:hover,.language-picker button[aria-current=true] { background:#1c3440; color:#59e2b6; }
+.language-picker :is(summary,button):focus-visible { outline:2px solid #53e5b5!important; outline-offset:3px; }
+@media(max-width:620px){.language-picker summary{padding:0 8px;gap:5px}.language-picker{font-size:.75rem}}
+.english-sports .fixture-row { grid-template-columns:minmax(0,1fr); }
+.english-sports .fixture-table-head { grid-template-columns:100px minmax(0,1fr) 70px; }
+.english-sports .english-timezone { font-size:.75rem; color:#9db0bf; }
+.english-sports .sports-layout { grid-template-columns:190px minmax(0,1fr); }
+@media(max-width:900px){.english-sports .sports-layout{grid-template-columns:minmax(0,1fr)}}

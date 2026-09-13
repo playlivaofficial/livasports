@@ -1,7 +1,9 @@
 import Link from 'next/link';
-import { getDictionary, localeRoutes, type PageKey, type SiteLocale } from '@/config/i18n';
+import type {PageKey} from '@/config/i18n';
+import {interfaceDictionary as getDictionary,interfaceRoutes as localeRoutes,type InterfaceLocale as SiteLocale} from '@/localization/interface';
+import {LanguageSelector} from '@/localization/LanguageSelector';
 
-export function SiteHeader({ locale, activePage, localeHrefs, contentId = 'fixtures-content' }: { locale: SiteLocale; activePage: PageKey; localeHrefs?: { br: string; mx: string }; contentId?: string }) {
+export function SiteHeader({ locale, activePage, contentId = 'fixtures-content' }: { locale: SiteLocale; activePage: PageKey; localeHrefs?: { br: string; mx: string }; contentId?: string }) {
   const dictionary = getDictionary(locale);
   const routes = localeRoutes[locale];
   const items = [
@@ -19,10 +21,7 @@ export function SiteHeader({ locale, activePage, localeHrefs, contentId = 'fixtu
         <nav aria-label={dictionary.labels.primaryNavigation} className="main-nav">
           {items.map(([key, href, label]) => <Link key={key} href={href} aria-current={activePage === key ? 'page' : undefined} className={`nav-link nav-${key}`}>{key==='live'?<span className="nav-live-dot" aria-hidden="true"/>:null}{label}</Link>)}
         </nav>
-        <div className="locale-switcher" aria-label={dictionary.countryName}>
-          <Link href={localeHrefs?.br ?? localeRoutes.br[activePage]} className="locale-link" aria-current={locale === 'br' ? 'true' : undefined} hrefLang="pt-BR">BR</Link>
-          <Link href={localeHrefs?.mx ?? localeRoutes.mx[activePage]} className="locale-link" aria-current={locale === 'mx' ? 'true' : undefined} hrefLang="es-MX">MX</Link>
-        </div>
+        <LanguageSelector locale={locale}/>
       </div>
     </header>
   );
