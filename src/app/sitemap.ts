@@ -1,19 +1,21 @@
 import type { MetadataRoute } from 'next';
-import { loadSitemapMatches } from '@/match-center/runtime';
-import { matchPath } from '@/match-center/routes';
-import { loadSitemapPlayers, loadSitemapTeams } from '@/profiles/runtime';
-import { playerPath, teamPath } from '@/profiles/routes';
-export const dynamic = 'force-dynamic';
-export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+import {loadSitemapMatches} from '@/match-center/runtime';
+import {loadSitemapPlayers,loadSitemapTeams} from '@/profiles/runtime';
+import {interfaceRoutes,matchPath,playerPath,teamPath,languageAlternates} from '@/localization/interface';
+import type {PageKey} from '@/config/i18n';
+export const dynamic='force-dynamic';
+export default async function sitemap():Promise<MetadataRoute.Sitemap>{
   const [matches,teams,players]=await Promise.all([loadSitemapMatches(),loadSitemapTeams(),loadSitemapPlayers()]);
-  const localized=(br:string,mx:string,lastModified:Date,priority:number)=>{const alternates={languages:{'pt-BR':br,'es-MX':mx}};return [
-    {url:br,lastModified,changeFrequency:'daily' as const,priority,alternates},{url:mx,lastModified,changeFrequency:'daily' as const,priority,alternates}]};
+  const localized=(paths:string[],lastModified:Date|undefined,priority:number)=>{
+    const [br,mx,en]=paths.map(path=>`https://livasports.com${path}`);
+    const alternates={languages:languageAlternates(br,mx,en)};
+    return [br,mx,en].map(url=>({url,lastModified,changeFrequency:'daily' as const,priority,alternates}));
+  };
+  const locales=['br','mx','en'] as const;
   return [
-    ...matches.flatMap(row=>localized(`https://livasports.com${matchPath('br',row.publicId,row.home,row.away)}`,
-      `https://livasports.com${matchPath('mx',row.publicId,row.home,row.away)}`,row.updatedAt,0.7)),
-    ...teams.flatMap(row=>localized(`https://livasports.com${teamPath('br',row.publicId,row.name)}`,
-      `https://livasports.com${teamPath('mx',row.publicId,row.name)}`,row.updatedAt,0.8)),
-    ...players.flatMap(row=>localized(`https://livasports.com${playerPath('br',row.publicId,row.name)}`,
-      `https://livasports.com${playerPath('mx',row.publicId,row.name)}`,row.updatedAt,0.65)),
+    ...(Object.keys(interfaceRoutes.en) as PageKey[]).flatMap(page=>localized(locales.map(locale=>interfaceRoutes[locale][page]),undefined,page==='home'?1:0.9)),
+    ...matches.flatMap(row=>localized(locales.map(locale=>matchPath(locale,row.publicId,row.home,row.away)),row.updatedAt,0.7)),
+    ...teams.flatMap(row=>localized(locales.map(locale=>teamPath(locale,row.publicId,row.name)),row.updatedAt,0.8)),
+    ...players.flatMap(row=>localized(locales.map(locale=>playerPath(locale,row.publicId,row.name)),row.updatedAt,0.65)),
   ];
 }

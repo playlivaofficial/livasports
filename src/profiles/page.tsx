@@ -1,3 +1,4 @@
+import {languageAlternates,teamPath as interfaceTeamPath,playerPath as interfacePlayerPath} from '@/localization/interface';
 import type { Metadata } from 'next';
 import { connection } from 'next/server';
 import { notFound, permanentRedirect } from 'next/navigation';
@@ -29,7 +30,7 @@ export async function profileMetadata(paramPromise: Promise<{ profile: string }>
   const mx = entity === 'team' ? teamPath('mx', profile.publicId, profile.name) : playerPath('mx', profile.publicId, profile.name);
   return { title: `${profile.name}: ${metadataCopy[locale][entity]}`, description,
     robots: profile.indexable ? { index: true, follow: true } : { index: false, follow: true },
-    alternates: { canonical, languages: { 'pt-BR': br, 'es-MX': mx } },
+    alternates: { canonical, languages: languageAlternates(br,mx,(entity==='team'?interfaceTeamPath:interfacePlayerPath)('en',profile.publicId,profile.name)) },
     openGraph: { type: 'website', siteName: 'LivaSports', title: profile.name, description, url: canonical,
       locale: localeTag[locale].replace('-', '_'), images: profile.imageUrl ? [{ url: profile.imageUrl, alt: profile.name }] : undefined },
     other: { 'content-language': localeTag[locale] } };

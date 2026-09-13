@@ -1,8 +1,9 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { databaseUrl, PostgresDatabaseClient } from '@/database/client';
-import { matchPath, parseMatchParam } from '@/match-center/routes';
-import { parseProfileParam, playerPath, teamPath } from '@/profiles/routes';
+import {parseMatchParam} from '@/match-center/routes';
+import {parseProfileParam} from '@/profiles/routes';
+import {defaultLanguage,languageCookie,pathLocale,matchPath,playerPath,teamPath,type InterfaceLocale} from '@/localization/interface';
 
 let database: PostgresDatabaseClient | null = null;
 function matchDatabase(): PostgresDatabaseClient {
@@ -13,8 +14,8 @@ function matchDatabase(): PostgresDatabaseClient {
   return database;
 }
 
-function notFoundResponse(locale: 'br'|'mx', head: boolean, entity: 'match'|'team'|'player'='match'): Response {
-  const text = locale === 'br'
+function notFoundResponse(locale: InterfaceLocale, head: boolean, entity: 'match'|'team'|'player'='match'): Response {
+  const text = locale === 'en'?{lang:'en',title:entity==='team'?'Team not found':entity==='player'?'Player not found':'Match not found',body:entity==='match'?'This address does not match a recorded match.':'This address does not match a recorded profile.',back:'Back to football',href:'/en/football'}:locale === 'br'
     ? { lang:'pt-BR',title:entity==='team'?'Time não encontrado':entity==='player'?'Jogador não encontrado':'Partida não encontrada',
       body:entity==='match'?'Este endereço não corresponde a uma partida cadastrada.':'Este endereço não corresponde a um perfil cadastrado.',
       back:'Voltar ao futebol',href:'/br/futebol' }
@@ -26,10 +27,22 @@ function notFoundResponse(locale: 'br'|'mx', head: boolean, entity: 'match'|'tea
 }
 
 export async function proxy(request: NextRequest): Promise<Response> {
+  if(request.nextUrl.pathname==='/'){
+    const country=process.env.VERCEL==='1'?request.headers.get('x-vercel-ip-country'):null;
+    const language=defaultLanguage(request.cookies.get(languageCookie)?.value,country);
+    const response=NextResponse.redirect(new URL('/'+language,request.url),307);
+    response.headers.set('cache-control','private, no-store');
+    response.headers.set('vary','Cookie');return response;
+  }
   const segments = request.nextUrl.pathname.split('/').filter(Boolean);
-  const locale = segments[0] === 'mx' ? 'mx' : 'br';
+  const locale=pathLocale(request.nextUrl.pathname)??'en';
+  const forwarded=new Headers(request.headers);
+  forwarded.set('x-livasports-interface-language',locale);
+  const next=()=>NextResponse.next({request:{headers:forwarded}});
   const segment=segments[1];
-  const entity: 'match'|'team'|'player'=segment==='time'||segment==='equipo'?'team':segment==='jogador'||segment==='jugador'?'player':'match';
+  if(!['jogo','partido','match','time','equipo','team','jogador','jugador','player'].includes(segment))return next();
+  const entity: 'match'|'team'|'player'=['time','equipo','team'].includes(segment)?'team':['jogador','jugador','player'].includes(segment)?'player':'match';
+  if(segments.length!==3)return notFoundResponse(locale,request.method==='HEAD',entity);
   const parsed = entity==='match'?parseMatchParam(segments[2] ?? ''):parseProfileParam(segments[2] ?? '');
   if (!parsed) return notFoundResponse(locale,request.method === 'HEAD',entity);
   try {
@@ -44,11 +57,11 @@ export async function proxy(request: NextRequest): Promise<Response> {
     const canonical = entity==='match' ? matchPath(locale,row.public_id,(row as {home:string}).home,(row as {away:string}).away)
       : entity==='team' ? teamPath(locale,row.public_id,(row as {name:string}).name) : playerPath(locale,row.public_id,(row as {name:string}).name);
     if (request.nextUrl.pathname !== canonical) return NextResponse.redirect(new URL(canonical,request.url),308);
-    return NextResponse.next();
+    return next();
   } catch {
     // A database outage must reach the route error boundary, never masquerade as a missing match.
-    return NextResponse.next();
+    return next();
   }
 }
 
-export const config = { matcher: ['/br/jogo/:match','/mx/partido/:match','/br/time/:profile','/mx/equipo/:profile','/br/jogador/:profile','/mx/jugador/:profile'] };
+export const config = { matcher: ['/','/br/:path*','/mx/:path*','/en/:path*'] };
