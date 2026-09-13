@@ -13,6 +13,16 @@ function page(locale: 'br' | 'mx', fixtures = 1): M2PageData {
 }
 
 describe('M3 route loader', () => {
+  it('isolates competition caches from the default week and other competitions',async()=>{
+    const calls:Array<string|undefined>=[];
+    const database:RouteDatabaseReader={loadOrThrow:async(locale,_page,_date,_zone,competition)=>{calls.push(competition);return page(locale);}};
+    const loader=new M3RouteDataLoader(database,new CacheCoordinator(new MemoryCacheStore()),undefined,()=>now);
+    await loader.load('br','football');
+    await loader.load('br','football',undefined,undefined,'europa-league');
+    await loader.load('br','football',undefined,undefined,'mls');
+    await loader.load('br','football',undefined,undefined,'europa-league');
+    expect(calls).toEqual([undefined,'europa-league','mls']);
+  });
   it('batches each route into one DB service call and caches repeated navigation', async () => {
     let dbCalls = 0;
     const database: RouteDatabaseReader = { loadOrThrow: async locale => { dbCalls++; return page(locale); } };

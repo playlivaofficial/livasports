@@ -6,7 +6,7 @@ import { localDateKey } from './time';
 import type { M2PageData } from './types';
 import { unavailableDatabasePage } from './DatabaseM2ReadService';
 
-export interface RouteDatabaseReader { loadOrThrow(locale: SiteLocale, page: PageKey, selectedDate?:string, displayTimeZone?:string): Promise<M2PageData>; }
+export interface RouteDatabaseReader { loadOrThrow(locale: SiteLocale, page: PageKey, selectedDate?:string, displayTimeZone?:string, competitionSlug?:string): Promise<M2PageData>; }
 export interface ListingOddsAttacher { attach(page: M2PageData): Promise<M2PageData>; }
 
 export interface RouteLoadMetric {
@@ -36,15 +36,15 @@ export class M3RouteDataLoader {
     private readonly listingOdds?: ListingOddsAttacher,
   ) {}
 
-  async load(locale: SiteLocale, page: PageKey, selectedDate?:string, displayTimeZone?:string): Promise<M2PageData> {
+  async load(locale: SiteLocale, page: PageKey, selectedDate?:string, displayTimeZone?:string, competitionSlug?:string): Promise<M2PageData> {
     const started = performance.now();
     const now = this.now();
-    const key = cacheKeys.routeData(locale, page, selectedDate??localDateKey(now, displayTimeZone??getDictionary(locale).timeZone))+(selectedDate||displayTimeZone?`:board:${selectedDate??''}:${displayTimeZone??''}`:'');
+    const key = cacheKeys.routeData(locale, page, selectedDate??localDateKey(now, displayTimeZone??getDictionary(locale).timeZone))+(selectedDate||displayTimeZone?`:board:${selectedDate??''}:${displayTimeZone??''}`:'')+(competitionSlug?`:competition:${competitionSlug}`:'');
     try {
       const result = await this.cache.getOrSet(key, {
         ttlSeconds: ttl(page, this.policy), staleIfErrorSeconds: page === 'live' ? 120 : 24 * 60 * 60,
         tags: routeCacheTags(locale, page),
-      }, () => this.database.loadOrThrow(locale, page,selectedDate,displayTimeZone));
+      }, () => this.database.loadOrThrow(locale, page,selectedDate,displayTimeZone,competitionSlug));
       this.onMetric({ event: 'route-data-load', locale, page, durationMs: Math.round((performance.now() - started) * 10) / 10,
         cache: result.status, providerRequests: 0 });
       const pageData = result.status === 'STALE' ? staleData(result.value) : result.value;

@@ -10,16 +10,17 @@ const unavailable = (): ProviderState => ({ state: 'unavailable', freshness: 'un
 export class DatabaseM2ReadService {
   constructor(private readonly repository: FootballReadRepository, private readonly now: () => Date = () => new Date()) {}
 
-  async loadOrThrow(locale: SiteLocale, page: PageKey, selectedDate?:string, displayTimeZone?:string): Promise<M2PageData> {
+  async loadOrThrow(locale: SiteLocale, page: PageKey, selectedDate?:string, displayTimeZone?:string, competitionSlug?:string): Promise<M2PageData> {
     const now = selectedDate?new Date(selectedDate+'T12:00:00Z'):this.now();
     const dictionary = getDictionary(locale);
     const timeZone=displayTimeZone??dictionary.timeZone;
     const base = { locale, page, currentDate: new Intl.DateTimeFormat(dictionary.locale, { dateStyle: 'full', timeZone }).format(now), timeZone };
     const window = selectedDate||((page==='home'||page==='today')&&displayTimeZone)?localDayRange(now,timeZone):deliveryWindow(locale,page,now);
+    if(competitionSlug&&!selectedDate&&page==='football')window.to=new Date(now.getTime()+45*86400000);
       const statuses = page === 'live' ? ['LIVE', 'HALFTIME'] : [];
       const [competitionRows, rows] = await Promise.all([
         this.repository.listCompetitions(dictionary.countryCode),
-        this.repository.listFixtures(dictionary.countryCode, window.from, window.to, statuses),
+        this.repository.listFixtures(dictionary.countryCode, window.from, window.to, statuses,competitionSlug),
       ]);
       const rowById = new Map(rows.map(row => [row.fixture.id, row]));
       const selected = stableSortFixtures(filterFixturesForPage(rows.map(row => row.fixture), selectedDate?'today':page, now, timeZone));

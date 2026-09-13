@@ -30,7 +30,7 @@ try {
     const example=candidates.find(f=>f.listing.odds.length)||candidates.find(f=>f.quoteStates.length)||candidates[0];
     if(example)examples.push({tournamentId:t.id,slug:t.canonical,publicId:example.public_id,home:example.home,away:example.away,kickoff:example.kickoff,listing:example.listing,match:buildComparison(await readOddsSnapshot(db,example.id,'BR'),'MATCH_WINNER')});
   }
-  const gaps=[];for(const t of tournaments.filter(t=>['390','27464'].includes(t.id)))gaps.push(await inspectStoredTournament(db,t.canonical,t.id));
+  const gaps=[];for(const t of tournaments)gaps.push(await inspectStoredTournament(db,t.canonical,t.id));
   const report={clock:clock.rows[0],rollingDay:day.rows[0],coverage,plan,feeds:feeds.rows,jobs:jobs.rows,fixtures,examples,gaps};
   await writeFile('output/hardening-audit-private.json',JSON.stringify(report,null,2));
   console.log(JSON.stringify({clock:report.clock,rollingDay:report.rollingDay,budget:coverage.budget,plan,leagues:tournaments.map(t=>({id:t.id,slug:t.canonical,upcoming:fixtures.filter(f=>f.slug===t.canonical).length,listingPriced:fixtures.filter(f=>f.slug===t.canonical&&f.listing.odds.length).length,stored:fixtures.filter(f=>f.slug===t.canonical&&f.quoteStates.length).length})),jobs:jobs.rows.slice(0,3)},null,2));
