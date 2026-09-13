@@ -70,7 +70,8 @@
   .sports-board .page-container { padding:12px 8px 90px; }
   .board-heading { margin:5px 3px 14px; }
   .board-heading h1 { font-size:20px; }
-  .board-heading .freshness { font-size:9px; max-width:100px; text-align:right; line-height:1.4; }
+  .board-heading>div { min-width:0; }
+  .board-heading .freshness { font-size:9px; max-width:100px; text-align:right; line-height:1.4; white-space:normal; flex-shrink:0; }
   .board-toolbar { gap:7px; padding:6px; }
   .board-filters { width:100%; justify-content:space-between; }
   .board-filters a { flex:1; justify-content:center; padding:7px 5px; font-size:11px; gap:4px; min-height:38px; }
