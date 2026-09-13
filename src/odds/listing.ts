@@ -4,6 +4,7 @@ import {FixtureStatus,MarketCode,OutcomeCode} from '@/domain/enums';
 import {buildComparison} from './comparison';
 import {readListingOddsSnapshots} from './read-repository';
 import {SELECTIONS,type OddsReadSnapshot} from './types';
+import type {CommercialGeo} from './commercial-geo';
 
 function listingBookmaker(slug:string,name:string):'Betano BR'|'Betsson'|null {
   if(slug==='betano.bet.br'||name==='Betano BR')return 'Betano BR';
@@ -32,11 +33,11 @@ export function listingMatchWinnerOdds(snapshot:OddsReadSnapshot,now=Date.now())
   return {odds,oddsState};
 }
 
-export async function attachListingOdds(db:QueryExecutor,page:M2PageData,now=Date.now()):Promise<M2PageData> {
+export async function attachListingOdds(db:QueryExecutor,page:M2PageData,now=Date.now(),geo:CommercialGeo|null=null):Promise<M2PageData> {
   const fixtures=page.sections.flatMap(section=>section.fixtures);
   const scheduledIds=[...new Set(fixtures.filter(fixture=>fixture.status===FixtureStatus.SCHEDULED).map(fixture=>fixture.id))];
   if(!scheduledIds.length)return {...page,paidOddsRequests:0};
-  const snapshots=await readListingOddsSnapshots(db,scheduledIds,page.locale);
+  const snapshots=await readListingOddsSnapshots(db,scheduledIds,geo);
   let freshFixtures=0;let partial=false;
   const sections=page.sections.map(section=>({
     ...section,

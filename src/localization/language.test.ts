@@ -1,4 +1,5 @@
 import {afterEach,describe,expect,it,vi} from 'vitest';
+import {readFileSync} from 'node:fs';
 import {NextRequest} from 'next/server';
 import {defaultLanguage,interfaceRoutes,languageCookie,translatedPath,languageAlternates} from './interface';
 import {englishSportsData} from './sports-copy';
@@ -27,6 +28,12 @@ describe('interface language defaults and commercial isolation',()=>{
     expect(response.headers.get('x-middleware-request-x-livasports-interface-language')).toBe('en');
     expect(response.headers.get('x-middleware-request-x-vercel-ip-country')).toBe('BR');
     expect(response.headers.has('set-cookie')).toBe(false);
+  });
+  it('English listing keeps the Odds column and does not treat /en as commercial GEO',()=>{
+    const source=readFileSync(new URL('./EnglishSportsPage.tsx',import.meta.url),'utf8');
+    expect(source).toContain('OddsComparison');
+    expect(source).toContain("loadM3PageData('br'");
+    expect(source).not.toContain("geoEligibility.locale");
   });
 });
 describe('context preservation and safe language POST',()=>{

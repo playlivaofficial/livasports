@@ -65,10 +65,11 @@ describe('M7 bookmaker completeness and price-only ranking',()=>{
     const one=run(comparisonFixture(1));expect(one.states).toContain('ONE_SELECTION');expect(one.bookmakers[0].combinedDecimalOdds).toBe('2.1');
     const f=comparisonFixture();f.data.bookmakers=[];expect(run(f).states).toContain('MULTI_SELECTION_NO_BOOKMAKER');
   });
-  it('does not inherit either BR bookmaker when the locale changes',()=>{
-    const f=comparisonFixture();expect(buildSlipComparison(f.selections,'mx',f.data.fixtures,f.data.bookmakers,f.now).bookmakers).toEqual([]);
-    f.data.bookmakers[0].geoEligibility={locale:'mx',eligible:false};expect(buildSlipComparison(f.selections,'mx',f.data.fixtures,f.data.bookmakers,f.now).bookmakers).toEqual([]);
-    f.data.bookmakers[1].geoEligibility={locale:'mx',eligible:true};expect(buildSlipComparison(f.selections,'mx',f.data.fixtures,f.data.bookmakers,f.now).bookmakers).toEqual([]);
+  it('keeps BR-eligible books when the UI locale changes but commercial GEO remains BR',()=>{
+    const f=comparisonFixture();expect(buildSlipComparison(f.selections,'mx',f.data.fixtures,f.data.bookmakers,f.now).bookmakers).toHaveLength(2);
+  });
+  it('does not invent BR books when commercial GEO produced none',()=>{
+    const f=comparisonFixture();f.data.bookmakers=[];expect(buildSlipComparison(f.selections,'br',f.data.fixtures,f.data.bookmakers,f.now).bookmakers).toEqual([]);
   });
   it('fails closed on duplicate exact quotes and corrupted prices',()=>{
     const f=comparisonFixture();const r=f.data.fixtures.get(f.selections[0].fixturePublicId)!;

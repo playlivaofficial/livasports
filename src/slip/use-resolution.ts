@@ -30,7 +30,7 @@ export function useSlipResolution(selections:SavedSelection[],locale:SiteLocale)
         if(body.locale!==input.locale||body.providerRequests!==0||!Array.isArray(body.selections)||body.selections.length!==input.selections.length||
           !Number.isFinite(Date.parse(body.resolvedAt))||body.selections.some((s,i)=>!canonicalSelection(s.selection,true)||selectionKey(s.selection)!==selectionKey(input.selections[i])))throw new Error('INVALID_RESPONSE');
         if(body.comparison&&(body.comparison.version!==1||body.comparison.locale!==input.locale||!Array.isArray(body.comparison.bookmakers)||body.comparison.bookmakers.length>2||
-          body.comparison.bookmakers.some(b=>!['betsson','betano.bet.br'].includes(b.bookmakerId)||b.geoEligibility.locale!==input.locale||
+          body.comparison.bookmakers.some(b=>!['betsson','betano.bet.br'].includes(b.bookmakerId)||(b.geoEligibility.locale!=='br'&&b.geoEligibility.locale!=='mx')||
             b.selectionQuotes.length!==input.selections.length||b.selectionQuotes.some((q,i)=>!canonicalSelection(q.selection,true)||selectionKey(q.selection)!==selectionKey(input.selections[i])))))throw new Error('INVALID_COMPARISON');
         if(stopped)return;
         body.selections=body.selections.map(value=>{

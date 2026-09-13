@@ -6,8 +6,6 @@
 .language-picker button:hover,.language-picker button[aria-current=true] { background:#1c3440; color:#59e2b6; }
 .language-picker :is(summary,button):focus-visible { outline:2px solid #53e5b5!important; outline-offset:3px; }
 @media(max-width:620px){.language-picker summary{padding:0 8px;gap:5px}.language-picker{font-size:.75rem}}
-.english-sports .fixture-row { grid-template-columns:minmax(0,1fr); }
-.english-sports .fixture-table-head { grid-template-columns:100px minmax(0,1fr) 70px; }
 .english-sports .english-timezone { font-size:.75rem; color:#9db0bf; }
 .english-sports .sports-layout { grid-template-columns:190px minmax(0,1fr); }
 @media(max-width:900px){.english-sports .sports-layout{grid-template-columns:minmax(0,1fr)}}

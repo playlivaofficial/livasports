@@ -1,10 +1,16 @@
 import {describe,it,expect,vi,beforeEach} from 'vitest';
 import type {DatabaseClient,QueryExecutor} from '@/database/client';
 import {OddsBudgetStopped} from './budget';
-const mocked=vi.hoisted(()=>({snapshot:vi.fn(),persist:vi.fn(),start:vi.fn(),account:vi.fn()}));
-vi.mock('@/providers/oddspapi/M5OddsPapiAdapter',()=>({M5OddsPapiAdapter:class {snapshot=mocked.snapshot;accountPeriod=mocked.account;requestCount(){return mocked.snapshot.mock.calls.length;}}}));
+const mocked=vi.hoisted(()=>({snapshot:vi.fn(),persist:vi.fn(),start:vi.fn(),account:vi.fn(),tournaments:vi.fn()}));
+vi.mock('@/providers/oddspapi/M5OddsPapiAdapter',()=>({M5OddsPapiAdapter:class {
+  snapshot=mocked.snapshot;accountPeriod=mocked.account;providerTournaments=mocked.tournaments;setCatalog=()=>undefined;
+  requestCount(){return mocked.snapshot.mock.calls.length;}
+}}));
 vi.mock('@/providers/oddspapi/m5-normalizer',()=>({M5_TOURNAMENTS:[{id:'325',canonical:'brasileirao-serie-a'}],verifyCatalog:vi.fn()}));
-vi.mock('./ingestion',()=>({startOddsJob:mocked.start,persistSnapshot:mocked.persist,canonicalFixtures:async()=>[{id:'test-only',competition:'brasileirao-serie-a',status:'SCHEDULED',kickoff:new Date(Date.now()+3600000).toISOString()}]}));
+vi.mock('./ingestion',()=>({startOddsJob:mocked.start,persistSnapshot:mocked.persist,canonicalFixtures:async()=>[
+  {id:'test-only',competition:'brasileirao-serie-a',status:'SCHEDULED',kickoff:new Date(Date.now()+3600000).toISOString()},
+  {id:'test-b',competition:'brasileirao-serie-b',status:'SCHEDULED',kickoff:new Date(Date.now()+7200000).toISOString()},
+]}));
 import {runOddsScheduler,safeSchedulerError} from './scheduler';
 function database(){const query=vi.fn(async(sql:string)=>{
   if(sql.includes('odds_provider_catalog'))return {rows:[{markets:[],tournaments:[]}],rowCount:1};
@@ -13,7 +19,7 @@ function database(){const query=vi.fn(async(sql:string)=>{
   return {rows:[],rowCount:0};});const typed=query as unknown as QueryExecutor['query'];
   const db:DatabaseClient={query:typed,transaction:async w=>w({query:typed}),close:async()=>{}};return {db,query};
 }
-beforeEach(()=>{vi.clearAllMocks();mocked.start.mockResolvedValue('test-job');mocked.persist.mockResolvedValue({returnedFixtures:1,matchedFixtures:1,quotes:3,history_changes:0,current_writes:3,closed:0});});
+beforeEach(()=>{vi.clearAllMocks();mocked.start.mockResolvedValue('test-job');mocked.persist.mockResolvedValue({returnedFixtures:1,matchedFixtures:1,quotes:3,history_changes:0,current_writes:3,closed:0});mocked.tournaments.mockResolvedValue([]);});
 describe('scheduler independent failure and durable completion',()=>{
   it('preserves the successful second feed when the first fails; records PARTIAL with a sanitized code',async()=>{
     mocked.snapshot.mockRejectedValueOnce(new Error('private upstream error')).mockResolvedValueOnce({observedAt:new Date().toISOString()});
@@ -46,5 +52,28 @@ describe('scheduler independent failure and durable completion',()=>{
   it('never persists provider response bodies or arbitrary error messages into health',()=>{
     expect(safeSchedulerError(new Error(JSON.stringify({status:400,message:'private'})))).toBe('ODDSPAPI_HTTP_400');
     expect(safeSchedulerError(new Error('contains credentials'))).toBe('ODDS_REFRESH_FAILED');
+  });
+  it('refreshes every verified catalog tournament in one bookmaker batch',async()=>{
+    mocked.snapshot.mockResolvedValue({observedAt:new Date().toISOString()});
+    const catalog=[
+      {tournamentId:325,tournamentSlug:'brasileiro-serie-a',categorySlug:'brazil'},
+      {tournamentId:326,tournamentSlug:'brasileiro-serie-b',categorySlug:'brazil'},
+      {tournamentId:27464,tournamentSlug:'liga-mx-apertura',categorySlug:'mexico'},
+      {tournamentId:17,tournamentSlug:'premier-league',categorySlug:'england'},
+      {tournamentId:384,tournamentSlug:'copa-libertadores',categorySlug:'international-clubs'},
+    ];
+    const query=vi.fn(async(sql:string)=>{
+      if(sql.includes('odds_provider_catalog'))return {rows:[{markets:[],tournaments:catalog}],rowCount:1};
+      if(sql.includes('FROM bookmakers b'))return {rows:['betano.bet.br','betsson'].flatMap(provider_slug=>['325','326'].map(tournament_id=>({
+        provider_slug,tournament_id,public_eligible:true,useful_coverage:true,last_success_at:null})))};
+      if(sql.includes('reconciliation_at>'))return {rows:[{}],rowCount:1};
+      return {rows:[],rowCount:0};
+    });
+    const typed=query as unknown as QueryExecutor['query'];
+    const db={query:typed,transaction:async(w: (tx:{query:QueryExecutor['query']})=>unknown)=>w({query:typed}),close:async()=>{}} as DatabaseClient;
+    const result=await runOddsScheduler(db,'test-only');
+    expect(result.state).toBe('SUCCEEDED');
+    expect(mocked.snapshot.mock.calls.map(call=>call[1].sort())).toEqual([['325','326'],['325','326']]);
+    expect(query.mock.calls.some(([sql])=>sql.includes("entity_type='COMPETITION'"))).toBe(true);
   });
 });

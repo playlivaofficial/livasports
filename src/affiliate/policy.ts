@@ -5,7 +5,7 @@ import {placements,type Campaign,type CommercialContext,type Creative,type PageT
 
 export function pageType(path:string):PageType|null {
   if(/^\/(br|mx)(\/(futebol|futbol|ao-vivo|en-vivo|jogos\/hoje|partidos\/hoy))?$/.test(path))return 'HOME';
-  if(/^\/br\/jogo\/[a-z0-9-]+-[a-f0-9]{16}$/.test(path)||/^\/mx\/partido\/[a-z0-9-]+-[a-f0-9]{16}$/.test(path))return 'MATCH';
+  if(/^\/br\/jogo\/[a-z0-9-]+-[a-f0-9]{16}$/.test(path)||/^\/mx\/partido\/[a-z0-9-]+-[a-f0-9]{16}$/.test(path)||/^\/en\/match\/[a-z0-9-]+-[a-f0-9]{16}$/.test(path))return 'MATCH';
   if(/^\/br\/time\/[a-z0-9-]+-[a-f0-9]{16}$/.test(path)||/^\/mx\/equipo\/[a-z0-9-]+-[a-f0-9]{16}$/.test(path))return 'TEAM';
   if(/^\/br\/jogador\/[a-z0-9-]+-[a-f0-9]{16}$/.test(path)||/^\/mx\/jugador\/[a-z0-9-]+-[a-f0-9]{16}$/.test(path))return 'PLAYER';
   if(/^\/(br|mx)\/(competicoes|competiciones)\/[a-z0-9-]+$/.test(path))return 'COMPETITION';
@@ -16,9 +16,11 @@ export function isSponsorPlacement(p:string){return !isSlipPlacement(p)&&p!=='ma
 export function parseContext(value:unknown):CommercialContext|null {
   if(!value||typeof value!=='object'||Array.isArray(value))return null;const v=value as Record<string,unknown>;
   if(Object.keys(v).some(k=>!['locale','pagePath','placement','bookmaker','fixturePublicId','market','selections','competitionSlug'].includes(k))||
-    (v.locale!=='br'&&v.locale!=='mx')||typeof v.pagePath!=='string'||v.pagePath.length>240||!v.pagePath.startsWith('/'+v.locale)||
+    (v.locale!=='br'&&v.locale!=='mx')||typeof v.pagePath!=='string'||v.pagePath.length>240||
     !placements.includes(v.placement as never)||(v.bookmaker!==undefined&&!['betsson','betano.bet.br'].includes(String(v.bookmaker))))return null;
   const type=pageType(v.pagePath),placement=String(v.placement);if(!type)return null;
+  const pathOk=v.pagePath.startsWith('/'+v.locale)||(placement==='match_odds_table'&&/^\/en\/match\/[a-z0-9-]+-[a-f0-9]{16}$/.test(v.pagePath));
+  if(!pathOk)return null;
   if(placement==='competition_inline'?(typeof v.competitionSlug!=='string'||!/^[-a-z0-9]{1,100}$/.test(v.competitionSlug)):v.competitionSlug!==undefined)return null;
   if(placement.startsWith('match_')&&type!=='MATCH'||placement.startsWith('team_')&&type!=='TEAM'||placement.startsWith('player_')&&type!=='PLAYER'||
     placement.startsWith('home_')&&type!=='HOME'||placement==='competition_inline'&&type!=='HOME'||placement==='profile_mobile_inline'&&!['TEAM','PLAYER'].includes(type))return null;
@@ -49,6 +51,7 @@ export function geoAllowed(request:Request,locale:'br'|'mx',env:Readonly<Record<
   const country=env.VERCEL==='1'?request.headers.get('x-vercel-ip-country'):env.AFFILIATE_QA_GEO;
   return country===locale.toUpperCase();
 }
+export function isOddsCtaPlacement(p:string){return p==='match_odds_table'||isSlipPlacement(p);}
 export function analyticsAllowed(request:Request,mode=process.env.AFFILIATE_ANALYTICS_MODE??'anonymous'){
   if(mode==='off'||request.headers.get('dnt')==='1'||request.headers.get('sec-gpc')==='1')return false;
   if(mode==='consent')return /(?:^|;\s*)livasports_analytics_consent=granted(?:;|$)/.test(request.headers.get('cookie')??'');

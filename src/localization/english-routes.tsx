@@ -11,6 +11,8 @@ import {EnglishMatchCenter} from './EnglishMatchCenter';
 import {EnglishTeamProfilePage,EnglishPlayerProfilePage} from './EnglishProfiles';
 import {matchPath,teamPath,playerPath,languageAlternates} from './interface';
 import {englishSportsData,englishCompetition} from './sports-copy';
+import {headers} from 'next/headers';
+import {commercialLocale,requestCommercialGeo} from '@/odds/commercial-geo';
 
 const matchData=cache((id:string)=>loadMatchCenter(id,'br'));
 const teamData=cache((id:string)=>loadTeamProfile(id,'br'));
@@ -34,7 +36,7 @@ export async function EnglishMatchRoute({params}:{params:Promise<{match:string}>
   return <>{jsonLd({'@context':'https://schema.org','@type':'SportsEvent',name:`${h.home.name} x ${h.away.name}`,startDate:h.kickoff,url:`https://livasports.com${path}`,
     homeTeam:{'@type':'SportsTeam',name:h.home.name,url:`https://livasports.com${teamPath('en',h.home.publicId,h.home.name)}`},
     awayTeam:{'@type':'SportsTeam',name:h.away.name,url:`https://livasports.com${teamPath('en',h.away.publicId,h.away.name)}`},
-    location:h.venue?{'@type':'Place',name:h.venue,address:h.venueCity??undefined}:undefined})}<EnglishMatchCenter locale="en" match={englishSportsData(result.match)}/></>;
+    location:h.venue?{'@type':'Place',name:h.venue,address:h.venueCity??undefined}:undefined})}<EnglishMatchCenter locale="en" commercialLocale={commercialLocale(requestCommercialGeo(await headers()))??'br'} match={englishSportsData(result.match)}/></>;
 }
 export async function englishProfileMetadata(params:Promise<{profile:string}>,entity:'team'|'player'):Promise<Metadata>{
   await connection();const parsed=parseProfileParam((await params).profile);

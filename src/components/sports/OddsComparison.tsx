@@ -1,4 +1,5 @@
-import { getDictionary, type SiteLocale } from '@/config/i18n';
+import { getDictionary } from '@/config/i18n';
+import type { InterfaceLocale } from '@/localization/interface';
 import type { FixtureView } from '@/delivery/types';
 import { MarketCode, OutcomeCode } from '@/domain/enums';
 
@@ -17,17 +18,22 @@ function bestFreshPrice(fixture: FixtureView, outcome: OutcomeCode): number | nu
   return Math.max(...prices.map(price => price.decimalOdds));
 }
 
-export function OddsComparison({ locale, fixture, emptyLabel }: { locale: SiteLocale; fixture: FixtureView; emptyLabel?: string }) {
-  const dictionary = getDictionary(locale);
-  const unavailableLabel = fixture.oddsState === 'stale' ? dictionary.labels.staleOdds
-    : fixture.oddsState === 'unavailable' ? dictionary.labels.oddsUnavailable
-      : emptyLabel ?? dictionary.labels.noOdds;
+export function OddsComparison({ locale, fixture, emptyLabel }: { locale: InterfaceLocale; fixture: FixtureView; emptyLabel?: string }) {
+  const labels = locale === 'en' ? {
+    odds: 'Pregame odds',
+    noOdds: 'Unavailable',
+    staleOdds: 'Odds are out of date and were hidden.',
+    oddsUnavailable: 'Fixtures are available, but odds could not be loaded.',
+  } : getDictionary(locale).labels;
+  const unavailableLabel = fixture.oddsState === 'stale' ? labels.staleOdds
+    : fixture.oddsState === 'unavailable' ? labels.oddsUnavailable
+      : emptyLabel ?? labels.noOdds;
   const cells = MATCH_WINNER_CELLS.map(cell => ({ ...cell, decimalOdds: bestFreshPrice(fixture, cell.outcome) }));
   if (cells.every(cell => cell.decimalOdds === null)) {
     return <div className="odds-slot"><span className="odds-empty" title={unavailableLabel} aria-label={unavailableLabel}>—</span></div>;
   }
   const summary = cells.map(cell => cell.decimalOdds === null ? '—' : cell.decimalOdds.toFixed(2)).join(' / ');
-  return <div className="odds-slot" aria-label={`${dictionary.labels.odds}: ${summary}`}>
+  return <div className="odds-slot" aria-label={`${labels.odds}: ${summary}`}>
     <div className="listing-odds">
       {cells.map(cell => <div key={cell.outcome} className="listing-odds-cell">
         <span className="listing-odds-label">{cell.label}</span>

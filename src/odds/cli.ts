@@ -3,7 +3,8 @@ import { createHash } from 'node:crypto';
 import { databaseUrl,PostgresDatabaseClient } from '@/database/client';
 import { runMigrations } from '@/database/migrate';
 import { M5OddsPapiAdapter } from '@/providers/oddspapi/M5OddsPapiAdapter';
-import { M5_TOURNAMENTS,normalizeM5Snapshot,verifyCatalog } from '@/providers/oddspapi/m5-normalizer';
+import { normalizeM5Snapshot,verifyCatalog } from '@/providers/oddspapi/m5-normalizer';
+import { mergeCatalogTournaments,schedulerTournaments } from '@/providers/oddspapi/tournament-catalog';
 import { canonicalFixtures,endOddsJob,persistSnapshot,startOddsJob } from './ingestion';
 import {planOddsRefresh} from './refresh-policy';
 import type { OddsSnapshot } from './types';
@@ -27,7 +28,7 @@ try {
       const s=subs[0];
       await db.query(`INSERT INTO odds_provider_catalog(provider,markets,tournaments,verified_at) VALUES('ODDSPAPI',$1::jsonb,$2::jsonb,$3)
         ON CONFLICT(provider) DO NOTHING`,[JSON.stringify(audit.responses['markets:{"language":"en"}'].data.filter((m:{marketId:number})=>[101,104,1010].includes(m.marketId))),
-        JSON.stringify(audit.responses['tournaments:{"sportId":10,"language":"en"}'].data.filter((t:{tournamentId:number})=>M5_TOURNAMENTS.some(m=>m.id===String(t.tournamentId)))),audit.startedAt]);
+        JSON.stringify(mergeCatalogTournaments([], audit.responses['tournaments:{"sportId":10,"language":"en"}'].data)),audit.startedAt]);
       await db.query(`INSERT INTO odds_budget_baselines(period_start,period_end,externally_consumed,hard_limit,verified_at)
         VALUES($1,$2,$3,5000,$4) ON CONFLICT(period_start) DO NOTHING`,[s.valid_from,s.valid_until,s.request_count,audit.responses['account:{}'].observedAt]);
       for(const r of audit.requests){
@@ -50,13 +51,14 @@ try {
     }else if(command==='refresh'){
         const catalog=(await db.query("SELECT markets,tournaments FROM odds_provider_catalog WHERE provider='ODDSPAPI'")).rows[0];
         if(!catalog)throw new Error('ODDS_CATALOG_NOT_VERIFIED');verifyCatalog(catalog.markets,catalog.tournaments);
-        const fixtures=(await canonicalFixtures(db)).filter(f=>M5_TOURNAMENTS.some(t=>t.canonical===f.competition));
+        const mapped=schedulerTournaments(catalog.tournaments);
+        const fixtures=(await canonicalFixtures(db)).filter(f=>mapped.some(t=>t.canonical===f.competition));
         const latest=(await db.query(`SELECT min(at) AS at FROM (SELECT bookmaker,max(observed_at) AS at FROM odds_sync_snapshots WHERE applied_at IS NOT NULL GROUP BY bookmaker)s`)).rows[0]?.at;
         const plan=planOddsRefresh(fixtures,latest?.toISOString()??null);
         console.info(JSON.stringify({stage:'ODDS_REFRESH_PLAN',...plan}));
-        const provider=new M5OddsPapiAdapter(db,process.env.ODDSPAPI_API_KEY!,job,4);
+        const provider=new M5OddsPapiAdapter(db,process.env.ODDSPAPI_API_KEY!,job,4,false,Date.now()+140000,mapped);
         for(const bookmaker of ['betano.bet.br','betsson']){
-          const tournaments=M5_TOURNAMENTS.filter(t=>fixtures.some(f=>f.competition===t.canonical&&f.status==='SCHEDULED'&&Date.parse(f.kickoff)>Date.now())).map(t=>t.id);
+          const tournaments=mapped.filter(t=>fixtures.some(f=>f.competition===t.canonical&&f.status==='SCHEDULED'&&Date.parse(f.kickoff)>Date.now())).map(t=>t.id);
           if(!tournaments.length)continue;
           const snapshot=await provider.snapshot(bookmaker,tournaments);
           const result=await persistSnapshot(db,job,snapshot);console.info(JSON.stringify(result));

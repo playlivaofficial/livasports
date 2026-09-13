@@ -1,6 +1,7 @@
 import type {DatabaseClient} from '@/database/client';
 import {M5OddsPapiAdapter} from '@/providers/oddspapi/M5OddsPapiAdapter';
-import {M5_TOURNAMENTS,verifyCatalog} from '@/providers/oddspapi/m5-normalizer';
+import {verifyCatalog} from '@/providers/oddspapi/m5-normalizer';
+import {catalogNeedsExpansion,mergeCatalogTournaments,schedulerTournaments,type CatalogTournament} from '@/providers/oddspapi/tournament-catalog';
 import {canonicalFixtures,persistSnapshot,startOddsJob} from './ingestion';
 import {budgetHealth,OddsBudgetStopped,reconcileAccountPeriod} from './budget';
 import {planScheduler,SCHEDULER_BOOKMAKERS,type RefreshTarget} from './scheduler-policy';
@@ -14,7 +15,7 @@ export function safeSchedulerError(error:unknown):string {
   try{const e=JSON.parse(message);if(Number.isInteger(e.status))return `ODDSPAPI_HTTP_${e.status}`;}catch{/* Only allowlisted codes are persisted. */}
   return 'ODDS_REFRESH_FAILED';
 }
-export async function schedulerPlan(db:DatabaseClient,now=new Date()){
+export async function schedulerPlan(db:DatabaseClient,now=new Date(),tournaments:readonly CatalogTournament[]=[]){
   const [fixtures,records]=await Promise.all([canonicalFixtures(db),db.query(`SELECT b.provider_slug,
     EXISTS(SELECT 1 FROM bookmaker_geo_availability g WHERE g.bookmaker_id=b.id AND g.odds_enabled AND g.comparison_enabled
       AND g.verified_at IS NOT NULL AND g.verification_state IN ('VERIFIED_BR','VERIFIED_MX','VERIFIED_BR_MX')) AS public_eligible,
@@ -24,37 +25,65 @@ export async function schedulerPlan(db:DatabaseClient,now=new Date()){
       WHERE m.provider_entity_id=t.tournament_id AND o.bookmaker_id=b.id AND o.status='ACTIVE' AND o.phase='PREGAME'
         AND f.status='SCHEDULED' AND f.kickoff>now()) AS useful_coverage
     FROM bookmakers b LEFT JOIN odds_refresh_targets t ON t.bookmaker=b.provider_slug WHERE b.provider_slug IN ('betano.bet.br','betsson')`)]);
-  const targets:RefreshTarget[]=SCHEDULER_BOOKMAKERS.flatMap(bookmaker=>M5_TOURNAMENTS.map(t=>{
+  const catalog=tournaments.length?tournaments:schedulerTournaments([]);
+  const targets:RefreshTarget[]=SCHEDULER_BOOKMAKERS.flatMap(bookmaker=>catalog.map(t=>{
     const row=records.rows.find(r=>r.provider_slug===bookmaker&&r.tournament_id===t.id);
     return {bookmaker,tournamentId:t.id,fixtures:fixtures.filter(f=>f.competition===t.canonical),publicEligible:row?.public_eligible===true,
       hasUsefulCoverage:row?.useful_coverage===true,lastSuccessAt:row?.last_success_at?.toISOString()??null,retryAfter:row?.retry_after?.toISOString()??null};
   }));
   return planScheduler(targets,now);
 }
+async function persistCatalogCompetitionMappings(db:DatabaseClient,tournaments:readonly CatalogTournament[]){
+  if(!tournaments.length)return;
+  await db.query(`INSERT INTO provider_entity_mappings(provider,entity_type,provider_entity_id,livasports_entity_id,metadata)
+    SELECT 'ODDSPAPI','COMPETITION',t.id,c.id,jsonb_build_object('canonical',t.canonical,'slug',t.slug,'category',t.category)
+    FROM jsonb_to_recordset($1::jsonb) AS t(id text, slug text, category text, canonical text)
+    JOIN competitions c ON c.slug=t.canonical AND c.enabled
+    ON CONFLICT DO NOTHING`,[JSON.stringify(tournaments)]);
+}
+async function maybeExpandCatalog(db:DatabaseClient,provider:M5OddsPapiAdapter,raw:unknown[],fixtures:Array<{competition:string;status:string;kickoff:string}>){
+  const upcoming=[...new Set(fixtures.filter(f=>f.status==='SCHEDULED'&&Date.parse(f.kickoff)>Date.now()).map(f=>f.competition))];
+  if(!catalogNeedsExpansion(raw,upcoming))return raw;
+  const last=await db.query("SELECT started_at,outcome FROM odds_provider_requests WHERE endpoint='/v4/tournaments' ORDER BY started_at DESC LIMIT 1");
+  const previous=last.rows[0];
+  const age=previous?Date.now()-previous.started_at.getTime():Number.POSITIVE_INFINITY;
+  if(previous&&((previous.outcome==='SUCCEEDED'&&age<24*60*60*1000)||(previous.outcome!=='SUCCEEDED'&&age<6*60*60*1000)))return raw;
+  try{
+    const incoming=await provider.providerTournaments();
+    const merged=mergeCatalogTournaments(raw,Array.isArray(incoming)?incoming:[]);
+    await db.query("UPDATE odds_provider_catalog SET tournaments=$1::jsonb,verified_at=now() WHERE provider='ODDSPAPI'",[JSON.stringify(merged)]);
+    await persistCatalogCompetitionMappings(db,schedulerTournaments(merged));
+    return merged;
+  }catch{return raw;}
+}
 export async function runOddsScheduler(db:DatabaseClient,key:string,trigger:'CONTROLLED'|'AUTOMATIC'='CONTROLLED'){
   const job=await startOddsJob(db);const started=Date.now();
   const provider=new M5OddsPapiAdapter(db,key,job,4,true,started+140000);
   let state:SchedulerState='SUCCEEDED';let errorCode:string|null=null;
   const results:Array<Record<string,unknown>>=[];let recovered=0;
+  let tournaments:CatalogTournament[]=schedulerTournaments([]);
   try{
     await db.query("UPDATE odds_sync_jobs SET trigger_source=$2 WHERE id=$1",[job,trigger]);
     await db.query(`UPDATE odds_scheduler_health SET state='RUNNING',last_job_id=$1,updated_at=now(),
       last_automatic_invocation_at=CASE WHEN $2 THEN now() ELSE last_automatic_invocation_at END WHERE id=true`,[job,trigger==='AUTOMATIC']);
     const catalog=(await db.query("SELECT markets,tournaments FROM odds_provider_catalog WHERE provider='ODDSPAPI'")).rows[0];
     if(!catalog)throw new Error('ODDS_CATALOG_UNVERIFIED');verifyCatalog(catalog.markets,catalog.tournaments);
+    const fixtures=await canonicalFixtures(db);
+    const tournamentsJson=await maybeExpandCatalog(db,provider,catalog.tournaments,fixtures);
+    tournaments=schedulerTournaments(tournamentsJson);
+    provider.setCatalog(tournaments);
+    await persistCatalogCompetitionMappings(db,tournaments);
     const pending=(await db.query('SELECT payload FROM odds_sync_snapshots WHERE applied_at IS NULL ORDER BY observed_at LIMIT 3')).rows;
     for(const row of pending){await persistSnapshot(db,job,row.payload as OddsSnapshot);recovered++;}
-    // Backlog recovery remains bounded and cannot crowd out the function's execution deadline.
     if(pending.length===3)throw new Error('ODDS_RECOVERY_PENDING');
-    const plan=await schedulerPlan(db);
+    const plan=await schedulerPlan(db,new Date(),tournaments);
     await db.query('UPDATE odds_scheduler_health SET last_discovery_at=now(),fixtures_considered=$1,next_due_at=$2 WHERE id=true',
       [plan.targets.filter(t=>t.bookmaker==='betano.bet.br').reduce((n,t)=>n+t.fixtures,0),plan.nextDueAt]);
     if(plan.batches.length){
       const fresh=await db.query("SELECT 1 FROM odds_budget_baselines WHERE now()>=period_start AND now()<period_end AND reconciliation_at>now()-interval '24 hours'");
       if(!fresh.rowCount)await reconcileAccountPeriod(db,await provider.accountPeriod());
       for(const batch of plan.batches){
-        // Re-read within the lease: don't start a request for a tournament whose last match just kicked off.
-        const current=await schedulerPlan(db);const ids=current.batches.find(b=>b.bookmaker===batch.bookmaker)?.tournamentIds??[];
+        const current=await schedulerPlan(db,new Date(),tournaments);const ids=current.batches.find(b=>b.bookmaker===batch.bookmaker)?.tournamentIds??[];
         if(!ids.length)continue;
         try{
           const snapshot=await provider.snapshot(batch.bookmaker,ids);
@@ -70,13 +99,12 @@ export async function runOddsScheduler(db:DatabaseClient,key:string,trigger:'CON
               retry_after=now()+LEAST(360,power(2,LEAST(odds_refresh_targets.consecutive_failures,5))*15)*interval '1 minute'`,[batch.bookmaker,ids,errorCode]);
           if(error instanceof OddsBudgetStopped){state='BUDGET_STOPPED';break;}
           state=results.length?'PARTIAL':'FAILED';
-          // A failed feed never wipes observations, closes another book, or stops its independent attempt.
         }
       }
       if(state==='FAILED'&&results.length)state='PARTIAL';
     }
   }catch(error){errorCode=safeSchedulerError(error);state=error instanceof OddsBudgetStopped?'BUDGET_STOPPED':results.length?'PARTIAL':'FAILED';}
-  const next=await schedulerPlan(db).catch(()=>null);
+  const next=await schedulerPlan(db,new Date(),tournaments).catch(()=>null);
   const result={jobId:job,trigger,state,requests:provider.requestCount(),recovered,feeds:results,error:errorCode,nextDueAt:next?.nextDueAt??null};
   await db.transaction(async tx=>{
     await tx.query("UPDATE odds_sync_jobs SET status=$2,completed_at=now(),error_code=$3,result=$4::jsonb WHERE id=$1 AND status='RUNNING'",[job,state,errorCode,JSON.stringify(result)]);

@@ -7,6 +7,8 @@ import { loadMatchCenter } from './runtime';
 import { matchPath, parseMatchParam, slugifyMatch } from './routes';
 import {languageAlternates,matchPath as interfaceMatchPath} from '@/localization/interface';
 import { teamPath } from '@/profiles/routes';
+import { headers } from 'next/headers';
+import { commercialLocale, requestCommercialGeo } from '@/odds/commercial-geo';
 
 const localeTag = { br: 'pt-BR', mx: 'es-MX' } as const;
 const metadataCopy = {
@@ -56,5 +58,5 @@ export async function MatchRoutePage({ params, locale }: { params: Promise<{ mat
     { '@type': 'ListItem', position: 2, name: result.match.header.competition },
     { '@type': 'ListItem', position: 3, name: `${result.match.header.home.name} x ${result.match.header.away.name}`, item: canonical },
   ] }];
-  return <><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g,'\\u003c') }}/><MatchCenter locale={locale} match={result.match}/></>;
+  return <><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g,'\\u003c') }}/><MatchCenter locale={locale} commercialLocale={commercialLocale(requestCommercialGeo(await headers()))??locale} match={result.match}/></>;
 }

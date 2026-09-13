@@ -7,6 +7,7 @@ import type { MatchCenterView, MatchModule, MatchReadResult } from './types';
 import type { MatchModuleMeta, PostgresMatchCenterRepository } from './repository';
 import { isLiveSnapshotStale, latestSnapshotAt } from './rules';
 import {loadOddsComparisons} from '@/odds/runtime';
+import type {CommercialGeo} from '@/odds/commercial-geo';
 
 const emptyMeta = (state: MatchModule<unknown>['state']): Omit<MatchModule<unknown>, 'data'> => ({ state, providerUpdatedAt: null, lastSuccessfulRefreshAt: null, snapshotAt: null });
 
@@ -19,7 +20,7 @@ export class MatchCenterLoader {
     }, loader)).value;
   }
 
-  async load(publicId: string, locale: SiteLocale): Promise<MatchReadResult> {
+  async load(publicId: string, locale: SiteLocale, geo: CommercialGeo | null = null): Promise<MatchReadResult> {
     const header = await this.cached(publicId, locale, 'header', 120, () => this.repository.header(publicId, locale));
     if (!header) return { kind: 'not-found' };
     const stateMap = await this.cached(header.id, locale, 'states-v2', 60, () => this.repository.moduleStates(header.id));
@@ -35,7 +36,7 @@ export class MatchCenterLoader {
       this.cached(header.id, locale, 'player-statistics', 300, () => this.repository.playerPerformances(header.id)),
       this.cached(header.id, locale, 'standings', 600, () => this.repository.standings(header)),
       this.cached(header.id, locale, 'form', 600, () => this.repository.form(header)),
-      loadOddsComparisons(header.id,locale),
+      loadOddsComparisons(header.id,geo),
     ] as const;
     const [eventsResult, statisticsResult, lineupsResult, playerStatisticsResult, standingsResult, formResult, oddsResult] = await Promise.allSettled(calls);
     const value = <T>(result: PromiseSettledResult<T>, fallback: T): T => result.status === 'fulfilled' ? result.value : fallback;

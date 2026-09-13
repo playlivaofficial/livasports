@@ -22,6 +22,17 @@ describe('bounded OddsPapi worker transport',()=>{
     const p=new M5OddsPapiAdapter(database(),'test-secret-key','job');let message='';try{await p.snapshot('betsson',['325']);}catch(e){message=(e as Error).message;}
     expect(message).toContain('400');expect(message).toContain('/v4/odds-by-tournaments');expect(message).toContain('BAD_REQUEST');expect(message).not.toContain('test-secret-key');expect(p.requestCount()).toBe(1);
   });
+  it('allows catalog-verified tournament IDs outside the original four and still rejects unknown IDs',async()=>{
+    const fetch=vi.spyOn(globalThis,'fetch').mockResolvedValue(Response.json([]));
+    const extra={id:'326',slug:'brasileiro-serie-b',category:'brazil',canonical:'brasileirao-serie-b'};
+    const p=new M5OddsPapiAdapter(database(),'test-key','job',1,false,Date.now()+140000,[
+      {id:'325',slug:'brasileiro-serie-a',category:'brazil',canonical:'brasileirao-serie-a'},extra,
+    ]);
+    await p.snapshot('betsson',['326']);
+    expect(new URL(String(fetch.mock.calls[0][0])).searchParams.get('tournamentIds')).toBe('326');
+    await expect(new M5OddsPapiAdapter(database(),'test-key','job').snapshot('betsson',['999'])).rejects.toThrow('OUT_OF_SCOPE');
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
   it('rejects unsubscribed bookmakers and tournament requests before fetching',async()=>{
     const fetch=vi.spyOn(globalThis,'fetch');const p=new M5OddsPapiAdapter(database(),'test-key','job');
     await expect(p.snapshot('betano.mx',['325'])).rejects.toThrow('OUT_OF_SCOPE');await expect(p.snapshot('betsson',['999'])).rejects.toThrow('OUT_OF_SCOPE');expect(fetch).not.toHaveBeenCalled();

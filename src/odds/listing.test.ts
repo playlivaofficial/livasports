@@ -61,10 +61,11 @@ describe('listing Neon attach',()=>{
   it('reads odds_current MATCH_WINNER in one bounded query and never calls a provider',async()=>{
     const query=vi.fn().mockResolvedValue({rows:[row(),row({outcome_code:'DRAW',decimal_odds:'4.00'}),row({outcome_code:'AWAY',decimal_odds:'1.72'})]});
     const fetch=vi.spyOn(globalThis,'fetch');
-    const attached=await attachListingOdds({query},page(),now);
+    const attached=await attachListingOdds({query},page(),now,'BR');
     expect(query).toHaveBeenCalledTimes(1);
     expect(query.mock.calls[0][0]).toContain("o.market_code='MATCH_WINNER'");
     expect(query.mock.calls[0][0]).toContain('f.id=ANY($1::uuid[])');
+    expect(query.mock.calls[0][1][1]).toBe('BR');
     expect(query.mock.calls[0][1][0]).toEqual(expect.arrayContaining([fixtureId]));
     expect(fetch).not.toHaveBeenCalled();
     const brentford=attached.sections[0].fixtures[0];
@@ -75,5 +76,12 @@ describe('listing Neon attach',()=>{
     expect(empty.oddsState).toBe('none');
     expect(attached.paidOddsRequests).toBe(0);
     fetch.mockRestore();
+  });
+
+  it('uses request GEO rather than the UI locale for bookmaker eligibility',async()=>{
+    const query=vi.fn().mockResolvedValue({rows:[row()]});
+    const mxPage={...page(),locale:'mx' as const};
+    await attachListingOdds({query},mxPage,now,'BR');
+    expect(query.mock.calls[0][1][1]).toBe('BR');
   });
 });

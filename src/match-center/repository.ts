@@ -7,6 +7,7 @@ import type {
   MatchOddsPriceView, MatchPlayerPerformanceView, MatchScoreView, MatchStandingView, MatchStatisticView,
 } from './types';
 import { isPregameActionable } from './rules';
+import type { CommercialGeo } from '@/odds/commercial-geo';
 
 const iso = (value: unknown): string | null => value ? new Date(String(value)).toISOString() : null;
 const numberOrNull = (value: unknown): number | null => value === null || value === undefined || value === '' ? null : Number(value);
@@ -174,9 +175,9 @@ export class PostgresMatchCenterRepository {
     return { home, away, headToHead };
   }
 
-  async odds(header: MatchHeaderView): Promise<MatchOddsPriceView[]> {
-    if (!isPregameActionable(header.kickoff)) return [];
-    const countryCode = header.locale === 'br' ? 'BR' : 'MX';
+  async odds(header: MatchHeaderView, geo: CommercialGeo | null): Promise<MatchOddsPriceView[]> {
+    if (!geo || !isPregameActionable(header.kickoff)) return [];
+    const countryCode = geo;
     const result = await this.database.query<Record<string, unknown>>(`SELECT b.display_name,o.market_code,o.outcome_code,o.line,o.decimal_odds,
       o.provider_updated_at,(bga.affiliate_enabled AND al.enabled AND b.affiliate_status='ACTIVE') AS affiliate_eligible,
       CASE WHEN bga.affiliate_enabled AND al.enabled AND b.affiliate_status='ACTIVE' THEN al.destination_url END AS affiliate_url

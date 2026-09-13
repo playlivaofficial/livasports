@@ -3,12 +3,13 @@ import {databaseUrl,PostgresDatabaseClient} from '@/database/client';
 import {readPublicOddsFixtures} from '@/odds/read-repository';
 import {SlipLoader} from './loader';
 import {parseResolutionRequest} from './types';
+import {requestCommercialGeo} from '@/odds/commercial-geo';
 
 const headers={'Cache-Control':'private, no-store','X-Robots-Tag':'noindex'};
 let db:PostgresDatabaseClient|null=null;
-const loader=new SlipLoader(async(ids,locale)=>{
+const loader=new SlipLoader(async(ids,geo)=>{
   const url=databaseUrl();if(!url)throw new Error('SLIP_DATABASE_UNAVAILABLE');
-  db??=new PostgresDatabaseClient(url);return readPublicOddsFixtures(db,ids,locale);
+  db??=new PostgresDatabaseClient(url);return readPublicOddsFixtures(db,ids,geo);
 });
 export async function boundedJson(request:Request,limit=4096):Promise<unknown>{
   const reader=request.body?.getReader();if(!reader)return null;
@@ -26,7 +27,7 @@ export async function resolveSlipRequest(request:Request,service:Pick<SlipLoader
   let input;
   try{input=parseResolutionRequest(await boundedJson(request));}catch(error){return response({error:'INVALID_BODY',providerRequests:0},error instanceof Error&&error.message==='BODY_TOO_LARGE'?413:400);}
   if(!input)return response({error:'INVALID_SLIP',providerRequests:0},400);
-  try{const result=await service.resolve(input.selections,input.locale);
+  try{const result=await service.resolve(input.selections,input.locale,requestCommercialGeo(request.headers));
     console.info(`[LivaSports M6] ${JSON.stringify({event:'slip-resolve',count:input.selections.length,locale:input.locale,providerRequests:0})}`);
     return response(result);
   }catch{return response({error:'SLIP_TEMPORARILY_UNAVAILABLE',providerRequests:0},503);}

@@ -60,17 +60,16 @@ function finish(locale:SiteLocale,count:number,bookmakers:BookmakerSlip[]):SlipC
   const times=quotes.filter(q=>q.decimalOdds!==null).map(q=>Date.parse(q.expiresAt!));
   return {version:1,locale,states,bookmakers,expiresAt:times.length?new Date(Math.min(...times)).toISOString():null};
 }
-function eligibleBookmaker(b:BookmakerConfig,locale:SiteLocale){
-  return b.geoEligibility.eligible&&b.geoEligibility.locale===locale&&(b.bookmakerId==='betsson'||(b.bookmakerId==='betano.bet.br'&&locale==='br'));
+function eligibleBookmaker(b:BookmakerConfig){
+  return b.geoEligibility.eligible&&(b.bookmakerId==='betsson'||(b.bookmakerId==='betano.bet.br'&&b.geoEligibility.locale==='br'));
 }
 export function buildSlipComparison(selections:CanonicalSelection[],locale:SiteLocale,fixtures:Map<string,SlipFixtureRead>,configs:BookmakerConfig[],now=Date.now()):SlipComparison {
-  const eligible=configs.filter(b=>eligibleBookmaker(b,locale));
+  const eligible=configs.filter(eligibleBookmaker);
   const bookmakers=selections.length?eligible.map(b=>summarize(b,selections.map(s=>selectionQuote(s,fixtures.get(s.fixturePublicId)??null,b.bookmakerId,now)))):[];
   return finish(locale,selections.length,bookmakers);
 }
-// Rebuild totals, best markers and CTAs at render time, including offline/failed reads.
 export function guardSlipComparison(value:SlipComparison,count:number,now:number,connected=true):SlipComparison {
-  return finish(value.locale,count,value.bookmakers.filter(b=>eligibleBookmaker(b,value.locale)).map(b=>summarize(b,b.selectionQuotes.map(q=>{
+  return finish(value.locale,count,value.bookmakers.filter(eligibleBookmaker).map(b=>summarize(b,b.selectionQuotes.map(q=>{
     if(q.state==='MATCH_FINISHED')return {...q,decimalOdds:null};
     if(q.closesAt&&now>=Date.parse(q.closesAt))return {...q,state:'MATCH_STARTED',decimalOdds:null};
     if(q.decimalOdds&&(!connected||!Number.isFinite(Date.parse(q.expiresAt??''))||now>=Date.parse(q.expiresAt!)))return {...q,state:'STALE',decimalOdds:null};

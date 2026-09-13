@@ -2,7 +2,8 @@ import 'server-only';
 import {after} from 'next/server';
 import {boundedJson} from '@/slip/server';
 import {parseResolutionRequest} from '@/slip/types';
-import {analyticsAllowed,campaignDestination,geoAllowed,isSlipPlacement,parseContext,trafficClass} from './policy';
+import {analyticsAllowed,campaignDestination,geoAllowed,isOddsCtaPlacement,isSlipPlacement,parseContext,trafficClass} from './policy';
+import {requestCommercialGeo,commercialLocale} from '@/odds/commercial-geo';
 import {signingKey,verifyOffer} from './tokens';
 import {publicOffer,resolveOffer,type OfferDependencies} from './service';
 import {affiliateDatabase,runtimeDependencies} from './runtime';
@@ -32,7 +33,12 @@ export async function offersRequest(request:Request,provided?:CommercialServices
     const campaigns=new Map<string,ReturnType<OfferDependencies['campaigns']>>(),pages=new Map<string,ReturnType<OfferDependencies['page']>>();
     const deps:OfferDependencies={...s.deps,campaigns:locale=>{if(!campaigns.has(locale))campaigns.set(locale,s.deps.campaigns(locale));return campaigns.get(locale)!;},
       page:context=>{const id=context.pagePath+':'+(context.competitionSlug??'');if(!pages.has(id))pages.set(id,s.deps.page(context));return pages.get(id)!;}};
-    const offers=[];for(const context of contexts){if(!context||!s.geo(request,context.locale)){offers.push(null);continue;}const offer=await resolveOffer(context,deps);
+    const offers=[];for(const context of contexts){
+      if(!context){offers.push(null);continue;}
+      const commercial=isOddsCtaPlacement(context.placement)?commercialLocale(requestCommercialGeo(request.headers)):null;
+      const resolved=commercial&&isOddsCtaPlacement(context.placement)?{...context,locale:commercial}:context;
+      if(isOddsCtaPlacement(context.placement)?!commercial:!s.geo(request,context.locale)){offers.push(null);continue;}
+      const offer=await resolveOffer(resolved,deps);
       if(offer?.creative?.delivery==='BETSSON_EMBED'&&!analyticsAllowed(request)){offers.push(null);continue;}
       offers.push(offer?publicOffer(offer,s.key,Date.now(),process.env.AFFILIATE_ANALYTICS_MODE==='consent'?'consent':'anonymous'):null);}
     return Response.json({offers,providerRequests:0},{headers:commercialHeaders});

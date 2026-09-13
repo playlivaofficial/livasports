@@ -31,7 +31,8 @@ export function verifyCatalog(markets:unknown[],tournaments:unknown[]):void {
     if(found.length!==1) throw new Error(`Unverified M5 tournament ${rule.id}`);
   }
 }
-export function normalizeM5Snapshot(data:unknown,bookmaker:string,observedAt:string,tournamentIds:readonly string[]):OddsSnapshot {
+export function normalizeM5Snapshot(data:unknown,bookmaker:string,observedAt:string,tournamentIds:readonly string[],
+  catalog:readonly {id:string;slug:string;category:string;canonical:string}[]=M5_TOURNAMENTS):OddsSnapshot {
   if(!['betano.bet.br','betsson'].includes(bookmaker)||!isoUtc(observedAt)||!Array.isArray(data))throw new Error('Invalid pregame snapshot envelope');
   const result:OddsSnapshot={bookmaker,observedAt,fixtures:[],quotes:[],rejected:{},tournamentIds:[...tournamentIds]};
   const reject=(key:string)=>{result.rejected[key]=(result.rejected[key]??0)+1;};
@@ -39,7 +40,7 @@ export function normalizeM5Snapshot(data:unknown,bookmaker:string,observedAt:str
   const idCounts=new Map<unknown,number>();for(const row of data){const id=obj(row).fixtureId;idCounts.set(id,(idCounts.get(id)??0)+1);}
   const duplicateIds=new Set([...idCounts].filter(([,count])=>count>1).map(([id])=>id));
   for(const value of data){
-    const r=obj(value);const kickoff=isoUtc(r.startTime);const tournament=M5_TOURNAMENTS.find(t=>t.id===String(r.tournamentId));
+    const r=obj(value);const kickoff=isoUtc(r.startTime);const tournament=catalog.find(t=>t.id===String(r.tournamentId));
     if(!kickoff||r.sportId!==10||!tournament||!tournamentIds.includes(tournament.id)||typeof r.fixtureId!=='string'||!/^[-a-zA-Z0-9_]{1,128}$/.test(r.fixtureId)||seen.has(r.fixtureId)||duplicateIds.has(r.fixtureId)){reject('INVALID_FIXTURE');continue;}
     if((r.tournamentSlug!==undefined&&r.tournamentSlug!==tournament.slug)||(r.categorySlug!==undefined&&r.categorySlug!==tournament.category)){reject('COMPETITION_METADATA_CONFLICT');continue;}
     seen.add(r.fixtureId);

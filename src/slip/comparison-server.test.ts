@@ -27,11 +27,11 @@ describe('M7 request/security boundary',()=>{
   });
   it('re-reads every exact selection for the approved destination, never relying on cached totals',async()=>{
     const f=comparisonFixture(3,Date.now());const read=vi.fn().mockResolvedValue(f.data),fetch=vi.spyOn(globalThis,'fetch');
-    expect(await currentSlipDestination('betsson',f.selections,'br',read)).toBe(f.data.destinations.betsson);
-    expect(await currentSlipDestination('betano.bet.br',f.selections,'br',read)).toBeNull();
-    expect(await currentSlipDestination('betsson',f.selections,'mx',read)).toBeNull();
+    expect(await currentSlipDestination('betsson',f.selections,'br',read,'BR')).toBe(f.data.destinations.betsson);
+    expect(await currentSlipDestination('betano.bet.br',f.selections,'br',read,'BR')).toBeNull();
+    expect(await currentSlipDestination('betsson',f.selections,'mx',read,'BR')).toBe(f.data.destinations.betsson);
     f.data.fixtures.get(f.selections[1].fixturePublicId)!.snapshot.quotes[0].status='SUSPENDED';
-    expect(await currentSlipDestination('betsson',f.selections,'br',read)).toBeNull();expect(read).toHaveBeenCalledTimes(4);expect(fetch).not.toHaveBeenCalled();
+    expect(await currentSlipDestination('betsson',f.selections,'br',read,'BR')).toBeNull();expect(read).toHaveBeenCalledTimes(4);expect(fetch).not.toHaveBeenCalled();
   });
   it('refuses a CTA with expired, started, partial or unconfigured bookmaker coverage',async()=>{
     for(const scenario of ['expired','started','partial','unconfigured','unapproved']){
@@ -40,7 +40,7 @@ describe('M7 request/security boundary',()=>{
       if(scenario==='partial')r.snapshot.quotes.shift();
       if(scenario==='unconfigured')f.data.bookmakers[0].affiliateEligibility.destinationConfigured=false;
       if(scenario==='unapproved')f.data.bookmakers[0].affiliateEligibility.approved=false;
-      expect(await currentSlipDestination('betsson',f.selections,'br',async()=>f.data)).toBeNull();
+      expect(await currentSlipDestination('betsson',f.selections,'br',async()=>f.data,'BR')).toBeNull();
     }
   });
   it('outbound does not accept arbitrary destinations, duplicate arguments or provider identity',async()=>{
@@ -54,7 +54,7 @@ describe('M7 request/security boundary',()=>{
   });
   it('queries only current quotes and bookmaker configuration in two bounded queries for ten selections',async()=>{
     const query=vi.fn().mockResolvedValueOnce({rows:[]}).mockResolvedValueOnce({rows:[{provider_slug:'betsson',display_name:'Betsson',affiliate_status:'ACTIVE',verification_state:'VERIFIED_BR',destination:'https://betsson.bet.br/?partner=test-only',active_campaigns:[{type:'HOMEPAGE',placements:['slip_bookmaker_comparison'],domains:['betsson.bet.br']}]}]});
-    const fetch=vi.spyOn(globalThis,'fetch');const r=await readSlipComparison({query},comparisonFixture(10).selections.map(s=>s.fixturePublicId),'br');
+    const fetch=vi.spyOn(globalThis,'fetch');const r=await readSlipComparison({query},comparisonFixture(10).selections.map(s=>s.fixturePublicId),'BR');
     expect(query).toHaveBeenCalledTimes(2);expect(query.mock.calls[0][0]).toContain('ANY($1::text[])');expect(query.mock.calls[0][0]).toContain('LIMIT 500');
     expect(query.mock.calls.every(c=>!c[0].includes('odds_history'))).toBe(true);expect(r.bookmakers[0].affiliateEligibility.destinationConfigured).toBe(true);expect(fetch).not.toHaveBeenCalled();
   });

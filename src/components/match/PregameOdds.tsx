@@ -17,12 +17,17 @@ const copy={
     outcomes:{HOME:'1',DRAW:'X',AWAY:'2',OVER:'Más de 2.5',UNDER:'Menos de 2.5',YES:'Sí',NO:'No'},house:'Casa',action:'Acción',visit:'Ver cuotas',best:'Mejor cuota',
     empty:'Las cuotas aún no están disponibles para este partido.',stale:'Cuotas desactualizadas — pendientes de verificación.',closed:'Las cuotas prepartido ya no están disponibles.',suspended:'Mercado suspendido temporalmente.',
     observed:'Verificado el',changed:'Último cambio informado',single:'Una casa disponible en este mercado.',responsible:'18+. Apuesta con responsabilidad.',disclosure:'Podemos recibir una comisión por enlaces de socios. Esto no cambia el orden de las cuotas.'},
+  en:{title:'Compare odds',pregame:'Pregame · 90 minutes',markets:{MATCH_WINNER:'Full-time result',TOTAL_GOALS:'Goals · 2.5',BTTS:'Both teams to score'},
+    outcomes:{HOME:'1',DRAW:'X',AWAY:'2',OVER:'Over 2.5',UNDER:'Under 2.5',YES:'Yes',NO:'No'},house:'Bookmaker',action:'Action',visit:'View odds',best:'Best price',
+    empty:'Odds are not available for this match yet.',stale:'Odds are out of date — waiting for a new check.',closed:'Pregame odds are no longer available.',suspended:'Market temporarily suspended.',
+    observed:'Checked at',changed:'Last reported change',single:'One bookmaker available in this market.',responsible:'18+. Gamble responsibly.',disclosure:'We may receive a commission from partner links. That does not change the order of the odds.'},
 };
-export function PregameOdds({initial,context,fixturePublicId}:{initial:OddsComparison[];context:MatchEventContext;fixturePublicId?:string}){
-  const saved=useSlip();const slipText=slipCopy[context.locale];
+export function PregameOdds({initial,context,fixturePublicId,uiLocale}:{initial:OddsComparison[];context:MatchEventContext;fixturePublicId?:string;uiLocale?:'br'|'mx'|'en'}){
+  const saved=useSlip();const presentation=uiLocale??context.locale;const commercialLocale=context.locale;
+  const slipText=slipCopy[commercialLocale];
   const [comparisons,setComparisons]=useState(initial);const [market,setMarket]=useState<OddsMarket>('MATCH_WINNER');
   const [clock,setClock]=useState<number|null>(null);const root=useRef<HTMLElement>(null);const visible=useRef(false);
-  const text=copy[context.locale];const selected=comparisons.find(c=>c.market===market);const sent=useRef(new Set<string>());
+  const text=copy[presentation];const selected=comparisons.find(c=>c.market===market);const sent=useRef(new Set<string>());
   const selectedMarket=useRef(market);
   const [commercial,setCommercial]=useState<Record<string,boolean>>({});
   const onAvailability=useCallback((bookmaker:string,available:boolean)=>setCommercial(current=>current[bookmaker]===available?current:{...current,[bookmaker]:available}),[]);
@@ -30,7 +35,7 @@ export function PregameOdds({initial,context,fixturePublicId}:{initial:OddsCompa
     let stopped=false;let inFlight=false;let lastAttempt=0;const abort=new AbortController();
     const tick=()=>setClock(Date.now());
     async function refresh(){if(stopped||inFlight||!navigator.onLine||!visible.current||document.visibilityState!=='visible'||Date.now()-lastAttempt<60000)return;
-      inFlight=true;lastAttempt=Date.now();tick();try{const response=await fetch(`/api/odds/${context.fixtureId}?locale=${context.locale}`,{cache:'no-store',signal:abort.signal});
+      inFlight=true;lastAttempt=Date.now();tick();try{const response=await fetch(`/api/odds/${context.fixtureId}?locale=${presentation}`,{cache:'no-store',signal:abort.signal});
         if(response.ok){const body=await response.json();if(!stopped&&Array.isArray(body.comparisons))setComparisons(body.comparisons);}
       }catch{/* Expiry still applies when refresh is unavailable. */}finally{inFlight=false;}}
     const observe=(entries:IntersectionObserverEntry[])=>{visible.current=entries.some(e=>e.isIntersecting);if(visible.current){
@@ -41,14 +46,14 @@ export function PregameOdds({initial,context,fixturePublicId}:{initial:OddsCompa
     const timer=window.setInterval(tick,1000);const refreshTimer=window.setInterval(()=>void refresh(),60000);
     const focus=()=>{tick();void refresh();};document.addEventListener('visibilitychange',focus);window.addEventListener('pageshow',focus);
     return()=>{stopped=true;abort.abort();observer.disconnect();clearInterval(timer);clearInterval(refreshTimer);document.removeEventListener('visibilitychange',focus);window.removeEventListener('pageshow',focus);};
-  },[context.fixtureId,context.locale,context.competitionId,context]);
+  },[context.fixtureId,context.locale,context.competitionId,context,presentation]);
   const cellCurrent=(cell:OddsCell)=>cell.decimalOdds!==null&&cell.expiresAt!==null&&(clock===null||clock<Date.parse(cell.expiresAt));
   const available=selected?.rows.filter(r=>r.cells.some(cellCurrent)).length??0;
   const anyExpired=selected?.rows.some(r=>r.cells.some(c=>c.state==='STALE'||(c.decimalOdds!==null&&!cellCurrent(c))));
   const allClosed=selected?.rows.length&&selected.rows.every(r=>r.cells.every(c=>c.state==='CLOSED'||c.state==='UNAVAILABLE'));
   const pastKickoff=clock!==null&&selected?.closesAt&&clock>=Date.parse(selected.closesAt);
   const unavailable=allClosed||pastKickoff?text.closed:anyExpired?text.stale:selected?.rows.some(r=>r.cells.some(c=>c.state==='SUSPENDED'))?text.suspended:text.empty;
-  const date=(value:string)=>new Intl.DateTimeFormat(context.locale==='br'?'pt-BR':'es-MX',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',timeZone:context.locale==='br'?'America/Sao_Paulo':'America/Mexico_City'}).format(new Date(value));
+  const date=(value:string)=>new Intl.DateTimeFormat(presentation==='en'?'en-GB':presentation==='br'?'pt-BR':'es-MX',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',timeZone:presentation==='en'?'UTC':presentation==='br'?'America/Sao_Paulo':'America/Mexico_City'}).format(new Date(value));
   function select(next:OddsMarket){selectedMarket.current=next;setMarket(next);if(!sent.current.has(next)){sent.current.add(next);emitMatchEvent('odds_market_view',context,'match_odds',{market:next});}}
   return <section id="odds" ref={root} className="match-panel commercial-panel pregame-odds" aria-label={text.title}>
     <div className="odds-title"><div><h2>{text.title}</h2><p>{text.pregame}</p></div><span className="age-label">18+</span></div>
@@ -62,12 +67,12 @@ export function PregameOdds({initial,context,fixturePublicId}:{initial:OddsCompa
           const current=cellCurrent(cell);const best=current&&cell.best&&selected.rows.filter(r=>r.cells.some(c=>c.outcome===cell.outcome&&cellCurrent(c))).length>=2;
           const intent=canonicalSelection({fixturePublicId,market,outcome:cell.outcome,line:selected.line,scope:SLIP_SCOPE});
           const pressed=intent?saved.slip.selections.some(s=>selectionKey(s)===selectionKey(intent)):false;
-          const priceLabel=current?new Intl.NumberFormat(context.locale==='br'?'pt-BR':'es-MX',{minimumFractionDigits:2,maximumFractionDigits:2}).format(Number(cell.decimalOdds)):'—';
+          const priceLabel=current?new Intl.NumberFormat(presentation==='en'?'en-GB':presentation==='br'?'pt-BR':'es-MX',{minimumFractionDigits:2,maximumFractionDigits:2}).format(Number(cell.decimalOdds)):'—';
           return <td key={cell.outcome}>{current&&intent?<button type="button" className={`pregame-price slip-odds-button${best?' is-best':''}`} aria-pressed={pressed} disabled={!saved.ready}
             aria-label={`${pressed?slipText.selected:slipText.add}: ${slipText.markets[market]}, ${selectionLabel(intent,context.locale)}, ${priceLabel}, ${row.name}`}
-            onClick={()=>addSlipSelection(intent,context.locale,cell.expiresAt!,row.bookmaker)}>{pressed?<span className="slip-selected-indicator" aria-hidden="true">✓</span>:null}{priceLabel}{best?<span className="sr-only"> {text.best}</span>:null}</button>:
+            onClick={()=>addSlipSelection(intent,commercialLocale,cell.expiresAt!,row.bookmaker)}>{pressed?<span className="slip-selected-indicator" aria-hidden="true">✓</span>:null}{priceLabel}{best?<span className="sr-only"> {text.best}</span>:null}</button>:
             <span className={`pregame-price${best?' is-best':''}${!current?' is-unavailable':''}`} title={best?text.best:!current?unavailable:undefined}>{priceLabel}{best?<span className="sr-only"> {text.best}</span>:null}</span>}</td>;})}
-          <td>{row.action&&row.cells.some(cellCurrent)&&fixturePublicId?<AffiliateLink compact className="match-affiliate-cta" onAvailability={onAvailability} context={{locale:context.locale,placement:'match_odds_table',bookmaker:row.bookmaker as 'betsson'|'betano.bet.br',fixturePublicId,market}}/>:<span className="odds-no-action">—</span>}</td></tr>)}</tbody></table>:null}
+          <td>{row.action&&row.cells.some(cellCurrent)&&fixturePublicId?<AffiliateLink compact className="match-affiliate-cta" onAvailability={onAvailability} context={{locale:commercialLocale,placement:'match_odds_table',bookmaker:row.bookmaker as 'betsson'|'betano.bet.br',fixturePublicId,market}}/>:<span className="odds-no-action">—</span>}</td></tr>)}</tbody></table>:null}
       {!available?<p className="pregame-empty" role="status">{unavailable}</p>:available===1?<p className="odds-note">{text.single}</p>:null}
       {selected?.observedAt?<p className="odds-freshness">{text.observed} <time dateTime={selected.observedAt}>{date(selected.observedAt)}</time>{selected.providerUpdatedAt?<span> · {text.changed}: {date(selected.providerUpdatedAt)}</span>:null}</p>:null}
     </div>

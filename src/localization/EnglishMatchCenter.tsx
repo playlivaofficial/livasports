@@ -10,6 +10,7 @@ import { SiteHeader } from '@/components/sports/SiteHeader';
 import { TeamIdentity } from '@/components/sports/FixtureCard';
 import {EnglishShare as MatchClientActions} from './EnglishShare';
 import {SectionNav as MatchSectionNav} from '@/components/sports/SectionNav';
+import { PregameOdds } from '@/components/match/PregameOdds';
 import { LiveRefreshBoundary } from '@/components/match/LiveRefreshBoundary';
 
 
@@ -110,7 +111,7 @@ function PlayerPerformances({locale,match}:{locale:SiteLocale;match:MatchCenterV
   })}</div></section>;
 }
 
-export function EnglishMatchCenter({ locale, match, replay = false }: { locale: SiteLocale; match: MatchCenterView; replay?: boolean }) {
+export function EnglishMatchCenter({ locale, match, replay = false, commercialLocale = 'br' }: { locale: SiteLocale; match: MatchCenterView; replay?: boolean; commercialLocale?: 'br' | 'mx' }) {
   const text=copy[locale]; const dictionary=getDictionary(locale); const canonical=matchPath(locale,match.header.publicId,match.header.home.name,match.header.away.name);
   const alternate={br:matchPath('br',match.header.publicId,match.header.home.name,match.header.away.name),mx:matchPath('mx',match.header.publicId,match.header.home.name,match.header.away.name)};
 
@@ -131,8 +132,9 @@ export function EnglishMatchCenter({ locale, match, replay = false }: { locale: 
       </header>
 
       <MatchSectionNav className="match-tabs" label="Match sections" items={[{href:'#summary',label:text.summary},{href:'#statistics',label:text.statistics},{href:'#lineups',label:text.lineups},
-        ...(match.playerStatistics.data.length?[{href:'#player-statistics',label:text.playerPerformance}]:[]),{href:'#meetings',label:text.meetings},{href:'#standings',label:text.standings}]}/>
-      <div className="match-content-grid"><div className="match-main-column"><Summary locale={locale} match={match}/><Statistics locale={locale} module={match.statistics}/><Lineups locale={locale} match={match}/><PlayerPerformances locale={locale} match={match}/><Form locale={locale} match={match}/><Standings locale={locale} match={match}/></div>
+        ...(match.playerStatistics.data.length?[{href:'#player-statistics',label:text.playerPerformance}]:[]),{href:'#meetings',label:text.meetings},{href:'#standings',label:text.standings},{href:'#odds',label:'Odds'}]}/>
+      <div className="match-content-grid"><div className="match-main-column"><Summary locale={locale} match={match}/><Statistics locale={locale} module={match.statistics}/><Lineups locale={locale} match={match}/><PlayerPerformances locale={locale} match={match}/><Form locale={locale} match={match}/><Standings locale={locale} match={match}/>
+        {!replay?<PregameOdds uiLocale="en" fixturePublicId={match.header.publicId} initial={match.oddsComparisons??[]} context={{fixtureId:match.header.id,competitionId:match.header.competitionId,locale:commercialLocale}}/>:null}</div>
         <aside className="match-context"><section><h2>{text.summary}</h2><dl><div><dt>{text.season}</dt><dd>{match.header.season??'—'}</dd></div><div><dt>{text.stage}</dt><dd>{match.header.stage ? stageLabels[locale][match.header.stage] ?? match.header.stage : '—'}</dd></div><div><dt>{text.venue}</dt><dd>{match.header.venue??'—'}</dd></div></dl></section></aside></div>
       {!replay?<LiveRefreshBoundary publicId={match.header.publicId} locale="br" status={match.header.status} snapshotAt={match.snapshotAt}/>:null}
     </main></div>;

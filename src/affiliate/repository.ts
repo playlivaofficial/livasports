@@ -1,6 +1,7 @@
 import 'server-only';
 import type {QueryExecutor} from '@/database/client';
 import {verifiedGeo} from '@/odds/geo';
+import {commercialGeoFromLocale} from '@/odds/commercial-geo';
 import {matchPath} from '@/match-center/routes';
 import {teamPath,playerPath} from '@/profiles/routes';
 import {pageType} from './policy';
@@ -21,7 +22,7 @@ export async function readCampaigns(db:QueryExecutor,locale:'br'|'mx'):Promise<C
   return rows.map(r=>({id:r.id,operatorCampaignId:r.operator_campaign_id,linkId:r.affiliate_link_id,bookmaker:r.provider_slug,locale,
     enabled:r.enabled&&r.link_enabled&&r.bookmaker_enabled,approved:!!r.approved_at&&!!r.link_approved&&r.campaign_verified,
     affiliateApproved:r.affiliate_status==='ACTIVE'&&r.affiliate_enabled,
-    geoEligible:!!r.verified_at&&r.odds_enabled&&r.comparison_enabled&&verifiedGeo(r.verification_state,locale)&&(r.provider_slug!=='betano.bet.br'||locale==='br'),
+    geoEligible:!!r.verified_at&&r.odds_enabled&&r.comparison_enabled&&verifiedGeo(r.verification_state,commercialGeoFromLocale(locale))&&(r.provider_slug!=='betano.bet.br'||locale==='br'),
     destination:r.destination_url,destinationType:r.destination_type,placements:r.placement_allowlist,domains:r.operator_domain_allowlist,
     startsAt:new Date(r.valid_from).toISOString(),endsAt:new Date(r.valid_until).toISOString(),creatives:r.creatives}));
 }

@@ -15,8 +15,9 @@ describe('M7 semantic localized comparison cards',()=>{
     const html=renderToStaticMarkup(<SlipComparison locale="br" selections={f.selections.map(s=>({...s,addedAt:new Date(f.now).toISOString()}))} checking={false} value={buildSlipComparison(f.selections,'br',f.data.fixtures,f.data.bookmakers,f.now)}/>);
     expect(html).toContain('<details');expect(html).toContain('Real Madrid');expect(html).toContain('Seleções indisponíveis (1)');expect(html).not.toContain('Melhor odd combinada');
   });
-  it('renders a natural Spanish state without inherited BR pricing',()=>{
+  it('keeps BR-eligible prices when the interface is Spanish',()=>{
     const f=comparisonFixture();const html=renderToStaticMarkup(<SlipComparison locale="mx" selections={f.selections.map(s=>({...s,addedAt:new Date(f.now).toISOString()}))} checking={false} value={buildSlipComparison(f.selections,'mx',f.data.fixtures,f.data.bookmakers,f.now)}/>);
-    expect(html).toContain('No hay casas verificadas');expect(html).not.toContain('slip-combined');expect(html).not.toContain('Betano');
+    expect(html).toContain('Cuota combinada');expect(html).toContain('Mejor cuota combinada entre las casas comparadas');
+    expect(html).toContain('6.05');expect(html).toContain('6.46');expect(html).not.toContain('Melhor odd');expect(html).not.toContain('No hay casas verificadas');
   });
 });

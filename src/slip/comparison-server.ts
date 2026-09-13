@@ -2,16 +2,17 @@ import 'server-only';
 import {databaseUrl,PostgresDatabaseClient} from '@/database/client';
 import {readSlipComparison,type SlipComparisonRead} from '@/odds/read-repository';
 import type {SiteLocale} from '@/config/i18n';
-import {boundedJson} from './server';
+import {requestCommercialGeo,type CommercialGeo} from '@/odds/commercial-geo';
 import {parseResolutionRequest,type CanonicalSelection} from './types';
+import {boundedJson} from './server';
 import {ComparisonLoader} from './comparison-loader';
 import {buildSlipComparison} from './comparison';
 
 const headers={'Cache-Control':'private, no-store','X-Robots-Tag':'noindex','Referrer-Policy':'no-referrer'};
 let db:PostgresDatabaseClient|null=null;
-async function read(ids:readonly string[],locale:SiteLocale){
+async function read(ids:readonly string[],geo:CommercialGeo|null){
   const url=databaseUrl();if(!url)throw new Error('COMPARISON_DATABASE_UNAVAILABLE');
-  db??=new PostgresDatabaseClient(url);return readSlipComparison(db,ids,locale);
+  db??=new PostgresDatabaseClient(url);return readSlipComparison(db,ids,geo);
 }
 const loader=new ComparisonLoader(read,Date.now,event=>console.info(`[LivaSports M7] ${JSON.stringify({event:'slip-comparison',...event})}`));
 async function input(request:Request){
@@ -24,14 +25,13 @@ async function input(request:Request){
 export async function compareSlipRequest(request:Request,service:Pick<ComparisonLoader,'resolve'>=loader):Promise<Response>{
   const parsed=await input(request);
   if('error' in parsed)return Response.json({error:'INVALID_SLIP',providerRequests:0},{status:parsed.error,headers});
-  try{return Response.json(await service.resolve(parsed.value.selections,parsed.value.locale),{headers});}
+  try{return Response.json(await service.resolve(parsed.value.selections,parsed.value.locale,requestCommercialGeo(request.headers)),{headers});}
   catch{return Response.json({error:'COMPARISON_TEMPORARILY_UNAVAILABLE',providerRequests:0},{status:503,headers});}
 }
 export async function currentSlipDestination(bookmaker:string,selections:CanonicalSelection[],locale:SiteLocale,
-  reader:(ids:readonly string[],locale:SiteLocale)=>Promise<SlipComparisonRead>=read):Promise<string|null>{
+  reader:(ids:readonly string[],geo:CommercialGeo|null)=>Promise<SlipComparisonRead>=read,geo:CommercialGeo|null=null):Promise<string|null>{
   if(!['betsson','betano.bet.br'].includes(bookmaker)||!selections.length||!parseResolutionRequest({selections,locale}))return null;
-  // Always bypass the comparison cache. All exact selections are checked again on click.
-  const data=await reader(selections.map(s=>s.fixturePublicId),locale);
+  const data=await reader(selections.map(s=>s.fixturePublicId),geo);
   const result=buildSlipComparison(selections,locale,data.fixtures,data.bookmakers).bookmakers.find(b=>b.bookmakerId===bookmaker);
   return result?.complete&&result.ctaState==='ENABLED'?data.destinations[bookmaker]??null:null;
 }

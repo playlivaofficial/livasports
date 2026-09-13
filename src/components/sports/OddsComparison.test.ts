@@ -37,6 +37,12 @@ describe('listing MATCH_WINNER cells', () => {
     expect(html).not.toContain('1.90');
   });
 
+  it('renders English labels without changing the 1X2 prices', () => {
+    const html = renderToStaticMarkup(createElement(OddsComparison, { locale: 'en', fixture: fixture() }));
+    expect(html).toContain('1.90');
+    expect(html).toContain('Pregame odds');
+  });
+
   it('renders explicit no-odds coverage', () => {
     const value = { ...fixture(), odds: [], oddsState: 'none' as const };
     expect(renderToStaticMarkup(createElement(OddsComparison, { locale: 'br', fixture: value }))).toContain('Indisponível');

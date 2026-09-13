@@ -4,26 +4,26 @@ import {buildSlipComparison} from './comparison';
 import {resolveSelection} from './resolution';
 import {parseResolutionRequest,selectionKey,type CanonicalSelection} from './types';
 import type {FullSlipResolution} from './comparison-types';
+import type {CommercialGeo} from '@/odds/commercial-geo';
 
-export function comparisonCacheKey(selections:CanonicalSelection[],locale:SiteLocale):string {
-  return `slip-comparison:v1:${locale}:${selections.map(selectionKey).sort().join('|')}`;
+export function comparisonCacheKey(selections:CanonicalSelection[],geo:CommercialGeo|null):string {
+  return `slip-comparison:v2:${geo??'none'}:${selections.map(selectionKey).sort().join('|')}`;
 }
 export class ComparisonLoader {
   private readonly entries=new Map<string,{until:number;read:SlipComparisonRead}>();
   private readonly pending=new Map<string,Promise<SlipComparisonRead>>();
-  constructor(private readonly readMany:(ids:readonly string[],locale:SiteLocale)=>Promise<SlipComparisonRead>,private readonly now=Date.now,
+  constructor(private readonly readMany:(ids:readonly string[],geo:CommercialGeo|null)=>Promise<SlipComparisonRead>,private readonly now=Date.now,
     private readonly metric:(event:{cache:'HIT'|'MISS'|'DEDUP';count:number;locale:SiteLocale;durationMs:number;providerRequests:0})=>void=()=>{}){}
-  async resolve(selections:CanonicalSelection[],locale:SiteLocale):Promise<FullSlipResolution>{
+  async resolve(selections:CanonicalSelection[],locale:SiteLocale,geo:CommercialGeo|null=null):Promise<FullSlipResolution>{
     if(!parseResolutionRequest({selections,locale}))throw new Error('INVALID_SLIP');
     if(!selections.length)return this.result(selections,locale,{fixtures:new Map(),bookmakers:[],destinations:{}});
-    const started=performance.now(),key=comparisonCacheKey(selections,locale),entry=this.entries.get(key);
+    const started=performance.now(),key=comparisonCacheKey(selections,geo),entry=this.entries.get(key);
     let read:SlipComparisonRead,cache:'HIT'|'MISS'|'DEDUP';
     if(entry&&entry.until>this.now()){read=entry.read;cache='HIT';}else{
       let pending=this.pending.get(key);cache=pending?'DEDUP':'MISS';
       if(!pending){
-        // Refuse excess in-flight work, rather than letting arbitrary keys grow without bound.
         if(this.pending.size>=32)throw new Error('COMPARISON_BUSY');
-        pending=this.readMany(selections.map(s=>s.fixturePublicId).sort(),locale);this.pending.set(key,pending);
+        pending=this.readMany(selections.map(s=>s.fixturePublicId).sort(),geo);this.pending.set(key,pending);
       }
       try{read=await pending;
         const now=this.now();const comparison=buildSlipComparison(selections,locale,read.fixtures,read.bookmakers,now);
