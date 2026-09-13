@@ -51,6 +51,12 @@ describe('OddsPapi catalog identity', () => {
       {tournamentId: 390, tournamentSlug: 'brasileiro-serie-b', categorySlug: 'brazil'},
       {tournamentId: 8, tournamentSlug: 'laliga', categorySlug: 'spain'},
     ]).map(row => row.id)).toEqual(['325', '27464', '17', '384', '390', '8']);
+    expect(schedulerTournaments([...baseline,
+      {tournamentId: 390, tournamentSlug: 'brasileiro-serie-b', categorySlug: 'brazil'},
+      {tournamentId: 8, tournamentSlug: 'laliga', categorySlug: 'spain'},
+      {tournamentId: 35, tournamentSlug: 'bundesliga', categorySlug: 'germany'},
+      {tournamentId: 23, tournamentSlug: 'serie-a', categorySlug: 'italy'},
+    ]).map(row => row.id)).toEqual(['325', '27464', '17', '384', '390', '8', '35', '23']);
     expect(schedulerTournaments(extra, [
       {id: '326', slug: 'brasileiro-serie-b', category: 'brazil', canonical: 'brasileirao-serie-b'},
     ]).map(row => row.id)).toEqual(['325', '27464', '17', '384', '326']);

@@ -17,6 +17,8 @@ export const M5_TOURNAMENTS = [
 export const M5_EXPANDED_TOURNAMENTS = [
   {id:'390',slug:'brasileiro-serie-b',category:'brazil',canonical:'brasileirao-serie-b'},
   {id:'8',slug:'laliga',category:'spain',canonical:'la-liga'},
+  {id:'35',slug:'bundesliga',category:'germany',canonical:'bundesliga'},
+  {id:'23',slug:'serie-a',category:'italy',canonical:'serie-a-italy'},
 ] as const;
 const rules: Record<string,{market:OddsMarket;name:string;type:string;line:number|null;outcomes:Record<string,{name:string;code:OddsOutcome}>}>={
   '101':{market:'MATCH_WINNER',name:'Full Time Result',type:'1x2',line:null,outcomes:{'101':{name:'1',code:'HOME'},'102':{name:'X',code:'DRAW'},'103':{name:'2',code:'AWAY'}}},

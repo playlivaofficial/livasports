@@ -52,6 +52,23 @@ describe('safe odds fixture matching',()=>{
     const late={...madrid,kickoff:'2026-09-12T15:00:00Z'};
     expect(planUtcParseDefectRepair({...raw,competition:'la-liga',kickoff:'2026-09-12T19:00:00Z',homeNames:['Atletico Madrid'],awayNames:['Osasuna']},[late])).toEqual({fixtureId:'atm-osa',before:'2026-09-12T15:00:00Z',after:'2026-09-12T19:00:00Z'});
   });
+  it('matches Bundesliga with reviewed names only and never aliases bare Mainz or Leverkusen',()=>{
+    const bayern={...canonical,id:'bay-uni',competition:'bundesliga',home:'FC Bayern München',away:'FC Union Berlin'};
+    const mainz={...canonical,id:'gla-mai',competition:'bundesliga',home:'Borussia Mönchengladbach',away:'FSV Mainz 05'};
+    const cologne={...canonical,id:'hsv-kol',competition:'bundesliga',home:'Hamburger SV',away:'FC Köln'};
+    const lever={...canonical,id:'lev-rbl',competition:'bundesliga',home:'Bayer 04 Leverkusen',away:'RB Leipzig'};
+    expect(matchOddsFixture({...raw,competition:'bundesliga',homeNames:['Bayern Munich'],awayNames:['Union Berlin']},[bayern],[]).state).toBe('HIGH_CONFIDENCE');
+    expect(matchOddsFixture({...raw,competition:'bundesliga',homeNames:['Borussia Monchengladbach'],awayNames:['FSV Mainz']},[mainz],[]).state).toBe('HIGH_CONFIDENCE');
+    expect(matchOddsFixture({...raw,competition:'bundesliga',homeNames:['Borussia Monchengladbach'],awayNames:['Mainz']},[mainz],[]).state).toBe('TEAM_MISMATCH');
+    expect(matchOddsFixture({...raw,competition:'bundesliga',homeNames:['Hamburger SV'],awayNames:['1. FC Cologne']},[cologne],[]).state).toBe('HIGH_CONFIDENCE');
+    expect(matchOddsFixture({...raw,competition:'bundesliga',homeNames:['Bayer Leverkusen'],awayNames:['RB Leipzig']},[lever],[]).state).toBe('HIGH_CONFIDENCE');
+    expect(matchOddsFixture({...raw,competition:'bundesliga',homeNames:['Leverkusen'],awayNames:['RB Leipzig']},[lever],[]).state).toBe('TEAM_MISMATCH');
+  });
+  it('matches Serie A Italy Parma as Parma Calcio without suffix stripping',()=>{
+    const parma={...canonical,id:'com-par',competition:'serie-a-italy',home:'Como',away:'Parma'};
+    expect(matchOddsFixture({...raw,competition:'serie-a-italy',homeNames:['Como 1907','Como'],awayNames:['Parma Calcio']},[parma],[]).state).toBe('HIGH_CONFIDENCE');
+    expect(matchOddsFixture({...raw,competition:'serie-a-italy',homeNames:['Como'],awayNames:['Parma Calcio 1913']},[parma],[]).state).toBe('TEAM_MISMATCH');
+  });
   it('uses tolerance only for discovery, never to hide a change to an established kickoff',()=>{
     const saved={providerId:'provider',fixtureId:'canonical',homeProviderId:'10',awayProviderId:'20',canonicalKickoff:canonical.kickoff,providerKickoff:raw.kickoff};
     expect(matchOddsFixture(raw,[canonical],[saved]).state).toBe('EXACT');

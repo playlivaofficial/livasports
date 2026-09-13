@@ -23,6 +23,16 @@ const aliases: Record<string, Record<string,string>> = {
     'rc celta de vigo':'celta de vigo',
     'celta vigo':'celta de vigo',
   },
+  'bundesliga': {
+    'bayern munich':'fc bayern munchen',
+    'union berlin':'fc union berlin',
+    'fsv mainz':'fsv mainz 05',
+    '1 fc cologne':'fc koln',
+    'bayer leverkusen':'bayer 04 leverkusen',
+  },
+  'serie-a-italy': {
+    'parma calcio':'parma',
+  },
 };
 export function normalizeTeamName(name: string): string {
   return name.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/&/g,' and ').replace(/[^a-z0-9]+/g,' ').trim();
