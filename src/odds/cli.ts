@@ -5,9 +5,9 @@ import { runMigrations } from '@/database/migrate';
 import { M5OddsPapiAdapter } from '@/providers/oddspapi/M5OddsPapiAdapter';
 import { M5_TOURNAMENTS, normalizeM5Snapshot,verifyCatalog } from '@/providers/oddspapi/m5-normalizer';
 import { mergeCatalogTournaments,resolveCatalogTournaments,schedulerTournaments } from '@/providers/oddspapi/tournament-catalog';
-import { COVERAGE_DISCOVERY_REQUEST_CAP } from '@/providers/oddspapi/request-limits';
+import { CANARY4_DISCOVERY_REQUEST_CAP, CANARY4_LEDGER_START, COVERAGE_DISCOVERY_REQUEST_CAP } from '@/providers/oddspapi/request-limits';
 import {planUtcParseDefectRepair} from './matching';
-import {buildCoverageMatrix} from './coverage-matrix';
+import {buildCoverageMatrix,inspectStoredTournament} from './coverage-matrix';
 import {canonicalFixtures,endOddsJob,persistSnapshot,startOddsJob} from './ingestion';
 import {planOddsRefresh} from './refresh-policy';
 import {budgetHealth} from './budget';
@@ -42,6 +42,10 @@ try {
     const slug=process.argv[3]??'';
     const health=await budgetHealth(db);
     if(!health.verified||Number(health.safeRemaining)<COVERAGE_DISCOVERY_REQUEST_CAP)throw new Error('ODDS_BUDGET_UNVERIFIED_OR_EXHAUSTED');
+    const continuation=(await db.query(`SELECT count(*)::int AS n FROM odds_provider_requests
+      WHERE billable AND purpose='MANUAL' AND endpoint IN ('/v4/odds-by-tournaments','/v4/tournaments') AND started_at>=$1`,[CANARY4_LEDGER_START])).rows[0];
+    const continuationUsed=Number(continuation?.n??0);
+    if(continuationUsed+4>CANARY4_DISCOVERY_REQUEST_CAP)throw new Error('CANARY4_DISCOVERY_CAP');
     const catalog=(await db.query("SELECT markets,tournaments FROM odds_provider_catalog WHERE provider='ODDSPAPI'")).rows[0];
     if(!catalog)throw new Error('ODDS_CATALOG_NOT_VERIFIED');verifyCatalog(catalog.markets,catalog.tournaments);
     const candidate=resolveCatalogTournaments(catalog.tournaments).find(row=>row.canonical===slug);
@@ -57,8 +61,10 @@ try {
       const again=await provider.snapshot(bookmaker,[candidate.id]);
       results.push(await persistSnapshot(db,job,again));
     }
+    const http=(await db.query(`SELECT http_status,outcome,safe_query FROM odds_provider_requests WHERE job_id=$1 ORDER BY started_at`,[job])).rows;
     await endOddsJob(db,job,true);job=null;
-    console.info(JSON.stringify({canonical:candidate.canonical,tournamentId:candidate.id,requests:provider.requestCount(),results}));
+    console.info(JSON.stringify({canonical:candidate.canonical,tournamentId:candidate.id,requests:provider.requestCount(),
+      continuationUsed:continuationUsed+provider.requestCount(),continuationCap:CANARY4_DISCOVERY_REQUEST_CAP,http,results}));
   }
   else if(command==='repair-utc-kickoffs'){
     const snapshots=(await db.query(`SELECT DISTINCT ON (bookmaker) payload FROM odds_sync_snapshots
@@ -152,9 +158,22 @@ try {
       scheduler:{state:report.scheduler?.state,lastError:report.scheduler?.last_error,lastAutomaticRefreshAt:report.scheduler?.last_automatic_refresh_at,nextDueAt:report.scheduler?.next_due_at},
       schedulerTournaments:report.schedulerTournaments,
       ligaMxUnmapped:report.ligaMxGap.length,
+      ligaMxSnapshotAt:report.ligaMxSnapshotAt,
+      serieBUnmapped:report.serieBGap.length,
+      serieBSnapshotAt:report.serieBSnapshotAt,
       rows:report.rows.map(row=>({slug:row.slug,id:row.oddspapiTournamentId,state:row.verificationState,upcoming:row.upcoming,mapped:row.mapped,
         betsson:row.betsson.matchWinner,betano:row.betano.matchWinner,scheduler:row.schedulerEnabled,reason:row.disabledReason})),
     }));
+  } else if(command==='inspect-tournament'){
+    const slug=process.argv[3]??'';
+    const catalog=(await db.query("SELECT tournaments FROM odds_provider_catalog WHERE provider='ODDSPAPI'")).rows[0];
+    if(!catalog)throw new Error('ODDS_CATALOG_NOT_VERIFIED');
+    const candidate=resolveCatalogTournaments(catalog.tournaments).find(row=>row.canonical===slug);
+    if(!candidate)throw new Error('ODDS_TOURNAMENT_UNVERIFIED');
+    const running=(await db.query("SELECT id,status,lease_expires_at FROM odds_sync_jobs WHERE status='RUNNING'")).rows;
+    const http=(await db.query(`SELECT http_status,outcome,started_at,safe_query FROM odds_provider_requests
+      WHERE endpoint='/v4/odds-by-tournaments' AND safe_query->>'tournamentIds'=$1 ORDER BY started_at DESC LIMIT 8`,[candidate.id])).rows;
+    console.info(JSON.stringify({running,http,inspect:await inspectStoredTournament(db,candidate.canonical,candidate.id)}));
   } else if(command==='verify'){
     const result=await db.query(`SELECT
       (SELECT count(*) FROM competitions WHERE enabled) AS enabled_competitions,

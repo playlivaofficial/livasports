@@ -28,8 +28,83 @@ export function unmappedFixtureReason(fixture: CanonicalOddsFixture, providerFix
   return matched.reason || matched.state;
 }
 
+async function competitionGapRows(db: QueryExecutor, slug: string) {
+  return db.query(`SELECT f.id, f.public_id, f.kickoff, ht.name AS home, at.name AS away, f.status,
+      EXISTS(SELECT 1 FROM odds_mapping_reviews mr WHERE mr.fixture_id=f.id AND mr.state IN ('EXACT','HIGH_CONFIDENCE')) AS mapped
+      FROM fixtures f JOIN competitions c ON c.id=f.competition_id AND c.slug=$1
+      JOIN teams ht ON ht.id=f.home_team_id JOIN teams at ON at.id=f.away_team_id
+      WHERE f.status='SCHEDULED' AND f.kickoff>now()
+      ORDER BY f.kickoff`, [slug]);
+}
+
+async function latestTournamentSnapshots(db: QueryExecutor, tournamentId: string) {
+  return db.query(`SELECT DISTINCT ON (bookmaker) bookmaker, observed_at, payload FROM odds_sync_snapshots
+      WHERE applied_at IS NOT NULL AND payload->'tournamentIds' @> $1::jsonb
+      ORDER BY bookmaker, observed_at DESC`, [JSON.stringify([tournamentId])]);
+}
+
+function gapFromRows(slug: string, rows: readonly Record<string, unknown>[], providerFixtures: readonly ProviderOddsFixture[]) {
+  return rows.filter(row => !row.mapped).map(row => {
+    const fixture: CanonicalOddsFixture = {
+      id: String(row.id), competition: slug, competitionId: '', sport: 'FOOTBALL',
+      kickoff: row.kickoff instanceof Date ? row.kickoff.toISOString() : String(row.kickoff),
+      status: String(row.status), home: String(row.home), away: String(row.away), homeId: '', awayId: '',
+    };
+    return {
+      publicId: row.public_id ? String(row.public_id) : null,
+      home: fixture.home,
+      away: fixture.away,
+      kickoff: fixture.kickoff,
+      reason: unmappedFixtureReason(fixture, providerFixtures),
+    };
+  });
+}
+
+export async function inspectStoredTournament(db: QueryExecutor, canonical: string, tournamentId: string) {
+  const [upcoming, snapshots, quotes] = await Promise.all([
+    competitionGapRows(db, canonical),
+    latestTournamentSnapshots(db, tournamentId),
+    db.query(`SELECT f.public_id, ht.name AS home, at.name AS away, f.kickoff,
+        count(DISTINCT o.id) FILTER (WHERE b.provider_slug='betsson' AND o.market_code='MATCH_WINNER' AND o.status='ACTIVE')::int AS betsson_mw,
+        count(DISTINCT o.id) FILTER (WHERE b.provider_slug='betano.bet.br' AND o.market_code='MATCH_WINNER' AND o.status='ACTIVE')::int AS betano_mw
+      FROM fixtures f JOIN competitions c ON c.id=f.competition_id AND c.slug=$1
+      JOIN teams ht ON ht.id=f.home_team_id JOIN teams at ON at.id=f.away_team_id
+      LEFT JOIN odds_current o ON o.fixture_id=f.id AND o.scope='FULL_TIME_REGULATION' AND o.phase='PREGAME'
+      LEFT JOIN bookmakers b ON b.id=o.bookmaker_id
+      WHERE f.status='SCHEDULED' AND f.kickoff>now()
+      GROUP BY f.id, f.public_id, ht.name, at.name, f.kickoff
+      ORDER BY f.kickoff`, [canonical]),
+  ]);
+  const providerFixtures = snapshots.rows.flatMap(row => {
+    const payload = row.payload as OddsSnapshot;
+    return (payload.fixtures ?? []).filter(fixture => fixture.competition === canonical).map(fixture => ({bookmaker: String(row.bookmaker), observedAt: row.observed_at, ...fixture}));
+  });
+  return {
+    canonical,
+    tournamentId,
+    snapshotObservedAt: snapshots.rows.map(row => ({bookmaker: row.bookmaker, observedAt: row.observed_at})),
+    upcoming: upcoming.rows.length,
+    mapped: upcoming.rows.filter(row => row.mapped).length,
+    providerFixtures: providerFixtures.map(row => ({
+      bookmaker: row.bookmaker,
+      home: row.homeNames,
+      away: row.awayNames,
+      kickoff: row.kickoff,
+    })),
+    unmapped: gapFromRows(canonical, upcoming.rows, providerFixtures),
+    quotes: quotes.rows.map(row => ({
+      publicId: row.public_id,
+      home: row.home,
+      away: row.away,
+      kickoff: row.kickoff instanceof Date ? row.kickoff.toISOString() : String(row.kickoff),
+      betssonMw: Number(row.betsson_mw),
+      betanoMw: Number(row.betano_mw),
+    })),
+  };
+}
+
 export async function buildCoverageMatrix(db: QueryExecutor) {
-  const [catalogRow, budget, health, reviews, competitions, ligaMx, snapshots] = await Promise.all([
+  const [catalogRow, budget, health, reviews, competitions, ligaMx, serieB, ligaMxSnapshots, serieBSnapshots] = await Promise.all([
     db.query("SELECT markets, tournaments FROM odds_provider_catalog WHERE provider='ODDSPAPI'"),
     budgetHealth(db),
     db.query('SELECT state, last_error, last_refresh_at, last_automatic_refresh_at, last_automatic_invocation_at, next_due_at, feeds_refreshed FROM odds_scheduler_health WHERE id=true'),
@@ -55,15 +130,10 @@ export async function buildCoverageMatrix(db: QueryExecutor) {
       WHERE c.enabled
       GROUP BY c.id, c.slug, c.name, c.enabled
       ORDER BY c.name`),
-    db.query(`SELECT f.id, f.kickoff, ht.name AS home, at.name AS away, f.status,
-      EXISTS(SELECT 1 FROM odds_mapping_reviews mr WHERE mr.fixture_id=f.id AND mr.state IN ('EXACT','HIGH_CONFIDENCE')) AS mapped
-      FROM fixtures f JOIN competitions c ON c.id=f.competition_id AND c.slug='liga-mx'
-      JOIN teams ht ON ht.id=f.home_team_id JOIN teams at ON at.id=f.away_team_id
-      WHERE f.status='SCHEDULED' AND f.kickoff>now()
-      ORDER BY f.kickoff`),
-    db.query(`SELECT DISTINCT ON (bookmaker) bookmaker, payload FROM odds_sync_snapshots
-      WHERE applied_at IS NOT NULL AND payload->'tournamentIds' @> '["27464"]'::jsonb
-      ORDER BY bookmaker, observed_at DESC`),
+    competitionGapRows(db, 'liga-mx'),
+    competitionGapRows(db, 'brasileirao-serie-b'),
+    latestTournamentSnapshots(db, '27464'),
+    latestTournamentSnapshots(db, '390'),
   ]);
   const catalog = catalogRow.rows[0];
   const resolved = resolveCatalogTournaments(catalog?.tournaments ?? []);
@@ -71,7 +141,8 @@ export async function buildCoverageMatrix(db: QueryExecutor) {
   const byCanonical = new Map(resolved.map(row => [row.canonical, row]));
   const scheduledIds = new Set(scheduled.map(row => row.id));
   const stableIds = new Set<string>(M5_TOURNAMENTS.map(row => row.id));
-  const providerFixtures = snapshots.rows.flatMap(row => (row.payload as OddsSnapshot).fixtures ?? []);
+  const ligaMxProvider = ligaMxSnapshots.rows.flatMap(row => (row.payload as OddsSnapshot).fixtures ?? []);
+  const serieBProvider = serieBSnapshots.rows.flatMap(row => (row.payload as OddsSnapshot).fixtures ?? []);
   const rows = competitions.rows.map(row => {
     const target = FOOTBALL_COMPETITION_TARGETS.find(item => item.slug === row.slug);
     const tournament = byCanonical.get(row.slug);
@@ -109,14 +180,6 @@ export async function buildCoverageMatrix(db: QueryExecutor) {
       disabledReason,
     };
   });
-  const ligaMxGap = ligaMx.rows.filter(row => !row.mapped).map(row => {
-    const fixture: CanonicalOddsFixture = {
-      id: String(row.id), competition: 'liga-mx', competitionId: '', sport: 'FOOTBALL',
-      kickoff: row.kickoff instanceof Date ? row.kickoff.toISOString() : String(row.kickoff),
-      status: String(row.status), home: String(row.home), away: String(row.away), homeId: '', awayId: '',
-    };
-    return {home: fixture.home, away: fixture.away, kickoff: fixture.kickoff, reason: unmappedFixtureReason(fixture, providerFixtures)};
-  });
   return {
     at: new Date().toISOString(),
     budget,
@@ -125,6 +188,9 @@ export async function buildCoverageMatrix(db: QueryExecutor) {
     resolved: resolved.map(row => ({id: row.id, slug: row.slug, category: row.category, canonical: row.canonical})),
     schedulerTournaments: scheduled.map(row => row.id),
     rows,
-    ligaMxGap,
+    ligaMxGap: gapFromRows('liga-mx', ligaMx.rows, ligaMxProvider),
+    ligaMxSnapshotAt: ligaMxSnapshots.rows.map(row => ({bookmaker: row.bookmaker, observedAt: row.observed_at})),
+    serieBGap: gapFromRows('brasileirao-serie-b', serieB.rows, serieBProvider),
+    serieBSnapshotAt: serieBSnapshots.rows.map(row => ({bookmaker: row.bookmaker, observedAt: row.observed_at})),
   };
 }

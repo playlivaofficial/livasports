@@ -19,6 +19,13 @@ export const M5_EXPANDED_TOURNAMENTS = [
   {id:'8',slug:'laliga',category:'spain',canonical:'la-liga'},
   {id:'35',slug:'bundesliga',category:'germany',canonical:'bundesliga'},
   {id:'23',slug:'serie-a',category:'italy',canonical:'serie-a-italy'},
+  {id:'679',slug:'uefa-europa-league',category:'international-clubs',canonical:'europa-league'},
+  {id:'480',slug:'copa-sudamericana',category:'international-clubs',canonical:'copa-sudamericana'},
+  {id:'242',slug:'mls',category:'usa',canonical:'mls'},
+  {id:'34',slug:'ligue-1',category:'france',canonical:'ligue-1'},
+  {id:'238',slug:'liga-portugal',category:'portugal',canonical:'liga-portugal'},
+  {id:'37',slug:'eredivisie',category:'netherlands',canonical:'eredivisie'},
+  {id:'18',slug:'championship',category:'england',canonical:'championship'},
 ] as const;
 const rules: Record<string,{market:OddsMarket;name:string;type:string;line:number|null;outcomes:Record<string,{name:string;code:OddsOutcome}>}>={
   '101':{market:'MATCH_WINNER',name:'Full Time Result',type:'1x2',line:null,outcomes:{'101':{name:'1',code:'HOME'},'102':{name:'X',code:'DRAW'},'103':{name:'2',code:'AWAY'}}},
