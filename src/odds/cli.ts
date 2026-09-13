@@ -7,6 +7,7 @@ import { M5_TOURNAMENTS, normalizeM5Snapshot,verifyCatalog } from '@/providers/o
 import { mergeCatalogTournaments,resolveCatalogTournaments,schedulerTournaments } from '@/providers/oddspapi/tournament-catalog';
 import { COVERAGE_DISCOVERY_REQUEST_CAP } from '@/providers/oddspapi/request-limits';
 import {planUtcParseDefectRepair} from './matching';
+import {buildCoverageMatrix} from './coverage-matrix';
 import {canonicalFixtures,endOddsJob,persistSnapshot,startOddsJob} from './ingestion';
 import {planOddsRefresh} from './refresh-policy';
 import {budgetHealth} from './budget';
@@ -76,6 +77,9 @@ try {
       await db.query(`UPDATE provider_entity_mappings SET metadata=metadata||jsonb_build_object('m5KickoffCorrection',$2::jsonb),updated_at=now()
         WHERE provider='SPORTMONKS' AND entity_type='FIXTURE' AND livasports_entity_id=$1`,
         [repair.fixtureId,JSON.stringify({observedAt:new Date().toISOString(),before:repair.before,after:repair.after,reason:'UTC_PARSE_DEFECT_PROVEN'})]);
+      await db.query(`UPDATE provider_entity_mappings SET metadata=metadata||jsonb_build_object('canonicalKickoff',$2::text),updated_at=now()
+        WHERE provider='ODDSPAPI' AND entity_type='FIXTURE' AND livasports_entity_id=$1 AND metadata->>'canonicalKickoff'=$3`,
+        [repair.fixtureId,repair.after,repair.before]);
     }
     const results=[];
     for(const snapshot of snapshots)results.push(await persistSnapshot(db,job,snapshot));
@@ -140,6 +144,17 @@ try {
     const results=[];for(const snapshot of snapshots)results.push(await persistSnapshot(db,job,snapshot));
     if(results.length){await writeFile('output/m5-ingestion-private.json',JSON.stringify({at:new Date().toISOString(),results},null,2));console.info(JSON.stringify(results));}
     await endOddsJob(db,job,true);job=null;
+  } else if(command==='coverage-matrix'){
+    const report=await buildCoverageMatrix(db);
+    await writeFile('output/odds-coverage-matrix-private.json',JSON.stringify(report,null,2));
+    console.info(JSON.stringify({
+      at:report.at,budget:report.budget,
+      scheduler:{state:report.scheduler?.state,lastError:report.scheduler?.last_error,lastAutomaticRefreshAt:report.scheduler?.last_automatic_refresh_at,nextDueAt:report.scheduler?.next_due_at},
+      schedulerTournaments:report.schedulerTournaments,
+      ligaMxUnmapped:report.ligaMxGap.length,
+      rows:report.rows.map(row=>({slug:row.slug,id:row.oddspapiTournamentId,state:row.verificationState,upcoming:row.upcoming,mapped:row.mapped,
+        betsson:row.betsson.matchWinner,betano:row.betano.matchWinner,scheduler:row.schedulerEnabled,reason:row.disabledReason})),
+    }));
   } else if(command==='verify'){
     const result=await db.query(`SELECT
       (SELECT count(*) FROM competitions WHERE enabled) AS enabled_competitions,

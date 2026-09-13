@@ -16,11 +16,18 @@ const aliases: Record<string, Record<string,string>> = {
   'liga-mx': { tigres:'tigres uanl', 'san luis':'atletico san luis' },
   'premier-league': { nottingham:'nottingham forest', hull:'hull city', ipswich:'ipswich town', brighton:'brighton and hove albion', newcastle:'newcastle united' },
   'copa-libertadores': { 'estudiantes la plata':'estudiantes', 'ind del valle':'independiente del valle' },
+  'la-liga': {
+    'atletico madrid':'atletico de madrid',
+    'rc deportivo de a coruna':'deportivo a coruna',
+    'athletic bilbao':'athletic club',
+    'rc celta de vigo':'celta de vigo',
+    'celta vigo':'celta de vigo',
+  },
 };
 export function normalizeTeamName(name: string): string {
   return name.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/&/g,' and ').replace(/[^a-z0-9]+/g,' ').trim();
 }
-function namesMatch(names: string[], canonical: string, competition: string): boolean {
+export function namesMatch(names: string[], canonical: string, competition: string): boolean {
   const target=normalizeTeamName(canonical);
   return names.some(n=> { const normalized=normalizeTeamName(n); return normalized===target || aliases[competition]?.[normalized]===target; });
 }

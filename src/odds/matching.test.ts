@@ -38,6 +38,20 @@ describe('safe odds fixture matching',()=>{
     expect(planUtcParseDefectRepair({...raw,competition:'brasileirao-serie-b',kickoff:'2026-09-12T19:00:00Z',homeNames:['Juventude RS'],awayNames:['Athletic Club Sjdr']},[late])).toEqual({fixtureId:'athletic',before:'2026-09-12T15:00:00Z',after:'2026-09-12T19:00:00Z'});
     expect(planUtcParseDefectRepair({...raw,competition:'brasileirao-serie-b',kickoff:'2026-09-12T19:05:00Z',homeNames:['Juventude RS'],awayNames:['Athletic Club Sjdr']},[late])).toBeNull();
   });
+  it('matches La Liga with reviewed names only and never aliases bare Deportivo or Atlético',()=>{
+    const madrid={...canonical,id:'atm-osa',competition:'la-liga',home:'Atlético de Madrid',away:'Osasuna'};
+    const depor={...canonical,id:'dep-sev',competition:'la-liga',home:'Deportivo A Coruña',away:'Sevilla'};
+    const athletic={...canonical,id:'lev-ath',competition:'la-liga',home:'Levante',away:'Athletic Club'};
+    const celta={...canonical,id:'cel-rac',competition:'la-liga',home:'Celta de Vigo',away:'Racing Santander'};
+    expect(matchOddsFixture({...raw,competition:'la-liga',homeNames:['Atletico Madrid','Atletico'],awayNames:['CA Osasuna','Osasuna']},[madrid],[]).state).toBe('HIGH_CONFIDENCE');
+    expect(matchOddsFixture({...raw,competition:'la-liga',homeNames:['Atletico'],awayNames:['Osasuna']},[madrid],[]).state).toBe('TEAM_MISMATCH');
+    expect(matchOddsFixture({...raw,competition:'la-liga',homeNames:['RC Deportivo de A Coruna','Deportivo'],awayNames:['Sevilla FC','Sevilla']},[depor],[]).state).toBe('HIGH_CONFIDENCE');
+    expect(matchOddsFixture({...raw,competition:'la-liga',homeNames:['Deportivo'],awayNames:['Sevilla']},[depor],[]).state).toBe('TEAM_MISMATCH');
+    expect(matchOddsFixture({...raw,competition:'la-liga',homeNames:['Levante UD','Levante'],awayNames:['Athletic Bilbao','Bilbao']},[athletic],[]).state).toBe('HIGH_CONFIDENCE');
+    expect(matchOddsFixture({...raw,competition:'la-liga',homeNames:['RC Celta de Vigo','Celta Vigo'],awayNames:['Racing Santander','Santander']},[celta],[]).state).toBe('HIGH_CONFIDENCE');
+    const late={...madrid,kickoff:'2026-09-12T15:00:00Z'};
+    expect(planUtcParseDefectRepair({...raw,competition:'la-liga',kickoff:'2026-09-12T19:00:00Z',homeNames:['Atletico Madrid'],awayNames:['Osasuna']},[late])).toEqual({fixtureId:'atm-osa',before:'2026-09-12T15:00:00Z',after:'2026-09-12T19:00:00Z'});
+  });
   it('uses tolerance only for discovery, never to hide a change to an established kickoff',()=>{
     const saved={providerId:'provider',fixtureId:'canonical',homeProviderId:'10',awayProviderId:'20',canonicalKickoff:canonical.kickoff,providerKickoff:raw.kickoff};
     expect(matchOddsFixture(raw,[canonical],[saved]).state).toBe('EXACT');
