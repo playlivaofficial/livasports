@@ -34,6 +34,12 @@ describe('interface language defaults and commercial isolation',()=>{
     expect(source).toContain('OddsComparison');
     expect(source).toContain("loadM3PageData('br'");
     expect(source).not.toContain("geoEligibility.locale");
+    expect(source).toMatch(/className="sports-layout"[\s\S]*placement:'home_right_rail'/);
+  });
+  it('keeps an English-home Betsson rail in the third sports-layout column',()=>{
+    const css=readFileSync(new URL('../app/language.css',import.meta.url),'utf8');
+    expect(css).toContain('.english-sports .sports-layout:has(> .sponsor-home_right_rail)');
+    expect(css).toMatch(/\.english-sports \.sports-layout:has\(> \.sponsor-home_right_rail\) \{ grid-template-columns:190px minmax\(0,1fr\) 300px; \}/);
   });
 });
 describe('context preservation and safe language POST',()=>{
