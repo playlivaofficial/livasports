@@ -53,6 +53,23 @@ describe('scheduler independent failure and durable completion',()=>{
     expect(safeSchedulerError(new Error(JSON.stringify({status:400,message:'private'})))).toBe('ODDSPAPI_HTTP_400');
     expect(safeSchedulerError(new Error('contains credentials'))).toBe('ODDS_REFRESH_FAILED');
   });
+  it('keeps the OddsPapi status when retry-target persistence fails',async()=>{
+    mocked.snapshot.mockRejectedValue(new Error(JSON.stringify({status:400,message:'private'})));
+    const query=vi.fn(async(sql:string)=>{
+      if(sql.includes('odds_provider_catalog'))return {rows:[{markets:[],tournaments:[]}],rowCount:1};
+      if(sql.includes('FROM bookmakers b'))return {rows:['betano.bet.br','betsson'].map(provider_slug=>({
+        provider_slug,tournament_id:'325',public_eligible:true,useful_coverage:true,last_success_at:null}))};
+      if(sql.includes('reconciliation_at>'))return {rows:[{}],rowCount:1};
+      if(sql.includes('unnest($2::text[])'))throw new Error('odds_refresh_targets_tournament_id_check');
+      return {rows:[],rowCount:0};
+    });
+    const typed=query as unknown as QueryExecutor['query'];
+    const db={query:typed,transaction:async(w:(tx:{query:QueryExecutor['query']})=>unknown)=>w({query:typed}),close:async()=>{}} as DatabaseClient;
+    const result=await runOddsScheduler(db,'test-only');
+    expect(result.state).toBe('FAILED');
+    expect(result.error).toBe('ODDSPAPI_HTTP_400');
+    expect(result.feeds).toEqual([]);
+  });
   it('refreshes only the pinned known-good tournaments even if catalog has extras',async()=>{
     mocked.snapshot.mockResolvedValue({observedAt:new Date().toISOString()});
     const catalog=[

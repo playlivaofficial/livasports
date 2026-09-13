@@ -1,6 +1,6 @@
 import type {DatabaseClient} from '@/database/client';
 import {M5OddsPapiAdapter} from '@/providers/oddspapi/M5OddsPapiAdapter';
-import {verifyCatalog} from '@/providers/oddspapi/m5-normalizer';
+import {M5_TOURNAMENTS,verifyCatalog} from '@/providers/oddspapi/m5-normalizer';
 import {schedulerTournaments,type CatalogTournament} from '@/providers/oddspapi/tournament-catalog';
 import {canonicalFixtures,persistSnapshot,startOddsJob} from './ingestion';
 import {budgetHealth,OddsBudgetStopped,reconcileAccountPeriod} from './budget';
@@ -76,11 +76,16 @@ export async function runOddsScheduler(db:DatabaseClient,key:string,trigger:'CON
             quotes:saved.quotes,historyChanges:saved.history_changes,currentWrites:saved.current_writes,closed:saved.closed,observedAt:snapshot.observedAt});
         }catch(error){
           errorCode=safeSchedulerError(error);
-          await db.query(`INSERT INTO odds_refresh_targets(bookmaker,tournament_id,last_attempt_at,retry_after,consecutive_failures,last_error)
-            SELECT $1,unnest($2::text[]),now(),now()+interval '15 minutes',1,$3
-            ON CONFLICT(bookmaker,tournament_id) DO UPDATE SET last_attempt_at=now(),last_error=$3,
-              consecutive_failures=LEAST(odds_refresh_targets.consecutive_failures+1,10),
-              retry_after=now()+LEAST(360,power(2,LEAST(odds_refresh_targets.consecutive_failures,5))*15)*interval '1 minute'`,[batch.bookmaker,ids,errorCode]);
+          const persistable=ids.filter(id=>M5_TOURNAMENTS.some(tournament=>tournament.id===id));
+          if(persistable.length){
+            try{
+              await db.query(`INSERT INTO odds_refresh_targets(bookmaker,tournament_id,last_attempt_at,retry_after,consecutive_failures,last_error)
+                SELECT $1,unnest($2::text[]),now(),now()+interval '15 minutes',1,$3
+                ON CONFLICT(bookmaker,tournament_id) DO UPDATE SET last_attempt_at=now(),last_error=$3,
+                  consecutive_failures=LEAST(odds_refresh_targets.consecutive_failures+1,10),
+                  retry_after=now()+LEAST(360,power(2,LEAST(odds_refresh_targets.consecutive_failures,5))*15)*interval '1 minute'`,[batch.bookmaker,persistable,errorCode]);
+            }catch{/* Retry-target CHECK failures must not replace the provider status. */}
+          }
           if(error instanceof OddsBudgetStopped){state='BUDGET_STOPPED';break;}
           state=results.length?'PARTIAL':'FAILED';
         }
