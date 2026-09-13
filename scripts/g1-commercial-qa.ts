@@ -1,7 +1,7 @@
 // Read-only verification of the real privately configured campaign. No portal
 // credentials, raw destinations or operator campaign IDs are emitted.
 import {readFile,writeFile} from 'node:fs/promises';
-import {databaseUrl,PostgresDatabaseClient} from '../src/database/client';
+import {databaseUrl,PostgresDatabaseClient,type QueryExecutor} from '../src/database/client';
 import {parseCampaignConfiguration} from '../src/affiliate/configuration';
 import {readCampaigns} from '../src/affiliate/repository';
 import {campaignDestination,geoAllowed} from '../src/affiliate/policy';
@@ -10,10 +10,21 @@ import {readSlipComparison} from '../src/odds/read-repository';
 import {buildSlipComparison} from '../src/slip/comparison';
 import {SLIP_SCOPE} from '../src/slip/types';
 import {teamPath,playerPath} from '../src/profiles/routes';
-const db=new PostgresDatabaseClient(databaseUrl()!);
+const connection=new PostgresDatabaseClient(databaseUrl()!);
 const checks:Array<{name:string;pass:boolean}>=[];
 const check=(name:string,pass:boolean)=>{checks.push({name,pass});if(!pass)throw Error('G1_CONFIGURATION_CHECK_FAILED');};
 try{
+  await connection.transaction(async tx=>{
+  await tx.query('SET TRANSACTION READ ONLY');
+  check('database enforces read-only QA', (await tx.query('SHOW transaction_read_only')).rows[0].transaction_read_only==='on');
+  const columns=Number((await tx.query("SELECT count(*) AS n FROM information_schema.columns WHERE table_schema=current_schema() AND table_name='profile_sponsor_campaigns' AND column_name IN ('delivery_type','embed_source_url')")).rows[0].n);
+  check('recognized pre-013 or publisher schema',columns===0||columns===2);
+  // QA against the deployed M8 schema must not require persisting migration 013.
+  // That schema supports IMAGE only. Adapt just the two future SELECT fields;
+  // leave every real row, eligibility predicate and production reader unchanged.
+  const db:QueryExecutor={query:(text,values)=>tx.query(columns===0?text.replace(
+    "'delivery',s.delivery_type,'embedSourceUrl',s.embed_source_url",
+    "'delivery','IMAGE'::text,'embedSourceUrl',NULL::text"):text,values)};
   const config=parseCampaignConfiguration(JSON.parse(await readFile(process.env.LIVASPORTS_AFFILIATE_CONFIG_FILE??'.env.g1-affiliate-config.json','utf8')));
   check('secure configuration passes strict parser',!!config);
   const br=await readCampaigns(db,'br'),mx=await readCampaigns(db,'mx');
@@ -39,7 +50,8 @@ try{
   const partialPlayer=(await db.query("SELECT public_id,display_name FROM players WHERE profile_state='PARTIAL' ORDER BY id LIMIT 1")).rows[0];
   const paths=[['finished','/br/jogo/vitoria-x-gremio-21e7f7a99e774c70'],['long-team',teamPath('br',longTeam.public_id,longTeam.name)],['rich-player',playerPath('br',richPlayer.public_id,richPlayer.display_name)],...(partialPlayer?[['partial-player',playerPath('br',partialPlayer.public_id,partialPlayer.display_name)]]:[])];
   const counts=(await db.query(`SELECT (SELECT count(*) FROM competitions WHERE enabled) AS competitions,(SELECT count(*) FROM odds_provider_requests) AS odds_http,(SELECT coalesce(sum(provider_requests),0) FROM ingestion_sync_runs)+(SELECT coalesce(sum(provider_requests),0) FROM match_center_sync_jobs)+(SELECT coalesce(sum(provider_requests),0) FROM profile_sync_jobs) AS sports_requests`)).rows[0];
-  const result={at:new Date().toISOString(),status:'PASS',checks,paths,selections,counts,comparison:comparison.bookmakers.map(b=>({bookmaker:b.bookmakerId,complete:b.complete,cta:b.ctaState})),operatorCalls:0};
+  const result={at:new Date().toISOString(),status:'PASS',checks,paths,selections,counts,comparison:comparison.bookmakers.map(b=>({bookmaker:b.bookmakerId,complete:b.complete,cta:b.ctaState})),schema:columns===0?'PRE_013':'PUBLISHER',readOnly:true,providerRequests:0,operatorCalls:0};
   await writeFile('output/g1-commercial-qa-private.json',JSON.stringify(result,null,2));
-  console.log(JSON.stringify({status:'PASS',checks:checks.length,counts,comparison:result.comparison,operatorCalls:0}));
-}catch{console.error(JSON.stringify({status:'FAIL',checks}));process.exitCode=1;}finally{await db.close();}
+  console.log(JSON.stringify({status:'PASS',checks:checks.length,counts,comparison:result.comparison,schema:result.schema,readOnly:true,providerRequests:0,operatorCalls:0}));
+  });
+}catch{console.error(JSON.stringify({status:'FAIL',checks}));process.exitCode=1;}finally{await connection.close();}
