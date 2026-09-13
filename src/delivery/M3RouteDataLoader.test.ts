@@ -57,4 +57,29 @@ describe('M3 route loader', () => {
     expect(data.sportsData).toMatchObject({ state: 'unavailable', reason: 'provider-error' });
     expect(JSON.stringify(data)).not.toContain('internal database detail');
   });
+
+  it('attaches current listing odds after a cached empty sports payload', async () => {
+    let dbCalls = 0;
+    let oddsCalls = 0;
+    const database: RouteDatabaseReader = { loadOrThrow: async locale => { dbCalls++; return page(locale); } };
+    const loader = new M3RouteDataLoader(database, new CacheCoordinator(new MemoryCacheStore()), undefined, () => now, undefined, {
+      attach: async data => {
+        oddsCalls++;
+        return { ...data, paidOddsRequests: 0, sections: data.sections.map(section => ({ ...section, fixtures: section.fixtures.map(fixture => ({
+          ...fixture, oddsState: 'complete' as const,
+          odds: [{ market: 'MATCH_WINNER' as never, line: null, outcomes: [
+            { outcome: 'HOME' as never, prices: [{ bookmaker: 'Betano BR' as const, decimalOdds: 4.45, providerUpdatedAt: now.toISOString(), freshness: 'fresh' as const }] },
+            { outcome: 'DRAW' as never, prices: [{ bookmaker: 'Betano BR' as const, decimalOdds: 4, providerUpdatedAt: now.toISOString(), freshness: 'fresh' as const }] },
+            { outcome: 'AWAY' as never, prices: [{ bookmaker: 'Betsson' as const, decimalOdds: 1.72, providerUpdatedAt: now.toISOString(), freshness: 'fresh' as const }] },
+          ] }],
+        })) })) };
+      },
+    });
+    await loader.load('br', 'football');
+    const second = await loader.load('br', 'football');
+    expect(dbCalls).toBe(1);
+    expect(oddsCalls).toBe(2);
+    expect(second.paidOddsRequests).toBe(0);
+    expect(second.sections[0].fixtures[0].odds[0].outcomes.map(outcome => outcome.prices[0]?.decimalOdds)).toEqual([4.45, 4, 1.72]);
+  });
 });

@@ -11,27 +11,24 @@ function fixture(freshness: 'fresh' | 'stale' = 'fresh', oddsState: FixtureView[
     status: FixtureStatus.SCHEDULED, homeScore: null, awayScore: null, freshness: 'fresh', oddsState,
     odds: [
       { market: MarketCode.MATCH_WINNER, line: null, outcomes: [
-        { outcome: OutcomeCode.HOME, prices: [price('Betano BR', 1.9)] }, { outcome: OutcomeCode.DRAW, prices: [price('Betsson', 3.2)] },
+        { outcome: OutcomeCode.HOME, prices: [price('Betano BR', 1.9), price('Betsson', 1.85)] },
+        { outcome: OutcomeCode.DRAW, prices: [price('Betsson', 3.2)] },
         { outcome: OutcomeCode.AWAY, prices: [price('Betano BR', 4.1)] },
-      ] },
-      { market: MarketCode.TOTAL_GOALS, line: 2.5, outcomes: [
-        { outcome: OutcomeCode.OVER, prices: [price('Betano BR', 1.8)] }, { outcome: OutcomeCode.UNDER, prices: [price('Betsson', 2.0)] },
-      ] },
-      { market: MarketCode.BTTS, line: null, outcomes: [
-        { outcome: OutcomeCode.YES, prices: [price('Betano BR', 1.7)] }, { outcome: OutcomeCode.NO, prices: [price('Betsson', 2.1)] },
       ] },
     ] };
 }
 
-describe('read-only odds rendering', () => {
-  it('renders MATCH_WINNER, exact 2.5 TOTAL_GOALS, BTTS, and partial coverage', () => {
+describe('listing MATCH_WINNER cells', () => {
+  it('renders compact 1 / X / 2 from current MATCH_WINNER prices', () => {
     const html = renderToStaticMarkup(createElement(OddsComparison, { locale: 'br', fixture: fixture() }));
-    expect(html).toContain('Resultado da partida');
-    expect(html).toContain('Mais de 2.5');
-    expect(html).toContain('Ambas marcam');
-    expect(html).toContain('Betano BR');
-    expect(html).toContain('Betsson');
-    expect(html).toContain('Cobertura parcial');
+    expect(html).toContain('listing-odds');
+    expect(html).toContain('>1<');
+    expect(html).toContain('>X<');
+    expect(html).toContain('>2<');
+    expect(html).toContain('1.90');
+    expect(html).toContain('3.20');
+    expect(html).toContain('4.10');
+    expect(html).not.toContain('—');
   });
 
   it('hides stale prices and renders a freshness warning instead', () => {

@@ -6,7 +6,7 @@ const clean = (value: string) => value.trim().toLowerCase().replace(/[^a-z0-9:_-
 export const cacheKeys = {
   competitionList: (locale: SiteLocale) => `${prefix}:competition:list:${locale}`,
   teams: (competitionId: string) => `${prefix}:teams:competition:${clean(competitionId)}`,
-  routeData: (locale: SiteLocale, page: PageKey, localDate: string) => `${prefix}:route:v2:${locale}:${page}:${localDate}`,
+  routeData: (locale: SiteLocale, page: PageKey, localDate: string) => `${prefix}:route:v3:${locale}:${page}:${localDate}`,
   fixturesToday: (locale: SiteLocale) => `${prefix}:fixtures:today:${locale}`,
   fixturesLive: (locale: SiteLocale) => `${prefix}:fixtures:live:${locale}`,
   fixturesCompetition: (competitionId: string) => `${prefix}:fixtures:competition:${clean(competitionId)}`,

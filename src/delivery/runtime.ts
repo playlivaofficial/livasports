@@ -3,6 +3,7 @@ import { NextServerCache } from '@/cache/next-server-cache';
 import type { PageKey, SiteLocale } from '@/config/i18n';
 import { databaseUrl, PostgresDatabaseClient } from '@/database/client';
 import { PostgresFootballRepository } from '@/repositories/postgres-football.repository';
+import { attachListingOdds } from '@/odds/listing';
 import { DatabaseM2ReadService, emptyDatabasePage } from './DatabaseM2ReadService';
 import { M3RouteDataLoader } from './M3RouteDataLoader';
 
@@ -19,7 +20,7 @@ function getRuntime(): M3RouteDataLoader | null {
   const database = new PostgresDatabaseClient(connectionString, metric => diagnostic(metric));
   const cache = new NextServerCache(event => diagnostic({ event: `cache-${event.event}`, key: event.key }));
   runtime = new M3RouteDataLoader(new DatabaseM2ReadService(new PostgresFootballRepository(database)), cache,
-    undefined, undefined, metric => diagnostic(metric));
+    undefined, undefined, metric => diagnostic(metric), { attach: page => attachListingOdds(database, page) });
   return runtime;
 }
 

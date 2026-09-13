@@ -155,5 +155,7 @@ describe('M2 football ingestion', () => {
     expect(data.sections[0].fixtures[0].status).toBe(FixtureStatus.LIVE);
     expect(data.sections[1]).toMatchObject({ competition: 'Paulista A1', fixtures: [] });
     expect(data.paidOddsRequests).toBe(0);
+    expect(data.sections[0].fixtures[0].odds).toEqual([]);
+    expect(data.oddsData.reason).toBe('no-data');
   });
 });

@@ -1,20 +1,20 @@
 import { getDictionary, type SiteLocale } from '@/config/i18n';
-import type { BookmakerPriceView, FixtureView, MarketOddsView } from '@/delivery/types';
-import { OutcomeCode } from '@/domain/enums';
-import { PartialDataNotice } from './DataStates';
+import type { FixtureView } from '@/delivery/types';
+import { MarketCode, OutcomeCode } from '@/domain/enums';
 
-export function BookmakerPrice({ price }: { price: BookmakerPriceView }) {
-  if (price.freshness !== 'fresh') return null;
-  return <div className="bookmaker-price">
-    <span className="bookmaker-name">{price.bookmaker}</span>
-    <strong className="bookmaker-odds">{price.decimalOdds.toFixed(2)}</strong>
-  </div>;
-}
+const MATCH_WINNER_CELLS = [
+  { outcome: OutcomeCode.HOME, label: '1' },
+  { outcome: OutcomeCode.DRAW, label: 'X' },
+  { outcome: OutcomeCode.AWAY, label: '2' },
+] as const;
 
-function outcomeLabel(locale: SiteLocale, market: MarketOddsView, outcome: OutcomeCode): string {
-  const dictionary = getDictionary(locale);
-  const base = dictionary.outcomes[outcome];
-  return market.line !== null && (outcome === OutcomeCode.OVER || outcome === OutcomeCode.UNDER) ? `${base} ${market.line}` : base;
+function bestFreshPrice(fixture: FixtureView, outcome: OutcomeCode): number | null {
+  const prices = fixture.odds
+    .filter(market => market.market === MarketCode.MATCH_WINNER)
+    .flatMap(market => market.outcomes.filter(item => item.outcome === outcome))
+    .flatMap(item => item.prices.filter(price => price.freshness === 'fresh' && Number.isFinite(price.decimalOdds)));
+  if (!prices.length) return null;
+  return Math.max(...prices.map(price => price.decimalOdds));
 }
 
 export function OddsComparison({ locale, fixture, emptyLabel }: { locale: SiteLocale; fixture: FixtureView; emptyLabel?: string }) {
@@ -22,26 +22,17 @@ export function OddsComparison({ locale, fixture, emptyLabel }: { locale: SiteLo
   const unavailableLabel = fixture.oddsState === 'stale' ? dictionary.labels.staleOdds
     : fixture.oddsState === 'unavailable' ? dictionary.labels.oddsUnavailable
       : emptyLabel ?? dictionary.labels.noOdds;
-  const markets = fixture.odds.map(market => ({
-    ...market,
-    outcomes: market.outcomes.map(outcome => ({ ...outcome, prices: outcome.prices.filter(price => price.freshness === 'fresh') })),
-  })).filter(market => market.outcomes.some(outcome => outcome.prices.length));
-
-  if (!markets.length) return <div className="odds-slot"><span className="odds-empty" title={unavailableLabel} aria-label={unavailableLabel}>—</span></div>;
-
-  return <>
-    <div className="odds-slot"><span className="odds-empty">{dictionary.labels.odds}</span></div>
-    <div className="odds-market-list">
-      {markets.map(market => <section key={`${market.market}:${market.line ?? ''}`} aria-label={dictionary.markets[market.market]}>
-        <h3 className="odds-market-title">{dictionary.markets[market.market]}</h3>
-        <div className="odds-market-grid">
-          {market.outcomes.map(outcome => <div key={outcome.outcome} className="odds-outcome">
-            <p className="odds-outcome-label">{outcomeLabel(locale, market, outcome.outcome)}</p>
-            <div>{outcome.prices.map(price => <BookmakerPrice key={`${price.bookmaker}:${price.decimalOdds}`} price={price} />)}</div>
-          </div>)}
-        </div>
-      </section>)}
-      {fixture.oddsState === 'partial' ? <PartialDataNotice locale={locale} /> : null}
+  const cells = MATCH_WINNER_CELLS.map(cell => ({ ...cell, decimalOdds: bestFreshPrice(fixture, cell.outcome) }));
+  if (cells.every(cell => cell.decimalOdds === null)) {
+    return <div className="odds-slot"><span className="odds-empty" title={unavailableLabel} aria-label={unavailableLabel}>—</span></div>;
+  }
+  const summary = cells.map(cell => cell.decimalOdds === null ? '—' : cell.decimalOdds.toFixed(2)).join(' / ');
+  return <div className="odds-slot" aria-label={`${dictionary.labels.odds}: ${summary}`}>
+    <div className="listing-odds">
+      {cells.map(cell => <div key={cell.outcome} className="listing-odds-cell">
+        <span className="listing-odds-label">{cell.label}</span>
+        <strong className="listing-odds-price">{cell.decimalOdds === null ? '—' : cell.decimalOdds.toFixed(2)}</strong>
+      </div>)}
     </div>
-  </>;
+  </div>;
 }

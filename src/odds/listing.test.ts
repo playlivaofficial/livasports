@@ -1,0 +1,79 @@
+import {describe,expect,it,vi} from 'vitest';
+vi.mock('server-only',()=>({}));
+import {FixtureStatus,MarketCode,OutcomeCode} from '@/domain/enums';
+import type {M2PageData} from '@/delivery/types';
+import {attachListingOdds,listingMatchWinnerOdds} from './listing';
+import type {OddsReadSnapshot,ReadOddsQuote} from './types';
+
+const now=Date.parse('2026-09-12T18:00:00Z');
+const fixtureId='aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
+const quote=(overrides:Partial<ReadOddsQuote>={}):ReadOddsQuote=>({
+  fixtureId,providerFixtureId:'p',bookmaker:'betano.bet.br',bookmakerId:'b',bookmakerName:'Betano BR',
+  market:'MATCH_WINNER',outcome:'HOME',line:null,decimalOdds:'4.45',status:'ACTIVE',scope:'FULL_TIME_REGULATION',
+  phase:'PREGAME',providerUpdatedAt:'2026-09-12T10:00:00Z',observedAt:new Date(now).toISOString(),
+  persistedAt:new Date(now).toISOString(),lastSuccessfulRefreshAt:new Date(now).toISOString(),
+  providerKickoff:'2026-09-12T19:00:00Z',sourceDomain:'www.betano.bet.br',geoEligible:true,...overrides,
+});
+const snapshot=(quotes:ReadOddsQuote[]):OddsReadSnapshot=>({quotes,kickoff:'2026-09-12T19:00:00Z',fixtureStatus:'SCHEDULED'});
+
+describe('listing MATCH_WINNER read model',()=>{
+  it('attaches current 1X2 from the same quoteState as the match page',()=>{
+    const attached=listingMatchWinnerOdds(snapshot([
+      quote(),quote({outcome:'DRAW',decimalOdds:'4.00'}),quote({outcome:'AWAY',decimalOdds:'1.72'}),
+      quote({bookmaker:'betsson',bookmakerName:'Betsson',decimalOdds:'4.20'}),
+      quote({bookmaker:'betsson',bookmakerName:'Betsson',outcome:'DRAW',decimalOdds:'3.90'}),
+      quote({bookmaker:'betsson',bookmakerName:'Betsson',outcome:'AWAY',decimalOdds:'1.80'}),
+    ]),now);
+    expect(attached.oddsState).toBe('complete');
+    expect(attached.odds[0].market).toBe(MarketCode.MATCH_WINNER);
+    expect(attached.odds[0].outcomes.map(outcome=>outcome.outcome)).toEqual([OutcomeCode.HOME,OutcomeCode.DRAW,OutcomeCode.AWAY]);
+    expect(attached.odds[0].outcomes[0].prices.map(price=>price.decimalOdds)).toEqual([4.45,4.2]);
+  });
+
+  it('does not treat geo-ineligible or stale quotes as listing prices',()=>{
+    expect(listingMatchWinnerOdds(snapshot([quote({geoEligible:false})]),now).oddsState).toBe('none');
+    expect(listingMatchWinnerOdds(snapshot([quote({observedAt:'2026-09-12T10:00:00Z',lastSuccessfulRefreshAt:'2026-09-12T10:00:00Z'})]),now).oddsState).toBe('stale');
+  });
+});
+
+describe('listing Neon attach',()=>{
+  const page=():M2PageData=>({
+    locale:'br',page:'home',currentDate:'date',timeZone:'America/Sao_Paulo',
+    sportsData:{state:'available',freshness:'fresh',reason:'ok'},
+    oddsData:{state:'available',freshness:'unavailable',reason:'no-data'},
+    competitions:['Premier League'],paidOddsRequests:0,
+    sections:[{competition:'Premier League',slug:'premier-league',group:'EUROPE',priority:1,fixtures:[
+      {id:fixtureId,competition:'Premier League',homeTeam:'Brentford',awayTeam:'Chelsea',kickoff:'2026-09-12T19:00:00Z',
+        status:FixtureStatus.SCHEDULED,homeScore:null,awayScore:null,freshness:'fresh',odds:[],oddsState:'none'},
+      {id:'bbbbbbbb-cccc-4ddd-8eee-ffffffffffff',competition:'Premier League',homeTeam:'No',awayTeam:'Odds',kickoff:'2026-09-12T20:00:00Z',
+        status:FixtureStatus.SCHEDULED,homeScore:null,awayScore:null,freshness:'fresh',odds:[],oddsState:'none'},
+    ]}],
+  });
+  const row=(overrides:Record<string,unknown>={})=>{
+    const q=quote();
+    return {canonical_fixture_id:fixtureId,kickoff:new Date(q.providerKickoff),fixture_status:'SCHEDULED',bookmaker_id:'b',
+      provider_slug:q.bookmaker,display_name:q.bookmakerName,source_domain:q.sourceDomain,verification_state:'VERIFIED_BR',
+      geo_eligible:true,mapping_verified:true,scope:q.scope,phase:q.phase,observed_at:new Date(now),provider_updated_at:new Date(q.providerUpdatedAt!),
+      persisted_at:new Date(now),last_successful_refresh_at:new Date(now),provider_kickoff:new Date(q.providerKickoff),
+      market_code:'MATCH_WINNER',outcome_code:q.outcome,line:null,decimal_odds:q.decimalOdds,status:'ACTIVE',...overrides};
+  };
+
+  it('reads odds_current MATCH_WINNER in one bounded query and never calls a provider',async()=>{
+    const query=vi.fn().mockResolvedValue({rows:[row(),row({outcome_code:'DRAW',decimal_odds:'4.00'}),row({outcome_code:'AWAY',decimal_odds:'1.72'})]});
+    const fetch=vi.spyOn(globalThis,'fetch');
+    const attached=await attachListingOdds({query},page(),now);
+    expect(query).toHaveBeenCalledTimes(1);
+    expect(query.mock.calls[0][0]).toContain("o.market_code='MATCH_WINNER'");
+    expect(query.mock.calls[0][0]).toContain('f.id=ANY($1::uuid[])');
+    expect(query.mock.calls[0][1][0]).toEqual(expect.arrayContaining([fixtureId]));
+    expect(fetch).not.toHaveBeenCalled();
+    const brentford=attached.sections[0].fixtures[0];
+    const empty=attached.sections[0].fixtures[1];
+    expect(brentford.oddsState).toBe('partial');
+    expect(brentford.odds[0].outcomes.map(outcome=>outcome.prices[0]?.decimalOdds)).toEqual([4.45,4,1.72]);
+    expect(empty.odds).toEqual([]);
+    expect(empty.oddsState).toBe('none');
+    expect(attached.paidOddsRequests).toBe(0);
+    fetch.mockRestore();
+  });
+});

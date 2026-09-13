@@ -10,7 +10,13 @@ import type {BookmakerConfig} from '@/slip/comparison-types';
 
 export interface InternalOddsRead extends OddsReadSnapshot { destinations:Record<string,string>; }
 // Both readers use the same source, mapping and GEO predicates. The selector is internal, never SQL from a client.
-function oddsReadSql(selector:'id'|'publicIds'){
+function oddsJoin(selector:'id'|'publicIds'|'fixtureIds'){
+  const market=selector==='fixtureIds'?" AND o.market_code='MATCH_WINNER' AND o.line IS NULL":'';
+  return `LEFT JOIN odds_current o ON o.fixture_id=f.id AND o.scope='FULL_TIME_REGULATION' AND o.phase='PREGAME'${market}`;
+}
+function oddsReadSql(selector:'id'|'publicIds'|'fixtureIds'){
+  const where=selector==='id'?'f.id=$1':selector==='publicIds'?'f.public_id=ANY($1::text[]) AND competition.enabled':'f.id=ANY($1::uuid[])';
+  const limit=selector==='id'?50:selector==='publicIds'?500:2000;
   return `SELECT f.id AS canonical_fixture_id,f.public_id,f.kickoff,f.status AS fixture_status,
     ht.name AS home_name,at.name AS away_name,
     CASE WHEN $2='BR' THEN competition.display_name_pt_br ELSE competition.display_name_es_mx END AS competition_name,
@@ -22,7 +28,7 @@ function oddsReadSql(selector:'id'|'publicIds'){
       AND (fm.metadata->>'providerKickoff')::timestamptz=o.provider_kickoff AS mapping_verified,
     CASE WHEN b.affiliate_status='ACTIVE' AND g.affiliate_enabled AND al.enabled AND al.approved_at IS NOT NULL
       AND al.campaign_verified AND al.approved_placement='match-odds' THEN al.destination_url END AS destination
-    FROM fixtures f LEFT JOIN odds_current o ON o.fixture_id=f.id AND o.scope='FULL_TIME_REGULATION' AND o.phase='PREGAME'
+    FROM fixtures f ${oddsJoin(selector)}
     JOIN teams ht ON ht.id=f.home_team_id JOIN teams at ON at.id=f.away_team_id
     JOIN competitions competition ON competition.id=f.competition_id
     LEFT JOIN bookmakers b ON b.id=o.bookmaker_id
@@ -33,8 +39,8 @@ function oddsReadSql(selector:'id'|'publicIds'){
     LEFT JOIN provider_entity_mappings am ON am.provider='ODDSPAPI' AND am.entity_type='TEAM' AND am.provider_entity_id=fm.metadata->>'awayProviderId'
     LEFT JOIN odds_mapping_reviews mr ON mr.provider_fixture_id=o.provider_fixture_id
     LEFT JOIN provider_entity_mappings cm ON cm.provider='ODDSPAPI' AND cm.entity_type='COMPETITION' AND cm.provider_entity_id=mr.evidence->>'providerCompetitionId'
-    WHERE ${selector==='id'?'f.id=$1':'f.public_id=ANY($1::text[]) AND competition.enabled'}
-    ORDER BY f.public_id,b.provider_slug,o.market_code,o.outcome_code LIMIT ${selector==='id'?50:500}`;
+    WHERE ${where}
+    ORDER BY f.public_id,b.provider_slug,o.market_code,o.outcome_code LIMIT ${limit}`;
 }
 function hydrateOddsSnapshot(rows:QueryResultRow[],fixtureId:string,locale:SiteLocale):InternalOddsRead {
   const date=(value:unknown)=>value instanceof Date?value.toISOString():typeof value==='string'?value:'';
@@ -55,6 +61,21 @@ function hydrateOddsSnapshot(rows:QueryResultRow[],fixtureId:string,locale:SiteL
 export async function readOddsSnapshot(db:QueryExecutor,fixtureId:string,locale:SiteLocale):Promise<InternalOddsRead>{
   const result=await db.query(oddsReadSql('id'),[fixtureId,locale==='br'?'BR':'MX']);
   return hydrateOddsSnapshot(result.rows,fixtureId,locale);
+}
+
+const LISTING_CHUNK=80;
+const FIXTURE_UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export async function readListingOddsSnapshots(db:QueryExecutor,fixtureIds:readonly string[],locale:SiteLocale):Promise<Map<string,InternalOddsRead>>{
+  const unique=[...new Set(fixtureIds.filter(id=>FIXTURE_UUID.test(id)))];
+  const snapshots=new Map<string,InternalOddsRead>();
+  for(let i=0;i<unique.length;i+=LISTING_CHUNK){
+    const chunk=unique.slice(i,i+LISTING_CHUNK);
+    const result=await db.query(oddsReadSql('fixtureIds'),[chunk,locale==='br'?'BR':'MX']);
+    const groups=new Map<string,typeof result.rows>();
+    for(const row of result.rows){const id=String(row.canonical_fixture_id);const rows=groups.get(id)??[];rows.push(row);groups.set(id,rows);}
+    for(const [id,rows] of groups)snapshots.set(id,hydrateOddsSnapshot(rows,id,locale));
+  }
+  return snapshots;
 }
 
 export interface PublicOddsFixtureRead {

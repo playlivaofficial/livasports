@@ -7,6 +7,7 @@ import type { M2PageData } from './types';
 import { unavailableDatabasePage } from './DatabaseM2ReadService';
 
 export interface RouteDatabaseReader { loadOrThrow(locale: SiteLocale, page: PageKey): Promise<M2PageData>; }
+export interface ListingOddsAttacher { attach(page: M2PageData): Promise<M2PageData>; }
 
 export interface RouteLoadMetric {
   event: 'route-data-load'; locale: SiteLocale; page: PageKey; durationMs: number; cache: CacheResultStatus | 'ERROR'; providerRequests: 0;
@@ -32,6 +33,7 @@ export class M3RouteDataLoader {
     private readonly policy: CacheTtlPolicy = DEFAULT_CACHE_TTLS,
     private readonly now: () => Date = () => new Date(),
     private readonly onMetric: (metric: RouteLoadMetric) => void = () => undefined,
+    private readonly listingOdds?: ListingOddsAttacher,
   ) {}
 
   async load(locale: SiteLocale, page: PageKey): Promise<M2PageData> {
@@ -45,7 +47,13 @@ export class M3RouteDataLoader {
       }, () => this.database.loadOrThrow(locale, page));
       this.onMetric({ event: 'route-data-load', locale, page, durationMs: Math.round((performance.now() - started) * 10) / 10,
         cache: result.status, providerRequests: 0 });
-      return result.status === 'STALE' ? staleData(result.value) : result.value;
+      const pageData = result.status === 'STALE' ? staleData(result.value) : result.value;
+      if (!this.listingOdds) return pageData;
+      try {
+        return await this.listingOdds.attach(pageData);
+      } catch {
+        return { ...pageData, oddsData: { state: 'unavailable', freshness: 'unavailable', reason: 'provider-error' }, paidOddsRequests: 0 };
+      }
     } catch (error) {
       const safeError = error instanceof Error
         ? { name: error.name, message: error.message.replace(/postgres(?:ql)?:\/\/\S+/gi, '[REDACTED_DATABASE_URL]') }

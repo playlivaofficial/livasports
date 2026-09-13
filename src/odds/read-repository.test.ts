@@ -7,7 +7,7 @@ describe('DB-only odds navigation',()=>{
   it('uses a single bounded DB read and no upstream provider call',async()=>{
     const query=vi.fn().mockResolvedValue({rows:[row]});const fetch=vi.spyOn(globalThis,'fetch');
     const result=await readOddsSnapshot({query},'f','br');
-    expect(query).toHaveBeenCalledTimes(1);expect(query.mock.calls[0][0]).toContain('LIMIT 50');expect(fetch).not.toHaveBeenCalled();
+    expect(query).toHaveBeenCalledTimes(1);expect(query.mock.calls[0][0]).toContain('LIMIT 50');expect(query.mock.calls[0][0]).not.toContain("o.market_code='MATCH_WINNER'");expect(fetch).not.toHaveBeenCalled();
     expect(result.quotes[0].decimalOdds).toBe('2.12345678');expect(result.quotes[0].geoEligible).toBe(true);expect(result.destinations).toEqual({});fetch.mockRestore();
   });
   it('denies BR-to-MX substitution and accepts confirmed Betsson BR regardless of generic feed naming',async()=>{

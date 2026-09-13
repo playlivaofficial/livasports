@@ -236,10 +236,10 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .competition-title { overflow: hidden; margin: 0; color: var(--color-text); font-size: 0.83rem; font-weight: 760; text-overflow: ellipsis; white-space: nowrap; }
 .competition-count { color: var(--color-text-muted); font-family: var(--font-numeric); font-size: 0.68rem; white-space: nowrap; }
 .competition-empty-state { min-height: 3.5rem; margin: 0; padding: var(--space-4); color: var(--color-text-muted); font-size: 0.76rem; line-height: 1.45; }
-.fixture-table-head { display: grid; grid-template-columns: 6.7rem minmax(17rem, 1fr) 4.6rem 6.75rem; align-items: center; min-height: 2rem; padding: 0 var(--space-4); border-bottom: 1px solid var(--color-border); color: var(--color-text-muted); font-size: 0.62rem; font-weight: 750; letter-spacing: 0.065em; text-transform: uppercase; }
+.fixture-table-head { display: grid; grid-template-columns: 6.7rem minmax(15rem, 1fr) 4.6rem 8.6rem; align-items: center; min-height: 2rem; padding: 0 var(--space-4); border-bottom: 1px solid var(--color-border); color: var(--color-text-muted); font-size: 0.62rem; font-weight: 750; letter-spacing: 0.065em; text-transform: uppercase; }
 .fixture-table-head > :last-child { text-align: right; }
-.fixture-row { position: relative; display: grid; grid-template-columns: 6.7rem minmax(17rem, 1fr) 4.6rem 6.75rem; min-height: 5.05rem; align-items: center; padding: 0.65rem var(--space-4); border-bottom: 1px solid var(--color-border); transition: background var(--transition-fast); }
-.fixture-main-link { display: grid; min-width: 0; grid-column: 1 / 4; grid-template-columns: 6.7rem minmax(17rem, 1fr) 4.6rem; align-items: center; border-radius: var(--radius-sm); color: inherit; }
+.fixture-row { position: relative; display: grid; grid-template-columns: 6.7rem minmax(15rem, 1fr) 4.6rem 8.6rem; min-height: 5.05rem; align-items: center; padding: 0.65rem var(--space-4); border-bottom: 1px solid var(--color-border); transition: background var(--transition-fast); }
+.fixture-main-link { display: grid; min-width: 0; grid-column: 1 / 4; grid-template-columns: 6.7rem minmax(15rem, 1fr) 4.6rem; align-items: center; border-radius: var(--radius-sm); color: inherit; }
 .fixture-main-link:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 4px; }
 .fixture-row:last-child { border-bottom: 0; }
 .fixture-row:hover { background: var(--color-surface-hover); }
@@ -263,7 +263,11 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .score-value { min-height: 1.6rem; color: var(--color-text); font-family: var(--font-numeric); font-size: 1rem; font-weight: 950; line-height: 1.6rem; font-variant-numeric: tabular-nums; }
 .score-value.is-empty { opacity: 0.62; color: var(--color-text-muted); font-size: 0.86rem; font-weight: 600; }
 .odds-slot { display: flex; justify-content: flex-end; }
-.odds-empty { display: grid; width: 5.9rem; min-height: 2rem; place-items: center; border: 1px solid var(--color-border); border-radius: var(--radius-sm); color: var(--color-text-muted); font-size: 0.69rem; }
+.odds-empty { display: grid; width: 8.2rem; min-height: 2rem; place-items: center; border: 1px solid var(--color-border); border-radius: var(--radius-sm); color: var(--color-text-muted); font-size: 0.69rem; }
+.listing-odds { display: grid; width: 8.2rem; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.22rem; }
+.listing-odds-cell { display: grid; min-height: 2.35rem; justify-items: center; align-content: center; gap: 0.08rem; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-bg); padding: 0.18rem 0.1rem; }
+.listing-odds-label { color: var(--color-text-muted); font-size: 0.58rem; font-weight: 750; letter-spacing: 0.04em; }
+.listing-odds-price { color: var(--color-text); font-family: var(--font-numeric); font-size: 0.72rem; font-weight: 850; line-height: 1; font-variant-numeric: tabular-nums; }
 .odds-market-list { grid-column: 2 / -1; margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--color-border); }
 .odds-market-title { margin: 0 0 var(--space-2); color: var(--color-text-secondary); font-size: 0.72rem; font-weight: 700; }
 .odds-market-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); }
@@ -318,9 +322,9 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .competition-tab-group-label { display: none; }
   .competition-tab-group-links { display: contents; }
   .competition-tab { min-height: 2.2rem; padding: 0 var(--space-3); white-space: nowrap; }
-  .fixture-table-head { grid-template-columns: 6.1rem minmax(13rem, 1fr) 4rem 6.25rem; }
-  .fixture-row { grid-template-columns: 6.1rem minmax(13rem, 1fr) 4rem 6.25rem; }
-  .fixture-main-link { grid-template-columns: 6.1rem minmax(13rem, 1fr) 4rem; }
+  .fixture-table-head { grid-template-columns: 6.1rem minmax(11rem, 1fr) 4rem 8.2rem; }
+  .fixture-row { grid-template-columns: 6.1rem minmax(11rem, 1fr) 4rem 8.2rem; }
+  .fixture-main-link { grid-template-columns: 6.1rem minmax(11rem, 1fr) 4rem; }
   .skeleton-layout { grid-template-columns: 1fr; }
   .skeleton-rail { height: 5rem; }
 }
@@ -343,8 +347,8 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .fixture-content { margin-right: calc(var(--space-3) * -1); margin-left: calc(var(--space-3) * -1); }
   .competition-header { min-height: 2.8rem; padding: 0 var(--space-3); }
   .fixture-table-head { display: none; }
-  .fixture-row { grid-template-columns: 4.6rem minmax(0, 1fr) 2.25rem; min-height: 5rem; padding: var(--space-3); }
-  .fixture-main-link { grid-column: 1 / -1; grid-template-columns: 4.6rem minmax(0, 1fr) 2.25rem; }
+  .fixture-row { grid-template-columns: 4.6rem minmax(0, 1fr) 2.25rem; grid-template-rows: auto auto; min-height: 5rem; padding: var(--space-3); }
+  .fixture-main-link { grid-column: 1 / -1; grid-row: 1; grid-template-columns: 4.6rem minmax(0, 1fr) 2.25rem; }
   .fixture-timing { gap: 0.3rem; }
   .kickoff-date { display: none; }
   .status-badge { font-size: 0.59rem; }
@@ -353,9 +357,9 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .team-name { font-size: 0.78rem; }
   .score-stack { justify-items: end; }
   .score-value { font-size: 0.88rem; }
-  .odds-slot { display: none; }
-  .odds-market-list { grid-column: 1 / -1; }
-  .odds-market-grid { grid-template-columns: 1fr; }
+  .odds-slot { display: flex; grid-column: 1 / -1; grid-row: 2; justify-content: stretch; padding-top: 0.4rem; }
+  .odds-empty, .listing-odds { width: 100%; }
+  .listing-odds-price { font-size: 0.78rem; }
   .empty-state { width: 100%; max-width: 100%; margin: 0; overflow: hidden; border-radius: var(--radius-lg); padding: var(--space-5) var(--space-4); }
   .empty-copy p { white-space: normal; word-break: normal; overflow-wrap: anywhere; }
   .empty-icon { width: 2.4rem; height: 2.4rem; }
