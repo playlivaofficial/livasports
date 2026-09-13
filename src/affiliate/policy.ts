@@ -1,4 +1,5 @@
 import {parseResolutionRequest} from '@/slip/types';
+import {requestCommercialGeo} from '@/odds/commercial-geo';
 import {safeAffiliateDestination} from '@/odds/affiliate';
 import {embedDimensions,safeBetssonEmbed} from './embed-policy';
 import {placements,type Campaign,type CommercialContext,type Creative,type PageType,type TrafficClass} from './types';
@@ -48,7 +49,7 @@ export function validCreative(c:Creative,context:CommercialContext,now:number,ca
     Number.isInteger(c.width)&&c.width>=100&&c.width<=2400&&Number.isInteger(c.height)&&c.height>=40&&c.height<=1600;
 }
 export function geoAllowed(request:Request,locale:'br'|'mx',env:Readonly<Record<string,string|undefined>>=process.env){
-  const country=env.VERCEL==='1'?request.headers.get('x-vercel-ip-country'):env.AFFILIATE_QA_GEO;
+  const country=requestCommercialGeo(request.headers,env);
   return country===locale.toUpperCase();
 }
 export function isOddsCtaPlacement(p:string){return p==='match_odds_table'||isSlipPlacement(p);}

@@ -21,7 +21,7 @@ export interface Campaign {
 }
 export interface PageContext {pageType:PageType;pagePath:string;fixtureId?:string;teamId?:string;playerId?:string;competitionId?:string;}
 export interface VerifiedOffer {campaign:Campaign;context:CommercialContext;page:PageContext;expiresAt:number;creative:Creative|null;}
-export interface PublicOffer {bookmaker:Bookmaker;placement:Placement;href:string;token:string;expiresAt:string;resolvedAt:string;destinationType:DestinationType;embedPermission?:'anonymous'|'consent';creative:Omit<Creative,'approved'|'enabled'|'startsAt'|'endsAt'|'embedSourceUrl'>|null;}
-export interface OfferToken {v:1;viewId:string;campaignId:string;context:CommercialContext;expiresAt:number;embedPermission?:'anonymous'|'consent';}
+export interface PublicOffer {qaPreview?:boolean;bookmaker:Bookmaker;placement:Placement;href:string;token:string;expiresAt:string;resolvedAt:string;destinationType:DestinationType;embedPermission?:'anonymous'|'consent';creative:Omit<Creative,'approved'|'enabled'|'startsAt'|'endsAt'|'embedSourceUrl'>|null;}
+export interface OfferToken {qaSession?:string;v:1;viewId:string;campaignId:string;context:CommercialContext;expiresAt:number;embedPermission?:'anonymous'|'consent';}
 export type TrafficClass='HUMAN_CLICK'|'HUMAN_VIEW'|'QA_TEST'|'UNKNOWN';
 export const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;

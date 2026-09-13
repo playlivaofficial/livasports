@@ -1,4 +1,5 @@
 import 'server-only';
+import {previewBinding} from '@/owner/session';
 import {cache} from 'react';
 import {headers} from 'next/headers';
 import {analyticsAllowed,geoAllowed} from './policy';
@@ -14,6 +15,6 @@ export async function renderOffer(context:CommercialContext){
     if(!geoAllowed(request,context.locale))return null;
     const offer=await resolveOffer(context,{...offerDependencies(affiliateDatabase()),campaigns,page:c=>page(c.locale,c.pagePath,c.competitionSlug)});
     if(offer?.creative?.delivery==='BETSSON_EMBED'&&!analyticsAllowed(request))return null;
-    return offer?publicOffer(offer,key,Date.now(),process.env.AFFILIATE_ANALYTICS_MODE==='consent'?'consent':'anonymous'):null;
+    return offer?publicOffer(offer,key,Date.now(),process.env.AFFILIATE_ANALYTICS_MODE==='consent'?'consent':'anonymous',previewBinding(h)):null;
   }catch{return null;}
 }

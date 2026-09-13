@@ -1,0 +1,19 @@
+# Owner Brazil commercial preview
+
+Open `https://livasports.com/owner/preview` in the normal browser. Enter the private owner access key, click **Sign in**, then **Turn Brazil preview on**, and **Open Brazil site**. The owner bar on every page also switches preview on/off. **Sign out** removes owner access. Sessions expire after eight hours; signing in starts with preview off.
+
+The dedicated access key is a randomly generated 256-bit bearer credential, delivered privately to the owner. It is submitted only in the sign-in POST body, never a URL, shared preview link, browser storage, source code, or analytics. Production stores only its SHA-256 digest in `OWNER_QA_ACCESS_HASH`. `OWNER_QA_SESSION_SECRET` is a separate random server secret of at least 43 characters. Both must be configured; missing/weak configuration fails closed. Do not reuse a provider, scheduler, database, Vercel, or affiliate credential as the owner key.
+
+The server verifies an eight-hour signed `__Host-livasports_owner` cookie (`Secure`, `HttpOnly`, `SameSite=Strict`, host-only, path `/`). Sign-in and mutations require same-origin POST with JSON and Fetch Metadata. The access hash is included in session signatures: rotating either environment value and redeploying revokes existing sessions. No public GEO parameter or QA header authorizes preview. Keep the access file private; anyone holding the owner access key has owner QA access.
+
+Only the authenticated preview context substitutes BR commercial eligibility. Real country remains available in owner controls. With preview off, the existing trusted Vercel country/campaign checks apply unchanged. Global persisted-odds visibility is independent of this override. Navigation never invokes an odds provider or changes the scheduler.
+
+QA offer signatures carry a one-way binding to the active owner session. Grants cannot be copied to another session, and become unusable after preview is switched off, sign-out, expiry, or key rotation. Commercial responses are private/no-store. Campaign approval, enabled state, placement rules, and quote freshness remain mandatory.
+
+All preview impressions and clicks are classified **QA_TEST on the server**, including browser events without a QA flag. Existing commercial reporting separates them from human metrics. Other product events are dropped while preview is on because their legacy tables have no QA class. CTA clicks record QA attribution and redirect to a first-party confirmation, never the operator's conversion funnel. Legacy outbound links also stay first-party during preview.
+
+For publisher creatives, QA renders the exact approved image-mode artwork at the configured size. The server reads bounded declarative image metadata from the approved publisher script without executing it, permits only the reviewed Betsson asset path on the exact creative CDN, and embeds image bytes in an isolated document. No publisher tracking/custom script, remote click destination, conversion pixel, affiliate URL, or campaign credential is emitted to the QA browser. Artwork is cached for at most five minutes. A changed/unrecognized publisher metadata format fails closed. Ordinary eligible visitors retain the existing publisher delivery.
+
+Validation covers login and CSRF, tampering, expiry, rotation, cross-session offer replay (including a real BR session), on/off behavior from GE, all three creative dimensions, server-enforced QA attribution, first-party CTA confirmation, and unchanged anonymous eligibility. No database migration or operator configuration change is required.
+
+Deployment must use the existing `livasports` Vercel project `prj_AWVpxaSj2mI7RI7MlwmrnMW6Ogvr` only. Rotate the two owner environment values through that project's secure settings, redeploy, and privately provide the new access key to the owner.

@@ -34,7 +34,7 @@ function PublisherEmbed({offer,onFailure}:{offer:PublicOffer;onFailure:()=>void}
     return()=>{cancel();observer.disconnect();document.removeEventListener('visibilitychange',attempt);};
   },[offer,ready]);
   return <div ref={box} className="sponsor-embed-box" data-ready={ready} style={{width:c.width,maxWidth:'100%',aspectRatio:`${c.width}/${c.height}`}}>
-    {load?<iframe ref={frame} title={`${c.imageAlt} · Publicidade · 18+`} width={c.width} height={c.height} loading="lazy" {...{credentialless:''}}
+    {load?<iframe ref={frame} title={`${c.imageAlt} · Publicidade · 18+`} width={c.width} height={c.height} loading="lazy" {...(offer.qaPreview?{}:{credentialless:''})}
       sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox" referrerPolicy="no-referrer" allow="camera 'none'; microphone 'none'; geolocation 'none'; payment 'none'; fullscreen 'none'"
       src={`/api/commercial/creative?offer=${offer.token}`} style={{transform:`scale(${scale})`,background:'transparent'}}/>:null}
   </div>;

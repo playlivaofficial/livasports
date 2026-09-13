@@ -1,4 +1,5 @@
 import type {SiteLocale} from '@/config/i18n';
+import {ownerPreview} from '@/owner/session';
 
 /** Trusted commercial jurisdiction. Never derived from `/br`, `/mx`, or `/en`. */
 export type CommercialGeo = 'BR' | 'MX';
@@ -9,6 +10,7 @@ export function requestCountry(headers: Headers, env: Readonly<Record<string, st
 }
 
 export function requestCommercialGeo(headers: Headers, env: Readonly<Record<string, string | undefined>> = process.env): CommercialGeo | null {
+  if(ownerPreview(headers,env))return 'BR';
   const country = requestCountry(headers, env);
   return country === 'BR' || country === 'MX' ? country : null;
 }

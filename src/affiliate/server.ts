@@ -1,4 +1,7 @@
 import 'server-only';
+import {ownerPreview,previewBinding} from '@/owner/session';
+import {qaCreativeDocument} from '@/owner/creative';
+import type {OfferToken} from './types';
 import {after} from 'next/server';
 import {boundedJson} from '@/slip/server';
 import {parseResolutionRequest} from '@/slip/types';
@@ -11,7 +14,7 @@ import {recordClick,recordImpression,recordOperationalError} from './analytics';
 import {uuid,type CommercialContext,type TrafficClass,type VerifiedOffer} from './types';
 import {embedDocument} from './embed-document';
 import {safeBetssonEmbed} from './embed-policy';
-export const commercialHeaders={'Cache-Control':'private, no-store','X-Robots-Tag':'noindex, nofollow','Referrer-Policy':'no-referrer'};
+export const commercialHeaders={'Cache-Control':'private, no-store','X-Robots-Tag':'noindex, nofollow','Referrer-Policy':'no-referrer','Vary':'Cookie'};
 type Deferred=(work:()=>Promise<void>)=>void;
 export interface CommercialServices {deps:OfferDependencies;key:string|null;geo:(request:Request,locale:'br'|'mx')=>boolean;defer:Deferred;
   click:(offer:VerifiedOffer,view:string,traffic:TrafficClass,key:string,activation?:'ISSUED_303'|'EMBED_ACTIVATION')=>Promise<unknown>;impression:(offer:VerifiedOffer,view:string,traffic:TrafficClass)=>Promise<unknown>;}
@@ -19,6 +22,9 @@ function services():CommercialServices{return {deps:runtimeDependencies(),key:si
   click:(o,v,t,k,a)=>recordClick(affiliateDatabase(),o,v,t,k,Date.now(),a),impression:(o,v,t)=>recordImpression(affiliateDatabase(),o,v,t)};}
 const response=(status:number)=>new Response(null,{status,headers:commercialHeaders});
 const decline=(request:Request,context:CommercialContext)=>isSlipPlacement(context.placement)?new Response(null,{status:303,headers:{...commercialHeaders,Location:new URL(`/${context.locale}?slip=unavailable`,request.url).href}}):response(404);
+function tokenAllowed(request:Request,token:OfferToken,s:CommercialServices){return (!token.qaSession||token.qaSession===previewBinding(request.headers))&&s.geo(request,token.context.locale);}
+function qaRequest(request:Request,token?:OfferToken){return !!token?.qaSession||!!ownerPreview(request.headers);}
+const qaDestination=(request:Request)=>new URL('/owner/preview/click',request.url).href;
 function sameOrigin(r:Request){const origin=r.headers.get('origin');return !origin||origin===new URL(r.url).origin;}
 function configurationFailure(provided?:CommercialServices){if(provided)return;try{after(async()=>{try{await recordOperationalError(affiliateDatabase(),'CONFIG_READ_FAILED');}catch{/* No private diagnostics. */}});}catch{/* Outside a request, logging is unavailable. */}}
 function deferred(s:CommercialServices,work:()=>Promise<unknown>){
@@ -40,7 +46,7 @@ export async function offersRequest(request:Request,provided?:CommercialServices
       if(isOddsCtaPlacement(context.placement)?!commercial:!s.geo(request,context.locale)){offers.push(null);continue;}
       const offer=await resolveOffer(resolved,deps);
       if(offer?.creative?.delivery==='BETSSON_EMBED'&&!analyticsAllowed(request)){offers.push(null);continue;}
-      offers.push(offer?publicOffer(offer,s.key,Date.now(),process.env.AFFILIATE_ANALYTICS_MODE==='consent'?'consent':'anonymous'):null);}
+      offers.push(offer?publicOffer(offer,s.key,Date.now(),process.env.AFFILIATE_ANALYTICS_MODE==='consent'?'consent':'anonymous',previewBinding(request.headers)):null);}
     return Response.json({offers,providerRequests:0},{headers:commercialHeaders});
   }catch{console.warn('[LivaSports M8] {"event":"offer-config-unavailable","providerRequests":0}');return Response.json({offers:contexts.map(()=>null),providerRequests:0},{headers:commercialHeaders});}
 }
@@ -54,9 +60,10 @@ export async function creativeRequest(request:Request,provided?:CommercialServic
   // frame requests carry no first-party cookie, so require that signed grant.
   if(!analyticsAllowed(request,mode==='consent'?'anonymous':mode))return response(404);
   try{const s=provided??services();if(!s.key)return response(404);const token=verifyOffer(q.get('offer'),s.key);
-    if(!token?.embedPermission||mode==='consent'&&token.embedPermission!=='consent'||!s.geo(request,token.context.locale))return response(404);
+    if(!token?.embedPermission||mode==='consent'&&token.embedPermission!=='consent'||!tokenAllowed(request,token,s))return response(404);
     const offer=await resolveOffer(token.context,s.deps,Date.now(),token.campaignId),c=offer?.creative;
     if(!offer||c?.delivery!=='BETSSON_EMBED'||!safeBetssonEmbed(c.embedSourceUrl,offer.campaign.operatorCampaignId))return response(404);
+    if(qaRequest(request,token))return await qaCreativeDocument(c,offer.campaign.operatorCampaignId,new URL(request.url).origin,q.get('offer')!.slice(-43));
     return embedDocument(c,new URL(request.url).origin,q.get('offer')!.slice(-43));
   }catch{return response(404);}
 }
@@ -65,9 +72,9 @@ export async function embedClickRequest(request:Request,body:Record<string,unkno
   if(Object.keys(body).some(k=>!['eventId','eventName','offer','qa'].includes(k))||!uuid.test(String(body.eventId))||body.eventName!=='affiliate_embed_click'||body.qa!==undefined&&body.qa!==true)return response(400);
   if(!analyticsAllowed(request)||request.headers.get('purpose')||request.headers.get('sec-purpose')||/bot|crawler|spider/i.test(request.headers.get('user-agent')??''))return response(204);
   try{const s=provided??services();if(!s.key)return response(204);const token=verifyOffer(body.offer,s.key);
-    if(!token?.embedPermission)return response(400);if(!s.geo(request,token.context.locale))return response(204);
+    if(!token?.embedPermission)return response(400);if(!tokenAllowed(request,token,s))return response(204);
     const offer=await resolveOffer(token.context,s.deps,Date.now(),token.campaignId);if(offer?.creative?.delivery!=='BETSSON_EMBED')return response(204);
-    deferred(s,()=>s.click(offer,token.viewId,body.qa||request.headers.get('x-livasports-qa')==='1'?'QA_TEST':'HUMAN_CLICK',s.key!,'EMBED_ACTIVATION'));
+    deferred(s,()=>s.click(offer,token.viewId,qaRequest(request,token)||body.qa||request.headers.get('x-livasports-qa')==='1'?'QA_TEST':'HUMAN_CLICK',s.key!,'EMBED_ACTIVATION'));
     return response(204);
   }catch{return response(204);}
 }
@@ -78,13 +85,13 @@ export async function outboundRequest(request:Request,bookmaker:string,placement
   if(request.headers.get('purpose')||request.headers.get('sec-purpose')||request.headers.get('next-router-prefetch')||/bot|crawler|spider/i.test(request.headers.get('user-agent')??''))return response(204);
   try{const s=provided??services();if(!s.key)return response(404);const token=verifyOffer(url.searchParams.get('offer'),s.key,Date.now(),true);
     if(!token||token.context.bookmaker!==bookmaker||token.context.placement!==placement)return response(400);
-    if(token.expiresAt<=Date.now()||!s.geo(request,token.context.locale))return decline(request,token.context);
+    if(token.expiresAt<=Date.now()||!tokenAllowed(request,token,s))return decline(request,token.context);
     const offer=await resolveOffer(token.context,s.deps,Date.now(),token.campaignId);if(!offer)return decline(request,token.context);
     const destination=campaignDestination(offer.campaign,offer.context,Date.now());if(!destination)return response(404);
-    const traffic=trafficClass(request,true,url.searchParams.get('qa')==='1');
+    const traffic=trafficClass(request,true,qaRequest(request,token)||url.searchParams.get('qa')==='1');
     if(analyticsAllowed(request)&&traffic!=='UNKNOWN')deferred(s,()=>s.click(offer,token.viewId,traffic,s.key!));
     console.info(`[LivaSports M8] ${JSON.stringify({event:'redirect-issued',placement,locale:token.context.locale,bookmaker,traffic,providerRequests:0})}`);
-    return new Response(null,{status:303,headers:{...commercialHeaders,Location:destination}});
+    return new Response(null,{status:303,headers:{...commercialHeaders,Location:qaRequest(request,token)?qaDestination(request):destination}});
   }catch{console.warn('[LivaSports M8] {"event":"redirect-config-failed","providerRequests":0}');configurationFailure(provided);return response(503);}
 }
 export async function impressionRequest(request:Request,body:Record<string,unknown>,provided?:CommercialServices):Promise<Response>{
@@ -92,11 +99,11 @@ export async function impressionRequest(request:Request,body:Record<string,unkno
   if(Object.keys(body).some(k=>!['eventId','eventName','offer','qa'].includes(k))||!uuid.test(String(body.eventId))||body.eventName!=='affiliate_impression'||body.qa!==undefined&&body.qa!==true)return response(400);
   if(!analyticsAllowed(request))return response(204);
   try{const s=provided??services();if(!s.key)return response(204);const token=verifyOffer(body.offer,s.key);if(!token)return response(400);
-    if(!s.geo(request,token.context.locale))return response(204);
+    if(!tokenAllowed(request,token,s))return response(204);
     // A signed rendered offer is still revalidated; stale/disabled/off-GEO never counts.
     const offer=await resolveOffer(token.context,s.deps,Date.now(),token.campaignId);if(!offer)return response(204);
     if(request.headers.get('purpose')||request.headers.get('sec-purpose')||/bot|crawler|spider/i.test(request.headers.get('user-agent')??''))return response(204);
-    const traffic=body.qa||request.headers.get('x-livasports-qa')==='1'?'QA_TEST':request.headers.get('sec-fetch-site')==='same-origin'?'HUMAN_VIEW':'UNKNOWN';
+    const traffic=qaRequest(request,token)||body.qa||request.headers.get('x-livasports-qa')==='1'?'QA_TEST':request.headers.get('sec-fetch-site')==='same-origin'?'HUMAN_VIEW':'UNKNOWN';
     if(traffic!=='UNKNOWN')deferred(s,()=>s.impression(offer,token.viewId,traffic));return response(204);
   }catch{return response(204);}
 }
@@ -108,7 +115,7 @@ export async function legacyOutbound(request:Request,context:CommercialContext,p
   if(request.headers.get('purpose')||request.headers.get('sec-purpose')||/bot|crawler|spider/i.test(request.headers.get('user-agent')??''))return response(204);
   try{const s=provided??services();if(!s.geo(request,context.locale))return decline(request,context);
     const offer=await resolveOffer(context,s.deps);const destination=offer?campaignDestination(offer.campaign,offer.context,Date.now()):null;
-    return destination?new Response(null,{status:303,headers:{...commercialHeaders,Location:destination}}):decline(request,context);
+    return destination?new Response(null,{status:303,headers:{...commercialHeaders,Location:qaRequest(request)?qaDestination(request):destination}}):decline(request,context);
   }catch{return decline(request,context);}
 }
 export async function legacySlipRequest(request:Request,bookmaker:string,provided?:CommercialServices):Promise<Response>{

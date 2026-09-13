@@ -9,7 +9,7 @@ const forbiddenPaths = files.filter(file => file!=='.env.example'&&/(^|\/)\.env(
 const textExtensions = new Set(['','.cjs','.css','.html','.js','.json','.md','.mjs','.sql','.ts','.tsx','.txt','.yml','.yaml']);
 const textFiles = files.filter(file => textExtensions.has(extname(file).toLowerCase()));
 const envFiles = readdirSync(root).filter(file => /^\.env(?:\.|$)/.test(file)&&file!=='.env.example');
-const sensitiveNames = /(?:API_KEY|DATABASE_URL|POSTGRES_PASSWORD|PGPASSWORD|VERCEL_OIDC_TOKEN|CRON_SECRET|AFFILIATE_URL|AFFILIATE_DESTINATION|AFFILIATE_SIGNING_SECRET|POSTBACK_SECRET)$/;
+const sensitiveNames = /(?:API_KEY|DATABASE_URL|POSTGRES_PASSWORD|PGPASSWORD|VERCEL_OIDC_TOKEN|CRON_SECRET|AFFILIATE_URL|AFFILIATE_DESTINATION|AFFILIATE_SIGNING_SECRET|OWNER_QA_SESSION_SECRET|OWNER_QA_ACCESS_HASH|OWNER_QA_ACCESS_KEY|POSTBACK_SECRET)$/;
 const sensitiveValues = [];
 function readRepositoryText(file) {
   try { return readFileSync(resolve(root,file),'utf8'); }
