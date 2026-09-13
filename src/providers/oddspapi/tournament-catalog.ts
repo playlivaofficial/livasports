@@ -82,8 +82,10 @@ export function resolveCatalogTournaments(raw: unknown[]): CatalogTournament[] {
 }
 
 export function schedulerTournaments(raw: unknown[]): CatalogTournament[] {
-  const resolved = resolveCatalogTournaments(raw);
-  return resolved.length ? resolved : M5_TOURNAMENTS.map(row => ({id: row.id, slug: row.slug, category: row.category, canonical: row.canonical}));
+  const pinned = new Set<string>(M5_TOURNAMENTS.map(row => row.id));
+  const resolved = resolveCatalogTournaments(raw).filter(row => pinned.has(row.id));
+  const byId = new Map(resolved.map(row => [row.id, row]));
+  return M5_TOURNAMENTS.map(row => byId.get(row.id) ?? {id: row.id, slug: row.slug, category: row.category, canonical: row.canonical});
 }
 
 export function mergeCatalogTournaments(existing: unknown[], incoming: unknown[]): unknown[] {

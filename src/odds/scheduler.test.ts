@@ -53,7 +53,7 @@ describe('scheduler independent failure and durable completion',()=>{
     expect(safeSchedulerError(new Error(JSON.stringify({status:400,message:'private'})))).toBe('ODDSPAPI_HTTP_400');
     expect(safeSchedulerError(new Error('contains credentials'))).toBe('ODDS_REFRESH_FAILED');
   });
-  it('refreshes every verified catalog tournament in one bookmaker batch',async()=>{
+  it('refreshes only the pinned known-good tournaments even if catalog has extras',async()=>{
     mocked.snapshot.mockResolvedValue({observedAt:new Date().toISOString()});
     const catalog=[
       {tournamentId:325,tournamentSlug:'brasileiro-serie-a',categorySlug:'brazil'},
@@ -73,7 +73,8 @@ describe('scheduler independent failure and durable completion',()=>{
     const db={query:typed,transaction:async(w: (tx:{query:QueryExecutor['query']})=>unknown)=>w({query:typed}),close:async()=>{}} as DatabaseClient;
     const result=await runOddsScheduler(db,'test-only');
     expect(result.state).toBe('SUCCEEDED');
-    expect(mocked.snapshot.mock.calls.map(call=>call[1].sort())).toEqual([['325','326'],['325','326']]);
+    expect(mocked.snapshot.mock.calls.map(call=>call[1].sort())).toEqual([['325'],['325']]);
+    expect(mocked.tournaments).not.toHaveBeenCalled();
     expect(query.mock.calls.some(([sql])=>sql.includes("entity_type='COMPETITION'"))).toBe(true);
   });
 });

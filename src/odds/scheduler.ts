@@ -1,7 +1,7 @@
 import type {DatabaseClient} from '@/database/client';
 import {M5OddsPapiAdapter} from '@/providers/oddspapi/M5OddsPapiAdapter';
 import {verifyCatalog} from '@/providers/oddspapi/m5-normalizer';
-import {catalogNeedsExpansion,mergeCatalogTournaments,schedulerTournaments,type CatalogTournament} from '@/providers/oddspapi/tournament-catalog';
+import {schedulerTournaments,type CatalogTournament} from '@/providers/oddspapi/tournament-catalog';
 import {canonicalFixtures,persistSnapshot,startOddsJob} from './ingestion';
 import {budgetHealth,OddsBudgetStopped,reconcileAccountPeriod} from './budget';
 import {planScheduler,SCHEDULER_BOOKMAKERS,type RefreshTarget} from './scheduler-policy';
@@ -41,21 +41,6 @@ async function persistCatalogCompetitionMappings(db:DatabaseClient,tournaments:r
     JOIN competitions c ON c.slug=t.canonical AND c.enabled
     ON CONFLICT DO NOTHING`,[JSON.stringify(tournaments)]);
 }
-async function maybeExpandCatalog(db:DatabaseClient,provider:M5OddsPapiAdapter,raw:unknown[],fixtures:Array<{competition:string;status:string;kickoff:string}>){
-  const upcoming=[...new Set(fixtures.filter(f=>f.status==='SCHEDULED'&&Date.parse(f.kickoff)>Date.now()).map(f=>f.competition))];
-  if(!catalogNeedsExpansion(raw,upcoming))return raw;
-  const last=await db.query("SELECT started_at,outcome FROM odds_provider_requests WHERE endpoint='/v4/tournaments' ORDER BY started_at DESC LIMIT 1");
-  const previous=last.rows[0];
-  const age=previous?Date.now()-previous.started_at.getTime():Number.POSITIVE_INFINITY;
-  if(previous&&((previous.outcome==='SUCCEEDED'&&age<24*60*60*1000)||(previous.outcome!=='SUCCEEDED'&&age<6*60*60*1000)))return raw;
-  try{
-    const incoming=await provider.providerTournaments();
-    const merged=mergeCatalogTournaments(raw,Array.isArray(incoming)?incoming:[]);
-    await db.query("UPDATE odds_provider_catalog SET tournaments=$1::jsonb,verified_at=now() WHERE provider='ODDSPAPI'",[JSON.stringify(merged)]);
-    await persistCatalogCompetitionMappings(db,schedulerTournaments(merged));
-    return merged;
-  }catch{return raw;}
-}
 export async function runOddsScheduler(db:DatabaseClient,key:string,trigger:'CONTROLLED'|'AUTOMATIC'='CONTROLLED'){
   const job=await startOddsJob(db);const started=Date.now();
   const provider=new M5OddsPapiAdapter(db,key,job,4,true,started+140000);
@@ -68,9 +53,8 @@ export async function runOddsScheduler(db:DatabaseClient,key:string,trigger:'CON
       last_automatic_invocation_at=CASE WHEN $2 THEN now() ELSE last_automatic_invocation_at END WHERE id=true`,[job,trigger==='AUTOMATIC']);
     const catalog=(await db.query("SELECT markets,tournaments FROM odds_provider_catalog WHERE provider='ODDSPAPI'")).rows[0];
     if(!catalog)throw new Error('ODDS_CATALOG_UNVERIFIED');verifyCatalog(catalog.markets,catalog.tournaments);
-    const fixtures=await canonicalFixtures(db);
-    const tournamentsJson=await maybeExpandCatalog(db,provider,catalog.tournaments,fixtures);
-    tournaments=schedulerTournaments(tournamentsJson);
+    // Coverage expansion is paused: oversized OddsPapi batches 400 and known-good 1/X/2 go stale.
+    tournaments=schedulerTournaments(catalog.tournaments);
     provider.setCatalog(tournaments);
     await persistCatalogCompetitionMappings(db,tournaments);
     const pending=(await db.query('SELECT payload FROM odds_sync_snapshots WHERE applied_at IS NULL ORDER BY observed_at LIMIT 3')).rows;
