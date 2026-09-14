@@ -5,19 +5,14 @@ import type {CanonicalSelection} from './types';
 import type {BookmakerConfig,BookmakerSlip,SelectionQuote,SlipComparison,ComparisonState} from './comparison-types';
 import {compareDecimal,multiplyDecimalOdds,validDecimalOdds} from './decimal';
 
-function selectionQuote(selection:CanonicalSelection,read:SlipFixtureRead|null,bookmaker:string,now:number):SelectionQuote {
-  const base:SelectionQuote={selection,fixture:read?.fixture??null,state:'UNAVAILABLE',reason:read?'NO_QUOTE':'MISSING_FIXTURE',decimalOdds:null,expiresAt:null,closesAt:read?.fixture.kickoff??null};
-  if(!read)return base;
+function matchingQuotes(selection:CanonicalSelection,snapshot:SlipFixtureRead['snapshot'],bookmaker:string){
+  return snapshot.quotes.filter(q=>q.geoEligible&&q.bookmaker===bookmaker&&q.market===selection.market&&q.outcome===selection.outcome&&q.line===selection.line&&q.scope===selection.scope&&q.phase==='PREGAME');
+}
+function evaluatedQuote(selection:CanonicalSelection,read:SlipFixtureRead,quote:SlipFixtureRead['snapshot']['quotes'][number],now:number,base:SelectionQuote):SelectionQuote {
   const {fixture,snapshot}=read;
-  if(fixture.status==='FINISHED')return {...base,state:'MATCH_FINISHED',reason:null};
-  if(['LIVE','HALFTIME'].includes(fixture.status)||now>=Date.parse(fixture.kickoff))return {...base,state:'MATCH_STARTED',reason:null};
-  if(fixture.status!=='SCHEDULED')return {...base,state:'CLOSED',reason:null};
-  const matches=snapshot.quotes.filter(q=>q.geoEligible&&q.bookmaker===bookmaker&&q.market===selection.market&&q.outcome===selection.outcome&&q.line===selection.line&&q.scope===selection.scope&&q.phase==='PREGAME');
-  if(matches.length!==1)return {...base,reason:matches.length?'INVALID_QUOTE':'NO_QUOTE'};
-  const quote=matches[0];
   const close=Math.min(Date.parse(fixture.kickoff),Date.parse(quote.providerKickoff));
   if(!Number.isFinite(close))return {...base,reason:'INVALID_QUOTE'};
-  base.closesAt=new Date(close).toISOString();
+  base={...base,closesAt:new Date(close).toISOString()};
   if(now>=close)return {...base,state:'MATCH_STARTED',reason:null};
   const state=quoteState(quote,snapshot,now);
   if(state!=='ACTIVE')return {...base,state:['STALE','SUSPENDED','CLOSED'].includes(state)?state:'UNAVAILABLE',reason:null};
@@ -26,6 +21,24 @@ function selectionQuote(selection:CanonicalSelection,read:SlipFixtureRead|null,b
   const expires=Math.min(close,Date.parse(quote.observedAt)+ttl,Date.parse(quote.lastSuccessfulRefreshAt)+ttl);
   if(!Number.isFinite(expires)||now>=expires)return {...base,state:'STALE',reason:null};
   return {...base,state:'CURRENT',reason:null,decimalOdds:quote.decimalOdds,expiresAt:new Date(expires).toISOString()};
+}
+function selectionQuote(selection:CanonicalSelection,read:SlipFixtureRead|null,bookmaker:string,now:number):SelectionQuote {
+  const base:SelectionQuote={selection,fixture:read?.fixture??null,state:'UNAVAILABLE',reason:read?'NO_QUOTE':'MISSING_FIXTURE',decimalOdds:null,expiresAt:null,closesAt:read?.fixture.kickoff??null};
+  if(!read)return base;
+  const {fixture}=read;
+  if(fixture.status==='FINISHED')return {...base,state:'MATCH_FINISHED',reason:null};
+  if(['LIVE','HALFTIME'].includes(fixture.status)||now>=Date.parse(fixture.kickoff))return {...base,state:'MATCH_STARTED',reason:null};
+  if(fixture.status!=='SCHEDULED')return {...base,state:'CLOSED',reason:null};
+  const matches=matchingQuotes(selection,read.snapshot,bookmaker);
+  if(!matches.length)return base;
+  const evaluated=matches.map(quote=>evaluatedQuote(selection,read,quote,now,base));
+  const current=evaluated.filter(quote=>quote.state==='CURRENT'&&quote.decimalOdds);
+  if(current.length){
+    const prices=new Set(current.map(quote=>quote.decimalOdds));
+    if(prices.size!==1)return {...base,reason:'INVALID_QUOTE'};
+    return current.reduce((best,quote)=>Date.parse(quote.expiresAt??'')>=Date.parse(best.expiresAt??'')?quote:best);
+  }
+  return evaluated.find(quote=>quote.reason==='INVALID_QUOTE')??evaluated[0]??base;
 }
 
 function summarize(config:BookmakerConfig,quotes:SelectionQuote[]):BookmakerSlip {

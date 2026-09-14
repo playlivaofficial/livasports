@@ -6,8 +6,12 @@ import type {SportsFixture} from './types';
 import {competitionPath,sportStage} from './policy';
 import {sportsCopy} from './copy';
 import {RedCardCount} from './RedCardCount';
+import type {FixtureView} from '@/delivery/types';
+import type {SiteLocale} from '@/config/i18n';
+import {OddsComparison} from '@/components/sports/OddsComparison';
+import {LiveOddsSlot} from '@/components/sports/LiveOddsSlot';
 
-export async function MatchRows({rows,locale,empty,showCompetition=false}:{rows:SportsFixture[];locale:InterfaceLocale;empty:string;showCompetition?:boolean}){
+export async function MatchRows({rows,locale,empty,showCompetition=false,oddsViews,commercialLocale='br'}:{rows:SportsFixture[];locale:InterfaceLocale;empty:string;showCompetition?:boolean;oddsViews?:Record<string,FixtureView>;commercialLocale?:SiteLocale}){
   const timeZone=await requestTimeZone(locale);
   const text=sportsCopy[locale],dictionary=interfaceDictionary(locale);
   const date=new Intl.DateTimeFormat(dictionary.locale,{day:'numeric',month:'short',year:'numeric',timeZone});
@@ -25,6 +29,7 @@ export async function MatchRows({rows,locale,empty,showCompetition=false}:{rows:
         <span className="sports-match-time"><time dateTime={row.kickoff}>{time.format(new Date(row.kickoff))}</time>{row.status!=='SCHEDULED'||pending?<small>{pending?text.pending:dictionary.statuses[row.status]}</small>:null}</span>
         <span className="sports-match-teams">{[row.home,row.away].map((t,i)=><span key={t.id}><TeamMark initials={t.name.slice(0,2)} imageUrl={t.imageUrl}/><span>{t.name}</span><RedCardCount locale={locale} count={i===0?row.homeRedCards:row.awayRedCards}/></span>)}</span>
         <span className="sports-match-score"><b>{row.status==='SCHEDULED'?'—':row.homeScore??'—'}</b><b>{row.status==='SCHEDULED'?'—':row.awayScore??'—'}</b></span>
-      </Link></div>;
+      </Link>
+      {oddsViews?<div className="sports-match-odds">{live||pending?<LiveOddsSlot locale={locale} live={live}/>:row.status==='SCHEDULED'&&oddsViews[row.id]?<OddsComparison locale={locale} commercialLocale={commercialLocale} fixture={oddsViews[row.id]}/>:null}</div>:null}</div>;
   })}</div>;
 }

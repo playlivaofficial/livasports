@@ -174,6 +174,20 @@ try {
     const http=(await db.query(`SELECT http_status,outcome,started_at,safe_query FROM odds_provider_requests
       WHERE endpoint='/v4/odds-by-tournaments' AND safe_query->>'tournamentIds'=$1 ORDER BY started_at DESC LIMIT 8`,[candidate.id])).rows;
     console.info(JSON.stringify({running,http,inspect:await inspectStoredTournament(db,candidate.canonical,candidate.id)}));
+  } else if(command==='replay-tournament'){
+    const slug=process.argv[3]??'';
+    const catalog=(await db.query("SELECT tournaments FROM odds_provider_catalog WHERE provider='ODDSPAPI'")).rows[0];
+    if(!catalog)throw new Error('ODDS_CATALOG_NOT_VERIFIED');
+    const candidate=resolveCatalogTournaments(catalog.tournaments).find(row=>row.canonical===slug);
+    if(!candidate)throw new Error('ODDS_TOURNAMENT_UNVERIFIED');
+    job=await startOddsJob(db);
+    const snapshots=(await db.query(`SELECT DISTINCT ON (bookmaker) payload FROM odds_sync_snapshots
+      WHERE applied_at IS NOT NULL AND payload->'tournamentIds' @> $1::jsonb
+      ORDER BY bookmaker, observed_at DESC`,[JSON.stringify([candidate.id])])).rows.map(r=>r.payload as OddsSnapshot);
+    const results=[];for(const snapshot of snapshots)results.push(await persistSnapshot(db,job,snapshot));
+    console.info(JSON.stringify({providerRequests:0,canonical:candidate.canonical,tournamentId:candidate.id,
+      results:results.map(r=>({bookmaker:r.bookmaker,returnedFixtures:r.returnedFixtures,matchedFixtures:r.matchedFixtures,quotes:r.quotes}))}));
+    await endOddsJob(db,job,true);job=null;
   } else if(command==='verify'){
     const result=await db.query(`SELECT
       (SELECT count(*) FROM competitions WHERE enabled) AS enabled_competitions,

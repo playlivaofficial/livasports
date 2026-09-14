@@ -157,6 +157,12 @@ describe('safe odds fixture matching',()=>{
     const late={...ajax,kickoff:'2026-09-12T14:00:00Z'};
     expect(planUtcParseDefectRepair({...raw,competition:'eredivisie',kickoff:'2026-09-12T18:00:00Z',homeNames:['Ajax'],awayNames:['Willem II']},[late])).toEqual({fixtureId:'aja-wil',before:'2026-09-12T14:00:00Z',after:'2026-09-12T18:00:00Z'});
   });
+  it('matches Liga MX Tijuana from the stored Club Tijuana de Caliente provider name',()=>{
+    const pachuca={...canonical,id:'pachuca-tijuana',competition:'liga-mx',home:'Pachuca',away:'Tijuana',kickoff:'2026-09-21T00:00:00Z'};
+    const provider={...raw,competition:'liga-mx',providerCompetitionId:'27464',kickoff:pachuca.kickoff,homeNames:['CF Pachuca','Pachuca'],awayNames:['Club Tijuana de Caliente','Tijuana de Caliente']};
+    expect(matchOddsFixture(provider,[pachuca],[]).state).toBe('HIGH_CONFIDENCE');
+    expect(matchOddsFixture({...provider,awayNames:['Tijuana FC']},[pachuca],[]).state).toBe('TEAM_MISMATCH');
+  });
   it('matches Championship names without extra aliases and repairs the proven +4h kickoff defect',()=>{
     const derby={...canonical,id:'lei-cov',competition:'championship',home:'Leicester City',away:'Coventry City',kickoff:'2026-09-12T14:00:00Z'};
     expect(matchOddsFixture({...raw,competition:'championship',kickoff:'2026-09-12T18:00:00Z',homeNames:['Leicester City','Leicester'],awayNames:['Coventry City','Coventry']},[{...derby,kickoff:'2026-09-12T18:00:00Z'}],[]).state).toBe('HIGH_CONFIDENCE');

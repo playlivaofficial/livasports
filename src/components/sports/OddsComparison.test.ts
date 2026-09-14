@@ -46,7 +46,10 @@ describe('listing MATCH_WINNER cells', () => {
 
   it('renders explicit no-odds coverage', () => {
     const value = { ...fixture(), odds: [], oddsState: 'none' as const };
-    expect(renderToStaticMarkup(createElement(OddsComparison, { locale: 'br', fixture: value }))).toContain('Indisponível');
+    const html = renderToStaticMarkup(createElement(OddsComparison, { locale: 'br', fixture: value }));
+    expect(html).toContain('aria-label="Odds indisponíveis"');
+    expect(html).toContain('>—</span>');
+    expect(html).not.toContain('Sem odds');
   });
 
   it('turns fresh MATCH_WINNER cells into selectable buttons with a pressed state', () => {

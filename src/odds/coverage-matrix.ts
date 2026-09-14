@@ -6,6 +6,18 @@ import {M5_TOURNAMENTS} from '@/providers/oddspapi/m5-normalizer';
 import {resolveCatalogTournaments, schedulerTournaments} from '@/providers/oddspapi/tournament-catalog';
 import {budgetHealth} from './budget';
 
+export function coverageGapCode(reason:string,context:{tournamentActive?:boolean;hasQuote?:boolean;stale?:boolean;readModelDropped?:boolean}={}):string {
+  if(context.readModelDropped)return 'QUOTE_DROPPED_BY_READ_MODEL';
+  if(context.stale)return 'QUOTE_STALE';
+  if(context.hasQuote===false&&context.tournamentActive===false)return 'TOURNAMENT_NOT_ACTIVE';
+  if(reason==='provider fixture absent')return context.tournamentActive===false?'TOURNAMENT_NOT_ACTIVE':'ODDSPAPI_FIXTURE_ABSENT';
+  if(reason==='team mismatch')return 'TEAM_ALIAS_MISMATCH';
+  if(reason==='kickoff mismatch')return 'KICKOFF_MISMATCH';
+  if(reason==='mapping missing for another reason'||reason==='duplicate candidate')return 'FIXTURE_MAPPING_MISSING';
+  if(context.hasQuote===false)return 'BOOKMAKER_DOES_NOT_PRICE';
+  return 'OTHER';
+}
+
 export function unmappedFixtureReason(fixture: CanonicalOddsFixture, providerFixtures: readonly ProviderOddsFixture[]): string {
   const pool = providerFixtures.filter(row => row.competition === fixture.competition);
   if (!pool.length) return 'provider fixture absent';
@@ -177,6 +189,7 @@ export async function buildCoverageMatrix(db: QueryExecutor) {
       betsson: {matchWinner: Number(row.betsson_mw), totalGoals25: Number(row.betsson_ou), btts: Number(row.betsson_btts)},
       betano: {matchWinner: Number(row.betano_mw), totalGoals25: Number(row.betano_ou), btts: Number(row.betano_btts)},
       schedulerEnabled,
+      liveOddsCoverage:'PLAN-BLOCKED',
       disabledReason,
     };
   });

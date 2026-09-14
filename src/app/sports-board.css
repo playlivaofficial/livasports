@@ -7,10 +7,15 @@
 .sports-board .sports-layout { grid-template-columns:190px minmax(0,1fr); gap:20px; }
 .sports-board .sports-layout:has(> .sponsor-home_right_rail) { grid-template-columns:190px minmax(0,1fr) 300px; }
 .board-competitions { max-height:calc(100dvh - 100px); overflow:auto; scrollbar-width:thin; padding-right:8px; }
+.competition-nav-toggle { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0 0 0 0); border:0; }
+.competition-nav-control { display:none; }
 .board-competitions h2 { font-size:11px; text-transform:uppercase; letter-spacing:.08em; margin:0 8px 10px; color:var(--color-text-secondary); }
 .board-competitions h3 { font-size:10px; text-transform:uppercase; color:#859aa8; margin:14px 8px 5px; }
 .board-competitions a { display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:32px; padding:6px 8px; font-size:12px; border-radius:4px; line-height:1.35; }
-.board-competitions small { color:#8ca1b0; font-size:10px; font-variant-numeric:tabular-nums; }
+.competition-nav-main { display:flex; align-items:center; gap:8px; min-width:0; }
+.competition-nav-flag { flex:none; font-size:14px; line-height:1; }
+.competition-nav-name { min-width:0; overflow:hidden; text-overflow:ellipsis; }
+.competition-nav-count { flex:none; color:#8ca1b0; font-size:10px; font-variant-numeric:tabular-nums; }
 .board-competitions a:hover,.board-competitions a[aria-current=page] { background:#18362f; color:#7bf0c3; }
 .board-toolbar { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:8px; background:#12212d; border:1px solid #283b48; border-radius:6px 6px 0 0; }
 .board-filters { display:flex; gap:3px; }
@@ -66,10 +71,18 @@
 @media(max-width:900px){
   .sports-board .sports-layout,.sports-board .sports-layout:has(> .sponsor-home_right_rail) { grid-template-columns:minmax(0,1fr); gap:12px; }
   .sports-board .context-rail { display:block; position:static; }
-  .board-competitions { display:flex; gap:5px; overflow:auto; max-height:none; padding:0 0 5px; }
-  .board-competitions h2,.board-competitions h3,.board-competitions small { display:none; }
-  .board-competitions>div { display:contents; }
-  .board-competitions a { flex:none; min-height:36px; border:1px solid #293d4b; padding:6px 9px; white-space:nowrap; font-size:11px; }
+  .board-competitions { display:block; overflow:visible; max-height:none; padding:0 0 5px; }
+  .competition-nav-control { display:flex; align-items:center; justify-content:space-between; gap:10px; width:100%; min-height:42px; padding:8px 12px; border:1px solid #293d4b; border-radius:6px; background:#12212d; color:#d7e7ef; font-size:12px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; }
+  .competition-nav-control::after { content:'▾'; color:#7bf0c3; }
+  .competition-nav-toggle:checked + .competition-nav-control::after { content:'▴'; }
+  .competition-nav-panel { display:none; margin-top:8px; padding:8px; border:1px solid #293d4b; border-radius:6px; background:#0e1b27; max-height:min(70dvh,420px); overflow:auto; }
+  .competition-nav-toggle:checked ~ .competition-nav-panel { display:block; }
+  .board-competitions h2 { display:none; }
+  .board-competitions h3 { display:block; margin:10px 8px 4px; }
+  .board-competitions>div,.competition-nav-panel>div { display:block; }
+  .board-competitions a { min-height:40px; border:0; padding:8px 10px; white-space:normal; font-size:12px; width:100%; }
+  .competition-nav-name { max-width:none; overflow:hidden; text-overflow:ellipsis; }
+  .competition-nav-count { display:inline; }
 }
 @media(max-width:1023px){
   .board-odds-heading { width:172px; }

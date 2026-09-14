@@ -76,11 +76,15 @@ describe('M7 bookmaker completeness and price-only ranking',()=>{
   it('does not invent BR books when commercial GEO produced none',()=>{
     const f=comparisonFixture();f.data.bookmakers=[];expect(buildSlipComparison(f.selections,'br',f.data.fixtures,f.data.bookmakers,f.now).bookmakers).toEqual([]);
   });
-  it('fails closed on duplicate exact quotes and corrupted prices',()=>{
+  it('uses identical duplicate current quotes and fails closed on conflicting or corrupted prices',()=>{
     const f=comparisonFixture();const r=f.data.fixtures.get(f.selections[0].fixturePublicId)!;
-    r.snapshot.quotes.push({...r.snapshot.quotes[0]});r.snapshot.quotes[1].decimalOdds='NaN';
-    expect(run(f).bookmakers.every(b=>!b.complete&&b.selectionQuotes[0].reason==='INVALID_QUOTE')).toBe(true);
-    expect(run(f).bookmakers.every(b=>b.invalidSelections.length===1&&b.missingSelections.length===0)).toBe(true);
+    r.snapshot.quotes.push({...r.snapshot.quotes[0]});
+    expect(run(f).bookmakers[0].complete).toBe(true);
+    r.snapshot.quotes.push({...r.snapshot.quotes[0],decimalOdds:'2.99'});
+    expect(run(f).bookmakers[0]).toMatchObject({complete:false,selectionQuotes:expect.arrayContaining([expect.objectContaining({reason:'INVALID_QUOTE'})])});
+    const g=comparisonFixture();g.data.fixtures.get(g.selections[0].fixturePublicId)!.snapshot.quotes[1].decimalOdds='NaN';
+    expect(run(g).bookmakers[1]).toMatchObject({complete:false,selectionQuotes:expect.arrayContaining([expect.objectContaining({reason:'INVALID_QUOTE'})])});
+    expect(run(g).bookmakers[0].complete).toBe(true);
   });
   it('browser clock, offline and error guards withdraw totals, best labels and CTAs while keeping intent',()=>{
     const f=comparisonFixture();const current=run(f);

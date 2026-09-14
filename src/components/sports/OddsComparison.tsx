@@ -37,12 +37,12 @@ export function OddsComparison({ locale, fixture, emptyLabel, commercialLocale =
     staleOdds: 'Odds are out of date and were hidden.',
     oddsUnavailable: 'Fixtures are available, but odds could not be loaded.',
   } : getDictionary(locale).labels;
-  const unavailableLabel = fixture.oddsState === 'stale' ? labels.staleOdds
+        const unavailableLabel = fixture.oddsState === 'stale' ? labels.staleOdds
     : fixture.oddsState === 'unavailable' ? labels.oddsUnavailable
-      : emptyLabel ?? labels.noOdds;
+      : emptyLabel ?? (locale==='br'?'Odds indisponíveis':locale==='mx'?'Cuotas no disponibles':'Odds unavailable');
   const cells = MATCH_WINNER_CELLS.map(cell => ({ ...cell, price: bestFreshPrice(fixture, cell.outcome) }));
   if (cells.every(cell => cell.price === null)) {
-    return <div className="odds-slot"><span className="odds-empty" title={unavailableLabel} aria-label={unavailableLabel}>{locale==='br'?'Sem odds':locale==='mx'?'Sin cuotas':'No odds'}</span></div>;
+    return <div className="odds-slot"><span className="odds-empty" title={unavailableLabel} aria-label={unavailableLabel}>—</span></div>;
   }
   const summary = cells.map(cell => cell.price === null ? '—' : cell.price.decimalOdds.toFixed(2)).join(' / ');
   const observed = cells.map(cell => cell.price?.observedAt).filter((v): v is string => !!v).sort().at(-1) ?? null;

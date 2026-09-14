@@ -6,6 +6,8 @@ import type {InterfaceLocale} from '@/localization/interface';
 import {interfaceDictionary} from '@/localization/interface';
 import {localDateKey} from '@/delivery/time';
 import {competitionName,numericStatistic,sportsPageSize} from './policy';
+import {rankSportsSearch} from './search-rank';
+import {targetBySlug} from '@/config/footballCompetitions';
 import type {CompetitionHub,PendingSportsFixture,SportsFixture,SportsSearchResult,SportsStanding,SportsTeam} from './types';
 
 type Row=Record<string,unknown>;
@@ -91,14 +93,18 @@ export class SportsRepository {
     base.teams=teamRows.rows.map(r=>team(r));return base;
   }
   async search(query:string,locale:InterfaceLocale):Promise<SportsSearchResult[]>{
-    if(query.length<2)return [];
+    if(query.length<1)return [];
     const pattern='%'+query.replace(/[\\%_]/g,'\\$&')+'%';
     const [competitions,teams,players]=await Promise.all([
-      this.db.query<Row>(`SELECT slug,canonical_name FROM competitions WHERE enabled AND (canonical_name ILIKE $1 OR display_name_pt_br ILIKE $1 OR display_name_es_mx ILIKE $1) ORDER BY priority_br LIMIT 10`,[pattern]),
-      this.db.query<Row>(`SELECT t.public_id,t.name,co.name AS context FROM teams t LEFT JOIN countries co ON co.id=t.country_id WHERE (t.name ILIKE $1 OR t.short_name ILIKE $1) AND EXISTS(SELECT 1 FROM team_seasons ts JOIN seasons s ON s.id=ts.season_id JOIN competitions c ON c.id=s.competition_id WHERE ts.team_id=t.id AND c.enabled) ORDER BY t.name LIMIT 15`,[pattern]),
-      this.db.query<Row>(`SELECT p.public_id,p.display_name AS name,p.position_name AS context FROM players p WHERE (p.display_name ILIKE $1 OR p.name ILIKE $1) AND EXISTS(SELECT 1 FROM team_squad_memberships sm JOIN seasons s ON s.id=sm.season_id JOIN competitions c ON c.id=s.competition_id WHERE sm.player_id=p.id AND c.enabled) ORDER BY p.display_name LIMIT 15`,[pattern]),
+      this.db.query<Row>(`SELECT c.slug,c.canonical_name,co.iso2 AS country_code FROM competitions c LEFT JOIN countries co ON co.id=c.country_id WHERE c.enabled AND (c.canonical_name ILIKE $1 OR c.display_name_pt_br ILIKE $1 OR c.display_name_es_mx ILIKE $1) ORDER BY c.priority_br LIMIT 20`,[pattern]),
+      this.db.query<Row>(`SELECT t.public_id,t.name,t.image_url,co.iso2 AS country_code,co.name AS context FROM teams t LEFT JOIN countries co ON co.id=t.country_id WHERE (t.name ILIKE $1 OR t.short_name ILIKE $1) AND EXISTS(SELECT 1 FROM team_seasons ts JOIN seasons s ON s.id=ts.season_id JOIN competitions c ON c.id=s.competition_id WHERE ts.team_id=t.id AND c.enabled) ORDER BY t.name LIMIT 20`,[pattern]),
+      this.db.query<Row>(`SELECT p.public_id,p.display_name AS name,p.position_name AS context FROM players p WHERE (p.display_name ILIKE $1 OR p.name ILIKE $1) AND EXISTS(SELECT 1 FROM team_squad_memberships sm JOIN seasons s ON s.id=sm.season_id JOIN competitions c ON c.id=s.competition_id WHERE sm.player_id=p.id AND c.enabled) ORDER BY p.display_name LIMIT 20`,[pattern]),
     ]);
-    return [...competitions.rows.map(r=>({kind:'competition' as const,publicId:String(r.slug),name:competitionName(locale,String(r.slug))??String(r.canonical_name),context:null,slug:String(r.slug)})),...teams.rows.map(r=>({kind:'team' as const,publicId:String(r.public_id),name:String(r.name),context:string(r.context),slug:null})),...players.rows.map(r=>({kind:'player' as const,publicId:String(r.public_id),name:String(r.name),context:string(r.context),slug:null}))];
+    return rankSportsSearch([
+      ...competitions.rows.map(r=>{const slug=String(r.slug);return {kind:'competition' as const,publicId:slug,name:competitionName(locale,slug)??String(r.canonical_name),context:null,slug,countryCode:string(r.country_code)??targetBySlug(slug)?.countryCode??null,imageUrl:null};}),
+      ...teams.rows.map(r=>({kind:'team' as const,publicId:String(r.public_id),name:String(r.name),context:string(r.context),slug:null,countryCode:string(r.country_code),imageUrl:string(r.image_url)})),
+      ...players.rows.map(r=>({kind:'player' as const,publicId:String(r.public_id),name:String(r.name),context:string(r.context),slug:null,countryCode:null,imageUrl:null})),
+    ],query);
   }
   async pending(publicId:string):Promise<PendingSportsFixture|null>{
     const r=(await this.db.query<Row>(`SELECT p.*,c.slug,s.name AS season_name FROM sports_pending_fixtures p JOIN competitions c ON c.id=p.competition_id JOIN seasons s ON s.id=p.season_id WHERE p.public_id=$1 AND c.enabled`,[publicId])).rows[0];

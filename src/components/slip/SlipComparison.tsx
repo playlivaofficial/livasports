@@ -49,7 +49,7 @@ export function SlipComparison({locale,selections,value,checking,uiLocale,stake,
             {estimated?<p className="slip-return"><span>{text.potentialReturn}</span><strong>{formatMoney(estimated,copyLocale)}</strong></p>:null}
             {b.complete&&!b.best&&diff?<p className="slip-diff">{text.difference}: {formatMoney(diff,copyLocale)}</p>:null}
           </div>:<p className="slip-comparison-note">{text.noTotal}</p>}
-          {missing.length?<details className="slip-missing" open><summary>{text.missing} ({missing.length})</summary><ul>{missing.map(q=><li key={selectionKey(q.selection)}><strong>{q.fixture?`${q.fixture.home} × ${q.fixture.away}`:slip.missing}</strong><span>{slip.markets[q.selection.market]} · {selectionLabel(q.selection,copyLocale,q.fixture)}</span><span>{slip.states[q.state]}</span></li>)}</ul></details>:null}
+          {missing.length?<details className="slip-missing" open><summary>{text.missing}</summary><ul>{missing.map(q=><li key={selectionKey(q.selection)}><strong>{q.fixture?`${q.fixture.home} vs ${q.fixture.away}`:slip.missing}</strong><span>{slip.markets[q.selection.market]} — {selectionLabel(q.selection,copyLocale,q.fixture)}</span></li>)}</ul></details>:null}
           {b.ctaState==='ENABLED'?<AffiliateLink className="slip-bookmaker-cta" uiLocale={copyLocale} context={{locale,placement:'slip_bookmaker_comparison',bookmaker:b.bookmakerId as 'betsson'|'betano.bet.br',selections:selections.map(s=>canonicalSelection(s)! ),...(validSlipId(slipId)?{slipId}:{})}}/>:b.complete?<p className="slip-comparison-note">{text.gated}</p>:null}
         </article>;
       })}

@@ -47,8 +47,9 @@ describe('sports database read model',()=>{
   });
   it('uses parameterized literal search with no wildcard injection',async()=>{
     const db={query:vi.fn(async()=>({rows:[]}))},repo=new SportsRepository(db as never);
-    await repo.search('x','en');expect(db.query).not.toHaveBeenCalled();
-    await repo.search("a%' OR 1=1",'en');expect(db.query).toHaveBeenCalledTimes(3);
-    for(const [sql,args] of db.query.mock.calls as unknown as Array<[string,string[]]>){expect(sql).not.toContain('OR 1=1');expect(args[0]).toContain('a\\%');}
+    await repo.search('','en');expect(db.query).not.toHaveBeenCalled();
+    await repo.search('x','en');expect(db.query).toHaveBeenCalledTimes(3);
+    await repo.search("a%' OR 1=1",'en');expect(db.query).toHaveBeenCalledTimes(6);
+    for(const [sql,args] of (db.query.mock.calls as unknown as Array<[string,string[]]>).slice(3)){expect(sql).not.toContain('OR 1=1');expect(args[0]).toContain('a\\%');}
   });
 });

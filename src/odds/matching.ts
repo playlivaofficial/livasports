@@ -13,7 +13,7 @@ const aliases: Record<string, Record<string,string>> = {
     'cr brasil':'crb', 'cr brasil al':'crb',
     'sc recife pe':'sport recife',
   },
-  'liga-mx': { tigres:'tigres uanl', 'san luis':'atletico san luis' },
+  'liga-mx': { tigres:'tigres uanl', 'san luis':'atletico san luis', 'tijuana de caliente':'tijuana', 'club tijuana de caliente':'tijuana' },
   'premier-league': { nottingham:'nottingham forest', hull:'hull city', ipswich:'ipswich town', brighton:'brighton and hove albion', newcastle:'newcastle united' },
   'copa-libertadores': { 'estudiantes la plata':'estudiantes', 'ind del valle':'independiente del valle' },
   'la-liga': {

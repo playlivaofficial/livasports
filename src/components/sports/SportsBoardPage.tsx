@@ -21,13 +21,15 @@ import {RedCardCount} from '@/sports/RedCardCount';
 import {competitionTab,sportsPage,sportsSeason} from '@/sports/policy';
 import {sportsCopy} from '@/sports/copy';
 import {BoardRefresh} from '@/sports/BoardRefresh';
+import {CompetitionNav} from './CompetitionNav';
+import {LiveOddsSlot} from './LiveOddsSlot';
 
 const copy={
   br:{all:'Todos',live:'Ao vivo',upcoming:'Próximos',results:'Resultados',today:'Hoje',calendar:'Data dos jogos',go:'Ver',previous:'Dia anterior',next:'Dia seguinte',period:'Próximos 7 dias',competitions:'Competições',allCompetitions:'Todas as competições',empty:'Nenhum jogo neste filtro.',other:'Ver próximos jogos',odds:'Odds 1 X 2',pending:'Aguardando placar',fresh:'Últimos placares salvos',delayed:'Atualizações atrasadas',unavailable:'Atualizações indisponíveis',matches:'jogos'},
   mx:{all:'Todos',live:'En vivo',upcoming:'Próximos',results:'Resultados',today:'Hoy',calendar:'Fecha de partidos',go:'Ver',previous:'Día anterior',next:'Día siguiente',period:'Próximos 7 días',competitions:'Competiciones',allCompetitions:'Todas las competiciones',empty:'No hay partidos con este filtro.',other:'Ver próximos partidos',odds:'Cuotas 1 X 2',pending:'Esperando marcador',fresh:'Últimos marcadores guardados',delayed:'Actualizaciones retrasadas',unavailable:'Actualizaciones no disponibles',matches:'partidos'},
   en:{all:'All',live:'Live',upcoming:'Upcoming',results:'Results',today:'Today',calendar:'Match date',go:'Go',previous:'Previous day',next:'Next day',period:'Next 7 days',competitions:'Competitions',allCompetitions:'All competitions',empty:'No matches for this filter.',other:'View upcoming matches',odds:'Odds 1 X 2',pending:'Awaiting score',fresh:'Latest saved scores',delayed:'Updates delayed',unavailable:'Updates unavailable',matches:'matches'}
 };
-const groupCopy={br:{BRAZIL:'Brasil',AMERICAS:'Américas',EUROPE:'Europa',OTHER:'Outros'},mx:{BRAZIL:'Brasil',AMERICAS:'Américas',EUROPE:'Europa',OTHER:'Otros'},en:{BRAZIL:'Brazil',AMERICAS:'Americas',EUROPE:'Europe',OTHER:'Other'}};
+
 
 export async function SportsBoardPage({locale,page,searchParams}:{locale:InterfaceLocale;page:PageKey;searchParams?:Promise<BoardQuery>}) {
   await connection();
@@ -39,7 +41,7 @@ export async function SportsBoardPage({locale,page,searchParams}:{locale:Interfa
   const requestedCompetition=typeof query.competition==='string'&&FOOTBALL_COMPETITION_TARGETS.some(t=>t.slug===query.competition)?query.competition:undefined;
   const tab=competitionTab(query.tab),season=sportsSeason(query.season);
   const hub=page==='football'&&requestedCompetition?await loadCompetition(requestedCompetition,locale,season,sportsPage(query.p)).catch(()=>null):null;
-  const legacyOverview=!hub||(tab==='overview'&&!season&&!hub.seasonFallback);
+  const showListing=!hub;
   const raw=await loadM3PageData(locale==='en'?'br':locale,page,date,timeZone,requestedCompetition);
   const data=locale==='en'?englishSportsData(raw):raw;
   const competition=typeof query.competition==='string'&&data.sections.some(s=>s.slug===query.competition)?query.competition:undefined;
@@ -66,19 +68,16 @@ export async function SportsBoardPage({locale,page,searchParams}:{locale:Interfa
     <BoardRefresh live={allFixtures.some(f=>f.status==='LIVE'||f.status==='HALFTIME')}/>
     <main id="fixtures-content" className="page-container">
       {sponsor('home_top_banner')}
-      <header className="board-heading"><div><span className="board-eyebrow">{locale==='br'?'FUTEBOL':locale==='mx'?'FÚTBOL':'FOOTBALL'}</span><h1>{selectedCompetition?.competition??dictionary.pages[page].title}</h1></div>
+      <header className="board-heading"><div><span className="board-eyebrow">{locale==='br'?'FUTEBOL':locale==='mx'?'FÚTBOL':'FOOTBALL'}</span><h1>{hub?.name??selectedCompetition?.competition??dictionary.pages[page].title}</h1></div>
         <span className={`freshness is-${data.sportsData.freshness}`}><span className="freshness-dot"/>{data.sportsData.freshness==='fresh'?text.fresh:data.sportsData.freshness==='stale'?text.delayed:text.unavailable}</span>
       </header>
       <SportsSearch locale={locale} query={query.q}/>
       {sponsor('mobile_inline')}
       <div className="sports-layout">
-        <aside className="context-rail"><nav className="board-competitions" aria-label={text.competitions}><h2>{text.competitions}</h2>
-          <Link href={href({competition:null})} aria-current={!competition?'page':undefined}>{text.allCompetitions}</Link>
-          {Object.entries(groupCopy[locale]).map(([group,label])=><div key={group}><h3>{label}</h3>{data.sections.filter(s=>s.group===group).map(s=><Link key={s.slug} href={href({competition:s.slug,date:null,view:'all'},interfaceRoutes[locale].football)} aria-current={competition===s.slug?'page':undefined}><span>{s.competition}</span>{s.fixtures.length>0?<small>{s.fixtures.length}</small>:null}</Link>)}</div>)}
-        </nav></aside>
+        <aside className="context-rail"><CompetitionNav locale={locale} title={text.competitions} allHref={href({competition:null})} allLabel={text.allCompetitions} activeSlug={requestedCompetition??competition} items={data.sections.map(s=>({slug:s.slug,name:s.competition,group:s.group,count:s.fixtures.length}))}/></aside>
         <div className="fixture-content">
-          {hub?<CompetitionPanel hub={hub} locale={locale} tab={tab} legacyOverview={legacyOverview}/>:requestedCompetition&&page==='football'?<p className="sports-empty" role="status">{sportsCopy[locale].unavailable}</p>:null}
-          {legacyOverview?<>
+          {hub?<CompetitionPanel hub={hub} locale={locale} tab={tab}/>:requestedCompetition&&page==='football'?<p className="sports-empty" role="status">{sportsCopy[locale].unavailable}</p>:null}
+          {showListing?<>
           <div className="board-toolbar">
             <nav className="board-filters" aria-label={text.all}>{(['all','live','upcoming','results'] as const).map(v=><Link key={v} className={v==='live'?'filter-live':''} href={href({view:v},page==='live'?interfaceRoutes[locale].football:base)} aria-current={view===v?'page':undefined}>{text[v]}<b>{allFixtures.filter(f=>matchesView(f,v,now.getTime())).length}</b></Link>)}</nav>
             <div className="board-calendar">
@@ -103,7 +102,7 @@ export async function SportsBoardPage({locale,page,searchParams}:{locale:Interfa
                     {(f.status!=='SCHEDULED'||pending)?<span className={`status-badge ${live?'is-live':''}`}>{pending?text.pending:dictionary.statuses[f.status]}</span>:null}</div>
                   <div className="team-stack"><TeamIdentity name={f.homeTeam} imageUrl={f.homeTeamImageUrl}><RedCardCount locale={locale} count={redCards[f.id]?.home}/></TeamIdentity><TeamIdentity name={f.awayTeam} imageUrl={f.awayTeamImageUrl}><RedCardCount locale={locale} count={redCards[f.id]?.away}/></TeamIdentity></div><ScoreDisplay fixture={f}/>
                 </Link>
-                {f.status==='SCHEDULED'&&!pending?<OddsComparison locale={locale} commercialLocale={commercial??'br'} fixture={f}/>:<div className="odds-slot odds-not-pregame"/>}
+                {f.status==='SCHEDULED'&&!pending?<OddsComparison locale={locale} commercialLocale={commercial??'br'} fixture={f}/>:<LiveOddsSlot locale={locale} live={live}/>}
               </article>;
             })}
             {index===0&&sponsors?<SponsoredSlot copyLocale={locale} context={{locale:sponsorLocale,pagePath:sponsorPath,placement:'competition_inline',competitionSlug:section.slug}}/>:null}

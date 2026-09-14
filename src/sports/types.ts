@@ -24,4 +24,4 @@ export interface CompetitionHub {
   availability:Record<string,{status:string;checkedAt:string|null}>;
   pending:PendingSportsFixture[];pendingTotal:number;
 }
-export interface SportsSearchResult {kind:'competition'|'team'|'player';publicId:string;name:string;context:string|null;slug:string|null}
+export interface SportsSearchResult {kind:'competition'|'team'|'player';publicId:string;name:string;context:string|null;slug:string|null;countryCode:string|null;imageUrl:string|null}

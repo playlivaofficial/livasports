@@ -26,8 +26,7 @@ function oddsReadSql(selector:'id'|'publicIds'|'fixtureIds'){
       AND source_geo.verified_at IS NOT NULL AS display_eligible,
     fm.livasports_entity_id=f.id AND hm.livasports_entity_id=f.home_team_id AND am.livasports_entity_id=f.away_team_id
       AND cm.livasports_entity_id=f.competition_id AND mr.fixture_id=f.id AND mr.state IN ('EXACT','HIGH_CONFIDENCE')
-      AND (fm.metadata->>'canonicalKickoff')::timestamptz=f.kickoff
-      AND (fm.metadata->>'providerKickoff')::timestamptz=o.provider_kickoff AS mapping_verified,
+      AND (fm.metadata->>'canonicalKickoff')::timestamptz=f.kickoff AS mapping_verified,
     CASE WHEN b.affiliate_status='ACTIVE' AND g.affiliate_enabled AND al.enabled AND al.approved_at IS NOT NULL
       AND al.campaign_verified AND al.approved_placement='match-odds' THEN al.destination_url END AS destination
     FROM fixtures f ${oddsJoin(selector)}
