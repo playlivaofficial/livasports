@@ -72,14 +72,15 @@
   .sports-board .sports-layout,.sports-board .sports-layout:has(> .sponsor-home_right_rail) { grid-template-columns:minmax(0,1fr); gap:12px; }
   .sports-board .context-rail { display:block; position:static; }
   .board-competitions { display:block; overflow:visible; max-height:none; padding:0 0 5px; }
-  .competition-nav-control { display:flex; align-items:center; justify-content:space-between; gap:10px; width:100%; min-height:42px; padding:8px 12px; border:1px solid #293d4b; border-radius:6px; background:#12212d; color:#d7e7ef; font-size:12px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; }
+  .competition-nav-control { display:flex; align-items:center; justify-content:space-between; gap:10px; width:100%; min-height:42px; padding:8px 12px; border:1px solid #293d4b; border-radius:6px; background:#12212d; color:#d7e7ef; font-size:12px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; cursor:pointer; }
   .competition-nav-control::after { content:'▾'; color:#7bf0c3; }
   .competition-nav-toggle:checked + .competition-nav-control::after { content:'▴'; }
+  .competition-nav-toggle:focus-visible + .competition-nav-control { outline:2px solid #95efc9; outline-offset:3px; }
   .competition-nav-panel { display:none; margin-top:8px; padding:8px; border:1px solid #293d4b; border-radius:6px; background:#0e1b27; max-height:min(70dvh,420px); overflow:auto; }
   .competition-nav-toggle:checked ~ .competition-nav-panel { display:block; }
   .board-competitions h2 { display:none; }
   .board-competitions h3 { display:block; margin:10px 8px 4px; }
-  .board-competitions>div,.competition-nav-panel>div { display:block; }
+  .competition-nav-panel>div { display:block; }
   .board-competitions a { min-height:40px; border:0; padding:8px 10px; white-space:normal; font-size:12px; width:100%; }
   .competition-nav-name { max-width:none; overflow:hidden; text-overflow:ellipsis; }
   .competition-nav-count { display:inline; }

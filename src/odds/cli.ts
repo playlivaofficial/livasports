@@ -8,6 +8,7 @@ import { mergeCatalogTournaments,resolveCatalogTournaments,schedulerTournaments 
 import { CANARY4_DISCOVERY_REQUEST_CAP, CANARY4_LEDGER_START, COVERAGE_DISCOVERY_REQUEST_CAP } from '@/providers/oddspapi/request-limits';
 import {planUtcParseDefectRepair} from './matching';
 import {buildCoverageMatrix,inspectStoredTournament} from './coverage-matrix';
+import {buildFixtureCoverageReport} from './fixture-coverage';
 import {canonicalFixtures,endOddsJob,persistSnapshot,startOddsJob} from './ingestion';
 import {planOddsRefresh} from './refresh-policy';
 import {budgetHealth} from './budget';
@@ -152,11 +153,15 @@ try {
     await endOddsJob(db,job,true);job=null;
   } else if(command==='coverage-matrix'){
     const report=await buildCoverageMatrix(db);
+    const fixtures=await buildFixtureCoverageReport(db);
     await writeFile('output/odds-coverage-matrix-private.json',JSON.stringify(report,null,2));
+    await writeFile('output/odds-fixture-coverage-private.json',JSON.stringify(fixtures));
     console.info(JSON.stringify({
       at:report.at,budget:report.budget,
       scheduler:{state:report.scheduler?.state,lastError:report.scheduler?.last_error,lastAutomaticRefreshAt:report.scheduler?.last_automatic_refresh_at,nextDueAt:report.scheduler?.next_due_at},
       schedulerTournaments:report.schedulerTournaments,
+      fixtureTotals:fixtures.totals,unexplained:fixtures.unexplained,competitions:fixtures.competitions.length,
+      competitionSummaries:fixtures.competitions,
       ligaMxUnmapped:report.ligaMxGap.length,
       ligaMxSnapshotAt:report.ligaMxSnapshotAt,
       serieBUnmapped:report.serieBGap.length,
@@ -164,6 +169,11 @@ try {
       rows:report.rows.map(row=>({slug:row.slug,id:row.oddspapiTournamentId,state:row.verificationState,upcoming:row.upcoming,mapped:row.mapped,
         betsson:row.betsson.matchWinner,betano:row.betano.matchWinner,scheduler:row.schedulerEnabled,reason:row.disabledReason})),
     }));
+  } else if(command==='inspect-fixture'){
+    const publicId=process.argv[3]??'';
+    const fixtures=await buildFixtureCoverageReport(db);
+    const row=fixtures.fixtures.find(item=>item.publicId===publicId);
+    console.info(JSON.stringify({providerRequests:0,row:row??null,unexplained:fixtures.unexplained}));
   } else if(command==='inspect-tournament'){
     const slug=process.argv[3]??'';
     const catalog=(await db.query("SELECT tournaments FROM odds_provider_catalog WHERE provider='ODDSPAPI'")).rows[0];

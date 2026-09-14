@@ -28,8 +28,8 @@ export function CompetitionNav({locale,items,activeSlug,allHref,allLabel,title}:
   const labels=groupCopy[locale];
   return <nav className="board-competitions competition-nav" aria-label={title}>
     <input id="competition-nav-toggle" type="checkbox" className="competition-nav-toggle"/>
-    <label htmlFor="competition-nav-toggle" className="competition-nav-control">{title}</label>
-    <div className="competition-nav-panel">
+    <label htmlFor="competition-nav-toggle" className="competition-nav-control" aria-controls="competition-nav-panel">{title}</label>
+    <div id="competition-nav-panel" className="competition-nav-panel">
       <h2>{title}</h2>
       <CompetitionNavRow locale={locale} active={!activeSlug} allHref={allHref} allLabel={allLabel}/>
       {Object.entries(labels).map(([group,label])=>{

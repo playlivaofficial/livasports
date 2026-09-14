@@ -84,6 +84,8 @@ const aliases: Record<string, Record<string,string>> = {
     'sl benfica':'benfica',
     'gil vicente barcelos':'gil vicente',
     'santa clara azores':'santa clara',
+    'vitoria sc guimaraes':'vitoria guimaraes',
+    'academico de viseu fc':'academico viseu',
   },
   'eredivisie': {
     'fc twente enschede':'fc twente',

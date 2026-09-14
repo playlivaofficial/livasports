@@ -145,6 +145,12 @@ describe('safe odds fixture matching',()=>{
     expect(matchOddsFixture({...raw,competition:'liga-portugal',homeNames:['SC Braga'],awayNames:['Estoril Praia','Estoril']},[braga],[]).state).toBe('HIGH_CONFIDENCE');
     expect(matchOddsFixture({...raw,competition:'liga-portugal',homeNames:['Braga'],awayNames:['Estoril']},[braga],[]).state).toBe('TEAM_MISMATCH');
     expect(matchOddsFixture({...raw,competition:'liga-portugal',homeNames:['Moreirense FC','Moreirense'],awayNames:['Maritimo Madeira']},[mar],[]).state).toBe('HIGH_CONFIDENCE');
+    const guimaraes={...canonical,id:'vim-mor',competition:'liga-portugal',home:'Vitória Guimarães',away:'Moreirense',kickoff:'2026-09-20T14:30:00Z'};
+    const viseu={...canonical,id:'est-vis',competition:'liga-portugal',home:'Estrela Amadora',away:'Academico Viseu',kickoff:'2026-09-20T14:30:00Z'};
+    expect(matchOddsFixture({...raw,competition:'liga-portugal',kickoff:guimaraes.kickoff,homeNames:['Vitoria SC Guimaraes','Guimaraes'],awayNames:['Moreirense FC','Moreirense']},[guimaraes],[]).state).toBe('HIGH_CONFIDENCE');
+    expect(matchOddsFixture({...raw,competition:'liga-portugal',kickoff:guimaraes.kickoff,homeNames:['Guimaraes'],awayNames:['Moreirense']},[guimaraes],[]).state).toBe('TEAM_MISMATCH');
+    expect(matchOddsFixture({...raw,competition:'liga-portugal',kickoff:viseu.kickoff,homeNames:['Estrela Amadora'],awayNames:['Academico de Viseu FC','Viseu']},[viseu],[]).state).toBe('HIGH_CONFIDENCE');
+    expect(matchOddsFixture({...raw,competition:'liga-portugal',kickoff:viseu.kickoff,homeNames:['Estrela Amadora'],awayNames:['Viseu']},[viseu],[]).state).toBe('TEAM_MISMATCH');
     const late={...braga,kickoff:'2026-09-12T15:45:00Z'};
     expect(planUtcParseDefectRepair({...raw,competition:'liga-portugal',kickoff:'2026-09-12T19:45:00Z',homeNames:['SC Braga'],awayNames:['Estoril']},[late])).toEqual({fixtureId:'bra-est',before:'2026-09-12T15:45:00Z',after:'2026-09-12T19:45:00Z'});
   });
