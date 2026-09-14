@@ -1,9 +1,10 @@
 import type {DatabaseClient} from '@/database/client';
 import {M5OddsPapiAdapter} from '@/providers/oddspapi/M5OddsPapiAdapter';
 import {verifyCatalog} from '@/providers/oddspapi/m5-normalizer';
-import {schedulerTournaments,type CatalogTournament} from '@/providers/oddspapi/tournament-catalog';
+import {schedulerTournaments,isStableOddsTournament,type CatalogTournament} from '@/providers/oddspapi/tournament-catalog';
 import {canonicalFixtures,persistSnapshot,startOddsJob} from './ingestion';
 import {budgetHealth,OddsBudgetStopped,reconcileAccountPeriod} from './budget';
+import {isProviderFixtureAbsent} from './canary';
 import {planScheduler,SCHEDULER_BOOKMAKERS,type RefreshTarget} from './scheduler-policy';
 import type {OddsSnapshot} from './types';
 
@@ -82,7 +83,8 @@ export async function runOddsScheduler(db:DatabaseClient,key:string,trigger:'CON
           results.push({bookmaker:batch.bookmaker,tournamentIds:ids,returnedFixtures:saved.returnedFixtures,matchedFixtures:saved.matchedFixtures,
             quotes:saved.quotes,historyChanges:saved.history_changes,currentWrites:saved.current_writes,closed:saved.closed,observedAt:snapshot.observedAt,cadence:current.cadence});
         }catch(error){
-          errorCode=safeSchedulerError(error);
+          const isolatedEmpty=isProviderFixtureAbsent(error)&&ids.length===1&&!isStableOddsTournament(ids[0]);
+          if(!isolatedEmpty)errorCode=safeSchedulerError(error);
           const persistable=ids.filter(id=>tournaments.some(tournament=>tournament.id===id));
           if(persistable.length){
             try{
@@ -90,11 +92,12 @@ export async function runOddsScheduler(db:DatabaseClient,key:string,trigger:'CON
                 SELECT $1,unnest($2::text[]),now(),now()+interval '15 minutes',1,$3
                 ON CONFLICT(bookmaker,tournament_id) DO UPDATE SET last_attempt_at=now(),last_error=$3,
                   consecutive_failures=LEAST(odds_refresh_targets.consecutive_failures+1,10),
-                  retry_after=now()+LEAST(360,power(2,LEAST(odds_refresh_targets.consecutive_failures,5))*15)*interval '1 minute'`,[batch.bookmaker,persistable,errorCode]);
+                  retry_after=now()+LEAST(360,power(2,LEAST(odds_refresh_targets.consecutive_failures,5))*15)*interval '1 minute'`,
+                [batch.bookmaker,persistable,isolatedEmpty?'ODDSPAPI_HTTP_404':(errorCode??safeSchedulerError(error))]);
             }catch{/* Retry-target CHECK failures must not replace the provider status. */}
           }
           if(error instanceof OddsBudgetStopped){state='BUDGET_STOPPED';break;}
-          state=results.length?'PARTIAL':'FAILED';
+          if(!isolatedEmpty)state=results.length?'PARTIAL':'FAILED';
         }
       }
       if(state==='FAILED'&&results.length)state='PARTIAL';
@@ -104,7 +107,7 @@ export async function runOddsScheduler(db:DatabaseClient,key:string,trigger:'CON
   const result={jobId:job,trigger,state,requests:provider.requestCount(),recovered,feeds:results,error:errorCode,nextDueAt:next?.nextDueAt??null};
   await db.transaction(async tx=>{
     await tx.query("UPDATE odds_sync_jobs SET status=$2,completed_at=now(),error_code=$3,result=$4::jsonb WHERE id=$1 AND status='RUNNING'",[job,state,errorCode,JSON.stringify(result)]);
-    await tx.query(`UPDATE odds_scheduler_health SET state=$1,last_error=CASE WHEN $2::text IS NOT NULL OR $5 THEN $2::text ELSE last_error END,
+    await tx.query(`UPDATE odds_scheduler_health SET state=$1,last_error=CASE WHEN $1='SUCCEEDED' THEN NULL WHEN $2::text IS NOT NULL OR $5 THEN $2::text ELSE last_error END,
       feeds_refreshed=CASE WHEN $5 THEN $3::jsonb ELSE feeds_refreshed END,next_due_at=$4,updated_at=now(),
       last_refresh_at=CASE WHEN $5 THEN now() ELSE last_refresh_at END,
       last_automatic_refresh_at=CASE WHEN $5 AND $6 THEN now() ELSE last_automatic_refresh_at END WHERE id=true`,

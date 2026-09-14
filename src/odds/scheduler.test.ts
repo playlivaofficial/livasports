@@ -132,4 +132,35 @@ describe('scheduler independent failure and durable completion',()=>{
       return sql.includes('unnest($2::text[])')&&Array.isArray(params?.[1])&&(params[1] as string[]).includes('326')&&!(params[1] as string[]).includes('325');
     })).toBe(true);
   });
+  it('treats an expanded singleton FIXTURE_NOT_FOUND as an empty feed, not a global scheduler failure',async()=>{
+    mocked.expanded.push({id:'326',slug:'brasileiro-serie-b',category:'brazil',canonical:'brasileirao-serie-b'});
+    mocked.snapshot.mockImplementation(async(_bookmaker:string,ids:string[])=>{
+      if(ids.includes('326'))throw new Error(JSON.stringify({status:404,body:{error:{code:'FIXTURE_NOT_FOUND',message:'No fixtures found'}}}));
+      return {observedAt:new Date().toISOString()};
+    });
+    const catalog=[
+      {tournamentId:325,tournamentSlug:'brasileiro-serie-a',categorySlug:'brazil'},
+      {tournamentId:326,tournamentSlug:'brasileiro-serie-b',categorySlug:'brazil'},
+    ];
+    const query=vi.fn(async(sql:string)=>{
+      if(sql.includes('odds_provider_catalog'))return {rows:[{markets:[],tournaments:catalog}],rowCount:1};
+      if(sql.includes('FROM bookmakers b'))return {rows:['betano.bet.br','betsson'].flatMap(provider_slug=>['325','326'].map(tournament_id=>({
+        provider_slug,tournament_id,public_eligible:true,useful_coverage:true,
+        last_success_at:tournament_id==='325'?new Date():null,last_error:null})))};
+      if(sql.includes('reconciliation_at>'))return {rows:[{}],rowCount:1};
+      return {rows:[],rowCount:0};
+    });
+    const typed=query as unknown as QueryExecutor['query'];
+    const db={query:typed,transaction:async(w: (tx:{query:QueryExecutor['query']})=>unknown)=>w({query:typed}),close:async()=>{}} as DatabaseClient;
+    const result=await runOddsScheduler(db,'test-only');
+    expect(result.state).toBe('SUCCEEDED');
+    expect(result.error).toBeNull();
+    expect(mocked.persist).not.toHaveBeenCalled();
+    expect(mocked.snapshot.mock.calls.every(call=>(call[1] as string[]).join()==='326')).toBe(true);
+    expect(query.mock.calls.some(call=>{
+      const sql=String(call[0]);
+      const params=(call as unknown as [string, unknown[]])[1];
+      return sql.includes('unnest($2::text[])')&&Array.isArray(params?.[1])&&(params[1] as string[]).includes('326')&&params[2]==='ODDSPAPI_HTTP_404';
+    })).toBe(true);
+  });
 });
