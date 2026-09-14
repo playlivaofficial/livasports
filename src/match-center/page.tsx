@@ -1,4 +1,7 @@
+import {matchDateDescription,sportsMatchSchema} from '@/sports/match-seo';
 import type { Metadata } from 'next';
+import {loadPendingFixture} from '@/sports/runtime';
+import {PendingMatch,pendingMetadata} from '@/sports/PendingMatch';
 import { connection } from 'next/server';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { MatchCenter } from '@/components/match/MatchCenter';
@@ -6,7 +9,6 @@ import type { SiteLocale } from '@/config/i18n';
 import { loadMatchCenter } from './runtime';
 import { matchPath, parseMatchParam, slugifyMatch } from './routes';
 import {languageAlternates,matchPath as interfaceMatchPath} from '@/localization/interface';
-import { teamPath } from '@/profiles/routes';
 import { headers } from 'next/headers';
 import { commercialLocale, requestCommercialGeo } from '@/odds/commercial-geo';
 
@@ -25,14 +27,15 @@ async function resolveMatch(param: string, locale: SiteLocale) {
 export async function matchMetadata(paramPromise: Promise<{ match: string }>, locale: SiteLocale): Promise<Metadata> {
   await connection();
   const { match: param } = await paramPromise;
-  const { result } = await resolveMatch(param, locale);
-  if (!result || result.kind === 'not-found') return { title: locale==='br'?'Partida não encontrada':'Partido no encontrado', robots: { index: false, follow: false } };
+  const { result,parsed } = await resolveMatch(param, locale);
+  if (!result || result.kind === 'not-found'){const pending=parsed?await loadPendingFixture(parsed.publicId):null;return pending?pendingMetadata(locale,pending):{title:locale==='br'?'Partida não encontrada':'Partido no encontrado',robots:{index:false,follow:false}};}
   const { header } = result.match; const copy = metadataCopy[locale];
   const title = `${header.home.name} x ${header.away.name}`;
+  const when=matchDateDescription(locale,header);
   const canonical = matchPath(locale, header.publicId, header.home.name, header.away.name);
   const br = matchPath('br', header.publicId, header.home.name, header.away.name);
   const mx = matchPath('mx', header.publicId, header.home.name, header.away.name);
-  return { title, description: `${title} ${copy.at} ${header.competition}. ${copy.description}`,
+  return { title, description: `${title} ${copy.at} ${header.competition}. ${when?when+'. ':''}${copy.description}`,
     alternates: { canonical, languages: languageAlternates(br,mx,interfaceMatchPath('en',header.publicId,header.home.name,header.away.name)) },
     openGraph: { type: 'website', siteName: 'LivaSports', title, url: canonical, locale: localeTag[locale].replace('-','_'),
       description: `${header.competition} · ${copy.description}` }, other: { 'content-language': localeTag[locale] } };
@@ -42,21 +45,10 @@ export async function MatchRoutePage({ params, locale }: { params: Promise<{ mat
   await connection();
   const { match: param } = await params;
   const { parsed, result } = await resolveMatch(param, locale);
-  if (!parsed || !result || result.kind === 'not-found') notFound();
+  if(!parsed)notFound();
+  if(!result||result.kind==='not-found'){const pending=await loadPendingFixture(parsed.publicId);if(pending)return <PendingMatch locale={locale} row={pending}/>;notFound();}
   const correctSlug = slugifyMatch(result.match.header.home.name, result.match.header.away.name);
   if (parsed.slug !== correctSlug) permanentRedirect(matchPath(locale, parsed.publicId, result.match.header.home.name, result.match.header.away.name));
-  const canonical = `https://livasports.com${matchPath(locale, parsed.publicId, result.match.header.home.name, result.match.header.away.name)}`;
-  const jsonLd = [{ '@context': 'https://schema.org', '@type': 'SportsEvent', name: `${result.match.header.home.name} x ${result.match.header.away.name}`,
-    startDate: result.match.header.kickoff, eventStatus: result.match.header.status, url: canonical,
-    homeTeam: { '@type': 'SportsTeam', name: result.match.header.home.name,
-      url: `https://livasports.com${teamPath(locale,result.match.header.home.publicId,result.match.header.home.name)}` },
-    awayTeam: { '@type': 'SportsTeam', name: result.match.header.away.name,
-      url: `https://livasports.com${teamPath(locale,result.match.header.away.publicId,result.match.header.away.name)}` },
-    location: result.match.header.venue ? { '@type': 'Place', name: result.match.header.venue, address: result.match.header.venueCity ?? undefined } : undefined },
-  { '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [
-    { '@type': 'ListItem', position: 1, name: 'LivaSports', item: `https://livasports.com/${locale}` },
-    { '@type': 'ListItem', position: 2, name: result.match.header.competition },
-    { '@type': 'ListItem', position: 3, name: `${result.match.header.home.name} x ${result.match.header.away.name}`, item: canonical },
-  ] }];
+  const jsonLd=sportsMatchSchema(locale,result.match.header);
   return <><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g,'\\u003c') }}/><MatchCenter locale={locale} commercialLocale={commercialLocale(requestCommercialGeo(await headers()))??locale} match={result.match}/></>;
 }

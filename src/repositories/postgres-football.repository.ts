@@ -154,7 +154,8 @@ export class PostgresFootballRepository implements FootballIngestionStore, Footb
   }
 
   async listFixturesForScoreSync(limit: number): Promise<Fixture[]> {
-    const result = await this.database.query<Record<string, unknown>>(`SELECT * FROM fixtures WHERE status IN ('SCHEDULED','LIVE','HALFTIME')
+    const result = await this.database.query<Record<string, unknown>>(`SELECT * FROM fixtures f WHERE status IN ('SCHEDULED','LIVE','HALFTIME')
+      AND NOT EXISTS(SELECT 1 FROM sports_pending_fixtures p WHERE p.id=f.id)
       AND kickoff >= now() - interval '2 days' AND kickoff < now() + interval '2 days'
       ORDER BY CASE WHEN kickoff BETWEEN now()-interval '3 hours' AND now()+interval '10 minutes' THEN 0 ELSE 1 END,
         updated_at ASC,kickoff LIMIT $1`, [limit]);
@@ -212,6 +213,7 @@ export class PostgresFootballRepository implements FootballIngestionStore, Footb
       WHERE c.enabled AND c.coverage_status IN ('SUPPORTED','SUPPORTED_BUT_NO_CURRENT_FIXTURES')
       AND f.kickoff >= $2 AND f.kickoff < $3 AND (cardinality($4::text[]) = 0 OR f.status = ANY($4::text[]))
       AND ($5::text IS NULL OR c.slug=$5)
+      AND NOT EXISTS(SELECT 1 FROM sports_pending_fixtures p WHERE p.id=f.id)
       ORDER BY competition_priority,f.kickoff,f.id`, [countryCode, from, to, statuses,competitionSlug??null]);
     return result.rows.map(row => ({ fixture: this.fixture(row), publicId: row.public_id ? String(row.public_id) : undefined, competitionName: String(row.competition_name),
       competitionSlug: String(row.competition_slug), competitionGroup: String(row.competition_group),

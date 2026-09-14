@@ -16,7 +16,8 @@ export class HttpSportmonksGateway implements SportmonksGateway {
   private competitionCatalog: Promise<SportmonksLeaguePayload[]> | null = null;
   private readonly searchCache = new Map<string, Promise<SportmonksLeaguePayload[]>>();
   private readonly fixtureCache = new Map<string, Promise<SportmonksFixturePayload[]>>();
-  constructor(private readonly apiKey: string, private readonly baseUrl = 'https://api.sportmonks.com/v3') {
+  constructor(private readonly apiKey: string, private readonly baseUrl = 'https://api.sportmonks.com/v3',
+    private readonly scoreDetails?: (rows: SportmonksFixturePayload[]) => Promise<void>) {
     if (!apiKey) throw new Error('SPORTMONKS_API_KEY is required on the server');
   }
 
@@ -88,10 +89,15 @@ export class HttpSportmonksGateway implements SportmonksGateway {
     }).catch(error => { if (error instanceof SafeProviderError && error.context.status === 404) return null; throw error; });
   }
 
-  scores(providerFixtureIds: readonly string[]) {
-    return providerFixtureIds.length
-      ? this.request<SportmonksFixturePayload[]>(`football/fixtures/multi/${providerFixtureIds.join(',')}`, { include: 'participants;state;scores' })
-      : Promise.resolve([]);
+  async scores(providerFixtureIds: readonly string[]) {
+    if (!providerFixtureIds.length) return [];
+    // Sports detail updates reuse this same accounted HTTP request. Ordinary gateway users keep the small score payload.
+    const include = this.scoreDetails
+      ? 'participants;state;scores;round;stage;group;venue;events.type;statistics.type;lineups.details.type;formations;coaches'
+      : 'participants;state;scores';
+    const rows = await this.request<SportmonksFixturePayload[]>(`football/fixtures/multi/${providerFixtureIds.join(',')}`, { include });
+    if (this.scoreDetails) await this.scoreDetails(rows);
+    return rows;
   }
 
   async events(providerFixtureId: string) {

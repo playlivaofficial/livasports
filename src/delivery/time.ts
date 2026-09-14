@@ -27,12 +27,12 @@ export function localDateKey(date: Date, timeZone: string): string {
 }
 export function localDayRange(date: Date, timeZone: string): { from: Date; to: Date } {
   const local = dateParts(date, timeZone);
-  const nextProbe = new Date(Date.UTC(local.year, local.month - 1, local.day + 1, 12));
-  const next = dateParts(nextProbe, timeZone);
+  const nextProbe = new Date(Date.UTC(local.year, local.month - 1, local.day + 1));
+  const next = {year:nextProbe.getUTCFullYear(),month:nextProbe.getUTCMonth()+1,day:nextProbe.getUTCDate()};
   return { from: zonedDateTimeToUtc(local, timeZone), to: zonedDateTimeToUtc(next, timeZone) };
 }
-export function deliveryWindow(locale: SiteLocale, page: PageKey, now: Date): { from: Date; to: Date } {
-  const day = localDayRange(now, getDictionary(locale).timeZone);
+export function deliveryWindow(locale: SiteLocale, page: PageKey, now: Date, timeZone=getDictionary(locale).timeZone): { from: Date; to: Date } {
+  const day = localDayRange(now, timeZone);
   if (page === 'home' || page === 'today') return day;
   if (page === 'live') return { from: new Date(now.getTime() - 86_400_000), to: new Date(now.getTime() + 86_400_000) };
   return { from: new Date(day.from.getTime() - 86_400_000), to: new Date(day.to.getTime() + 7 * 86_400_000) };

@@ -34,5 +34,5 @@ export async function loadPlayerProfile(publicId: string, locale: SiteLocale) {
   finally { console.info(`[LivaSports M4.1] ${JSON.stringify({ event: 'player-profile-load', publicId, locale,
     durationMs: Math.round((performance.now() - started) * 10) / 10, providerRequests: 0 })}`); }
 }
-export function loadSitemapTeams() { return getRepository().sitemapTeams(); }
-export function loadSitemapPlayers() { return getRepository().sitemapPlayers(); }
+export function loadSitemapTeams(limit=50) { return getRepository().sitemapTeams(limit); }
+export function loadSitemapPlayers(limit=50) { return getRepository().sitemapPlayers(limit); }

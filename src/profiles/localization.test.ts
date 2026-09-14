@@ -19,4 +19,12 @@ describe('profile position localization', () => {
     expect(localizedCountry('mx', 'Mexico')).toBe('México');
     expect(localizedCountry('br', 'Cabo Verde')).toBe('Cabo Verde');
   });
+
+  it('resolves historical provider nationality aliases to native country labels',()=>{
+    expect(localizedCountry('br','Bosnia and Herzegovina')).toBe('Bósnia e Herzegovina');
+    expect(localizedCountry('mx','DR Congo')).toBe('República Democrática del Congo');
+    expect(localizedCountry('br','São Tomé and Príncipe')).toBe('São Tomé e Príncipe');
+    expect(localizedCountry('mx','Korea DPR')).toBe('Corea del Norte');
+    expect(localizedCountry('br','Unidentified source region')).toBe('Unidentified source region');
+  });
 });

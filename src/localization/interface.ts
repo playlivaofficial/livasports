@@ -1,6 +1,7 @@
 import {getDictionary,localeRoutes,type PageKey,type SiteLocale} from '@/config/i18n';
 import {matchPath as legacyMatchPath,slugifyMatch} from '@/match-center/routes';
 import {teamPath as legacyTeamPath,playerPath as legacyPlayerPath,slugifyProfileName} from '@/profiles/routes';
+import {legalKind,legalPath} from './legal-routes';
 
 // Presentation preferences never replace the existing commercial jurisdiction.
 export type InterfaceLocale=SiteLocale|'en';
@@ -25,9 +26,11 @@ export function translatedPath(input:string,target:InterfaceLocale):string{
   const url=new URL(input,'https://livasports.com');
   const source=pathLocale(url.pathname);if(!source)return interfaceRoutes[target].home;
   const page=(Object.keys(interfaceRoutes[source]) as PageKey[]).find(key=>interfaceRoutes[source][key]===url.pathname);
+  const legal=legalKind(source,url.pathname.split('/')[2]);
   const entity=/^\/(?:br\/(jogo|time|jogador)|mx\/(partido|equipo|jugador)|en\/(match|team|player))\/([a-z0-9-]+-[a-f0-9]{16})$/i.exec(url.pathname);
   let path:string=interfaceRoutes[target].home;
-  if(page)path=interfaceRoutes[target][page];
+  if(legal&&url.pathname===legalPath(source,legal))path=legalPath(target,legal);
+  else if(page)path=interfaceRoutes[target][page];
   else if(entity){
     const segment=entity[1]??entity[2]??entity[3];
     const kind=['jogo','partido','match'].includes(segment)?'match':['time','equipo','team'].includes(segment)?'team':'player';
@@ -43,7 +46,7 @@ export const englishDictionary={
   pages:{home:{title:'Football today',description:'Fixtures, scores and match context from the competitions we cover.'},
     football:{title:'Football fixtures',description:'Explore fixtures and results, organised by competition.'},
     live:{title:'Live football',description:'Matches in progress and the latest available scores.'},
-    today:{title:'Today’s matches',description:'Today’s football schedule. All times are shown in UTC.'}},
+    today:{title:'Today’s matches',description:'Today’s football schedule in your selected time zone.'}},
   labels:{skipToContent:'Skip to sports content',primaryNavigation:'Main navigation',teams:'Teams'},
   statuses:{SCHEDULED:'Scheduled',LIVE:'Live',HALFTIME:'Half-time',FINISHED:'Finished',POSTPONED:'Postponed',CANCELLED:'Cancelled',ABANDONED:'Abandoned'},
 } as const;

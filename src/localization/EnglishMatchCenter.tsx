@@ -1,4 +1,8 @@
-import Link from 'next/link';
+import {requestTimeZone} from '@/localization/time-zone-server';
+import {MatchHistory} from '@/sports/MatchHistory';
+import {EventPeople} from '@/sports/EventPeople';
+import {competitionPath,sportStage} from '@/sports/policy';
+import Link from '@/sports/SportsLink';
 import { FixtureStatus } from '@/domain/enums';
 import {interfaceDictionary as getDictionary,interfaceRoutes as localeRoutes} from './interface';
 type SiteLocale='en';
@@ -22,7 +26,6 @@ const copy={en:{"back":"Back to matches","summary":"Summary","statistics":"Stati
 const preferredStats=[/possession/i,/shots total/i,/shots on target/i,/corners/i,/fouls/i,/offsides/i,/yellow cards/i,/red cards/i];
 const eventLabels:Record<SiteLocale,Record<string,string>>={en:{"Goal":"Goal","Substitution":"Substitution","Yellowcard":"Yellow card","Yellow Card":"Yellow card","Redcard":"Red card","Red Card":"Red card","Penalty":"Penalty","Own Goal":"Own goal","VAR":"VAR"}};
 const statisticLabels:Record<SiteLocale,Record<string,string>>={en:{"Throwins":"Throw-ins","Yellowcards":"Yellow cards","Redcards":"Red cards","Ball Possession %":"Ball possession","Shots Insidebox":"Shots inside the box","Shots Outsidebox":"Shots outside the box"}};
-const stageLabels:Record<SiteLocale,Record<string,string>>={en:{"Regular Season":"Regular season","Quarter-finals":"Quarter-finals","Semi-finals":"Semi-finals","Final":"Final"}};
 const scoreLabels:Record<SiteLocale,Record<string,string>>={en:{"PENALTIES":"Penalties","EXTRA_TIME":"Extra time","AGGREGATE":"Aggregate"}};
 const playerStatisticLabels:Record<SiteLocale,Record<string,string>>={en:{"MINUTES_PLAYED":"min","MINUTES":"min","GOALS":"goals","ASSISTS":"assists","YELLOWCARDS":"yellow cards","REDCARDS":"red cards","SHOTS":"shots","SHOTS_TOTAL":"shots","SHOTS_ON_TARGET":"on target","SAVES":"saves","PASSES":"passes","RATING":"rating"}};
 function prioritizedStats(rows: MatchStatisticView[]) {
@@ -54,17 +57,16 @@ function ScoreBreakdown({ locale, match }: { locale: SiteLocale; match: MatchCen
 
 function Summary({ locale, match }: { locale: SiteLocale; match: MatchCenterView }) {
   const text = copy[locale];
-  const localizedStage = match.header.stage ? stageLabels[locale][match.header.stage] ?? match.header.stage : null;
-  const facts = [match.header.season && [text.season, match.header.season], match.header.round && [text.round, match.header.round], localizedStage && [text.stage, localizedStage],
+  const localizedStage = sportStage(locale,match.header.stage),localizedRound=sportStage(locale,match.header.round);
+  const facts = [match.header.season && [text.season, match.header.season], localizedRound && [text.round, localizedRound], localizedStage && [text.stage, localizedStage],
     match.header.venue && [text.venue, `${match.header.venue}${match.header.venueCity ? ` · ${match.header.venueCity}` : ''}`]].filter(Boolean) as string[][];
   return <section id="summary" className="match-panel"><h2>{text.summary}</h2>
     <div className="match-facts">{facts.map(([label,value]) => <div key={label}><span>{label}</span><strong>{value}</strong></div>)}</div>
     <ScoreBreakdown locale={locale} match={match} />
     {match.events.data.length ? <><h3>{text.timeline}</h3><ol className="event-list">{match.events.data.filter(event => !event.rescinded).map(event => <li key={event.id}>
-      <time>{minute(event)}</time><span className="event-dot" aria-hidden="true"/><div><strong>{eventLabels[locale][event.type] ?? event.type}</strong><span>
-        {event.playerName ? event.playerPublicId ? <Link href={playerPath(locale,event.playerPublicId,event.playerName)}>{event.playerName}</Link> : event.playerName : null}
-        {event.relatedPlayerName ? <> · {event.relatedPlayerPublicId ? <Link href={playerPath(locale,event.relatedPlayerPublicId,event.relatedPlayerName)}>{event.relatedPlayerName}</Link> : event.relatedPlayerName}</> : null}
-        {event.result ? ` · ${event.result}` : ''}</span></div>
+      <time>{minute(event)}</time><span className="event-dot" aria-hidden="true"/><div><strong>{eventLabels[locale][event.type] ?? event.type}</strong>
+        {[match.header.home,match.header.away].find(team=>team.id===event.teamId)?.name?<small className="event-team">{[match.header.home,match.header.away].find(team=>team.id===event.teamId)!.name}</small>:null}
+        <EventPeople event={event} locale={locale}/></div>
     </li>)}</ol></> : <ModuleState locale={locale} module={match.events} />}
   </section>;
 }
@@ -94,7 +96,7 @@ function Lineups({ locale, match }: { locale: SiteLocale; match: MatchCenterView
 
 function Form({ locale, match }: { locale: SiteLocale; match: MatchCenterView }) {
   const text=copy[locale];
-  const history=(title:string,rows:MatchCenterView['form']['data']['home'])=><div className="form-block"><h3>{title} <small>{rows.length ? `${rows.length} ${text.sample}` : text.noSample}</small></h3>{rows.length?<ol>{rows.map(row=><li key={row.id}><span className={`form-result ${row.perspective??''}`}>{row.perspective??'—'}</span><span>{row.home} {row.homeScore??'—'}–{row.awayScore??'—'} {row.away}</span></li>)}</ol>:<p className="match-module-empty">{text.noData}</p>}</div>;
+  const history=(title:string,rows:MatchCenterView['form']['data']['home'])=><MatchHistory title={title} rows={rows} locale={locale}/>;
   return <section id="meetings" className="match-panel"><h2>{text.meetings}</h2><div className="form-grid">{history(match.header.home.name,match.form.data.home)}{history(match.header.away.name,match.form.data.away)}{history(text.h2h,match.form.data.headToHead)}</div></section>;
 }
 
@@ -113,14 +115,15 @@ function PlayerPerformances({locale,match}:{locale:SiteLocale;match:MatchCenterV
   })}</div></section>;
 }
 
-export function EnglishMatchCenter({ locale, match, replay = false, commercialLocale = 'br' }: { locale: SiteLocale; match: MatchCenterView; replay?: boolean; commercialLocale?: 'br' | 'mx' }) {
+export async function EnglishMatchCenter({ locale, match, replay = false, commercialLocale = 'br' }: { locale: SiteLocale; match: MatchCenterView; replay?: boolean; commercialLocale?: 'br' | 'mx' }){
+  const timeZone=await requestTimeZone(locale);
   const text=copy[locale]; const dictionary=getDictionary(locale); const canonical=matchPath(locale,match.header.publicId,match.header.home.name,match.header.away.name);
   const alternate={br:matchPath('br',match.header.publicId,match.header.home.name,match.header.away.name),mx:matchPath('mx',match.header.publicId,match.header.home.name,match.header.away.name)};
 
-  const kickoff=new Intl.DateTimeFormat(dictionary.locale,{dateStyle:'medium',timeStyle:'short',timeZone:dictionary.timeZone}).format(new Date(match.header.kickoff));
+  const kickoff=new Intl.DateTimeFormat(dictionary.locale,{dateStyle:'medium',timeStyle:'short',timeZone}).format(new Date(match.header.kickoff));
   const displayStatus=replay?FixtureStatus.LIVE:match.header.status;
   const scheduled=displayStatus===FixtureStatus.SCHEDULED;
-  const kickoffTime=new Intl.DateTimeFormat(dictionary.locale,{hour:'2-digit',minute:'2-digit',timeZone:dictionary.timeZone}).format(new Date(match.header.kickoff));
+  const kickoffTime=new Intl.DateTimeFormat(dictionary.locale,{hour:'2-digit',minute:'2-digit',timeZone}).format(new Date(match.header.kickoff));
   const brPath=brMatchPath('br',match.header.publicId,match.header.home.name,match.header.away.name);
   const banners=commercialLocale==='br'&&!replay;
   return <div lang={dictionary.locale} className="app-shell match-shell english-sports"><SiteHeader locale={locale} activePage="football" localeHrefs={alternate} contentId="match-content"/>
@@ -128,9 +131,9 @@ export function EnglishMatchCenter({ locale, match, replay = false, commercialLo
       {replay?<p className="replay-label">{text.replay}</p>:null}
 
       {!replay&&match.liveSnapshotStale?<p className="stale-live-label">{text.liveStale}</p>:null}
-      <header className="match-hero" data-status={displayStatus}><div className="match-competition"><span>{match.header.competition}</span><b>{statusLabel(locale,displayStatus)}</b></div>
+      <header className="match-hero" data-status={displayStatus}><div className="match-competition"><Link href={competitionPath(locale,match.header.competitionSlug,{season:match.header.seasonId??undefined})}>{match.header.competition}</Link><b>{statusLabel(locale,displayStatus)}</b></div>
         <div className="match-scoreboard"><div className="match-team"><Link href={teamPath(locale,match.header.home.publicId,match.header.home.name)}><TeamIdentity name={match.header.home.name} shortName={match.header.home.shortName} imageUrl={match.header.home.imageUrl} size={80}/></Link></div>
-          <div className={`match-score${scheduled?' is-scheduled':''}`}><strong>{scheduled?kickoffTime:<>{match.header.homeScore??'—'} <span>–</span> {match.header.awayScore??'—'}</>}</strong><time dateTime={match.header.kickoff}>{kickoff}</time><small>{text.timezone}</small></div>
+          <div className={`match-score${scheduled?' is-scheduled':''}`}><strong>{scheduled?kickoffTime:<>{match.header.homeScore??'—'} <span>–</span> {match.header.awayScore??'—'}</>}</strong><time dateTime={match.header.kickoff}>{kickoff}</time><small>{timeZone.replaceAll('_',' ')}</small></div>
           <div className="match-team is-away"><Link href={teamPath(locale,match.header.away.publicId,match.header.away.name)}><TeamIdentity name={match.header.away.name} shortName={match.header.away.shortName} imageUrl={match.header.away.imageUrl} size={80}/></Link></div></div>
         <MatchClientActions canonicalUrl={`https://livasports.com${canonical}`} shareText={`${match.header.home.name} x ${match.header.away.name}`} labels={{share:text.share,copied:text.copied}}/>
       </header>
@@ -140,7 +143,7 @@ export function EnglishMatchCenter({ locale, match, replay = false, commercialLo
       {banners?<SponsoredSlot copyLocale="en" context={{locale:'br',pagePath:brPath,placement:'mobile_inline'}}/>:null}
       <div className="match-content-grid"><div className="match-main-column"><Summary locale={locale} match={match}/><Statistics locale={locale} module={match.statistics}/><Lineups locale={locale} match={match}/><PlayerPerformances locale={locale} match={match}/><Form locale={locale} match={match}/><Standings locale={locale} match={match}/>
         {!replay?<PregameOdds uiLocale="en" fixturePublicId={match.header.publicId} initial={match.oddsComparisons??[]} context={{fixtureId:match.header.id,competitionId:match.header.competitionId,locale:commercialLocale}}/>:null}</div>
-        <aside className="match-context">{banners?<SponsoredSlot copyLocale="en" context={{locale:'br',pagePath:brPath,placement:'match_right_rail'}}/>:null}<section><h2>{text.summary}</h2><dl><div><dt>{text.season}</dt><dd>{match.header.season??'—'}</dd></div><div><dt>{text.stage}</dt><dd>{match.header.stage ? stageLabels[locale][match.header.stage] ?? match.header.stage : '—'}</dd></div><div><dt>{text.venue}</dt><dd>{match.header.venue??'—'}</dd></div></dl></section></aside></div>
+        <aside className="match-context">{banners?<SponsoredSlot copyLocale="en" context={{locale:'br',pagePath:brPath,placement:'match_right_rail'}}/>:null}<section><h2>{text.summary}</h2><dl><div><dt>{text.season}</dt><dd>{match.header.season??'—'}</dd></div><div><dt>{text.stage}</dt><dd>{sportStage(locale,match.header.stage) ?? '—'}</dd></div><div><dt>{text.venue}</dt><dd>{match.header.venue??'—'}</dd></div></dl></section></aside></div>
       {!replay?<LiveRefreshBoundary publicId={match.header.publicId} locale="br" status={match.header.status} snapshotAt={match.snapshotAt}/>:null}
     </main></div>;
 }

@@ -1,11 +1,10 @@
 import type {FixtureView} from '@/delivery/types';
 export type BoardView='all'|'live'|'upcoming'|'results';
 export type BoardQuery=Record<string,string|string[]|undefined>;
-export function boardDate(value:unknown,today:string):string|undefined {
+export function boardDate(value:unknown,today:string,bounds:{from:string;to:string}={from:'1900-01-01',to:`${Number(today.slice(0,4))+2}-12-31`}):string|undefined {
   if(typeof value!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(value))return;
   const date=new Date(value+'T12:00:00Z');if(!Number.isFinite(date.getTime())||date.toISOString().slice(0,10)!==value)return;
-  const days=(date.getTime()-Date.parse(today+'T12:00:00Z'))/86400000;
-  return days>=-7&&days<=45?value:undefined;
+  return value>=bounds.from&&value<=bounds.to?value:undefined;
 }
 export function boardView(value:unknown):BoardView{return value==='live'||value==='upcoming'||value==='results'?value:'all';}
 export function matchesView(f:FixtureView,view:BoardView,now:number):boolean {

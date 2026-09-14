@@ -7,6 +7,7 @@ import {PostgresFootballRepository} from '@/repositories/postgres-football.repos
 import {PostgresProviderEntityMappingRepository} from '@/repositories/postgres-provider-mapping.repository';
 import {SafeProviderError} from '@/providers/safe-error';
 import type {CacheInvalidator} from '@/cache/invalidation';
+import {persistScoreDetails} from '@/sports/score-details';
 
 export function scoreTickDue(last:{started_at:Date;status:string;error_message?:string|null}|undefined,now=Date.now()):boolean {
   if(!last)return true;
@@ -21,7 +22,7 @@ export async function runScoreTicker(db:DatabaseClient,key:string|undefined,inva
       return {state:'ALREADY_RUNNING',providerRequests:0};
     const last=(await tx.query("SELECT started_at,status,error_message FROM ingestion_sync_runs WHERE sync_kind='SCORES' ORDER BY started_at DESC LIMIT 1")).rows[0];
     if(!scoreTickDue(last as {started_at:Date;status:string;error_message:string}|undefined))return {state:'NOT_DUE',providerRequests:0};
-    const repository=new PostgresFootballRepository(db),gateway=new HttpSportmonksGateway(key);
+    const repository=new PostgresFootballRepository(db),gateway=new HttpSportmonksGateway(key,undefined,rows=>persistScoreDetails(db,rows));
     const mappings=new ProviderMappingService(new PostgresProviderEntityMappingRepository(db));
     const service=new FootballIngestionService(new SportmonksAdapter(gateway,mappings,code=>repository.findCountryByCode(code)),repository,undefined,undefined,invalidator);
     try{return {state:'SUCCEEDED',...await service.syncFixtureScores(50)};}

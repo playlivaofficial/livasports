@@ -52,7 +52,12 @@
     "cache:warm": "tsx src/cache/warmup-cli.ts",
     "test:validation": "node --test test/*.test.js",
     "test:m1": "vitest run",
-    "test": "node --test test/*.test.js && vitest run"
+    "test": "node --test test/*.test.js && vitest run",
+    "qa:sports:db": "node --require ./scripts/tsx-windows-preload.cjs --import ./scripts/sports-qa-preload.mjs --import tsx --env-file=.env.local scripts/sports-db-qa.ts",
+    "qa:sports:unlinked": "node --require ./scripts/tsx-windows-preload.cjs --import tsx --env-file=.env.local scripts/sports-unlinked-qa.ts",
+    "qa:sports:profiles": "node --require ./scripts/tsx-windows-preload.cjs --import ./scripts/sports-qa-preload.mjs --import tsx --env-file=.env.local scripts/sports-profile-qa.ts",
+    "qa:sports:provider": "node --require ./scripts/tsx-windows-preload.cjs --import tsx --env-file=.env.local scripts/sports-provider-audit.ts",
+    "sync:sports": "node --require ./scripts/tsx-windows-preload.cjs --import tsx --env-file=.env.local scripts/sports-ingestion.ts"
   },
   "engines": {
     "node": ">=20"

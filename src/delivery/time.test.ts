@@ -1,7 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { belongsToLocalDay, localDayRange } from './time';
+import { belongsToLocalDay, localDayRange,localDateKey,zonedDateTimeToUtc } from './time';
 
 describe('localized calendar-day policy', () => {
+  it.each(['Pacific/Kiritimati','Pacific/Pago_Pago','Asia/Tokyo','Europe/London','America/Tijuana','Australia/Sydney'])('keeps an explicit date and the next boundary in %s',zone=>{
+    const noon=zonedDateTimeToUtc({year:2026,month:9,day:14,hour:12},zone);
+    const range=localDayRange(noon,zone);
+    expect(localDateKey(noon,zone)).toBe('2026-09-14');
+    expect(localDateKey(range.from,zone)).toBe('2026-09-14');
+    expect(localDateKey(new Date(range.to.getTime()-1),zone)).toBe('2026-09-14');
+    expect(localDateKey(range.to,zone)).toBe('2026-09-15');
+  });
+  it.each([['2026-03-08T12:00:00Z',23],['2026-11-01T12:00:00Z',25]] as const)('handles a daylight-saving transition on %s', (date,hours)=>{
+    const range=localDayRange(new Date(date),'America/New_York');expect((range.to.getTime()-range.from.getTime())/3600000).toBe(hours);
+  });
   it('uses São Paulo boundaries instead of the server UTC day', () => {
     const reference = new Date('2026-09-08T02:30:00Z'); // Sep 7, 23:30 in São Paulo
     expect(belongsToLocalDay(new Date('2026-09-07T04:00:00Z'), reference, 'America/Sao_Paulo')).toBe(true);

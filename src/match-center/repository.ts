@@ -1,4 +1,5 @@
 import 'server-only';
+import {SportsSitemapRepository} from '@/sports/sitemap-repository';
 import type { DatabaseClient } from '@/database/client';
 import type { FixtureStatus } from '@/domain/enums';
 import type { SiteLocale } from '@/config/i18n';
@@ -36,7 +37,7 @@ export class PostgresMatchCenterRepository {
       s.name AS stored_season_name,ht.public_id AS home_public_id,ht.name AS home_name,ht.short_name AS home_short,ht.image_url AS home_image,
       at.public_id AS away_public_id,at.name AS away_name,at.short_name AS away_short,at.image_url AS away_image
       FROM fixtures f JOIN competitions c ON c.id=f.competition_id LEFT JOIN seasons s ON s.id=f.season_id
-      JOIN teams ht ON ht.id=f.home_team_id JOIN teams at ON at.id=f.away_team_id WHERE f.public_id=$1`, [publicId, locale]);
+      JOIN teams ht ON ht.id=f.home_team_id JOIN teams at ON at.id=f.away_team_id WHERE f.public_id=$1 AND NOT EXISTS(SELECT 1 FROM sports_pending_fixtures p WHERE p.id=f.id)`, [publicId, locale]);
     const row = result.rows[0];
     if (!row) return null;
     const scoreResult = await this.database.query<Record<string, unknown>>(`SELECT fs.description,fs.goals,
@@ -73,7 +74,7 @@ export class PostgresMatchCenterRepository {
     const result = await this.database.query<Record<string, unknown>>(`SELECT fe.provider_event_id,fe.event_type,fe.period_id,fe.minute,fe.extra_minute,fe.team_id,
       fe.player_name,fe.related_player_name,fe.result,fe.detail,fe.rescinded,p.public_id AS player_public_id,rp.public_id AS related_player_public_id
       FROM fixture_events fe LEFT JOIN players p ON p.id=fe.player_entity_id LEFT JOIN players rp ON rp.id=fe.related_player_entity_id WHERE fe.fixture_id=$1
-      ORDER BY sort_order NULLS LAST,minute NULLS LAST,extra_minute NULLS LAST,provider_event_id`, [fixtureId]);
+      ORDER BY minute NULLS LAST,COALESCE(extra_minute,0),sort_order NULLS LAST,provider_event_id`, [fixtureId]);
     return result.rows.map(row => ({ id: String(row.provider_event_id), type: String(row.event_type), periodId: numberOrNull(row.period_id),
       minute: numberOrNull(row.minute), extraMinute: numberOrNull(row.extra_minute), teamId: row.team_id ? String(row.team_id) : null,
       playerName: row.player_name ? String(row.player_name).trim() : null, relatedPlayerName: row.related_player_name ? String(row.related_player_name).trim() : null,
@@ -99,7 +100,7 @@ export class PostgresMatchCenterRepository {
 
   async lineups(fixtureId: string): Promise<MatchLineupTeamView[]> {
     const [players, context, statisticRows] = await Promise.all([
-      this.database.query<Record<string, unknown>>(`SELECT fl.provider_lineup_id,fl.player_entity_id,fl.team_id,fl.player_name,fl.lineup_type,fl.position_id,fl.formation_field,fl.jersey_number,
+      this.database.query<Record<string, unknown>>(`SELECT fl.provider_lineup_id,fl.player_entity_id,fl.team_id,fl.player_name,fl.lineup_type,fl.position_id,fl.formation_field,fl.jersey_number,fl.unlinked_statistics,
         p.public_id AS player_public_id FROM fixture_lineups fl LEFT JOIN players p ON p.id=fl.player_entity_id WHERE fl.fixture_id=$1
         ORDER BY fl.team_id,fl.lineup_type,fl.formation_position NULLS LAST,fl.jersey_number NULLS LAST`, [fixtureId]),
       this.database.query<Record<string, unknown>>(`SELECT team_id,formation,NULL::text AS coach FROM fixture_formations WHERE fixture_id=$1
@@ -118,10 +119,15 @@ export class PostgresMatchCenterRepository {
     for (const row of context.rows) { const team = get(String(row.team_id)); if (row.formation) team.formation = String(row.formation); if (row.coach) team.coach = String(row.coach); }
     for (const row of players.rows) {
       const team = get(String(row.team_id));
+      const unlinkedStatistics=(Array.isArray(row.unlinked_statistics)?row.unlinked_statistics:[]).flatMap(detail=>{
+        if(!detail||typeof detail!=='object'||!detail.type||typeof detail.type.developer_name!=='string')return [];
+        const code=detail.type.developer_name,value=playerStatisticValue(code,detail.value??detail.data);
+        return value===null?[]:[{code,label:String(detail.type.name??code),value}];
+      });
       const player = { id: String(row.provider_lineup_id), playerPublicId: row.player_public_id ? String(row.player_public_id) : null,
         teamId: String(row.team_id), name: String(row.player_name).trim(),
         starter: row.lineup_type === 'STARTER', positionId: numberOrNull(row.position_id), formationField: row.formation_field ? String(row.formation_field) : null,
-        jerseyNumber: numberOrNull(row.jersey_number), statistics: row.player_entity_id ? playerStats.get(String(row.player_entity_id)) ?? [] : [] };
+        jerseyNumber: numberOrNull(row.jersey_number), statistics: row.player_entity_id ? playerStats.get(String(row.player_entity_id)) ?? [] : unlinkedStatistics };
       (player.starter ? team.starters : team.substitutes).push(player);
     }
     return [...teams.values()];
@@ -157,11 +163,14 @@ export class PostgresMatchCenterRepository {
   }
 
   async form(header: MatchHeaderView): Promise<MatchFormView> {
-    const result = await this.database.query<Record<string, unknown>>(`SELECT f.id,f.public_id,f.kickoff,f.status,f.home_score,f.away_score,
-      f.home_team_id,f.away_team_id,ht.name AS home,at.name AS away FROM fixtures f
-      JOIN teams ht ON ht.id=f.home_team_id JOIN teams at ON at.id=f.away_team_id
-      WHERE f.status='FINISHED' AND f.kickoff < $2 AND (f.home_team_id=ANY($1::uuid[]) OR f.away_team_id=ANY($1::uuid[]))
-      ORDER BY f.kickoff DESC LIMIT 40`, [[header.home.id, header.away.id], header.kickoff]);
+    const result = await this.database.query<Record<string, unknown>>(`WITH history AS (
+      (SELECT * FROM fixtures WHERE status='FINISHED' AND kickoff<$2 AND (home_team_id=($1::uuid[])[1] OR away_team_id=($1::uuid[])[1]) ORDER BY kickoff DESC,id LIMIT 20)
+      UNION
+      (SELECT * FROM fixtures WHERE status='FINISHED' AND kickoff<$2 AND (home_team_id=($1::uuid[])[2] OR away_team_id=($1::uuid[])[2]) ORDER BY kickoff DESC,id LIMIT 20)
+      UNION
+      (SELECT * FROM fixtures WHERE status='FINISHED' AND kickoff<$2 AND home_team_id=ANY($1::uuid[]) AND away_team_id=ANY($1::uuid[]) ORDER BY kickoff DESC,id LIMIT 30)
+      ) SELECT f.id,f.public_id,f.kickoff,f.status,f.home_score,f.away_score,f.home_team_id,f.away_team_id,ht.name AS home,at.name AS away
+      FROM history f JOIN teams ht ON ht.id=f.home_team_id JOIN teams at ON at.id=f.away_team_id ORDER BY f.kickoff DESC,f.id`, [[header.home.id, header.away.id], header.kickoff]);
     const make = (row: Record<string, unknown>, teamId: string): MatchHistoryView => {
       const homeScore = numberOrNull(row.home_score); const awayScore = numberOrNull(row.away_score); const isHome = row.home_team_id === teamId;
       const mine = isHome ? homeScore : awayScore; const theirs = isHome ? awayScore : homeScore;
@@ -169,9 +178,9 @@ export class PostgresMatchCenterRepository {
         homeScore, awayScore, status: row.status as FixtureStatus, perspective: mine === null || theirs === null ? null : mine > theirs ? 'W' : mine < theirs ? 'L' : 'D' };
     };
     const prior = result.rows.filter(row => row.id !== header.id);
-    const home = prior.filter(row => row.home_team_id === header.home.id || row.away_team_id === header.home.id).slice(0, 5).map(row => make(row, header.home.id));
-    const away = prior.filter(row => row.home_team_id === header.away.id || row.away_team_id === header.away.id).slice(0, 5).map(row => make(row, header.away.id));
-    const headToHead = prior.filter(row => [row.home_team_id, row.away_team_id].includes(header.home.id) && [row.home_team_id, row.away_team_id].includes(header.away.id)).slice(0, 5).map(row => make(row, header.home.id));
+    const home = prior.filter(row => row.home_team_id === header.home.id || row.away_team_id === header.home.id).slice(0, 20).map(row => make(row, header.home.id));
+    const away = prior.filter(row => row.home_team_id === header.away.id || row.away_team_id === header.away.id).slice(0, 20).map(row => make(row, header.away.id));
+    const headToHead = prior.filter(row => [row.home_team_id, row.away_team_id].includes(header.home.id) && [row.home_team_id, row.away_team_id].includes(header.away.id)).slice(0, 30).map(row => make(row, header.home.id));
     return { home, away, headToHead };
   }
 
@@ -193,9 +202,7 @@ export class PostgresMatchCenterRepository {
       affiliateEligible: Boolean(row.affiliate_eligible), affiliateUrl: row.affiliate_url ? String(row.affiliate_url) : null }));
   }
 
-  async sitemapFixtures(limit = 5000): Promise<Array<{ publicId: string; home: string; away: string; updatedAt: Date }>> {
-    const result = await this.database.query<Record<string, unknown>>(`SELECT f.public_id,f.updated_at,ht.name AS home,at.name AS away FROM fixtures f
-      JOIN teams ht ON ht.id=f.home_team_id JOIN teams at ON at.id=f.away_team_id ORDER BY f.kickoff DESC LIMIT $1`, [limit]);
-    return result.rows.map(row => ({ publicId: String(row.public_id), home: String(row.home), away: String(row.away), updatedAt: new Date(String(row.updated_at)) }));
+  async sitemapFixtures(limit = 100): Promise<Array<{ publicId: string; home: string; away: string; updatedAt: Date }>> {
+    return (await new SportsSitemapRepository(this.database).entries('matches',limit)).map(row=>({publicId:row.publicId,home:row.name,away:row.away!,updatedAt:new Date(row.updatedAt)}));
   }
 }

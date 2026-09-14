@@ -4,6 +4,16 @@ import { PostgresMatchCenterRepository } from './repository';
 vi.mock('server-only', () => ({}));
 
 describe('fixture player statistic read model', () => {
+  it('keeps separate lineup statistics when the provider has not supplied a global player identity',async()=>{
+    const database={query:async(sql:string)=>({rows:sql.includes('FROM fixture_lineups fl')?[
+      {provider_lineup_id:1,team_id:'team',player_name:'Same name',lineup_type:'STARTER',unlinked_statistics:[{type:{developer_name:'GOALS',name:'Goals'},data:{value:0}}]},
+      {provider_lineup_id:2,team_id:'team',player_name:'Same name',lineup_type:'SUBSTITUTE',unlinked_statistics:[{type:{developer_name:'MINUTES_PLAYED',name:'Minutes'},data:{value:33}}]},
+    ]:[]})};
+    const [team]=await new PostgresMatchCenterRepository(database as never).lineups('fixture');
+    expect(team.starters[0].playerPublicId).toBeNull();expect(team.substitutes[0].playerPublicId).toBeNull();
+    expect(team.starters[0].statistics).toEqual([{code:'GOALS',label:'Goals',value:0}]);
+    expect(team.substitutes[0].statistics).toEqual([{code:'MINUTES_PLAYED',label:'Minutes',value:33}]);
+  });
   it('uses the provider average for ratings and preserves verified zero values', async () => {
     const database = {
       query: async (sql: string) => {

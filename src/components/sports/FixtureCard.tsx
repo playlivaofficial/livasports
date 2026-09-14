@@ -5,6 +5,7 @@ import { OddsComparison } from './OddsComparison';
 import { TeamMark } from './TeamMark';
 import Link from 'next/link';
 import { matchPath } from '@/match-center/routes';
+import type {ReactNode} from 'react';
 
 function isLive(status: FixtureStatus): boolean {
   return status === FixtureStatus.LIVE || status === FixtureStatus.HALFTIME;
@@ -42,10 +43,11 @@ export function KickoffTime({ locale, kickoff }: { locale: SiteLocale; kickoff: 
   </time>;
 }
 
-export function TeamIdentity({ name, shortName, imageUrl, size=26 }: { name: string; shortName?: string | null; imageUrl?: string | null; size?:26|80|104 }) {
+export function TeamIdentity({ name, shortName, imageUrl, size=26, children }: { name: string; shortName?: string | null; imageUrl?: string | null; size?:26|80|104;children?:ReactNode }) {
   return <span className="team-identity">
     <TeamMark initials={teamInitials(shortName || name)} imageUrl={imageUrl} size={size} />
     <span className="team-name">{name}</span>
+    {children}
   </span>;
 }
 

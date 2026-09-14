@@ -5,7 +5,8 @@ import type {
   PlayerMatchLog, PlayerProfileView, ProfileCompetitionContext, ProfileFixture, ProfileModule, ProfileModuleState,
   ProfileStanding, ProfileStatistic, SquadContext, TeamProfileView,
 } from './types';
-import { persistedStatistic } from './statistics';
+import { persistedStatistic,seasonStatisticValue } from './statistics';
+import {SportsSitemapRepository} from '@/sports/sitemap-repository';
 
 type Row = Record<string, unknown>;
 const nullableString = (value: unknown) => value === null || value === undefined || value === '' ? null : String(value);
@@ -39,13 +40,10 @@ const playerMetrics: Record<string, { key: string; unit?: string }> = {
 function knownStatistic(row: Row, whitelist: Record<string, { key: string; unit?: string }>): ProfileStatistic | null {
   const code = String(row.developer_name ?? '');
   const definition = whitelist[code];
-  const raw = row.value && typeof row.value === 'object' ? row.value as Record<string, unknown> : {};
-  const value = definition ? raw[definition.key] : undefined;
-  if (!definition || (typeof value !== 'number' && typeof value !== 'string')) return null;
-  const numeric = typeof value === 'string' && value.trim() !== '' && Number.isFinite(Number(value)) ? Number(value) : value;
-  if (typeof numeric !== 'number' && typeof numeric !== 'string') return null;
+  const numeric=definition?seasonStatisticValue(row.value,definition.key):null;
+  if(!definition||numeric===null)return null;
   return { competitionId: String(row.competition_id), competition: String(row.competition_name), seasonId: String(row.season_id),
-    season: String(row.season_name), teamId: String(row.team_id), team: String(row.team_name), typeId: Number(row.provider_type_id),
+    season: String(row.season_name), teamId: nullableString(row.team_id), team: nullableString(row.team_name), ...(row.source_team_key?{sourceTeamKey:String(row.source_team_key)}:{}),typeId: Number(row.provider_type_id),
     code, label: String(row.type_name), value: numeric, unit: definition.unit ?? null };
 }
 
@@ -90,7 +88,10 @@ export class PostgresProfileRepository {
       f.home_team_id,ht.public_id AS home_public_id,ht.name AS home_name,ht.image_url AS home_image,
       f.away_team_id,at.public_id AS away_public_id,at.name AS away_name,at.image_url AS away_image
       FROM fixtures f JOIN competitions c ON c.id=f.competition_id JOIN teams ht ON ht.id=f.home_team_id JOIN teams at ON at.id=f.away_team_id
-      WHERE (f.home_team_id=$1 OR f.away_team_id=$1) AND c.enabled
+      WHERE (f.home_team_id=$1 OR f.away_team_id=$1) AND c.enabled AND f.id IN (
+        (SELECT id FROM fixtures WHERE (home_team_id=$1 OR away_team_id=$1) AND status IN ('SCHEDULED','LIVE','HALFTIME') AND kickoff>=now()-interval '3 hours' ORDER BY kickoff LIMIT 8)
+        UNION (SELECT id FROM fixtures WHERE (home_team_id=$1 OR away_team_id=$1) AND status='FINISHED' ORDER BY kickoff DESC LIMIT 20))
+      AND NOT EXISTS(SELECT 1 FROM sports_pending_fixtures p WHERE p.id=f.id)
       ORDER BY CASE WHEN f.kickoff>=now() THEN 0 ELSE 1 END,
         CASE WHEN f.kickoff>=now() THEN f.kickoff END ASC,CASE WHEN f.kickoff<now() THEN f.kickoff END DESC LIMIT 36`, [teamId, locale]);
     return result.rows.map(fixture);
@@ -100,7 +101,7 @@ export class PostgresProfileRepository {
     const result = await this.database.query<Row>(`SELECT CASE WHEN $2='br' THEN c.display_name_pt_br ELSE c.display_name_es_mx END AS competition_name,
       s.name AS season_name,sc.stage_name,sc.group_name,sc.position,sc.played,sc.won,sc.drawn,sc.lost,sc.goals_for,sc.goals_against,sc.points
       FROM standings_current sc JOIN seasons s ON s.id=sc.season_id JOIN competitions c ON c.id=sc.competition_id
-      WHERE sc.team_id=$1 AND c.enabled ORDER BY s.is_current DESC,sc.observed_at DESC,c.slug,sc.position LIMIT 12`, [teamId, locale]);
+      WHERE sc.team_id=$1 AND c.enabled ORDER BY s.is_current DESC,CASE WHEN c.competition_type='DOMESTIC_LEAGUE' THEN 0 ELSE 1 END,s.starts_at DESC NULLS LAST,c.slug,sc.position LIMIT 24`, [teamId, locale]);
     return result.rows.map(row => ({ competition: String(row.competition_name), season: String(row.season_name),
       stage: nullableString(row.stage_name), group: nullableString(row.group_name), position: Number(row.position),
       played: nullableNumber(row.played), won: nullableNumber(row.won), drawn: nullableNumber(row.drawn), lost: nullableNumber(row.lost),
@@ -132,12 +133,12 @@ export class PostgresProfileRepository {
       ts.provider_type_id,st.name AS type_name,st.developer_name,ts.value
       FROM team_season_statistics ts JOIN teams t ON t.id=ts.team_id JOIN seasons s ON s.id=ts.season_id
       JOIN competitions c ON c.id=ts.competition_id JOIN profile_statistic_types st ON st.provider='SPORTMONKS' AND st.provider_type_id=ts.provider_type_id
-      WHERE ts.team_id=$1 ORDER BY s.is_current DESC,c.slug,ts.provider_type_id`, [teamId, locale]);
+      WHERE ts.team_id=$1 ORDER BY s.is_current DESC,CASE WHEN c.competition_type='DOMESTIC_LEAGUE' THEN 0 ELSE 1 END,s.starts_at DESC NULLS LAST,c.slug,ts.provider_type_id`, [teamId, locale]);
     return result.rows.flatMap(row => { const value = knownStatistic(row, teamMetrics); return value ? [value] : []; });
   }
 
   async team(publicId: string, locale: SiteLocale): Promise<TeamProfileView | null> {
-    const result = await this.database.query<Row>(`SELECT t.*,co.name AS country_name FROM teams t LEFT JOIN countries co ON co.id=t.country_id WHERE t.public_id=$1`, [publicId]);
+    const result = await this.database.query<Row>(`SELECT t.*,co.name AS country_name,(SELECT fc.coach_name FROM fixture_coaches fc JOIN fixtures f ON f.id=fc.fixture_id WHERE fc.team_id=t.id AND f.kickoff<=now() ORDER BY f.kickoff DESC LIMIT 1) AS latest_coach FROM teams t LEFT JOIN countries co ON co.id=t.country_id WHERE t.public_id=$1`, [publicId]);
     const row = result.rows[0];
     if (!row) return null;
     const teamId = String(row.id);
@@ -146,12 +147,12 @@ export class PostgresProfileRepository {
       this.teamStatistics(teamId, locale), this.states('TEAM', teamId),
     ]);
     const now = Date.now();
-    const upcoming = matches.filter(item => new Date(item.kickoff).getTime() >= now).slice(0, 8);
-    const recent = matches.filter(item => new Date(item.kickoff).getTime() < now).slice(0, 10);
+    const upcoming = matches.filter(item => item.status==='SCHEDULED'&&new Date(item.kickoff).getTime() >= now).slice(0, 8);
+    const recent = matches.filter(item => item.status==='FINISHED').slice(0, 10);
     return { entityType: 'TEAM', id: teamId, publicId: String(row.public_id), locale, name: String(row.name),
       shortName: nullableString(row.short_name), imageUrl: nullableString(row.image_url), country: nullableString(row.country_name),
       foundedYear: nullableNumber(row.founded_year), venue: nullableString(row.venue_name), venueCity: nullableString(row.venue_city),
-      coach: nullableString(row.coach_name), competitions: contexts, upcoming, recent,
+      coach: nullableString(row.latest_coach ?? row.coach_name), competitions: contexts, upcoming, recent,
       standings: { ...moduleMeta(states, 'STANDINGS', standings.length > 0, contexts.every(item => item.competitionType === 'DOMESTIC_CUP') ? 'NOT_APPLICABLE' : 'NOT_YET_INGESTED'), data: standings },
       squad: { ...moduleMeta(states, 'SQUAD', squad.length > 0), data: squad },
       statistics: { ...moduleMeta(states, 'STATISTICS', statistics.length > 0), data: statistics },
@@ -169,13 +170,25 @@ export class PostgresProfileRepository {
   }
 
   private async playerStatistics(playerId: string, locale: SiteLocale): Promise<ProfileStatistic[]> {
-    const result = await this.database.query<Row>(`SELECT ps.player_id,ps.team_id,t.name AS team_name,ps.season_id,s.name AS season_name,ps.competition_id,
+    const result = await this.database.query<Row>(`WITH ranking_totals AS (
+      SELECT player_id,team_id,season_id,provider_type_id,total,NULL::text AS source_team_key FROM season_topscorers WHERE player_id=$1
+      UNION ALL SELECT player_id,team_id,season_id,(payload->>'type_id')::int,(payload->>'total')::numeric,
+        CASE WHEN team_id IS NULL THEN 'unlinked:' || COALESCE(provider_participant_id::text,provider_record_id::text) END
+        FROM sports_unlinked_competition_records WHERE capability='SCORERS' AND player_id=$1
+      ), combined AS (
+      SELECT ps.player_id,ps.team_id,ps.season_id,ps.competition_id,ps.provider_type_id,st.name AS type_name,st.developer_name,ps.value,NULL::text AS source_team_key,0 AS source_priority
+        FROM player_season_statistics ps JOIN profile_statistic_types st ON st.provider='SPORTMONKS' AND st.provider_type_id=ps.provider_type_id WHERE ps.player_id=$1
+      UNION ALL SELECT r.player_id,r.team_id,r.season_id,s.competition_id,r.provider_type_id,
+        CASE r.provider_type_id WHEN 208 THEN 'Goals' WHEN 209 THEN 'Assists' WHEN 83 THEN 'Red cards' WHEN 84 THEN 'Yellow cards' END,
+        CASE r.provider_type_id WHEN 208 THEN 'GOALS' WHEN 209 THEN 'ASSISTS' WHEN 83 THEN 'REDCARDS' WHEN 84 THEN 'YELLOWCARDS' END,
+        jsonb_build_object('total',r.total),r.source_team_key,1 FROM ranking_totals r JOIN seasons s ON s.id=r.season_id WHERE r.provider_type_id IN (208,209,83,84)
+      ) SELECT ps.player_id,ps.team_id,t.name AS team_name,ps.season_id,s.name AS season_name,ps.competition_id,
       CASE WHEN $2='br' THEN c.display_name_pt_br ELSE c.display_name_es_mx END AS competition_name,
-      ps.provider_type_id,st.name AS type_name,st.developer_name,ps.value
-      FROM player_season_statistics ps JOIN teams t ON t.id=ps.team_id JOIN seasons s ON s.id=ps.season_id
-      JOIN competitions c ON c.id=ps.competition_id JOIN profile_statistic_types st ON st.provider='SPORTMONKS' AND st.provider_type_id=ps.provider_type_id
-      WHERE ps.player_id=$1 ORDER BY s.is_current DESC,c.slug,t.name,ps.provider_type_id`, [playerId, locale]);
-    return result.rows.flatMap(row => { const value = knownStatistic(row, playerMetrics); return value ? [value] : []; });
+      ps.provider_type_id,ps.type_name,ps.developer_name,ps.value,ps.source_team_key
+      FROM combined ps LEFT JOIN teams t ON t.id=ps.team_id JOIN seasons s ON s.id=ps.season_id JOIN competitions c ON c.id=ps.competition_id
+      ORDER BY s.is_current DESC,CASE WHEN c.competition_type='DOMESTIC_LEAGUE' THEN 0 ELSE 1 END,s.starts_at DESC NULLS LAST,c.slug,t.name,ps.source_team_key,ps.source_priority,ps.provider_type_id`, [playerId, locale]);
+    const seen=new Set<string>();
+    return result.rows.flatMap(row => { const value = knownStatistic(row, playerMetrics);if(!value)return [];const key=JSON.stringify([value.seasonId,value.teamId??value.sourceTeamKey,value.code]);if(seen.has(key))return [];seen.add(key);return [value]; });
   }
 
   private async playerMatches(playerId: string, locale: SiteLocale): Promise<PlayerMatchLog[]> {
@@ -260,26 +273,11 @@ export class PostgresProfileRepository {
       indexable: Boolean(currentTeam && (statistics.length || matches.length)), providerRequests: 0 };
   }
 
-  async sitemapTeams(limit = 5000) {
-    const result = await this.database.query<Row>(`SELECT t.public_id,t.name,GREATEST(t.updated_at,COALESCE(max(f.updated_at),t.updated_at),
-      COALESCE(max(sm.observed_at),t.updated_at)) AS updated_at
-      FROM teams t LEFT JOIN fixtures f ON f.home_team_id=t.id OR f.away_team_id=t.id
-      LEFT JOIN team_squad_memberships sm ON sm.team_id=t.id GROUP BY t.id
-      HAVING count(DISTINCT f.id)>0 OR count(DISTINCT sm.player_id)>0 ORDER BY updated_at DESC LIMIT $1`, [limit]);
-    return result.rows.map(row => ({ publicId: String(row.public_id), name: String(row.name), updatedAt: new Date(String(row.updated_at)) }));
+  async sitemapTeams(limit = 50) {
+    return (await new SportsSitemapRepository(this.database).entries('teams',limit)).map(row=>({...row,updatedAt:new Date(row.updatedAt)}));
   }
 
-  async sitemapPlayers(limit = 10000) {
-    const result = await this.database.query<Row>(`SELECT p.public_id,p.display_name,GREATEST(p.updated_at,
-      COALESCE((SELECT max(ps.observed_at) FROM player_season_statistics ps WHERE ps.player_id=p.id),p.updated_at),
-      COALESCE((SELECT max(fl.observed_at) FROM fixture_lineups fl WHERE fl.player_entity_id=p.id),p.updated_at),
-      COALESCE((SELECT max(fps.observed_at) FROM fixture_player_statistics fps WHERE fps.player_id=p.id),p.updated_at)) AS updated_at
-      FROM players p
-      WHERE EXISTS (SELECT 1 FROM team_squad_memberships sm WHERE sm.player_id=p.id)
-        AND (EXISTS (SELECT 1 FROM player_season_statistics ps WHERE ps.player_id=p.id)
-          OR EXISTS (SELECT 1 FROM fixture_lineups fl WHERE fl.player_entity_id=p.id)
-          OR EXISTS (SELECT 1 FROM fixture_player_statistics fps WHERE fps.player_id=p.id))
-      ORDER BY updated_at DESC LIMIT $1`, [limit]);
-    return result.rows.map(row => ({ publicId: String(row.public_id), name: String(row.display_name), updatedAt: new Date(String(row.updated_at)) }));
+  async sitemapPlayers(limit = 50) {
+    return (await new SportsSitemapRepository(this.database).entries('players',limit)).map(row=>({...row,updatedAt:new Date(row.updatedAt)}));
   }
 }

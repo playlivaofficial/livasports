@@ -2,6 +2,12 @@
 .env.*
 !.env.example
 .next/
+output/sports-*.log
+output/sports-provider-private/
+output/sports-next-preserved-*/
+output/sports-*.mjs
+output/sports-*.ps1
+output/sports-*-private.ts
 node_modules/
 .pnpm-store/
 coverage/

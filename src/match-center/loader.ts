@@ -16,7 +16,7 @@ export class MatchCenterLoader {
 
   private async cached<T>(fixtureId: string, locale: SiteLocale, scope: string, ttlSeconds: number, loader: () => Promise<T>): Promise<T> {
     return (await this.cache.getOrSet(cacheKeys.matchModule(fixtureId, locale, scope), {
-      ttlSeconds, staleIfErrorSeconds: 24 * 60 * 60, tags: [cacheKeys.fixture(fixtureId)],
+      ttlSeconds, staleIfErrorSeconds: 24 * 60 * 60, tags: [cacheKeys.fixture(fixtureId),...(['form-v2','header'].includes(scope)?['livasports:v1:fixtures:br','livasports:v1:fixtures:mx']:[])],
     }, loader)).value;
   }
 
@@ -35,7 +35,7 @@ export class MatchCenterLoader {
       this.cached(header.id, locale, 'lineups', 300, () => this.repository.lineups(header.id)),
       this.cached(header.id, locale, 'player-statistics', 300, () => this.repository.playerPerformances(header.id)),
       this.cached(header.id, locale, 'standings', 600, () => this.repository.standings(header)),
-      this.cached(header.id, locale, 'form', 600, () => this.repository.form(header)),
+      this.cached(header.id, locale, 'form-v2', 120, () => this.repository.form(header)),
       loadOddsComparisons(header.id,geo),
     ] as const;
     const [eventsResult, statisticsResult, lineupsResult, playerStatisticsResult, standingsResult, formResult, oddsResult] = await Promise.allSettled(calls);

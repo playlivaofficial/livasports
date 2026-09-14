@@ -3,6 +3,7 @@ import './globals.css';
 import './visual-system.css';
 import './language.css';
 import './sports-board.css';
+import './sports-product.css';
 import './owner-preview.css';
 import {requestOwnerSession} from '@/owner/session';
 import {OwnerPreviewBar} from '@/owner/PreviewControls';
@@ -10,6 +11,9 @@ import {Suspense} from 'react';
 import {headers} from 'next/headers';
 import {LegacyPageShell} from '@/localization/LegacyPageShell';
 import {isInterfaceLocale,languageTags} from '@/localization/interface';
+import {SiteFooter} from '@/localization/LegalPage';
+import {requestTimePreference} from '@/localization/time-zone-server';
+import {TimePreferenceProvider} from '@/localization/TimeZoneSelector';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://livasports.com'),
@@ -22,5 +26,6 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   const h=await headers(),session=requestOwnerSession(h);
   const value=h.get('x-livasports-interface-language');
   const language=isInterfaceLocale(value)?languageTags[value]:'en';
-  return <html lang={language}><body>{session?<OwnerPreviewBar preview={session.preview}/>:null}<div className="site-content-wrapper">{children}</div><Suspense fallback={null}><LegacyPageShell/></Suspense></body></html>;
+  const locale=isInterfaceLocale(value)?value:'en',timePreference=await requestTimePreference(locale);
+  return <html lang={language} data-scroll-behavior="smooth"><body><TimePreferenceProvider {...timePreference}>{session?<OwnerPreviewBar preview={session.preview}/>:null}<div className="site-content-wrapper">{children}<SiteFooter locale={locale}/></div><Suspense fallback={null}><LegacyPageShell/></Suspense></TimePreferenceProvider></body></html>;
 }

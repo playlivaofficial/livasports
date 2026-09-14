@@ -18,6 +18,17 @@ describe('persisted profile statistic semantics', () => {
 });
 
 describe('player profile read model', () => {
+  it('fills missing season totals from official rankings without replacing a verified zero or inventing a team',async()=>{
+    const stat={player_id:'player',season_id:'season',season_name:'2018/2019',competition_id:'league',competition_name:'League',team_id:'team',team_name:'Club',provider_type_id:208,type_name:'Goals',developer_name:'GOALS'};
+    const database={query:async(sql:string)=>({rows:sql.includes('SELECT * FROM players')?[{id:'player',public_id:'fedcba9876543210',display_name:'Player',updated_at:'2026-09-14'}]:sql.includes('WITH ranking_totals')?[
+      {...stat,value:{total:0}}, {...stat,value:{total:5}},
+      {...stat,season_id:'older',team_id:null,team_name:null,source_team_key:'unlinked:123',value:{total:2}},
+      {...stat,season_id:'older',team_id:null,team_name:null,source_team_key:'unlinked:456',value:{total:3}},
+    ]:[]})};
+    const profile=await new PostgresProfileRepository(database as never).player('fedcba9876543210','br');
+    expect(profile?.statistics.data.map(r=>r.value)).toEqual([0,2,3]);
+    expect(profile?.statistics.data[1]).toMatchObject({teamId:null,team:null,sourceTeamKey:'unlinked:123'});expect(profile?.currentTeam).toBeNull();expect(profile?.providerRequests).toBe(0);
+  });
   it('normalizes database dates and emits one appearance per canonical fixture', async () => {
     const fixture = { id:'fixture-id',public_id:'0123456789abcdef',kickoff:new Date('2026-09-06T15:00:00Z'),status:'FINISHED',
       home_score:0,away_score:1,competition_name:'Brasileirão Série A',home_team_id:'home',home_public_id:'1111111111111111',
@@ -44,7 +55,8 @@ describe('player profile read model', () => {
       return { rows:[] };
     } };
     await new PostgresProfileRepository(database as never).sitemapPlayers();
-    expect(statement).toContain('EXISTS (SELECT 1 FROM team_squad_memberships');
+    expect(statement).toContain('p.id IN (\n  SELECT sm.player_id FROM team_squad_memberships');
+    expect(statement).toContain('AND p.id IN (SELECT player_id FROM player_season_statistics');
     expect(statement).toContain('fixture_player_statistics');
     expect(statement).not.toContain('HAVING count(DISTINCT fl.fixture_id)>0');
   });

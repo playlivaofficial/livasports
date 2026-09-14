@@ -6,6 +6,7 @@ import { PlayerProfilePage, TeamProfilePage } from '@/components/profile/Profile
 import type { SiteLocale } from '@/config/i18n';
 import { loadPlayerProfile, loadTeamProfile } from './runtime';
 import { parseProfileParam, playerPath, slugifyProfileName, teamPath } from './routes';
+import {TeamHistoryPanel} from '@/sports/TeamHistoryPanel';
 
 const localeTag = { br: 'pt-BR', mx: 'es-MX' } as const;
 const metadataCopy = {
@@ -36,7 +37,7 @@ export async function profileMetadata(paramPromise: Promise<{ profile: string }>
     other: { 'content-language': localeTag[locale] } };
 }
 
-export async function ProfileRoutePage({ params, locale, entity }: { params: Promise<{ profile: string }>; locale: SiteLocale; entity: 'team' | 'player' }) {
+export async function ProfileRoutePage({ params, locale, entity,searchParams }: { params: Promise<{ profile: string }>; locale: SiteLocale; entity: 'team' | 'player';searchParams?:Promise<Record<string,string|string[]|undefined>> }) {
   await connection();
   const { profile: param } = await params;
   const parsed = parseProfileParam(param);
@@ -52,7 +53,7 @@ export async function ProfileRoutePage({ params, locale, entity }: { params: Pro
     { '@context':'https://schema.org','@type':'BreadcrumbList',itemListElement:[
       {'@type':'ListItem',position:1,name:'LivaSports',item:`https://livasports.com/${locale}`},
       {'@type':'ListItem',position:2,name:result.profile.name,item:canonical}]}];
-    return <><script type="application/ld+json" dangerouslySetInnerHTML={{__html:JSON.stringify(jsonLd).replace(/</g,'\\u003c')}}/><TeamProfilePage locale={locale} profile={result.profile}/></>;
+    return <><script type="application/ld+json" dangerouslySetInnerHTML={{__html:JSON.stringify(jsonLd).replace(/</g,'\\u003c')}}/><TeamProfilePage locale={locale} profile={result.profile} history={<TeamHistoryPanel profile={result.profile} locale={locale} query={await searchParams??{}}/>}/></>;
   }
   const result = await loadPlayerProfile(parsed.publicId, locale);
   if (result.kind === 'not-found') notFound();

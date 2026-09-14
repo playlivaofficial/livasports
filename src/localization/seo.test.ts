@@ -10,7 +10,8 @@ vi.mock('@/profiles/runtime',()=>({loadSitemapTeams:async()=>[{publicId:'1123456
 import sitemap from '@/app/sitemap';
 import {englishMatchMetadata,englishProfileMetadata} from './english-routes';
 it('includes every index and entity in all three locales with reciprocal absolute alternates',async()=>{
-  const rows=await sitemap();expect(rows).toHaveLength(21);expect(new Set(rows.map(row=>row.url)).size).toBe(21);
+  const rows=await sitemap();expect(rows).toHaveLength(135);expect(new Set(rows.map(row=>row.url)).size).toBe(135);
+  expect(rows.filter(row=>row.url.includes('?competition='))).toHaveLength(102);
   for(const row of rows){const alts=row.alternates?.languages;expect(Object.keys(alts??{})).toEqual(['pt-BR','es-MX','en','x-default']);expect(alts?.['x-default']).toBe(alts?.en);
     for(const url of Object.values(alts??{}))expect(rows.some(item=>item.url===url)).toBe(true);
   }

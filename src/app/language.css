@@ -7,6 +7,16 @@
 .language-picker :is(summary,button):focus-visible { outline:2px solid #53e5b5!important; outline-offset:3px; }
 @media(max-width:620px){.language-picker summary{padding:0 8px;gap:5px}.language-picker{font-size:.75rem}}
 .english-sports .english-timezone { font-size:.75rem; color:#9db0bf; }
+.time-zone-picker { position:relative; flex:none; z-index:41; font-size:.8rem; }
+.time-zone-picker summary { display:flex; align-items:center; gap:6px; min-height:44px; padding:0 10px; border:1px solid #334657; border-radius:8px; cursor:pointer; list-style:none; color:#f4f7fa; background:#101b27; }
+.time-zone-picker summary::-webkit-details-marker { display:none; }
+.time-zone-picker form { position:absolute; right:0; top:calc(100% + 8px); width:min(290px,calc(100vw - 32px)); padding:14px; border:1px solid #334657; border-radius:10px; background:#101b27; box-shadow:0 12px 35px #0008; }
+.time-zone-picker label { display:grid; gap:8px; font-weight:700; }
+.time-zone-picker select { min-height:44px; max-width:100%; width:100%; border:1px solid #446073; border-radius:6px; padding:6px; color:#f4f7fa; background:#152531; font:inherit; }
+.time-zone-picker p { line-height:1.5; color:#bdcbd6; font-size:.75rem; }
+.time-zone-picker button { min-height:44px; border:0; border-radius:6px; padding:8px 16px; background:#53e5b5; color:#06261f; font:inherit; font-weight:800; cursor:pointer; }
+.time-zone-picker :is(summary,select,button):focus-visible { outline:2px solid #53e5b5; outline-offset:3px; }
+@media(max-width:1100px){.time-zone-caption{display:none}.time-zone-picker summary{width:38px;justify-content:center;padding:0}.time-zone-picker form{right:-110px}}
 .english-sports .sports-layout { grid-template-columns:190px minmax(0,1fr); }
 .english-sports .sports-layout:has(> .sponsor-home_right_rail) { grid-template-columns:190px minmax(0,1fr) 300px; }
 @media(max-width:900px){

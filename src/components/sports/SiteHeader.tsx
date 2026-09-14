@@ -2,6 +2,8 @@ import Link from 'next/link';
 import type {PageKey} from '@/config/i18n';
 import {interfaceDictionary as getDictionary,interfaceRoutes as localeRoutes,type InterfaceLocale as SiteLocale} from '@/localization/interface';
 import {LanguageSelector} from '@/localization/LanguageSelector';
+import {sportsCopy} from '@/sports/copy';
+import {TimeZoneSelector} from '@/localization/TimeZoneSelector';
 
 export function SiteHeader({ locale, activePage, contentId = 'fixtures-content' }: { locale: SiteLocale; activePage: PageKey; localeHrefs?: { br: string; mx: string }; contentId?: string }) {
   const dictionary = getDictionary(locale);
@@ -21,7 +23,8 @@ export function SiteHeader({ locale, activePage, contentId = 'fixtures-content' 
         <nav aria-label={dictionary.labels.primaryNavigation} className="main-nav">
           {items.map(([key, href, label]) => <Link key={key} href={href} aria-current={activePage === key ? 'page' : undefined} className={`nav-link nav-${key}`}>{key==='live'?<span className="nav-live-dot" aria-hidden="true"/>:null}{label}</Link>)}
         </nav>
-        <LanguageSelector locale={locale}/>
+        <div className="sports-header-actions"><Link className="sports-search-link" href={`${routes.football}#sports-search`} aria-label={sportsCopy[locale].search}>{sportsCopy[locale].search}</Link>
+        <TimeZoneSelector locale={locale}/><LanguageSelector locale={locale}/></div>
       </div>
     </header>
   );

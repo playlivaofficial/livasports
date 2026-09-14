@@ -1,6 +1,6 @@
 import { getDictionary, type PageKey, type SiteLocale } from '@/config/i18n';
 import type { FootballReadRepository } from '@/ingestion/store';
-import { deliveryWindow,localDayRange } from './time';
+import { deliveryWindow,localDayRange,zonedDateTimeToUtc } from './time';
 import { filterFixturesForPage, groupFixtureViews, stableSortFixtures } from './fixtures';
 import type { FixtureView, M2PageData, ProviderState } from './types';
 
@@ -11,11 +11,12 @@ export class DatabaseM2ReadService {
   constructor(private readonly repository: FootballReadRepository, private readonly now: () => Date = () => new Date()) {}
 
   async loadOrThrow(locale: SiteLocale, page: PageKey, selectedDate?:string, displayTimeZone?:string, competitionSlug?:string): Promise<M2PageData> {
-    const now = selectedDate?new Date(selectedDate+'T12:00:00Z'):this.now();
     const dictionary = getDictionary(locale);
     const timeZone=displayTimeZone??dictionary.timeZone;
+    const parts=selectedDate?.split('-').map(Number);
+    const now = parts?zonedDateTimeToUtc({year:parts[0],month:parts[1],day:parts[2],hour:12},timeZone):this.now();
     const base = { locale, page, currentDate: new Intl.DateTimeFormat(dictionary.locale, { dateStyle: 'full', timeZone }).format(now), timeZone };
-    const window = selectedDate||((page==='home'||page==='today')&&displayTimeZone)?localDayRange(now,timeZone):deliveryWindow(locale,page,now);
+    const window = selectedDate?localDayRange(now,timeZone):deliveryWindow(locale,page,now,timeZone);
     if(competitionSlug&&!selectedDate&&page==='football')window.to=new Date(now.getTime()+45*86400000);
       const statuses = page === 'live' ? ['LIVE', 'HALFTIME'] : [];
       const [competitionRows, rows] = await Promise.all([

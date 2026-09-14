@@ -30,4 +30,4 @@ export async function loadMatchCenter(publicId: string, locale: SiteLocale) {
   try { return await getLoader().load(publicId, locale, requestCommercialGeo(await headers())); }
   finally { console.info(`[LivaSports M4] ${JSON.stringify({event:'match-data-load',locale,publicId,durationMs:Math.round((performance.now()-started)*10)/10,providerRequests:0})}`); }
 }
-export function loadSitemapMatches() { return getRepository().sitemapFixtures(); }
+export function loadSitemapMatches(limit=100) { return getRepository().sitemapFixtures(limit); }

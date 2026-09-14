@@ -53,8 +53,9 @@ export interface ProfileStatistic {
   competition: string;
   seasonId: string;
   season: string;
-  teamId: string;
-  team: string;
+  teamId: string | null;
+  team: string | null;
+  sourceTeamKey?: string;
   typeId: number;
   code: string;
   label: string;

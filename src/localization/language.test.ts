@@ -53,6 +53,15 @@ describe('context preservation and safe language POST',()=>{
   });
   it.each(['https://evil.test','//evil.test','/\\evil.test','/br/../../api/affiliate','/api/affiliate','/en/match/bad','/en%0d%0aLocation:evil'])('rejects unsafe or unrelated destinations %s',input=>expect(translatedPath(input,'en')).toBe('/en'));
   const request=(locale:string,returnTo:string,origin='https://livasports.com')=>new NextRequest('https://livasports.com/language',{method:'POST',headers:{origin},body:new URLSearchParams({locale,returnTo})});
+  it('preserves independent historical squad and results selections through the language endpoint',async()=>{
+    const query='?matches=results&p=2&season=01234567-89ab-cdef-0123-456789abcdef&squadSeason=aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee#squad';
+    const segments={br:'time',mx:'equipo',en:'team'};
+    for(const from of ['br','mx','en'] as const)for(const to of ['br','mx','en'] as const){
+      const response=await POST(request(to,`/${from}/${segments[from]}/team-0123456789abcdef${query}`));
+      expect(response.status).toBe(303);
+      expect(response.headers.get('location')).toBe(`https://livasports.com/${to}/${segments[to]}/team-0123456789abcdef${query}`);
+    }
+  });
   it('sets only the first-party language cookie and redirects with 303',async()=>{
     const response=await POST(request('en','/br/time/flamengo-0123456789abcdef#squad'));
     expect(response.status).toBe(303);expect(response.headers.get('location')).toBe('https://livasports.com/en/team/flamengo-0123456789abcdef#squad');
