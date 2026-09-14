@@ -2,11 +2,12 @@ import 'server-only';
 import {authorizedOwnerKey,newOwnerSession,ownerConfigured,ownerCookie,ownerSessionSeconds,requestOwnerSession,signOwnerSession} from './session';
 import {requestCountry} from '@/odds/commercial-geo';
 import {boundedJson} from '@/slip/server';
+import {productionOwnerLoginLimiter,type OwnerLoginLimiter} from './rate-limit';
 
 export const ownerHeaders={'Cache-Control':'private, no-store','Vary':'Cookie','X-Robots-Tag':'noindex, nofollow','Referrer-Policy':'no-referrer'};
 const reply=(body:unknown,status=200)=>Response.json(body,{status,headers:ownerHeaders});
 export function ownerStatus(request:Request){const session=requestOwnerSession(request.headers);return reply({configured:ownerConfigured(),authorized:!!session,preview:session?.preview??false,realCountry:requestCountry(request.headers),expiresAt:session?.expiresAt??null});}
-export async function ownerAction(request:Request){
+export async function ownerAction(request:Request,limiter:OwnerLoginLimiter=productionOwnerLoginLimiter){
   const url=new URL(request.url);
   if(url.search||request.headers.get('origin')!==url.origin||request.headers.get('sec-fetch-site')!=='same-origin')return reply({error:'INVALID_ORIGIN'},403);
   if(url.protocol!=='https:'&&!['localhost','127.0.0.1'].includes(url.hostname))return reply({error:'HTTPS_REQUIRED'},403);
@@ -16,7 +17,14 @@ export async function ownerAction(request:Request){
   if(!ownerConfigured())return reply({error:'OWNER_QA_NOT_CONFIGURED'},503);
   let session=requestOwnerSession(request.headers);
   if(body.action==='login'){
-    if(!authorizedOwnerKey(body.key))return reply({error:'INVALID_ACCESS_KEY'},401);
+    let retry:number|null;try{retry=await limiter.check(request);}catch{return reply({error:'LOGIN_TEMPORARILY_UNAVAILABLE'},503);}
+    if(retry){const response=reply({error:'TOO_MANY_ATTEMPTS'},429);response.headers.set('Retry-After',String(retry));return response;}
+    if(!authorizedOwnerKey(body.key)){
+      try{retry=await limiter.failure(request);}catch{return reply({error:'LOGIN_TEMPORARILY_UNAVAILABLE'},503);}
+      if(retry){const response=reply({error:'TOO_MANY_ATTEMPTS'},429);response.headers.set('Retry-After',String(retry));return response;}
+      return reply({error:'INVALID_ACCESS_KEY'},401);
+    }
+    try{await limiter.success(request);}catch{return reply({error:'LOGIN_TEMPORARILY_UNAVAILABLE'},503);}
     session=newOwnerSession();
   }else if(!session)return reply({error:'UNAUTHORIZED'},401);
   else if(body.action==='preview'&&typeof body.enabled==='boolean')session={...session,preview:body.enabled};

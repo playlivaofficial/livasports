@@ -1,7 +1,7 @@
 'use client';
 import {useState,type FormEvent} from 'react';
 
-async function action(body:Record<string,unknown>){const response=await fetch('/api/owner/preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),cache:'no-store'});if(!response.ok)throw Error(response.status===401?'Access key is invalid or your session expired. Please sign in again.':'Could not update preview. Please try again.');}
+async function action(body:Record<string,unknown>){const response=await fetch('/api/owner/preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),cache:'no-store'});if(!response.ok)throw Error(response.status===401?'Access key is invalid. Please check it and try again.':response.status===429?'Too many failed attempts. Please wait 15 minutes and try again.':response.status===503?'Owner sign-in is temporarily unavailable. Please try again shortly.':'Could not update preview. Please try again.');}
 export function PreviewControls({authorized,preview,configured,country}:{authorized:boolean;preview:boolean;configured:boolean;country:string|null}){
   const [error,setError]=useState(''),[busy,setBusy]=useState(false);
   async function run(body:Record<string,unknown>){setBusy(true);setError('');try{await action(body);window.location.reload();}catch(e){setError((e as Error).message);setBusy(false);}}
@@ -12,7 +12,7 @@ export function PreviewControls({authorized,preview,configured,country}:{authori
       <p>Preview clicks and impressions are QA_TEST. Betsson test links open the approved sportsbook. LivaSports does not record these clicks as production conversions.</p>
       <button disabled={busy} onClick={()=>void run({action:'preview',enabled:!preview})}>{preview?'Turn Brazil preview off':'Turn Brazil preview on'}</button>
       {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- Re-read the owner session and preview headers with a full document request. */}
-      <a href="/br">Open Brazil site →</a><button disabled={busy} onClick={()=>void run({action:'logout'})}>Sign out</button><p>Access expires after 8 hours. Keep your access key private.</p>
+      <a href="/br">Open Brazil site →</a><button disabled={busy} onClick={()=>void run({action:'logout'})}>Sign out</button><p>This device stays signed in for 30 days. Keep your permanent access key private.</p>
     </>}{error?<p role="alert">{error}</p>:null}</main>;
 }
 export function OwnerPreviewBar({preview}:{preview:boolean}){

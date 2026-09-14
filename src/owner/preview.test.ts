@@ -1,7 +1,8 @@
 import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
 vi.mock('server-only',()=>({}));
-import {accessKeyHash,authorizedOwnerKey,newOwnerSession,ownerCookie,previewBinding,requestOwnerSession,signOwnerSession} from './session';
+import {accessKeyHash,authorizedOwnerKey,newOwnerSession,ownerCookie,ownerSessionSeconds,previewBinding,requestOwnerSession,signOwnerSession} from './session';
 import {ownerAction,ownerStatus} from './server';
+import type {OwnerLoginLimiter} from './rate-limit';
 import {requestCommercialGeo,requestCountry} from '@/odds/commercial-geo';
 import {geoAllowed} from '@/affiliate/policy';
 import {offersRequest,outboundRequest,impressionRequest,creativeRequest,embedClickRequest,legacyOutbound,type CommercialServices} from '@/affiliate/server';
@@ -13,6 +14,7 @@ import {POST as productEvent} from '@/app/api/events/route';
 import {approvedImagePath,qaCreativeDocument} from './creative';
 
 const access='q'.repeat(43),origin='https://livasports.com';
+const openLimiter:OwnerLoginLimiter={check:async()=>null,failure:async()=>null,success:async()=>undefined};
 const sessionHeaders=(preview=true)=>new Headers({'cookie':ownerCookie+'='+signOwnerSession({...newOwnerSession(),preview}),'x-vercel-ip-country':'GE'});
 const post=(body:unknown,headers:HeadersInit={})=>new Request(origin+'/api/owner/preview',{method:'POST',headers:{origin,'sec-fetch-site':'same-origin','content-type':'application/json',...Object.fromEntries(new Headers(headers))},body:JSON.stringify(body)});
 beforeEach(()=>{vi.stubEnv('VERCEL','1');vi.stubEnv('OWNER_QA_SESSION_SECRET','s'.repeat(43));vi.stubEnv('OWNER_QA_ACCESS_HASH',accessKeyHash(access));vi.stubEnv('AFFILIATE_ANALYTICS_MODE','anonymous');});
@@ -20,12 +22,23 @@ afterEach(()=>{vi.unstubAllEnvs();vi.restoreAllMocks();});
 
 describe('owner authentication and GEO isolation',()=>{
   it('authenticates only the dedicated high entropy owner key and signs an off-by-default secure session',async()=>{
-    expect(authorizedOwnerKey(access)).toBe(true);expect(authorizedOwnerKey('wrong')).toBe(false);
-    expect((await ownerAction(post({action:'login',key:'wrong'}))).status).toBe(401);
-    const r=await ownerAction(post({action:'login',key:access})),cookie=r.headers.get('set-cookie')!;
+    expect(authorizedOwnerKey(access)).toBe(true);expect(authorizedOwnerKey('  '+access+'\r\n')).toBe(true);expect(authorizedOwnerKey('wrong')).toBe(false);
+    expect((await ownerAction(post({action:'login',key:'wrong'}),openLimiter)).status).toBe(401);
+    const r=await ownerAction(post({action:'login',key:'  '+access+'\n'}),openLimiter),cookie=r.headers.get('set-cookie')!;
     expect(r.status).toBe(200);expect(await r.json()).toEqual({authorized:true,preview:false});
     for(const flag of ['__Host-','Secure','HttpOnly','SameSite=Strict','Path=/','Max-Age='])expect(cookie).toContain(flag);
+    expect(ownerSessionSeconds).toBe(30*24*60*60);expect(cookie).toContain('Max-Age=2592000');
     expect(cookie).not.toContain(access);expect(r.headers.get('cache-control')).toBe('private, no-store');
+  });
+  it('rate-limits failed logins without binding a valid key or session to a device',async()=>{
+    let failures=0;const limiter:OwnerLoginLimiter={check:async()=>failures>=5?900:null,failure:async()=>++failures>=5?900:null,success:async()=>{failures=0;}};
+    for(let attempt=1;attempt<5;attempt++)expect((await ownerAction(post({action:'login',key:'wrong'}),limiter)).status).toBe(401);
+    const blocked=await ownerAction(post({action:'login',key:'wrong'}),limiter);expect(blocked.status).toBe(429);expect(blocked.headers.get('retry-after')).toBe('900');
+    failures=0;
+    const first=await ownerAction(post({action:'login',key:access},{'x-forwarded-for':'203.0.113.1'}),limiter);
+    const second=await ownerAction(post({action:'login',key:access},{'x-forwarded-for':'198.51.100.2','user-agent':'Different browser'}),limiter);
+    expect(first.status).toBe(200);expect(second.status).toBe(200);
+    for(const response of [first,second])expect(requestOwnerSession(new Headers({cookie:response.headers.get('set-cookie')!.split(';')[0]}))).toMatchObject({preview:false});
   });
   it('rejects cross-origin, missing-origin, unauthenticated toggle and oversize inputs',async()=>{
     for(const headers of ([{origin:'https://evil.test'},{'sec-fetch-site':'cross-site'},{origin:''}] as Record<string,string>[]))expect((await ownerAction(post({action:'login',key:access},headers))).status).toBe(403);
