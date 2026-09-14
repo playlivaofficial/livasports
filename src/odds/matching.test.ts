@@ -169,6 +169,37 @@ describe('safe odds fixture matching',()=>{
     expect(matchOddsFixture(provider,[pachuca],[]).state).toBe('HIGH_CONFIDENCE');
     expect(matchOddsFixture({...provider,awayNames:['Tijuana FC']},[pachuca],[]).state).toBe('TEAM_MISMATCH');
   });
+  it('matches Champions League reviewed provider names without aliasing bare city clubs',()=>{
+    const lille={...canonical,id:'ars-lil',competition:'champions-league',home:'Arsenal',away:'LOSC Lille',kickoff:'2026-10-13T19:00:00Z'};
+    const glimt={...canonical,id:'bodo-dor',competition:'champions-league',home:'Bodø / Glimt',away:'Borussia Dortmund',kickoff:'2026-10-14T19:00:00Z'};
+    expect(matchOddsFixture({...raw,competition:'champions-league',kickoff:lille.kickoff,homeNames:['Arsenal FC','Arsenal'],awayNames:['Lille OSC','Lille']},[lille],[]).state).toBe('HIGH_CONFIDENCE');
+    expect(matchOddsFixture({...raw,competition:'champions-league',kickoff:lille.kickoff,homeNames:['Arsenal'],awayNames:['Lille']},[lille],[]).state).toBe('TEAM_MISMATCH');
+    expect(matchOddsFixture({...raw,competition:'champions-league',kickoff:glimt.kickoff,homeNames:['Bodoe/Glimt'],awayNames:['Borussia Dortmund','Dortmund']},[glimt],[]).state).toBe('HIGH_CONFIDENCE');
+    expect(matchOddsFixture({...raw,competition:'champions-league',kickoff:glimt.kickoff,homeNames:['Glimt'],awayNames:['Dortmund']},[glimt],[]).state).toBe('TEAM_MISMATCH');
+  });
+  it('matches Argentina Primera reviewed provider names without aliasing bare city clubs',()=>{
+    const riestra={...canonical,id:'rie-lan',competition:'argentina-primera-division',home:'Deportivo Riestra',away:'Lanús',kickoff:'2026-09-14T22:00:00Z'};
+    const independiente={...canonical,id:'uni-ind',competition:'argentina-primera-division',home:'Unión Santa Fe',away:'Independiente',kickoff:'2026-09-19T19:45:00Z'};
+    const rivadavia={...canonical,id:'bar-riv',competition:'argentina-primera-division',home:'Barracas Central',away:'Independiente Rivadavia',kickoff:'2026-09-21T22:00:00Z'};
+    expect(matchOddsFixture({...raw,competition:'argentina-primera-division',kickoff:riestra.kickoff,homeNames:['Deportivo Riestra AFBC'],awayNames:['CA Lanus','Lanus']},[riestra],[]).state).toBe('HIGH_CONFIDENCE');
+    expect(matchOddsFixture({...raw,competition:'argentina-primera-division',kickoff:riestra.kickoff,homeNames:['Riestra'],awayNames:['Lanus']},[riestra],[]).state).toBe('TEAM_MISMATCH');
+    expect(matchOddsFixture({...raw,competition:'argentina-primera-division',kickoff:independiente.kickoff,homeNames:['Union de Santa Fe','Union Santa Fe'],awayNames:['CA Independiente Avellaneda']},[independiente],[]).state).toBe('HIGH_CONFIDENCE');
+    expect(matchOddsFixture({...raw,competition:'argentina-primera-division',kickoff:rivadavia.kickoff,homeNames:['CA Barracas Central'],awayNames:['Independiente Rivadavia']},[rivadavia],[]).state).toBe('HIGH_CONFIDENCE');
+    expect(matchOddsFixture({...raw,competition:'argentina-primera-division',kickoff:rivadavia.kickoff,homeNames:['Barracas'],awayNames:['Rivadavia']},[rivadavia],[]).state).toBe('TEAM_MISMATCH');
+    const rioCuarto={...canonical,id:'ins-erc',competition:'argentina-primera-division',home:'Instituto',away:'Estudiantes de Río Cuarto',kickoff:'2026-09-15T00:15:00Z'};
+    expect(matchOddsFixture({...raw,competition:'argentina-primera-division',kickoff:rioCuarto.kickoff,homeNames:['Instituto AC Cordoba'],awayNames:['Estudiantes Rio Cuarto']},[rioCuarto],[]).state).toBe('HIGH_CONFIDENCE');
+    expect(matchOddsFixture({...raw,competition:'argentina-primera-division',kickoff:rioCuarto.kickoff,homeNames:['Instituto'],awayNames:['Rio Cuarto']},[rioCuarto],[]).state).toBe('TEAM_MISMATCH');
+  });
+  it('matches Serie B, Coppa Italia and Super Lig reviewed provider names without city shortcuts',()=>{
+    const vicenza={...canonical,id:'ver-vic',competition:'serie-b-italy',home:'Hellas Verona',away:'Vicenza',kickoff:'2026-09-20T13:00:00Z'};
+    const sudtirol={...canonical,id:'gen-sud',competition:'coppa-italia',home:'Genoa',away:'Südtirol',kickoff:'2026-09-15T16:00:00Z'};
+    const kasimpasa={...canonical,id:'kas-kon',competition:'super-lig',home:'Kasımpaşa',away:'Konyaspor',kickoff:'2026-09-18T17:00:00Z'};
+    expect(matchOddsFixture({...raw,competition:'serie-b-italy',kickoff:vicenza.kickoff,homeNames:['Hellas Verona'],awayNames:['L.R. Vicenza']},[vicenza],[]).state).toBe('HIGH_CONFIDENCE');
+    expect(matchOddsFixture({...raw,competition:'coppa-italia',kickoff:sudtirol.kickoff,homeNames:['Genoa CFC','Genoa'],awayNames:['FC Sudtirol Bolzano']},[sudtirol],[]).state).toBe('HIGH_CONFIDENCE');
+    expect(matchOddsFixture({...raw,competition:'coppa-italia',kickoff:sudtirol.kickoff,homeNames:['Genoa'],awayNames:['Bolzano']},[sudtirol],[]).state).toBe('TEAM_MISMATCH');
+    expect(matchOddsFixture({...raw,competition:'super-lig',kickoff:kasimpasa.kickoff,homeNames:['Kasimpasa Istanbul','Kasimpasa'],awayNames:['Konyaspor']},[kasimpasa],[]).state).toBe('HIGH_CONFIDENCE');
+    expect(matchOddsFixture({...raw,competition:'super-lig',kickoff:kasimpasa.kickoff,homeNames:['Istanbul'],awayNames:['Konyaspor']},[kasimpasa],[]).state).toBe('TEAM_MISMATCH');
+  });
   it('matches Championship names without extra aliases and repairs the proven +4h kickoff defect',()=>{
     const derby={...canonical,id:'lei-cov',competition:'championship',home:'Leicester City',away:'Coventry City',kickoff:'2026-09-12T14:00:00Z'};
     expect(matchOddsFixture({...raw,competition:'championship',kickoff:'2026-09-12T18:00:00Z',homeNames:['Leicester City','Leicester'],awayNames:['Coventry City','Coventry']},[{...derby,kickoff:'2026-09-12T18:00:00Z'}],[]).state).toBe('HIGH_CONFIDENCE');

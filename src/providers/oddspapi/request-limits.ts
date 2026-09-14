@@ -14,3 +14,6 @@ export const COVERAGE_DISCOVERY_REQUEST_CAP = 20;
  */
 export const CANARY4_LEDGER_START = '2026-09-13T16:25:00.000Z';
 export const CANARY4_DISCOVERY_REQUEST_CAP = 28;
+/** Canary 5: activate remaining catalog-verified competitions one tournament at a time. */
+export const CANARY5_LEDGER_START = '2026-09-14T20:15:00.000Z';
+export const CANARY5_DISCOVERY_REQUEST_CAP = 52;

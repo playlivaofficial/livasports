@@ -2,7 +2,7 @@ import type {QueryExecutor} from '@/database/client';
 import {FOOTBALL_COMPETITION_TARGETS} from '@/config/footballCompetitions';
 import {KICKOFF_TOLERANCE_MS, type CanonicalOddsFixture, type OddsSnapshot, type ProviderOddsFixture} from './types';
 import {matchOddsFixture, namesMatch} from './matching';
-import {M5_TOURNAMENTS} from '@/providers/oddspapi/m5-normalizer';
+import {M5_REJECTED_TOURNAMENTS,M5_TOURNAMENTS} from '@/providers/oddspapi/m5-normalizer';
 import {resolveCatalogTournaments, schedulerTournaments} from '@/providers/oddspapi/tournament-catalog';
 import {budgetHealth} from './budget';
 
@@ -173,7 +173,12 @@ export async function buildCoverageMatrix(db: QueryExecutor) {
     } else if (tournament) {
       verificationState = 'VERIFIED_CATALOG';
       verificationSource = `OddsPapi catalog unique ${tournament.slug}/${tournament.category} id ${tournament.id}`;
-      disabledReason = 'catalog-verified; not yet canaried into the scheduler allowlist';
+      const rejected = M5_REJECTED_TOURNAMENTS.find(row => row.id === tournament.id);
+      disabledReason = rejected
+        ? `catalog-verified; singleton canary ${rejected.reason}; not scheduled`
+        : Number(row.upcoming) === 0
+          ? 'catalog-verified; no current LivaSports upcoming fixtures; canary deferred'
+          : 'catalog-verified; not yet canaried into the scheduler allowlist';
     } else if (!target?.enabled) {
       disabledReason = 'competition disabled';
     }

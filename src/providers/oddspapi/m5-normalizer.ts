@@ -26,6 +26,20 @@ export const M5_EXPANDED_TOURNAMENTS = [
   {id:'238',slug:'liga-portugal',category:'portugal',canonical:'liga-portugal'},
   {id:'37',slug:'eredivisie',category:'netherlands',canonical:'eredivisie'},
   {id:'18',slug:'championship',category:'england',canonical:'championship'},
+  {id:'7',slug:'uefa-champions-league',category:'international-clubs',canonical:'champions-league'},
+  {id:'155',slug:'liga-profesional',category:'argentina',canonical:'argentina-primera-division'},
+  {id:'182',slug:'ligue-2',category:'france',canonical:'ligue-2'},
+  {id:'53',slug:'serie-b',category:'italy',canonical:'serie-b-italy'},
+  {id:'52',slug:'super-lig',category:'turkiye',canonical:'super-lig'},
+  {id:'328',slug:'coppa-italia',category:'italy',canonical:'coppa-italia'},
+  {id:'21',slug:'efl-cup',category:'england',canonical:'carabao-cup'},
+] as const;
+/** Catalog-verified IDs that singleton canary proved empty. Do not schedule; 404 would burn quota every tick. */
+export const M5_REJECTED_TOURNAMENTS = [
+  {id:'373',slug:'copa-do-brasil',category:'brazil',canonical:'copa-do-brasil',reason:'SINGLETON_CANARY_FIXTURE_NOT_FOUND'},
+  {id:'19',slug:'fa-cup',category:'england',canonical:'fa-cup',reason:'SINGLETON_CANARY_FIXTURE_NOT_FOUND'},
+  {id:'329',slug:'copa-del-rey',category:'spain',canonical:'copa-del-rey',reason:'SINGLETON_CANARY_FIXTURE_NOT_FOUND'},
+  {id:'955',slug:'saudi-pro-league',category:'saudi-arabia',canonical:'saudi-pro-league',reason:'SINGLETON_CANARY_FIXTURE_NOT_FOUND'},
 ] as const;
 const rules: Record<string,{market:OddsMarket;name:string;type:string;line:number|null;outcomes:Record<string,{name:string;code:OddsOutcome}>}>={
   '101':{market:'MATCH_WINNER',name:'Full Time Result',type:'1x2',line:null,outcomes:{'101':{name:'1',code:'HOME'},'102':{name:'X',code:'DRAW'},'103':{name:'2',code:'AWAY'}}},

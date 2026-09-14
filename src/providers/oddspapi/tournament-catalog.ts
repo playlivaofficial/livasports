@@ -1,5 +1,5 @@
 import {FOOTBALL_COMPETITION_TARGETS} from '@/config/footballCompetitions';
-import {M5_EXPANDED_TOURNAMENTS,M5_TOURNAMENTS} from './m5-normalizer';
+import {M5_EXPANDED_TOURNAMENTS,M5_REJECTED_TOURNAMENTS,M5_TOURNAMENTS} from './m5-normalizer';
 
 export interface CatalogTournament {
   id: string;
@@ -85,6 +85,19 @@ export const STABLE_TOURNAMENT_IDS: ReadonlySet<string> = new Set(M5_TOURNAMENTS
 export function isStableOddsTournament(id: string): boolean {
   return STABLE_TOURNAMENT_IDS.has(id);
 }
+export function selectCanaryTournament(
+  slug: string,
+  raw: unknown[],
+  expanded: readonly {id:string;slug:string;category:string;canonical:string}[]=M5_EXPANDED_TOURNAMENTS,
+): CatalogTournament {
+  const candidate=resolveCatalogTournaments(raw).find(row=>row.canonical===slug);
+  if(!candidate)throw new Error('ODDS_TOURNAMENT_UNVERIFIED');
+  if(M5_TOURNAMENTS.some(row=>row.id===candidate.id))throw new Error('ODDS_TOURNAMENT_ALREADY_STABLE');
+  if(M5_REJECTED_TOURNAMENTS.some(row=>row.id===candidate.id))throw new Error('ODDS_TOURNAMENT_CANARY_REJECTED');
+  if(schedulerTournaments(raw,expanded).some(row=>row.id===candidate.id))throw new Error('ODDS_TOURNAMENT_ALREADY_SCHEDULED');
+  return candidate;
+}
+
 export function schedulerTournaments(raw: unknown[], expanded: readonly {id:string;slug:string;category:string;canonical:string}[]=M5_EXPANDED_TOURNAMENTS): CatalogTournament[] {
   const resolved = resolveCatalogTournaments(raw);
   const byId = new Map(resolved.map(row => [row.id, row]));

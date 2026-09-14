@@ -11,6 +11,7 @@ vi.mock('@/providers/oddspapi/M5OddsPapiAdapter',()=>({M5OddsPapiAdapter:class {
 vi.mock('@/providers/oddspapi/m5-normalizer',()=>({
   M5_TOURNAMENTS:[{id:'325',slug:'brasileiro-serie-a',category:'brazil',canonical:'brasileirao-serie-a'}],
   get M5_EXPANDED_TOURNAMENTS(){return mocked.expanded;},
+  M5_REJECTED_TOURNAMENTS:[],
   verifyCatalog:vi.fn(),
 }));
 vi.mock('./ingestion',()=>({startOddsJob:mocked.start,persistSnapshot:mocked.persist,canonicalFixtures:async()=>[

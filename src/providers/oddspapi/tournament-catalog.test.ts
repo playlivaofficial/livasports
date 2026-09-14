@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {catalogNeedsExpansion,mergeCatalogTournaments,resolveCatalogTournaments,schedulerTournaments} from './tournament-catalog';
+import {catalogNeedsExpansion,mergeCatalogTournaments,resolveCatalogTournaments,schedulerTournaments,selectCanaryTournament} from './tournament-catalog';
 
 const baseline = [
   {tournamentId: 325, tournamentSlug: 'brasileiro-serie-a', categorySlug: 'brazil'},
@@ -70,6 +70,15 @@ describe('OddsPapi catalog identity', () => {
       {tournamentId: 37, tournamentSlug: 'eredivisie', categorySlug: 'netherlands'},
       {tournamentId: 18, tournamentSlug: 'championship', categorySlug: 'england'},
     ]).map(row => row.id)).toEqual(['325', '27464', '17', '384', '390', '8', '35', '23', '679', '480', '242', '34', '238', '37', '18']);
+    expect(schedulerTournaments([...baseline,
+      {tournamentId: 7, tournamentSlug: 'uefa-champions-league', categorySlug: 'international-clubs'},
+      {tournamentId: 155, tournamentSlug: 'liga-profesional', categorySlug: 'argentina'},
+      {tournamentId: 182, tournamentSlug: 'ligue-2', categorySlug: 'france'},
+      {tournamentId: 53, tournamentSlug: 'serie-b', categorySlug: 'italy'},
+      {tournamentId: 52, tournamentSlug: 'super-lig', categorySlug: 'turkiye'},
+      {tournamentId: 328, tournamentSlug: 'coppa-italia', categorySlug: 'italy'},
+      {tournamentId: 21, tournamentSlug: 'efl-cup', categorySlug: 'england'},
+    ]).map(row => row.id)).toEqual(['325', '27464', '17', '384', '7', '155', '182', '53', '52', '328', '21']);
     expect(schedulerTournaments(extra, [
       {id: '326', slug: 'brasileiro-serie-b', category: 'brazil', canonical: 'brasileirao-serie-b'},
     ]).map(row => row.id)).toEqual(['325', '27464', '17', '384', '326']);
@@ -85,5 +94,22 @@ describe('OddsPapi catalog identity', () => {
     ]);
     expect(merged).toHaveLength(5);
     expect(merged.some(row => (row as {tournamentId: number}).tournamentId === 999)).toBe(false);
+  });
+
+  it('selects a catalog-verified singleton canary and rejects unknown, stable, rejected, or already-scheduled IDs', () => {
+    const catalog = [...baseline,
+      {tournamentId: 373, tournamentSlug: 'copa-do-brasil', categorySlug: 'brazil'},
+      {tournamentId: 498, tournamentSlug: 'concacaf-champions-cup', categorySlug: 'international-clubs'},
+    ];
+    expect(selectCanaryTournament('concacaf-champions-cup', catalog)).toEqual({
+      id: '498', slug: 'concacaf-champions-cup', category: 'international-clubs', canonical: 'concacaf-champions-cup',
+    });
+    expect(() => selectCanaryTournament('copa-do-brasil', catalog)).toThrow('ODDS_TOURNAMENT_CANARY_REJECTED');
+    expect(() => selectCanaryTournament('la-liga-2', catalog)).toThrow('ODDS_TOURNAMENT_UNVERIFIED');
+    expect(() => selectCanaryTournament('guessed-league', catalog)).toThrow('ODDS_TOURNAMENT_UNVERIFIED');
+    expect(() => selectCanaryTournament('premier-league', catalog)).toThrow('ODDS_TOURNAMENT_ALREADY_STABLE');
+    expect(() => selectCanaryTournament('concacaf-champions-cup', catalog, [
+      {id: '498', slug: 'concacaf-champions-cup', category: 'international-clubs', canonical: 'concacaf-champions-cup'},
+    ])).toThrow('ODDS_TOURNAMENT_ALREADY_SCHEDULED');
   });
 });

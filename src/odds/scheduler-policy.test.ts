@@ -66,13 +66,13 @@ describe('shared adaptive pregame scheduler',()=>{
     }
     expect(cadenceIntervalMinutes(0,1)).toBeNull();expect(freshnessTtlMs(0,1)).toBe(0);
   });
-  it('budgets all thirty feeds over real kickoff windows and stops when the period is unverified',()=>{
-    const feeds=['325','27464','17','384','390','8','35','23','679','480','242','34','238','37','18'].flatMap(tournamentId=>
+  it('budgets all forty-four feeds over real kickoff windows and stops when the period is unverified',()=>{
+    const feeds=['325','27464','17','384','390','8','35','23','679','480','242','34','238','37','18','7','155','182','53','52','328','21'].flatMap(tournamentId=>
       ['betano.bet.br','betsson'].map(bookmaker=>target(1,{tournamentId,bookmaker,lastSuccessAt:null,
         fixtures:Array.from({length:14},(_,i)=>({id:String(i),status:'SCHEDULED',kickoff:new Date(now.getTime()+(i*12+1)*3600000).toISOString()}))})));
     const budget={verified:true,routineRemaining:1000,period_end:new Date(now.getTime()+19*86400000)};
     const policy=budgetCadence(feeds,now,budget);
-    expect(policy.activeFeeds).toBe(30);expect(policy.scale).toBeGreaterThan(1);
+    expect(policy.activeFeeds).toBe(44);expect(policy.scale).toBeGreaterThan(1);
     expect(forecastRequests(feeds,now,policy.horizonDays,policy.scale)).toBeLessThanOrEqual(policy.dailyAllowance*policy.horizonDays);
     expect(planScheduler(feeds,now,{verified:false}).batches).toEqual([]);
   });

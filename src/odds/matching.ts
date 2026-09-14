@@ -91,9 +91,53 @@ const aliases: Record<string, Record<string,string>> = {
     'fc twente enschede':'fc twente',
     'psv eindhoven':'psv',
   },
+  'champions-league': {
+    'lille osc':'losc lille',
+    'atletico madrid':'atletico de madrid',
+    'bayern munich':'fc bayern munchen',
+    'psv eindhoven':'psv',
+    'bodoe glimt':'bod glimt',
+    'fc shakhtar donetsk':'shakhtar donetsk',
+    'sabah masazir':'sabah',
+    'slavia prague':'slavia praha',
+  },
+  'argentina-primera-division': {
+    'deportivo riestra afbc':'deportivo riestra',
+    'ca barracas central':'barracas central',
+    'ca central cordoba se':'central cordoba sde',
+    'ca independiente avellaneda':'independiente',
+    'independiente avellaneda':'independiente',
+    'instituto ac cordoba':'instituto',
+    'instituto cordoba':'instituto',
+    'ca san lorenzo de almagro':'san lorenzo',
+    'san lorenzo de almagro':'san lorenzo',
+    'ca rosario central':'rosario central',
+    'estudiantes de la plata':'estudiantes',
+    'estudiantes la plata':'estudiantes',
+    'ca belgrano de cordoba':'belgrano',
+    'belgrano de cordoba':'belgrano',
+    'estudiantes rio cuarto':'estudiantes de rio cuarto',
+  },
+  'serie-b-italy': {
+    'l r vicenza':'vicenza',
+    'ss arezzo':'arezzo',
+    'fc sudtirol bolzano':'sudtirol',
+    'sudtirol bolzano':'sudtirol',
+  },
+  'coppa-italia': {
+    'fc sudtirol bolzano':'sudtirol',
+    'sudtirol bolzano':'sudtirol',
+  },
+  'super-lig': {
+    'kasimpasa istanbul':'kasimpasa',
+    'gaziantep fk':'gaziantep f k',
+    'goztepe izmir':'goztepe',
+    'amed sportif faaliyetler':'amed sk',
+  },
 };
 export function normalizeTeamName(name: string): string {
-  return name.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/&/g,' and ').replace(/[^a-z0-9]+/g,' ').trim();
+  return name.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()
+    .replace(/\u0131/g,'i').replace(/\u0307/g,'').replace(/&/g,' and ').replace(/[^a-z0-9]+/g,' ').trim();
 }
 export function namesMatch(names: string[], canonical: string, competition: string): boolean {
   const target=normalizeTeamName(canonical);

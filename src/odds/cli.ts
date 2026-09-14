@@ -3,15 +3,16 @@ import { createHash } from 'node:crypto';
 import { databaseUrl,PostgresDatabaseClient } from '@/database/client';
 import { runMigrations } from '@/database/migrate';
 import { M5OddsPapiAdapter } from '@/providers/oddspapi/M5OddsPapiAdapter';
-import { M5_TOURNAMENTS, normalizeM5Snapshot,verifyCatalog } from '@/providers/oddspapi/m5-normalizer';
-import { mergeCatalogTournaments,resolveCatalogTournaments,schedulerTournaments } from '@/providers/oddspapi/tournament-catalog';
-import { CANARY4_DISCOVERY_REQUEST_CAP, CANARY4_LEDGER_START, COVERAGE_DISCOVERY_REQUEST_CAP } from '@/providers/oddspapi/request-limits';
+import { normalizeM5Snapshot,verifyCatalog } from '@/providers/oddspapi/m5-normalizer';
+import { mergeCatalogTournaments,resolveCatalogTournaments,schedulerTournaments,selectCanaryTournament } from '@/providers/oddspapi/tournament-catalog';
+import { CANARY5_DISCOVERY_REQUEST_CAP, CANARY5_LEDGER_START, COVERAGE_DISCOVERY_REQUEST_CAP } from '@/providers/oddspapi/request-limits';
 import {planUtcParseDefectRepair} from './matching';
+import {isProviderFixtureAbsent,parseOddsPapiHttpError} from './canary';
 import {buildCoverageMatrix,inspectStoredTournament} from './coverage-matrix';
 import {buildFixtureCoverageReport} from './fixture-coverage';
 import {canonicalFixtures,endOddsJob,persistSnapshot,startOddsJob} from './ingestion';
 import {planOddsRefresh} from './refresh-policy';
-import {budgetHealth} from './budget';
+import {budgetHealth,OddsBudgetStopped} from './budget';
 import {splitProviderBatches} from './scheduler-policy';
 import type { OddsSnapshot } from './types';
 import {runOddsScheduler} from './scheduler';
@@ -44,32 +45,52 @@ try {
     const health=await budgetHealth(db);
     if(!health.verified||Number(health.safeRemaining)<COVERAGE_DISCOVERY_REQUEST_CAP)throw new Error('ODDS_BUDGET_UNVERIFIED_OR_EXHAUSTED');
     const continuation=(await db.query(`SELECT count(*)::int AS n FROM odds_provider_requests
-      WHERE billable AND purpose='MANUAL' AND endpoint IN ('/v4/odds-by-tournaments','/v4/tournaments') AND started_at>=$1`,[CANARY4_LEDGER_START])).rows[0];
+      WHERE billable AND purpose='MANUAL' AND endpoint IN ('/v4/odds-by-tournaments','/v4/tournaments') AND started_at>=$1`,[CANARY5_LEDGER_START])).rows[0];
     const continuationUsed=Number(continuation?.n??0);
-    if(continuationUsed+4>CANARY4_DISCOVERY_REQUEST_CAP)throw new Error('CANARY4_DISCOVERY_CAP');
+    if(continuationUsed+4>CANARY5_DISCOVERY_REQUEST_CAP)throw new Error('CANARY5_DISCOVERY_CAP');
     const catalog=(await db.query("SELECT markets,tournaments FROM odds_provider_catalog WHERE provider='ODDSPAPI'")).rows[0];
     if(!catalog)throw new Error('ODDS_CATALOG_NOT_VERIFIED');verifyCatalog(catalog.markets,catalog.tournaments);
-    const candidate=resolveCatalogTournaments(catalog.tournaments).find(row=>row.canonical===slug);
-    if(!candidate)throw new Error('ODDS_TOURNAMENT_UNVERIFIED');
-    if(M5_TOURNAMENTS.some(row=>row.id===candidate.id))throw new Error('ODDS_TOURNAMENT_ALREADY_STABLE');
+    const candidate=selectCanaryTournament(slug,catalog.tournaments);
     job=await startOddsJob(db);
     const mapped=[...schedulerTournaments(catalog.tournaments),candidate];
     const provider=new M5OddsPapiAdapter(db,process.env.ODDSPAPI_API_KEY!,job,4,false,Date.now()+140000,mapped);
     const results=[];
     for(const bookmaker of ['betano.bet.br','betsson'] as const){
-      const snapshot=await provider.snapshot(bookmaker,[candidate.id]);
-      results.push(await persistSnapshot(db,job,snapshot));
-      const again=await provider.snapshot(bookmaker,[candidate.id]);
-      results.push(await persistSnapshot(db,job,again));
+      try{
+        const snapshot=await provider.snapshot(bookmaker,[candidate.id]);
+        results.push(await persistSnapshot(db,job,snapshot));
+        const again=await provider.snapshot(bookmaker,[candidate.id]);
+        results.push(await persistSnapshot(db,job,again));
+      }catch(error){
+        const parsed=parseOddsPapiHttpError(error);
+        results.push({
+          bookmaker,
+          tournamentId:candidate.id,
+          httpStatus:parsed?.status??null,
+          code:parsed?.code??(error instanceof Error?error.message:'ODDS_REFRESH_FAILED'),
+          fixtureAbsent:isProviderFixtureAbsent(error),
+          returnedFixtures:0,matchedFixtures:0,quotes:0,
+        });
+        if(error instanceof OddsBudgetStopped)throw error;
+      }
     }
     const http=(await db.query(`SELECT http_status,outcome,safe_query FROM odds_provider_requests WHERE job_id=$1 ORDER BY started_at`,[job])).rows;
     await endOddsJob(db,job,true);job=null;
+    const priced=results.some(row=>'quotes' in row && Number(row.quotes)>0);
+    const mappedAny=results.some(row=>'matchedFixtures' in row && Number(row.matchedFixtures)>0);
     console.info(JSON.stringify({canonical:candidate.canonical,tournamentId:candidate.id,requests:provider.requestCount(),
-      continuationUsed:continuationUsed+provider.requestCount(),continuationCap:CANARY4_DISCOVERY_REQUEST_CAP,http,results}));
+      continuationUsed:continuationUsed+provider.requestCount(),continuationCap:CANARY5_DISCOVERY_REQUEST_CAP,
+      activate:mappedAny||priced,http,results}));
   }
   else if(command==='repair-utc-kickoffs'){
-    const snapshots=(await db.query(`SELECT DISTINCT ON (bookmaker) payload FROM odds_sync_snapshots
-      WHERE applied_at IS NOT NULL ORDER BY bookmaker,observed_at DESC`)).rows.map(r=>r.payload as OddsSnapshot);
+    const snapshots=(await db.query(`SELECT payload FROM odds_sync_snapshots WHERE id IN (
+      SELECT DISTINCT id FROM (
+        SELECT DISTINCT ON (bookmaker, tournament_id) id FROM odds_sync_snapshots,
+          LATERAL jsonb_array_elements_text(payload->'tournamentIds') AS tournament_id
+        WHERE applied_at IS NOT NULL
+        ORDER BY bookmaker, tournament_id, observed_at DESC
+      ) latest
+    )`)).rows.map(r=>r.payload as OddsSnapshot);
     const fixtures=await canonicalFixtures(db);
     const planned=new Map<string,{fixtureId:string;before:string;after:string}>();
     for(const snapshot of snapshots)for(const fixture of snapshot.fixtures){
