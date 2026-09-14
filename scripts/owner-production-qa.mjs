@@ -29,23 +29,23 @@ async function oneSession({browser,width,full}){
     await page.evaluate(`document.querySelector('#owner-key').focus()`);
     await page.c.send('Input.insertText',{text:key});
     await page.evaluate(`document.querySelector('form').requestSubmit()`);
-    await page.wait(`document.body.innerText.includes('Brazil preview:')`,30000);
+    await page.wait(`document.body?.innerText.includes('Brazil preview:')`,30000);
     const cookies=(await page.c.send('Network.getCookies',{urls:[origin]})).cookies;
     const session=cookies.find(cookie=>cookie.name==='__Host-livasports_owner');
     const cookieSecure=!!session?.secure,cookieHttpOnly=!!session?.httpOnly,cookieSameSite=session?.sameSite==='Strict';
     const sessionDays=session?.expires?Math.round((session.expires-Date.now()/1000)/86400):0;
     await button(page,'Turn Brazil preview on');
-    await page.wait(`document.body.innerText.includes('Brazil preview: ON')`,30000);
+    await page.wait(`document.body?.innerText.includes('Brazil preview: ON')`,30000);
     await load(page,'/br');
-    await page.wait(`document.body.innerText.includes('QA_TEST · Brazil preview ON')`,30000);
+    await page.wait(`document.body?.innerText.includes('QA_TEST · Brazil preview ON')`,30000);
     await delay(1500);
     const br=await page.evaluate(`({overflow:document.documentElement.scrollWidth>innerWidth||document.body.scrollWidth>innerWidth,ownerBar:document.body.innerText.includes('QA_TEST · Brazil preview ON'),commercial:!!document.querySelector('.commercial-sponsor,.affiliate-action')})`);
     await load(page,'/br/futebol');
     const navigationSession=await page.evaluate(`document.body.innerText.includes('QA_TEST · Brazil preview ON')`);
-    await page.c.send('Page.reload');await page.wait(`document.readyState==='complete'&&document.body.innerText.includes('QA_TEST · Brazil preview ON')`,30000);
+    await page.c.send('Page.reload');await page.wait(`document.readyState==='complete'&&document.body?.innerText.includes('QA_TEST · Brazil preview ON')`,30000);
     const reloadSession=true;
     let logout=true;
-    if(full){await load(page,'/owner/preview');await button(page,'Sign out');await page.wait(`document.body.innerText.includes('Private owner access key')`,30000);const after=(await page.c.send('Network.getCookies',{urls:[origin]})).cookies;logout=!after.some(cookie=>cookie.name==='__Host-livasports_owner');}
+    if(full){await load(page,'/owner/preview');await button(page,'Sign out');await page.wait(`document.body?.innerText.includes('Private owner access key')`,30000);const after=(await page.c.send('Network.getCookies',{urls:[origin]})).cookies;logout=!after.some(cookie=>cookie.name==='__Host-livasports_owner');}
     return {anonymousUi,anonymousToggleBlocked:anonymousToggle===401,login:true,cookieSecure,cookieHttpOnly,cookieSameSite,sessionThirtyDays:sessionDays>=29&&sessionDays<=30,previewOn:br.ownerBar,commercialPreview:br.commercial,navigationSession,reloadSession,logout,mobileNoOverflow:width>430||!br.overflow,providerRequests:page.metrics.providers};
   }finally{await qa.close();}
 }
