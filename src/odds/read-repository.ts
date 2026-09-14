@@ -110,8 +110,8 @@ export async function readSlipComparison(db:QueryExecutor,publicIds:readonly str
   // Two bounded queries regardless of selection/bookmaker count. No history or provider gateway.
   const fixtures=await readPublicOddsFixtures(db,publicIds,geo);
   if(!publicIds.length)return {fixtures,bookmakers:[],destinations:{}};
-  const locale=commercialLocale(geo);
-  if(!locale)return {fixtures,bookmakers:[],destinations:{}};
+  const comparisonGeo=geo??'BR';
+  const locale=commercialLocale(geo)??'br';
   const {rows}=await db.query(`SELECT b.provider_slug,b.display_name,b.affiliate_status,g.verification_state,${activeCampaignSql} AS active_campaigns,
     CASE WHEN b.affiliate_status='ACTIVE' AND g.affiliate_enabled AND al.enabled AND al.approved_at IS NOT NULL
       AND al.campaign_verified AND al.approved_placement='match-odds' THEN al.destination_url END AS destination
@@ -120,15 +120,16 @@ export async function readSlipComparison(db:QueryExecutor,publicIds:readonly str
     LEFT JOIN affiliate_links al ON al.bookmaker_id=b.id AND al.country_id=c.id
     WHERE c.iso2=$1 AND b.enabled AND b.comparison_enabled AND g.odds_enabled AND g.comparison_enabled
       AND g.verified_at IS NOT NULL AND b.provider_slug IN ('betsson','betano.bet.br')
-    ORDER BY b.provider_slug LIMIT 4`,[geo]);
+    ORDER BY b.provider_slug LIMIT 4`,[comparisonGeo]);
   const destinations:Record<string,string>={};const bookmakers:BookmakerConfig[]=[];
   for(const row of rows){
-    if(!verifiedGeo(row.verification_state,geo)||(row.provider_slug==='betano.bet.br'&&geo!=='BR'))continue;
+    if(!verifiedGeo(row.verification_state,comparisonGeo)||(row.provider_slug==='betano.bet.br'&&comparisonGeo!=='BR'))continue;
     if(bookmakers.some(b=>b.bookmakerId===row.provider_slug))throw new Error('AMBIGUOUS_BOOKMAKER_CONFIGURATION');
-    const configured=availableDestination(row.provider_slug,locale,row.destination,row.active_campaigns,'slip_bookmaker_comparison');const destination=configured?.url??null;
+    const configured=geo?availableDestination(row.provider_slug,locale,row.destination,row.active_campaigns,'slip_bookmaker_comparison'):null;
+    const destination=configured?.url??null;
     if(destination)destinations[row.provider_slug]=destination;
     bookmakers.push({bookmakerId:row.provider_slug,displayName:row.display_name,geoEligibility:{locale,eligible:true},
-      affiliateEligibility:{approved:row.affiliate_status==='ACTIVE',destinationConfigured:destination!==null,...(configured?{destinationType:configured.type}:{})}});
+      affiliateEligibility:{approved:!!geo&&row.affiliate_status==='ACTIVE',destinationConfigured:destination!==null,...(configured?{destinationType:configured.type}:{})}});
   }
   return {fixtures,bookmakers,destinations};
 }

@@ -58,6 +58,18 @@ describe('M7 request/security boundary',()=>{
     expect(query).toHaveBeenCalledTimes(2);expect(query.mock.calls[0][0]).toContain('ANY($1::text[])');expect(query.mock.calls[0][0]).toContain('LIMIT 500');
     expect(query.mock.calls.every(c=>!c[0].includes('odds_history'))).toBe(true);expect(r.bookmakers[0].affiliateEligibility.destinationConfigured).toBe(true);expect(fetch).not.toHaveBeenCalled();
   });
+  it('compares BR odds worldwide without attaching affiliate destinations outside commercial GEO',async()=>{
+    const query=vi.fn().mockResolvedValueOnce({rows:[]}).mockResolvedValueOnce({rows:[
+      {provider_slug:'betano.bet.br',display_name:'Betano BR',affiliate_status:'PENDING',verification_state:'VERIFIED_BR',destination:'https://betano.bet.br/?partner=test-only',active_campaigns:[]},
+      {provider_slug:'betsson',display_name:'Betsson',affiliate_status:'ACTIVE',verification_state:'VERIFIED_BR',destination:'https://betsson.bet.br/?partner=test-only',active_campaigns:[{type:'HOMEPAGE',placements:['slip_bookmaker_comparison'],domains:['betsson.bet.br']}]}]});
+    const r=await readSlipComparison({query},comparisonFixture(2).selections.map(s=>s.fixturePublicId),null);
+    expect(query.mock.calls[1][1]).toEqual(['BR']);
+    expect(r.destinations).toEqual({});
+    expect(r.bookmakers).toEqual([
+      {bookmakerId:'betano.bet.br',displayName:'Betano BR',geoEligibility:{locale:'br',eligible:true},affiliateEligibility:{approved:false,destinationConfigured:false}},
+      {bookmakerId:'betsson',displayName:'Betsson',geoEligibility:{locale:'br',eligible:true},affiliateEligibility:{approved:false,destinationConfigured:false}},
+    ]);
+  });
 });
 
 describe('M7 anonymous analytics',()=>{

@@ -27,6 +27,18 @@ describe('M7 bounded read/cache path',()=>{
     await Promise.all([loader.resolve(f.selections,'br','BR'),loader.resolve([...f.selections].reverse(),'br','BR')]);expect(read).toHaveBeenCalledTimes(1);
     expect(comparisonCacheKey(f.selections,'BR')).toMatch(/^slip-comparison:v2:BR:/);
     expect(comparisonCacheKey(f.selections,'BR')).not.toBe(comparisonCacheKey(f.selections,'MX'));
+    expect(comparisonCacheKey(f.selections,null)).toMatch(/^slip-comparison:v2:none:/);
+  });
+  it('keeps global price comparison when commercial GEO is unknown and still withholds CTAs',async()=>{
+    const f=comparisonFixture();f.data.destinations={};
+    for(const b of f.data.bookmakers){b.affiliateEligibility={approved:false,destinationConfigured:false};}
+    const loader=new ComparisonLoader(async()=>f.data,()=>f.now);
+    const r=await loader.resolve(f.selections,'br',null);
+    expect(r.providerRequests).toBe(0);
+    expect(r.comparison.bookmakers.map(b=>[b.bookmakerId,b.complete,b.best,b.ctaState])).toEqual([
+      ['betsson',true,false,'AFFILIATE_UNAVAILABLE'],
+      ['betano.bet.br',true,true,'AFFILIATE_UNAVAILABLE'],
+    ]);
   });
   it('rejects invalid server input before reads and resolves empty slips with zero queries',async()=>{
     const f=comparisonFixture(11);const read=vi.fn();const loader=new ComparisonLoader(read);
