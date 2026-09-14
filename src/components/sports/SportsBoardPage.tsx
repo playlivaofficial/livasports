@@ -16,7 +16,7 @@ import {boardDate,boardView,boardSort,matchesView,type BoardQuery,type BoardView
 import {FOOTBALL_COMPETITION_TARGETS} from '@/config/footballCompetitions';
 import {CompetitionPanel} from '@/sports/CompetitionPanel';
 import {SportsSearch} from '@/sports/Search';
-import {loadCompetition,loadSportsCalendar,loadRedCards} from '@/sports/runtime';
+import {loadCompetition,loadCompetitionNav,loadSportsCalendar,loadRedCards} from '@/sports/runtime';
 import {RedCardCount} from '@/sports/RedCardCount';
 import {competitionTab,sportsPage,sportsSeason} from '@/sports/policy';
 import {sportsCopy} from '@/sports/copy';
@@ -42,14 +42,16 @@ export async function SportsBoardPage({locale,page,searchParams}:{locale:Interfa
   const tab=competitionTab(query.tab),season=sportsSeason(query.season);
   const hub=page==='football'&&requestedCompetition?await loadCompetition(requestedCompetition,locale,season,sportsPage(query.p)).catch(()=>null):null;
   const showListing=!hub;
-  const raw=await loadM3PageData(locale==='en'?'br':locale,page,date,timeZone,requestedCompetition);
-  const data=locale==='en'?englishSportsData(raw):raw;
-  const competition=typeof query.competition==='string'&&data.sections.some(s=>s.slug===query.competition)?query.competition:undefined;
-  const selectedCompetition=data.sections.find(s=>s.slug===competition);
-  const period=competition?(locale==='br'?'Agenda da competição':locale==='mx'?'Calendario de la competición':'Competition schedule'):text.period;
-  const allFixtures=data.sections.filter(s=>!competition||s.slug===competition).flatMap(s=>s.fixtures);
-  const redCards=await loadRedCards(allFixtures.filter(f=>f.status!=='SCHEDULED').map(f=>f.id)).catch(()=>({} as Record<string,{home:number|null;away:number|null}>));
-  const sections=data.sections.filter(s=>!competition||s.slug===competition).map(s=>({...s,fixtures:s.fixtures.filter(f=>matchesView(f,view,now.getTime())).sort((a,b)=>boardSort(a,b,now.getTime()))})).filter(s=>s.fixtures.length);
+  const raw=hub?null:await loadM3PageData(locale==='en'?'br':locale,page,date,timeZone,requestedCompetition);
+  const data=raw?(locale==='en'?englishSportsData(raw):raw):null;
+  const competition=typeof query.competition==='string'&&data?.sections.some(s=>s.slug===query.competition)?query.competition:undefined;
+  const selectedCompetition=data?.sections.find(s=>s.slug===competition);
+  const period=competition||hub?(locale==='br'?'Agenda da competição':locale==='mx'?'Calendario de la competición':'Competition schedule'):text.period;
+  const allFixtures=data?data.sections.filter(s=>!competition||s.slug===competition).flatMap(s=>s.fixtures):[];
+  const redCards=showListing?await loadRedCards(allFixtures.filter(f=>f.status!=='SCHEDULED').map(f=>f.id)).catch(()=>({} as Record<string,{home:number|null;away:number|null}>)):{};
+  const sections=data?data.sections.filter(s=>!competition||s.slug===competition).map(s=>({...s,fixtures:s.fixtures.filter(f=>matchesView(f,view,now.getTime())).sort((a,b)=>boardSort(a,b,now.getTime()))})).filter(s=>s.fixtures.length):[];
+  const navItems=hub?await loadCompetitionNav(locale,timeZone).catch(()=>[]):(data?.sections??[]).map(s=>({slug:s.slug,name:s.competition,group:s.group,count:s.fixtures.length}));
+  const freshness=data?.sportsData.freshness??'fresh';
   const href=(changes:{date?:string|null;view?:BoardView;competition?:string|null},path:string=base)=>{
     const params=new URLSearchParams();const d=changes.date===null?undefined:changes.date??date;
     const c=changes.competition===null?undefined:changes.competition??competition;
@@ -69,12 +71,12 @@ export async function SportsBoardPage({locale,page,searchParams}:{locale:Interfa
     <main id="fixtures-content" className="page-container">
       {sponsor('home_top_banner')}
       <header className="board-heading"><div><span className="board-eyebrow">{locale==='br'?'FUTEBOL':locale==='mx'?'FÚTBOL':'FOOTBALL'}</span><h1>{hub?.name??selectedCompetition?.competition??dictionary.pages[page].title}</h1></div>
-        <span className={`freshness is-${data.sportsData.freshness}`}><span className="freshness-dot"/>{data.sportsData.freshness==='fresh'?text.fresh:data.sportsData.freshness==='stale'?text.delayed:text.unavailable}</span>
+        <span className={`freshness is-${freshness}`}><span className="freshness-dot"/>{freshness==='fresh'?text.fresh:freshness==='stale'?text.delayed:text.unavailable}</span>
       </header>
       <SportsSearch locale={locale} query={query.q}/>
       {sponsor('mobile_inline')}
       <div className="sports-layout">
-        <aside className="context-rail"><CompetitionNav locale={locale} title={text.competitions} allHref={href({competition:null})} allLabel={text.allCompetitions} activeSlug={requestedCompetition??competition} items={data.sections.map(s=>({slug:s.slug,name:s.competition,group:s.group,count:s.fixtures.length}))}/></aside>
+        <aside className="context-rail"><CompetitionNav locale={locale} title={text.competitions} allHref={href({competition:null})} allLabel={text.allCompetitions} activeSlug={requestedCompetition??competition} items={navItems}/></aside>
         <div className="fixture-content">
           {hub?<CompetitionPanel hub={hub} locale={locale} tab={tab}/>:requestedCompetition&&page==='football'?<p className="sports-empty" role="status">{sportsCopy[locale].unavailable}</p>:null}
           {showListing?<>
@@ -91,7 +93,7 @@ export async function SportsBoardPage({locale,page,searchParams}:{locale:Interfa
             {[-1,0,1,2,3].map(n=>{const d=shift(today,n);return d<calendarBounds.from||d>calendarBounds.to?null:<Link key={d} href={href({date:d})} aria-current={activeDate===d?'date':undefined}>{n===0?text.today:new Intl.DateTimeFormat(dictionary.locale,{weekday:'short',day:'2-digit',month:'2-digit',timeZone:'UTC'}).format(new Date(d+'T12:00:00Z'))}</Link>;})}
           </nav>
           <p className="board-timezone">{timeZone.replaceAll('_',' ')} · {date??(page==='football'?period:today)}</p>
-          {data.sportsData.state==='unavailable'?<p className="provider-notice" role="status">{text.unavailable}</p>:null}
+          {data?.sportsData.state==='unavailable'?<p className="provider-notice" role="status">{text.unavailable}</p>:null}
           {!sections.length?<div className="board-empty" role="status"><p>{text.empty}</p><Link href={href({date:null,view:'all'},interfaceRoutes[locale].football)}>{text.other} →</Link></div>:null}
           <div className="fixture-list">{sections.map((section,index)=><section className="competition-section" data-group={section.group} key={section.slug} aria-label={section.competition}>
             <header className="competition-header"><Link href={href({competition:section.slug,date:null,view:'all'},interfaceRoutes[locale].football)}><h2 className="competition-title">{section.competition}</h2></Link><span className="competition-count">{section.fixtures.length} {section.fixtures.length===1?(locale==='br'?'jogo':locale==='mx'?'partido':'match'):text.matches}</span><span className="board-odds-heading">{text.odds}</span></header>

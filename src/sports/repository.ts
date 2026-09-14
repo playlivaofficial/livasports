@@ -7,8 +7,9 @@ import {interfaceDictionary} from '@/localization/interface';
 import {localDateKey} from '@/delivery/time';
 import {competitionName,numericStatistic,sportsPageSize} from './policy';
 import {rankSportsSearch} from './search-rank';
-import {targetBySlug} from '@/config/footballCompetitions';
-import type {CompetitionHub,PendingSportsFixture,SportsFixture,SportsSearchResult,SportsStanding,SportsTeam} from './types';
+import {FOOTBALL_COMPETITION_TARGETS,targetBySlug} from '@/config/footballCompetitions';
+import {deliveryWindow} from '@/delivery/time';
+import type {CompetitionHub,CompetitionNavItem,PendingSportsFixture,SportsFixture,SportsSearchResult,SportsStanding,SportsTeam} from './types';
 
 type Row=Record<string,unknown>;
 const number=(v:unknown)=>v===null||v===undefined?null:Number(v);
@@ -37,6 +38,19 @@ export class SportsRepository {
       const row=result[String(r.fixture_id)]??={home:null,away:null};row[r.location]=count;
     }
     return result;
+  }
+  async boardNav(locale:InterfaceLocale,timeZone=interfaceDictionary(locale).timeZone):Promise<CompetitionNavItem[]>{
+    const now=new Date();
+    const window=deliveryWindow(locale==='en'?'br':locale,'football',now,timeZone);
+    const counts=(await this.db.query<Row>(`SELECT c.slug,count(*)::int AS n FROM fixtures f JOIN competitions c ON c.id=f.competition_id
+      WHERE c.enabled AND f.kickoff>=$1 AND f.kickoff<$2 GROUP BY c.slug`,[window.from,window.to])).rows;
+    const bySlug=new Map(counts.map(r=>[String(r.slug),Number(r.n)]));
+    return FOOTBALL_COMPETITION_TARGETS.filter(t=>t.enabled).map(t=>({
+      slug:t.slug,
+      name:competitionName(locale,t.slug)??t.canonicalName,
+      group:t.group==='BRAZIL'||t.group==='AMERICAS'||t.group==='EUROPE'?t.group:'OTHER',
+      count:bySlug.get(t.slug)??0,
+    }));
   }
   async calendar(locale:InterfaceLocale,timeZone=interfaceDictionary(locale).timeZone){
     const today=localDateKey(new Date(),timeZone);

@@ -52,4 +52,13 @@ describe('sports database read model',()=>{
     await repo.search("a%' OR 1=1",'en');expect(db.query).toHaveBeenCalledTimes(6);
     for(const [sql,args] of (db.query.mock.calls as unknown as Array<[string,string[]]>).slice(3)){expect(sql).not.toContain('OR 1=1');expect(args[0]).toContain('a\\%');}
   });
+  it('builds competition nav counts from the football window without listing fixtures',async()=>{
+    const db={query:vi.fn(async()=>({rows:[{slug:'premier-league',n:13},{slug:'liga-mx',n:2}]}))};
+    const items=await new SportsRepository(db as never).boardNav('br','America/Sao_Paulo');
+    expect(items.find(item=>item.slug==='premier-league')).toMatchObject({name:'Premier League',group:'EUROPE',count:13});
+    expect(items.find(item=>item.slug==='liga-mx')).toMatchObject({name:'Liga MX',group:'AMERICAS',count:2});
+    expect(items.find(item=>item.slug==='copa-libertadores')?.count).toBe(0);
+    const navCall=db.query.mock.calls[0] as unknown as [string,unknown[]];
+    expect(navCall[0]).toContain('GROUP BY c.slug');
+  });
 });

@@ -2,13 +2,9 @@ import Link from '@/sports/SportsLink';
 import type {InterfaceLocale} from '@/localization/interface';
 import {competitionPath} from '@/sports/policy';
 import {countryMarkForSlug} from '@/sports/country-mark';
+import type {CompetitionNavItem} from '@/sports/types';
 
-export interface CompetitionNavItem {
-  slug:string;
-  name:string;
-  group:string;
-  count:number;
-}
+export type {CompetitionNavItem};
 
 const groupCopy={
   br:{BRAZIL:'Brasil',AMERICAS:'Américas',EUROPE:'Europa',OTHER:'Outros'},

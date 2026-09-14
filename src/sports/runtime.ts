@@ -17,6 +17,8 @@ export const loadCompetition=cache(async(slug:string,locale:InterfaceLocale,seas
 export const loadPendingFixture=cache((id:string)=>sportsRepository().pending(id));
 export const loadRedCards=cache(async(ids:string[])=>(await serverCache.getOrSet(`sports:v1:cards:${createHash('sha256').update([...ids].sort().join(',')).digest('hex')}`,{ttlSeconds:60,staleIfErrorSeconds:300,tags:['livasports:v1:fixtures:br','livasports:v1:fixtures:mx']},()=>sportsRepository().redCards(ids))).value);
 export const loadSportsCalendar=cache(async(locale:InterfaceLocale,timeZone?:string)=>(await serverCache.getOrSet(`sports:v2:calendar:${locale}:${timeZone??'default'}`,{ttlSeconds:300,staleIfErrorSeconds:300,tags:['livasports:v1:fixtures:br','livasports:v1:fixtures:mx']},()=>sportsRepository().calendar(locale,timeZone))).value);
+export const loadCompetitionNav=cache(async(locale:InterfaceLocale,timeZone?:string)=>
+  (await serverCache.getOrSet(`sports:v1:nav:${locale}:${timeZone??'default'}`,{ttlSeconds:60,staleIfErrorSeconds:300,tags:['livasports:v1:fixtures:br','livasports:v1:fixtures:mx']},()=>sportsRepository().boardNav(locale,timeZone))).value);
 export const searchSports=cache(async(query:string,locale:InterfaceLocale)=>
   (await serverCache.getOrSet(`sports:v2:search:${locale}:${encodeURIComponent(query)}`,{ttlSeconds:300,staleIfErrorSeconds:0},()=>sportsRepository().search(query,locale))).value);
 export const loadListingMatchOdds=cache(async(ids:readonly string[],geo:CommercialGeo|null)=>
