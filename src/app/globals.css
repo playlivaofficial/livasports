@@ -236,9 +236,9 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .competition-title { overflow: hidden; margin: 0; color: var(--color-text); font-size: 0.83rem; font-weight: 760; text-overflow: ellipsis; white-space: nowrap; }
 .competition-count { color: var(--color-text-muted); font-family: var(--font-numeric); font-size: 0.68rem; white-space: nowrap; }
 .competition-empty-state { min-height: 3.5rem; margin: 0; padding: var(--space-4); color: var(--color-text-muted); font-size: 0.76rem; line-height: 1.45; }
-.fixture-table-head { display: grid; grid-template-columns: 6.7rem minmax(15rem, 1fr) 4.6rem 8.6rem; align-items: center; min-height: 2rem; padding: 0 var(--space-4); border-bottom: 1px solid var(--color-border); color: var(--color-text-muted); font-size: 0.62rem; font-weight: 750; letter-spacing: 0.065em; text-transform: uppercase; }
+.fixture-table-head { display: grid; grid-template-columns: 6.7rem minmax(15rem, 1fr) 4.6rem 12.25rem; align-items: center; min-height: 2rem; padding: 0 var(--space-4); border-bottom: 1px solid var(--color-border); color: var(--color-text-muted); font-size: 0.62rem; font-weight: 750; letter-spacing: 0.065em; text-transform: uppercase; }
 .fixture-table-head > :last-child { text-align: right; }
-.fixture-row { position: relative; display: grid; grid-template-columns: 6.7rem minmax(15rem, 1fr) 4.6rem 8.6rem; min-height: 5.05rem; align-items: center; padding: 0.65rem var(--space-4); border-bottom: 1px solid var(--color-border); transition: background var(--transition-fast); }
+.fixture-row { position: relative; display: grid; grid-template-columns: 6.7rem minmax(15rem, 1fr) 4.6rem 12.25rem; min-height: 5.05rem; align-items: center; padding: 0.65rem var(--space-4); border-bottom: 1px solid var(--color-border); transition: background var(--transition-fast); }
 .fixture-main-link { display: grid; min-width: 0; grid-column: 1 / 4; grid-template-columns: 6.7rem minmax(15rem, 1fr) 4.6rem; align-items: center; border-radius: var(--radius-sm); color: inherit; }
 .fixture-main-link:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 4px; }
 .fixture-row:last-child { border-bottom: 0; }
@@ -262,12 +262,13 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .score-stack { display: grid; gap: 0.5rem; justify-items: center; }
 .score-value { min-height: 1.6rem; color: var(--color-text); font-family: var(--font-numeric); font-size: 1rem; font-weight: 950; line-height: 1.6rem; font-variant-numeric: tabular-nums; }
 .score-value.is-empty { opacity: 0.62; color: var(--color-text-muted); font-size: 0.86rem; font-weight: 600; }
-.odds-slot { display: flex; justify-content: flex-end; }
-.odds-empty { display: grid; width: 8.2rem; min-height: 2rem; place-items: center; border: 1px solid var(--color-border); border-radius: var(--radius-sm); color: var(--color-text-muted); font-size: 0.69rem; }
-.listing-odds { display: grid; width: 8.2rem; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.22rem; }
-.listing-odds-cell { display: grid; min-height: 2.35rem; justify-items: center; align-content: center; gap: 0.08rem; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-bg); padding: 0.18rem 0.1rem; }
-.listing-odds-label { color: var(--color-text-muted); font-size: 0.58rem; font-weight: 750; letter-spacing: 0.04em; }
-.listing-odds-price { color: var(--color-text); font-family: var(--font-numeric); font-size: 0.72rem; font-weight: 850; line-height: 1; font-variant-numeric: tabular-nums; }
+.odds-slot { display: grid; min-width: 0; justify-items: stretch; align-content: center; }
+.odds-empty { display: grid; min-height: 2.75rem; place-items: center; border: 1px dashed var(--color-border); border-radius: 6px; color: var(--color-text-muted); font-size: 0.69rem; }
+.listing-odds { display: grid; width: 12.25rem; max-width: 100%; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.38rem; }
+.listing-odds-cell { display: grid; min-width: 0; min-height: 2.85rem; justify-items: center; align-content: center; gap: 0.14rem; border: 1px solid var(--color-border-strong); border-radius: 6px; background: var(--color-surface-raised); padding: 0.32rem 0.18rem; }
+.listing-odds-label { color: var(--color-text-muted); font-size: 0.7rem; font-weight: 700; letter-spacing: 0.04em; line-height: 1; }
+.listing-odds-price { color: var(--color-text); font-family: var(--font-numeric); font-size: 0.98rem; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.listing-odds-cell.is-muted { opacity: 0.48; border-style: dashed; }
 .odds-market-list { grid-column: 2 / -1; margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--color-border); }
 .odds-market-title { margin: 0 0 var(--space-2); color: var(--color-text-secondary); font-size: 0.72rem; font-weight: 700; }
 .odds-market-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); }
@@ -322,8 +323,8 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .competition-tab-group-label { display: none; }
   .competition-tab-group-links { display: contents; }
   .competition-tab { min-height: 2.2rem; padding: 0 var(--space-3); white-space: nowrap; }
-  .fixture-table-head { grid-template-columns: 6.1rem minmax(11rem, 1fr) 4rem 8.2rem; }
-  .fixture-row { grid-template-columns: 6.1rem minmax(11rem, 1fr) 4rem 8.2rem; }
+  .fixture-table-head { grid-template-columns: 6.1rem minmax(11rem, 1fr) 4rem 11.5rem; }
+  .fixture-row { grid-template-columns: 6.1rem minmax(11rem, 1fr) 4rem 11.5rem; }
   .fixture-main-link { grid-template-columns: 6.1rem minmax(11rem, 1fr) 4rem; }
   .skeleton-layout { grid-template-columns: 1fr; }
   .skeleton-rail { height: 5rem; }
@@ -357,9 +358,10 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .team-name { font-size: 0.78rem; }
   .score-stack { justify-items: end; }
   .score-value { font-size: 0.88rem; }
-  .odds-slot { display: flex; grid-column: 1 / -1; grid-row: 2; justify-content: stretch; padding-top: 0.4rem; }
-  .odds-empty, .listing-odds { width: 100%; }
-  .listing-odds-price { font-size: 0.78rem; }
+  .odds-slot { display: grid; grid-column: 1 / -1; grid-row: 2; justify-items: stretch; padding-top: 0.45rem; }
+  .odds-empty, .listing-odds { width: 100%; max-width: 22rem; margin-left: auto; }
+  .listing-odds-cell { min-height: 2.75rem; }
+  .listing-odds-price { font-size: 0.95rem; }
   .empty-state { width: 100%; max-width: 100%; margin: 0; overflow: hidden; border-radius: var(--radius-lg); padding: var(--space-5) var(--space-4); }
   .empty-copy p { white-space: normal; word-break: normal; overflow-wrap: anywhere; }
   .empty-icon { width: 2.4rem; height: 2.4rem; }
@@ -468,15 +470,15 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .odds-market-tabs { display:flex;gap:.35rem;border-bottom:1px solid var(--color-border);padding-bottom:.65rem; }
 .odds-market-tabs button { flex:1;min-width:0;min-height:44px;border:1px solid transparent;background:transparent;color:var(--color-text-secondary);border-radius:var(--radius-sm);font-size:.72rem;padding:.65rem .35rem;cursor:pointer; }
 .odds-market-tabs button[aria-selected=true] { color:var(--color-accent);background:rgba(46,206,166,.08);border-color:rgba(46,206,166,.18); }
-.odds-market-tabs button:focus-visible,.pregame-table a:focus-visible { outline:2px solid var(--color-accent);outline-offset:2px; }
+.odds-market-tabs button:focus-visible,.pregame-table a:focus-visible,button.slip-odds-button:focus-visible { outline:2px solid var(--color-accent);outline-offset:2px; }
 .pregame-table { width:100%;table-layout:fixed;border-collapse:collapse;margin-top:.5rem;font-size:.73rem; }
 .pregame-table th,.pregame-table td { padding:.8rem .25rem;text-align:center;border-bottom:1px solid var(--color-border);overflow-wrap:anywhere; }
 .pregame-table thead th { color:var(--color-text-muted);font-size:.65rem;font-weight:500; }
 .pregame-table th:first-child { width:24%;text-align:left; }.pregame-table th:last-child { width:22%; }
 .pregame-table tbody th { color:var(--color-text);font-weight:600; }
-.pregame-price { display:inline-block;padding:.4rem .2rem;border-radius:4px;font-family:var(--font-numeric);font-size:.88rem;font-weight:650;font-variant-numeric:tabular-nums;color:var(--color-text-secondary); }
-.pregame-price.is-best { background:rgba(46,206,166,.12);color:var(--color-accent); }
-.pregame-price.is-unavailable,.odds-no-action { color:var(--color-text-muted);font-weight:400; }
+.pregame-price { display:inline-flex; min-width:3.4rem; min-height:44px; align-items:center; justify-content:center; padding:.45rem .3rem; border:1px solid transparent; border-radius:6px; font-family:var(--font-numeric); font-size:1rem; font-weight:800; font-variant-numeric:tabular-nums; color:var(--color-text); }
+.pregame-price.is-best { background:rgba(46,206,166,.12); color:var(--color-accent); border-color:rgba(36,211,155,.28); }
+.pregame-price.is-unavailable,.odds-no-action { color:var(--color-text-muted); font-weight:400; border:0; min-height:auto; }
 .pregame-table a { display:inline-flex;min-height:44px;align-items:center;color:var(--color-accent);font-size:.66rem;text-decoration:none; }
 .pregame-empty { padding:1.25rem .1rem;color:var(--color-text-muted);font-size:.77rem;line-height:1.65;margin:0; }
 .odds-note,.odds-freshness { font-size:.65rem;line-height:1.6;color:var(--color-text-muted);margin:.7rem 0;overflow-wrap:anywhere; }

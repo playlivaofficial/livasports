@@ -7,7 +7,7 @@ import type { FixtureView } from '@/delivery/types';
 import { MarketCode, OutcomeCode } from '@/domain/enums';
 import { addSlipSelection, useSlip } from '@/slip/client';
 import { canonicalSelection, selectionKey, SLIP_SCOPE } from '@/slip/types';
-import { oddsFreshnessLabel, selectionLabel, slipCopy, type SlipUiLocale } from '@/slip/localization';
+import { oddsFreshnessCompact, oddsFreshnessLabel, selectionLabel, slipCopy, type SlipUiLocale } from '@/slip/localization';
 
 const MATCH_WINNER_CELLS = [
   { outcome: OutcomeCode.HOME, label: '1' },
@@ -47,6 +47,7 @@ export function OddsComparison({ locale, fixture, emptyLabel, commercialLocale =
   const summary = cells.map(cell => cell.price === null ? '—' : cell.price.decimalOdds.toFixed(2)).join(' / ');
   const observed = cells.map(cell => cell.price?.observedAt).filter((v): v is string => !!v).sort().at(-1) ?? null;
   const freshness = clock ? oddsFreshnessLabel(observed, clock, uiLocale) : null;
+  const compactFreshness = clock ? oddsFreshnessCompact(observed, clock, uiLocale) : null;
   const selectable = /^[0-9a-f]{16}$/.test(fixture.publicId ?? '');
   return <div className="odds-slot" aria-label={`${labels.odds}: ${summary}${freshness ? `. ${freshness}. ${slipText.oddsMayChange}` : ''}`}>
     <div className="listing-odds">
@@ -64,12 +65,12 @@ export function OddsComparison({ locale, fixture, emptyLabel, commercialLocale =
             <strong className="listing-odds-price">{priceLabel}</strong>
           </button>;
         }
-        return <div key={cell.outcome} className="listing-odds-cell">
+        return <div key={cell.outcome} className={`listing-odds-cell${cell.price === null || expired ? ' is-muted' : ''}`}>
           <span className="listing-odds-label">{cell.label}</span>
           <strong className="listing-odds-price">{priceLabel}</strong>
         </div>;
       })}
     </div>
-    {freshness ? <p className="listing-odds-fresh" title={slipText.oddsMayChange}>{freshness}</p> : null}
+    {compactFreshness && observed ? <p className="listing-odds-fresh"><time dateTime={observed} title={`${freshness}. ${slipText.oddsMayChange}`}>{compactFreshness}</time></p> : null}
   </div>;
 }

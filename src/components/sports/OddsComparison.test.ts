@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { FixtureStatus, MarketCode, OutcomeCode } from '@/domain/enums';
 import type { FixtureView } from '@/delivery/types';
 import { OddsComparison } from './OddsComparison';
+import { oddsFreshnessCompact } from '@/slip/localization';
 
 function fixture(freshness: 'fresh' | 'stale' = 'fresh', oddsState: FixtureView['oddsState'] = 'partial'): FixtureView {
   const price = (bookmaker: 'Betano BR' | 'Betsson', decimalOdds: number) => ({ bookmaker, decimalOdds, providerUpdatedAt: '2026-09-07T17:59:00.000Z', freshness });
@@ -57,5 +58,10 @@ describe('listing MATCH_WINNER cells', () => {
     expect(html).toContain('aria-pressed="false"');
     expect(html).toContain('Adicionar ao bilhete');
     expect(html).toContain('type="button"');
+  });
+  it('keeps compact listing freshness copy locale-independent of canonical 1X2 identity',()=>{
+    expect(oddsFreshnessCompact('2026-09-14T12:00:00.000Z',Date.parse('2026-09-14T12:10:20.000Z'),'br')).toBe('Há 10m');
+    expect(oddsFreshnessCompact('2026-09-14T12:00:00.000Z',Date.parse('2026-09-14T12:10:20.000Z'),'en')).toBe('Updated 10m');
+    expect(oddsFreshnessCompact('2026-09-14T12:00:00.000Z',Date.parse('2026-09-14T12:00:20.000Z'),'mx')).toBe('Ahora');
   });
 });

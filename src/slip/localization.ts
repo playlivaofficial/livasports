@@ -12,6 +12,7 @@ export const slipCopy={
     updated:'Consulta ao LivaSports',currentCount:'com odds atuais',scope:'Pré-jogo · 90 minutos',add:'Adicionar ao bilhete',selected:'No bilhete',
     stake:'Valor informativo',stakeHint:'R$ 10',potentialReturn:'Retorno potencial',combined:'Odd combinada',oddsMayChange:'Cotações podem mudar na casa de apostas.',
     freshnessNow:'Cotações atualizadas agora',freshnessAgo:(n:number)=>n<=0?'Cotações atualizadas agora':`Cotações atualizadas há ${n} min`,
+    freshnessCompactNow:'Agora',freshnessCompactAgo:(n:number)=>`Há ${n}m`,
     priceUpdated:'Preço atualizado',subjectToChange:'Sujeito a alteração',share:'Compartilhar cupom',shareHint:'Imagem do planejamento LivaSports. Não é um comprovante de aposta.',
     notAReceipt:'Isto não é um comprovante oficial de Betano ou Betsson.',invalidStake:'Informe um valor positivo, com até duas casas decimais.',
     browseEn:'/br/futebol',
@@ -29,6 +30,7 @@ export const slipCopy={
     updated:'Consulta a LivaSports',currentCount:'con cuotas actuales',scope:'Prepartido · 90 minutos',add:'Agregar al boleto',selected:'En el boleto',
     stake:'Importe informativo',stakeHint:'MX$ 10',potentialReturn:'Retorno potencial',combined:'Cuota combinada',oddsMayChange:'Las cuotas pueden cambiar en la casa de apuestas.',
     freshnessNow:'Cuotas actualizadas ahora',freshnessAgo:(n:number)=>n<=0?'Cuotas actualizadas ahora':`Cuotas actualizadas hace ${n} min`,
+    freshnessCompactNow:'Ahora',freshnessCompactAgo:(n:number)=>`Hace ${n}m`,
     priceUpdated:'Precio actualizado',subjectToChange:'Sujeto a cambio',share:'Compartir cupón',shareHint:'Imagen de planificación LivaSports. No es un comprobante de apuesta.',
     notAReceipt:'Esto no es un comprobante oficial de Betano o Betsson.',invalidStake:'Ingresa un valor positivo, con hasta dos decimales.',
     browseEn:'/mx/futbol',
@@ -46,6 +48,7 @@ export const slipCopy={
     updated:'LivaSports check',currentCount:'with current odds',scope:'Pregame · 90 minutes',add:'Add to slip',selected:'On slip',
     stake:'Informational stake',stakeHint:'R$ 10',potentialReturn:'Potential return',combined:'Combined odds',oddsMayChange:'Odds can change at the bookmaker.',
     freshnessNow:'Odds updated just now',freshnessAgo:(n:number)=>n<=0?'Odds updated just now':`Odds updated ${n} min ago`,
+    freshnessCompactNow:'Updated now',freshnessCompactAgo:(n:number)=>`Updated ${n}m`,
     priceUpdated:'Price updated',subjectToChange:'Subject to change',share:'Share slip',shareHint:'LivaSports planning image. Not a betting receipt.',
     notAReceipt:'This is not an official Betano or Betsson bet receipt.',invalidStake:'Enter a positive amount with up to two decimal places.',
     browseEn:'/en/football',
@@ -54,14 +57,20 @@ export const slipCopy={
     states:{CURRENT:'Current price',PRICE_CHANGED:'Price updated',STALE:'Odds out of date',UNAVAILABLE:'Odds unavailable',SUSPENDED:'Market suspended',CLOSED:'Market closed',MATCH_STARTED:'Match started',MATCH_FINISHED:'Match finished'},
     notices:{OUTBOUND_UNAVAILABLE:'The bookmaker could not be opened. Check the current slip odds.',ADDED:'Selection added',REPLACED:'Selection replaced',REMOVED:'Selection removed',CLEARED:'Slip cleared',UNCHANGED:'Selection is already on the slip',LIMIT:'You can add up to 10 selections.',EXPIRED:'These odds are no longer available.',
       RECOVERED:'The saved slip was recovered. Incompatible selections were removed.',UNSUPPORTED_VERSION:'This slip uses an incompatible version. You can start a new one.',STORAGE_UNAVAILABLE:'The browser could not save the slip. It will only stay on this page.',INVALID_STAKE:'Enter a valid positive amount.'}},
-} satisfies Record<SlipUiLocale,{states:Record<SelectionState,string>;freshnessAgo:(n:number)=>string;[key:string]:unknown}>;
+} satisfies Record<SlipUiLocale,{states:Record<SelectionState,string>;freshnessAgo:(n:number)=>string;freshnessCompactAgo:(n:number)=>string;[key:string]:unknown}>;
 export function selectionLabel(s:CanonicalSelection,locale:SlipUiLocale,fixture?:ResolvedSelection['fixture']):string {
   if(s.market==='MATCH_WINNER'&&fixture){if(s.outcome==='HOME')return fixture.home;if(s.outcome==='AWAY')return fixture.away;}
   return slipCopy[locale].outcomes[s.outcome];
 }
-export function oddsFreshnessLabel(observedAt:string|null|undefined,now:number,locale:SlipUiLocale):string|null {
+export function oddsFreshnessMinutes(observedAt:string|null|undefined,now:number):number|null {
   if(!observedAt||!Number.isFinite(Date.parse(observedAt)))return null;
-  const minutes=Math.max(0,Math.round((now-Date.parse(observedAt))/60000));
-  return slipCopy[locale].freshnessAgo(minutes);
+  return Math.max(0,Math.round((now-Date.parse(observedAt))/60000));
+}
+export function oddsFreshnessLabel(observedAt:string|null|undefined,now:number,locale:SlipUiLocale):string|null {
+  const minutes=oddsFreshnessMinutes(observedAt,now);return minutes===null?null:slipCopy[locale].freshnessAgo(minutes);
+}
+export function oddsFreshnessCompact(observedAt:string|null|undefined,now:number,locale:SlipUiLocale):string|null {
+  const minutes=oddsFreshnessMinutes(observedAt,now);if(minutes===null)return null;
+  return minutes<=0?slipCopy[locale].freshnessCompactNow:slipCopy[locale].freshnessCompactAgo(minutes);
 }
 void sharedOutcomes;
