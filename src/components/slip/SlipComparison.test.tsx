@@ -14,8 +14,8 @@ describe('M7 semantic localized comparison cards',()=>{
   it('makes exact missing selections keyboard-accessible with native details',()=>{
     const f=comparisonFixture();f.data.fixtures.get(f.selections[1].fixturePublicId)!.snapshot.quotes.pop();
     const html=renderToStaticMarkup(<SlipComparison locale="br" stake="10" selections={f.selections.map(s=>({...s,addedAt:new Date(f.now).toISOString()}))} checking={false} value={buildSlipComparison(f.selections,'br',f.data.fixtures,f.data.bookmakers,f.now)}/>);
-    expect(html).toContain('<details');expect(html).toContain('Real Madrid');expect(html).toContain('Faltam');expect(html).toContain('Indisponível para este cupom completo');
-    expect(html).toContain('vs');expect(html).not.toContain('INVALID_QUOTE');expect(html).not.toContain('NO_QUOTE');
+    expect(html).toContain('<details');expect(html).toContain('Real Madrid');expect(html).toContain('Falta');expect(html).toContain('Indisponível para este cupom completo');
+    expect(html).toContain('vs');expect(html).not.toContain('INVALID_QUOTE');expect(html).not.toMatch(/>\s*\?\s*</);expect(html).not.toContain('NaN');
   });
   it('keeps BR-eligible prices when the interface is Spanish',()=>{
     const f=comparisonFixture();const html=renderToStaticMarkup(<SlipComparison locale="mx" stake="10" selections={f.selections.map(s=>({...s,addedAt:new Date(f.now).toISOString()}))} checking={false} value={buildSlipComparison(f.selections,'mx',f.data.fixtures,f.data.bookmakers,f.now)}/>);
@@ -36,5 +36,27 @@ describe('M7 semantic localized comparison cards',()=>{
     expect(twentyFive).toContain(formatMoney(potentialReturn('25',value.bookmakers[0].combinedDecimalOdds!)!,'br'));
     expect(twentyFive).toContain(formatMoney(potentialReturn('25',value.bookmakers[1].combinedDecimalOdds!)!,'br'));
     expect(value.bookmakers.every(b=>b.complete)).toBe(true);
+  });
+  it('renders 5 complete legs for both books without a placeholder total',()=>{
+    const f=comparisonFixture(5);const html=renderToStaticMarkup(<SlipComparison locale="br" stake="10" selections={f.selections.map(s=>({...s,addedAt:new Date(f.now).toISOString()}))} checking={false} value={buildSlipComparison(f.selections,'br',f.data.fixtures,f.data.bookmakers,f.now)}/>);
+    expect(html).toContain('data-complete="true"');expect(html).toContain('data-availability="COMPLETE"');
+    expect(html).toContain('Odd combinada');expect(html).toContain('Retorno potencial');expect(html).not.toMatch(/>\s*\?\s*</);expect(html).not.toContain('NaN');
+  });
+  it('names a stale leg without inventing a combined total',()=>{
+    const f=comparisonFixture();Object.assign(f.data.fixtures.get(f.selections[0].fixturePublicId)!.snapshot.quotes[1],{status:'STALE'});
+    const html=renderToStaticMarkup(<SlipComparison locale="br" stake="20" selections={f.selections.map(s=>({...s,addedAt:new Date(f.now).toISOString()}))} checking={false} value={buildSlipComparison(f.selections,'br',f.data.fixtures,f.data.bookmakers,f.now)}/>);
+    expect(html).toContain('Cota desatualizada');expect(html).toContain('data-availability="STALE_LEG"');expect(html).toContain('data-diagnostic="STALE_QUOTE"');
+    expect(html).toContain('Indisponível para este cupom completo');expect(html).not.toMatch(/>\s*\?\s*</);
+  });
+  it('renders both complete totals at once and names a missing BTTS market',()=>{
+    const both=comparisonFixture(3);
+    const html=renderToStaticMarkup(<SlipComparison locale="br" stake="10" selections={both.selections.map(s=>({...s,addedAt:new Date(both.now).toISOString()}))} checking={false} value={buildSlipComparison(both.selections,'br',both.data.fixtures,both.data.bookmakers,both.now)}/>);
+    expect(html.match(/data-availability="COMPLETE"/g)?.length).toBe(2);
+    expect(html.match(/class="slip-combined"/g)?.length).toBe(2);
+    expect(html.match(/class="slip-return"/g)?.length).toBe(2);
+    const f=comparisonFixture(1);const home=f.selections[0];const btts={...home,market:'BTTS' as const,outcome:'YES' as const,line:null};
+    const missing=renderToStaticMarkup(<SlipComparison locale="br" stake="10" selections={[home,btts].map(s=>({...s,addedAt:new Date(f.now).toISOString()}))} checking={false} value={buildSlipComparison([home,btts],'br',f.data.fixtures,f.data.bookmakers,f.now)}/>);
+    expect(missing).toContain('Mercado indisponível nesta casa');expect(missing).toContain('data-availability="MARKET_UNAVAILABLE"');
+    expect(missing).not.toContain('class="slip-combined"');expect(missing).not.toMatch(/>\s*\?\s*</);
   });
 });

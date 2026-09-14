@@ -12,13 +12,13 @@ import {emitSlipEvent} from '@/slip/events';
 import {resolvedByKey,useSlipResolution} from '@/slip/use-resolution';
 import {SlipComparison} from './SlipComparison';
 import {comparisonCopy} from '@/slip/comparison-copy';
-import {formatCombinedOdds,formatMoney,parseStake,potentialReturn} from '@/slip/decimal';
+import {formatMoney,formatSlipOdds,parseStake,potentialReturn} from '@/slip/decimal';
 import {shareSlipImage,slipSharePayload} from '@/slip/share-card';
 
 function TicketIcon(){return <svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 3h14v6a3 3 0 0 0 0 6v6l-3-2-4 2-4-2-3 2v-6a3 3 0 0 0 0-6V3Z" stroke="currentColor" strokeWidth="1.5"/><path d="M9 8h6M9 12h6M9 16h3" stroke="currentColor" strokeWidth="1.5"/></svg>;}
 
 function formatPrice(value:string,locale:SlipUiLocale){
-  return new Intl.NumberFormat(locale==='br'?'pt-BR':locale==='mx'?'es-MX':'en-GB',{minimumFractionDigits:2,maximumFractionDigits:3}).format(Number(value));
+  return formatSlipOdds(value,locale);
 }
 
 function SlipDrawer({locale,uiLocale,selections,stake,slipId,pending,onPending,onClose,storageNotice,message}:{locale:SiteLocale;uiLocale:SlipUiLocale;selections:SavedSelection[];stake:string;slipId:string;pending:SlipFeedback|null;onPending:(v:SlipFeedback|null)=>void;onClose:()=>void;storageNotice:StorageNotice;message:string|null}){
@@ -50,7 +50,9 @@ function SlipDrawer({locale,uiLocale,selections,stake,slipId,pending,onPending,o
   const currentCount=resolved.filter(v=>v.price!==null).length;
   const best=comparison?.bookmakers.find(b=>b.best&&b.combinedDecimalOdds);
   const combined=best?.combinedDecimalOdds??comparison?.bookmakers.find(b=>b.combinedDecimalOdds)?.combinedDecimalOdds??null;
+  const combinedLabel=combined?formatSlipOdds(combined,uiLocale):null;
   const estimated=combined?potentialReturn(stake,combined):null;
+  const estimatedLabel=estimated?formatMoney(estimated,uiLocale):null;
   const browse=uiLocale==='en'?interfaceRoutes.en.football:uiLocale==='mx'?interfaceRoutes.mx.football:interfaceRoutes.br.football;
   return <aside className="slip-panel" ref={panel} role="dialog" aria-modal="false" aria-labelledby="slip-title" aria-describedby="slip-disclaimer" lang={uiLocale==='br'?'pt-BR':uiLocale==='mx'?'es-MX':'en'}>
     <header className="slip-heading"><div><TicketIcon/><h2 id="slip-title">{text.title}</h2><span className="slip-count">{selections.length}</span></div><button type="button" ref={closeRef} className="slip-icon-button" aria-label={text.close} onClick={onClose}>×</button></header>
@@ -67,7 +69,7 @@ function SlipDrawer({locale,uiLocale,selections,stake,slipId,pending,onPending,o
           <input inputMode="decimal" enterKeyHint="done" autoComplete="off" value={stakeValue} aria-invalid={parseStake(stakeValue)===null} aria-describedby="slip-stake-hint"
             onChange={event=>setStakeDraft(event.target.value)} onBlur={commitStake} onKeyDown={event=>{if(event.key==='Enter'){event.preventDefault();commitStake();}}}/>
           <small id="slip-stake-hint">{text.stakeHint} · {text.oddsMayChange}</small></label>
-        {combined?<p className="slip-totals" role="status"><span>{text.combined}: <b>{formatCombinedOdds(combined,uiLocale)}</b></span>{estimated?<span>{text.potentialReturn}: <b>{formatMoney(estimated,uiLocale)}</b></span>:null}</p>:null}
+        {combinedLabel?<p className="slip-totals" role="status"><span>{text.combined}: <b>{combinedLabel}</b></span>{estimatedLabel?<span>{text.potentialReturn}: <b>{estimatedLabel}</b></span>:null}</p>:null}
         <button className="slip-compare-jump" type="button" onClick={()=>{const target=panel.current?.querySelector<HTMLElement>('#slip-comparison');const body=panel.current?.querySelector<HTMLElement>('.slip-body');
           if(target&&body){target.focus({preventScroll:true});body.scrollTo({top:body.scrollTop+target.getBoundingClientRect().top-body.getBoundingClientRect().top-8,behavior:'instant'});}}}>{comparisonCopy[uiLocale].jump}</button>
         {!online||failed?<p className="slip-notice">{!online?text.offline:text.retry}</p>:null}
@@ -77,8 +79,8 @@ function SlipDrawer({locale,uiLocale,selections,stake,slipId,pending,onPending,o
               {fixture?<small>{fixture.competition} · <time dateTime={fixture.kickoff}>{date(fixture.kickoff)}</time></small>:null}</div>
               <button type="button" className="slip-remove slip-icon-button" aria-label={`${text.remove}: ${title}, ${selectionLabel(s,uiLocale,fixture)}`} onClick={()=>remove(s,index)}>×</button></div>
             <p className="slip-market">{text.markets[s.market]}</p><div className="slip-pick"><strong>{selectionLabel(s,uiLocale,fixture)}</strong>
-              {view?.price?<strong className="slip-price">{formatPrice(view.price.decimalOdds,uiLocale)}</strong>:<span className="slip-no-price">—</span>}</div>
-            {view?.state==='PRICE_CHANGED'&&view.previousDecimalOdds&&view.price?<p className="slip-reprice">{text.priceUpdated}: {formatPrice(view.previousDecimalOdds,uiLocale)} → {formatPrice(view.price.decimalOdds,uiLocale)}</p>:null}
+              {view?.price&&formatPrice(view.price.decimalOdds,uiLocale)?<strong className="slip-price">{formatPrice(view.price.decimalOdds,uiLocale)}</strong>:null}</div>
+            {view?.state==='PRICE_CHANGED'&&view.previousDecimalOdds&&view.price&&formatPrice(view.previousDecimalOdds,uiLocale)&&formatPrice(view.price.decimalOdds,uiLocale)?<p className="slip-reprice">{text.priceUpdated}: {formatPrice(view.previousDecimalOdds,uiLocale)} → {formatPrice(view.price.decimalOdds,uiLocale)}</p>:null}
             <div className={`slip-state${view?.price?' is-current':''}`}><span>{view?text.states[view.state]:checking?text.checking:text.states.UNAVAILABLE}</span>
               {view?.price?<small>{view.price.bookmakerName} · {view.price.best?text.best:text.reference}</small>:view?.reason==='NO_VERIFIED_GEO'?<small>{text.geo}</small>:null}</div>
           </li>;

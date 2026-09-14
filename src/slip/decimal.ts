@@ -42,11 +42,14 @@ function fromCents(cents:bigint):string {
   return `${sign}${abs/100n}.${String(abs%100n).padStart(2,'0')}`;
 }
 
-export function formatCombinedOdds(value:string,locale:'br'|'mx'|'en'):string {
-  const cents=roundHalfUpCents(value);if(cents===null)return '—';
+export function formatSlipOdds(value:string,locale:'br'|'mx'|'en'):string|null {
+  const cents=roundHalfUpCents(value);if(cents===null)return null;
   const language=locale==='br'?'pt-BR':locale==='mx'?'es-MX':'en-GB';
   const separator=locale==='br'?',':'.';
   return `${new Intl.NumberFormat(language,{maximumFractionDigits:0}).format(cents/100n)}${separator}${String(cents%100n).padStart(2,'0')}`;
+}
+export function formatCombinedOdds(value:string,locale:'br'|'mx'|'en'):string {
+  return formatSlipOdds(value,locale)??'';
 }
 
 export function parseStake(raw:string):string|null {
@@ -75,12 +78,11 @@ export function moneyDiff(value:string,best:string):string|null {
   return fromCents(left-right);
 }
 
-export function formatMoney(value:string,locale:'br'|'mx'|'en'):string {
-  const cents=roundHalfUpCents(value);if(cents===null)return '—';
+export function formatMoney(value:string,locale:'br'|'mx'|'en'):string|null {
+  const cents=roundHalfUpCents(value);if(cents===null)return null;
   const negative=cents<0n;const abs=negative?-cents:cents;
   const language=locale==='br'?'pt-BR':locale==='mx'?'es-MX':'en-GB';
   const separator=locale==='br'?',':'.';
   const amount=`${new Intl.NumberFormat(language,{maximumFractionDigits:0}).format(abs/100n)}${separator}${String(abs%100n).padStart(2,'0')}`;
-  const signed=`${negative?'- ':''}${locale==='mx'?'MX$':'R$'} ${amount}`;
-  return signed;
+  return `${negative?'- ':''}${locale==='mx'?'MX$':'R$'} ${amount}`;
 }

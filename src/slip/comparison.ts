@@ -2,8 +2,36 @@ import {quoteFreshnessTtlMs,quoteState} from '@/odds/comparison';
 import type {SiteLocale} from '@/config/i18n';
 import type {SlipFixtureRead} from './resolution';
 import type {CanonicalSelection} from './types';
-import type {BookmakerConfig,BookmakerSlip,SelectionQuote,SlipComparison,ComparisonState} from './comparison-types';
+import type {BookmakerAvailabilityState,BookmakerConfig,BookmakerSlip,ComparisonDiagnostic,SelectionQuote,SlipComparison,ComparisonState} from './comparison-types';
 import {compareDecimal,multiplyDecimalOdds,validDecimalOdds} from './decimal';
+
+function diagnosticForState(state:SelectionQuote['state'],reason:SelectionQuote['reason']):ComparisonDiagnostic {
+  if(state==='CURRENT')return 'COMPLETE';
+  if(state==='STALE')return 'STALE_QUOTE';
+  if(state==='SUSPENDED'||state==='CLOSED')return 'WITHDRAWN';
+  if(state==='MATCH_STARTED')return 'MATCH_STARTED';
+  if(state==='MATCH_FINISHED')return 'MATCH_FINISHED';
+  if(reason==='MISSING_FIXTURE')return 'FIXTURE_MISSING';
+  if(reason==='INVALID_QUOTE')return 'INVALID_QUOTE';
+  if(reason==='NO_QUOTE')return 'MISSING_QUOTE';
+  return 'SNAPSHOT_INCOMPATIBLE';
+}
+function withDiagnostic(quote:Omit<SelectionQuote,'diagnosticCode'>&Partial<Pick<SelectionQuote,'diagnosticCode'>>,forced?:ComparisonDiagnostic):SelectionQuote {
+  const {diagnosticCode:_ignored,...rest}=quote;
+  void _ignored;
+  return {...rest,diagnosticCode:forced??diagnosticForState(rest.state,rest.reason)};
+}
+export function bookmakerAvailabilityState(quotes:readonly SelectionQuote[],complete:boolean):BookmakerAvailabilityState {
+  if(complete)return 'COMPLETE';
+  const codes=quotes.map(q=>q.diagnosticCode);
+  if(codes.includes('FIXTURE_MISSING'))return 'FIXTURE_UNAVAILABLE';
+  if(codes.includes('MATCH_STARTED')||codes.includes('MATCH_FINISHED'))return 'FIXTURE_UNAVAILABLE';
+  if(codes.includes('STALE_QUOTE'))return 'STALE_LEG';
+  if(codes.includes('WITHDRAWN'))return 'WITHDRAWN_LEG';
+  if(codes.includes('MARKET_MISSING'))return 'MARKET_UNAVAILABLE';
+  if(codes.includes('MISSING_QUOTE'))return 'MISSING_LEG';
+  return 'OTHER_VERIFIED_UNAVAILABLE_REASON';
+}
 
 function matchingQuotes(selection:CanonicalSelection,snapshot:SlipFixtureRead['snapshot'],bookmaker:string){
   return snapshot.quotes.filter(q=>q.geoEligible&&q.bookmaker===bookmaker&&q.market===selection.market&&q.outcome===selection.outcome&&q.line===selection.line&&q.scope===selection.scope&&q.phase==='PREGAME');
@@ -11,34 +39,40 @@ function matchingQuotes(selection:CanonicalSelection,snapshot:SlipFixtureRead['s
 function evaluatedQuote(selection:CanonicalSelection,read:SlipFixtureRead,quote:SlipFixtureRead['snapshot']['quotes'][number],now:number,base:SelectionQuote):SelectionQuote {
   const {fixture,snapshot}=read;
   const close=Math.min(Date.parse(fixture.kickoff),Date.parse(quote.providerKickoff));
-  if(!Number.isFinite(close))return {...base,reason:'INVALID_QUOTE'};
+  if(!Number.isFinite(close))return withDiagnostic({...base,reason:'INVALID_QUOTE'});
   base={...base,closesAt:new Date(close).toISOString()};
-  if(now>=close)return {...base,state:'MATCH_STARTED',reason:null};
+  if(now>=close)return withDiagnostic({...base,state:'MATCH_STARTED',reason:null});
   const state=quoteState(quote,snapshot,now);
-  if(state!=='ACTIVE')return {...base,state:['STALE','SUSPENDED','CLOSED'].includes(state)?state:'UNAVAILABLE',reason:null};
-  if(!validDecimalOdds(quote.decimalOdds))return {...base,reason:'INVALID_QUOTE'};
+  if(state!=='ACTIVE')return withDiagnostic({...base,state:['STALE','SUSPENDED','CLOSED'].includes(state)?state:'UNAVAILABLE',reason:null});
+  if(!validDecimalOdds(quote.decimalOdds))return withDiagnostic({...base,reason:'INVALID_QUOTE'});
   const ttl=quoteFreshnessTtlMs(quote,snapshot,now);
   const expires=Math.min(close,Date.parse(quote.observedAt)+ttl,Date.parse(quote.lastSuccessfulRefreshAt)+ttl);
-  if(!Number.isFinite(expires)||now>=expires)return {...base,state:'STALE',reason:null};
-  return {...base,state:'CURRENT',reason:null,decimalOdds:quote.decimalOdds,expiresAt:new Date(expires).toISOString()};
+  if(!Number.isFinite(expires)||now>=expires)return withDiagnostic({...base,state:'STALE',reason:null});
+  return withDiagnostic({...base,state:'CURRENT',reason:null,decimalOdds:quote.decimalOdds,expiresAt:new Date(expires).toISOString()});
+}
+function absentQuote(selection:CanonicalSelection,read:SlipFixtureRead,bookmaker:string,base:SelectionQuote):SelectionQuote {
+  const bookmakerQuotes=read.snapshot.quotes.filter(q=>q.geoEligible&&q.bookmaker===bookmaker&&q.phase==='PREGAME');
+  const marketPresent=bookmakerQuotes.some(q=>q.market===selection.market&&q.line===selection.line&&q.scope===selection.scope);
+  if(!marketPresent&&bookmakerQuotes.length)return withDiagnostic({...base,reason:'NO_QUOTE'},'MARKET_MISSING');
+  return withDiagnostic(base);
 }
 function selectionQuote(selection:CanonicalSelection,read:SlipFixtureRead|null,bookmaker:string,now:number):SelectionQuote {
-  const base:SelectionQuote={selection,fixture:read?.fixture??null,state:'UNAVAILABLE',reason:read?'NO_QUOTE':'MISSING_FIXTURE',decimalOdds:null,expiresAt:null,closesAt:read?.fixture.kickoff??null};
-  if(!read)return base;
+  const base:Omit<SelectionQuote,'diagnosticCode'>={selection,fixture:read?.fixture??null,state:'UNAVAILABLE',reason:read?'NO_QUOTE':'MISSING_FIXTURE',decimalOdds:null,expiresAt:null,closesAt:read?.fixture.kickoff??null};
+  if(!read)return withDiagnostic(base);
   const {fixture}=read;
-  if(fixture.status==='FINISHED')return {...base,state:'MATCH_FINISHED',reason:null};
-  if(['LIVE','HALFTIME'].includes(fixture.status)||now>=Date.parse(fixture.kickoff))return {...base,state:'MATCH_STARTED',reason:null};
-  if(fixture.status!=='SCHEDULED')return {...base,state:'CLOSED',reason:null};
+  if(fixture.status==='FINISHED')return withDiagnostic({...base,state:'MATCH_FINISHED',reason:null});
+  if(['LIVE','HALFTIME'].includes(fixture.status)||now>=Date.parse(fixture.kickoff))return withDiagnostic({...base,state:'MATCH_STARTED',reason:null});
+  if(fixture.status!=='SCHEDULED')return withDiagnostic({...base,state:'CLOSED',reason:null});
   const matches=matchingQuotes(selection,read.snapshot,bookmaker);
-  if(!matches.length)return base;
-  const evaluated=matches.map(quote=>evaluatedQuote(selection,read,quote,now,base));
+  if(!matches.length)return absentQuote(selection,read,bookmaker,withDiagnostic(base));
+  const evaluated=matches.map(quote=>evaluatedQuote(selection,read,quote,now,withDiagnostic(base)));
   const current=evaluated.filter(quote=>quote.state==='CURRENT'&&quote.decimalOdds);
   if(current.length){
     const prices=new Set(current.map(quote=>quote.decimalOdds));
-    if(prices.size!==1)return {...base,reason:'INVALID_QUOTE'};
+    if(prices.size!==1)return withDiagnostic({...base,reason:'INVALID_QUOTE'});
     return current.reduce((best,quote)=>Date.parse(quote.expiresAt??'')>=Date.parse(best.expiresAt??'')?quote:best);
   }
-  return evaluated.find(quote=>quote.reason==='INVALID_QUOTE')??evaluated[0]??base;
+  return evaluated.find(quote=>quote.reason==='INVALID_QUOTE')??evaluated[0]??withDiagnostic(base);
 }
 
 function summarize(config:BookmakerConfig,quotes:SelectionQuote[]):BookmakerSlip {
@@ -49,7 +83,7 @@ function summarize(config:BookmakerConfig,quotes:SelectionQuote[]):BookmakerSlip
   return {...config,requiredSelectionCount:quotes.length,availableSelectionCount:available,
     missingSelections:quotes.filter(q=>q.state==='UNAVAILABLE'&&q.reason!=='INVALID_QUOTE'),
     invalidSelections:quotes.filter(q=>q.state!=='CURRENT'&&(q.state!=='UNAVAILABLE'||q.reason==='INVALID_QUOTE')),
-    complete,selectionQuotes:quotes,combinedDecimalOdds:complete?combined:null,best:false,tiedBest:false,
+    complete,availabilityState:bookmakerAvailabilityState(quotes,complete),selectionQuotes:quotes,combinedDecimalOdds:complete?combined:null,best:false,tiedBest:false,
     ctaState:!complete?'INCOMPLETE':affiliate?'ENABLED':'AFFILIATE_UNAVAILABLE',outboundCapability:affiliate?(config.affiliateEligibility.destinationType??'HOMEPAGE'):'NONE'};
 }
 function finish(locale:SiteLocale,count:number,bookmakers:BookmakerSlip[],generatedAt=new Date().toISOString()):SlipComparison {
@@ -83,10 +117,10 @@ export function buildSlipComparison(selections:CanonicalSelection[],locale:SiteL
 }
 export function guardSlipComparison(value:SlipComparison,count:number,now:number,connected=true):SlipComparison {
   return finish(value.locale,count,value.bookmakers.filter(eligibleBookmaker).map(b=>summarize(b,b.selectionQuotes.map(q=>{
-    if(q.state==='MATCH_FINISHED')return {...q,decimalOdds:null};
-    if(q.closesAt&&now>=Date.parse(q.closesAt))return {...q,state:'MATCH_STARTED',decimalOdds:null};
-    if(q.decimalOdds&&(!connected||!Number.isFinite(Date.parse(q.expiresAt??''))||now>=Date.parse(q.expiresAt!)))return {...q,state:'STALE',decimalOdds:null};
-    if(q.decimalOdds&&!validDecimalOdds(q.decimalOdds))return {...q,state:'UNAVAILABLE',decimalOdds:null};
-    return {...q};
+    if(q.state==='MATCH_FINISHED')return withDiagnostic({...q,decimalOdds:null},'MATCH_FINISHED');
+    if(q.closesAt&&now>=Date.parse(q.closesAt))return withDiagnostic({...q,state:'MATCH_STARTED',decimalOdds:null},'MATCH_STARTED');
+    if(q.decimalOdds&&(!connected||!Number.isFinite(Date.parse(q.expiresAt??''))||now>=Date.parse(q.expiresAt!)))return withDiagnostic({...q,state:'STALE',decimalOdds:null},'STALE_QUOTE');
+    if(q.decimalOdds&&!validDecimalOdds(q.decimalOdds))return withDiagnostic({...q,state:'UNAVAILABLE',decimalOdds:null,reason:'INVALID_QUOTE'});
+    return withDiagnostic(q);
   }))),value.generatedAt??new Date(now).toISOString());
 }

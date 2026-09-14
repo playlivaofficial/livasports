@@ -25,7 +25,15 @@ async function input(request:Request){
 export async function compareSlipRequest(request:Request,service:Pick<ComparisonLoader,'resolve'>=loader):Promise<Response>{
   const parsed=await input(request);
   if('error' in parsed)return Response.json({error:'INVALID_SLIP',providerRequests:0},{status:parsed.error,headers});
-  try{return Response.json(await service.resolve(parsed.value.selections,parsed.value.locale,requestCommercialGeo(request.headers)),{headers});}
+  try{
+    const result=await service.resolve(parsed.value.selections,parsed.value.locale,requestCommercialGeo(request.headers));
+    const comparison=result.comparison;
+    if(comparison?.bookmakers)console.info(`[LivaSports M7] ${JSON.stringify({event:'slip-comparison-availability',providerRequests:0,
+      complete:comparison.bookmakers.filter(b=>b.complete).length,total:comparison.bookmakers.length,
+      bookmakers:comparison.bookmakers.map(b=>({id:b.bookmakerId,complete:b.complete,availability:b.availabilityState,cta:b.ctaState,
+        legs:b.selectionQuotes.map(q=>q.diagnosticCode)}))})}`);
+    return Response.json(result,{headers});
+  }
   catch{return Response.json({error:'COMPARISON_TEMPORARILY_UNAVAILABLE',providerRequests:0},{status:503,headers});}
 }
 export async function currentSlipDestination(bookmaker:string,selections:CanonicalSelection[],locale:SiteLocale,

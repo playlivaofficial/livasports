@@ -78,4 +78,10 @@ describe('browser persistence adapter',()=>{
     expect(store.getSnapshot().slip.selections).toHaveLength(2);expect(store.getSnapshot().notice).toBe('STORAGE_UNAVAILABLE');
     const denied=createSlipStore(()=>{throw new Error('denied');});denied.dispatch(add());denied.reload();expect(denied.getSnapshot().slip.selections).toHaveLength(1);
   });
+  it('keeps canonical identity across PT/EN/ES labels because storage never stores translated copy',()=>{
+    const stored=JSON.stringify({version:2,slipId:'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',stake:'10',selections:[{...pick(),addedAt}]});
+    const restored=restoreSlip(stored).slip;
+    expect(restored.selections[0]).toEqual({...pick(),addedAt});
+    expect(JSON.stringify(restored)).not.toMatch(/Mandante|Home|Local|Resultado final|Full-time/);
+  });
 });

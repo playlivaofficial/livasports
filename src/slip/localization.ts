@@ -18,7 +18,7 @@ export const slipCopy={
     browseEn:'/br/futebol',
     markets:{MATCH_WINNER:'Resultado final',TOTAL_GOALS:'Total de gols · 2,5',BTTS:'Ambas marcam'},
     outcomes:{HOME:'Mandante',DRAW:'Empate',AWAY:'Visitante',OVER:'Mais de 2,5',UNDER:'Menos de 2,5',YES:'Sim',NO:'Não'},
-    states:{CURRENT:'Odd atual',PRICE_CHANGED:'Odd atualizada',STALE:'Odd desatualizada',UNAVAILABLE:'Odd indisponível',SUSPENDED:'Mercado suspenso',CLOSED:'Mercado encerrado',MATCH_STARTED:'Partida iniciada',MATCH_FINISHED:'Partida encerrada'},
+    states:{CURRENT:'Odd atual',PRICE_CHANGED:'Preço atualizado',STALE:'Odd desatualizada',UNAVAILABLE:'Odd indisponível',SUSPENDED:'Mercado suspenso',CLOSED:'Mercado encerrado',MATCH_STARTED:'Partida iniciada',MATCH_FINISHED:'Partida encerrada'},
     notices:{OUTBOUND_UNAVAILABLE:'Não foi possível abrir a casa. Confira as odds atuais do bilhete.',ADDED:'Seleção adicionada',REPLACED:'Seleção substituída',REMOVED:'Seleção removida',CLEARED:'Bilhete limpo',UNCHANGED:'Seleção já está no bilhete',LIMIT:'Você pode adicionar até 10 seleções.',EXPIRED:'Esta odd não está mais disponível.',
       RECOVERED:'O bilhete salvo foi recuperado. Seleções incompatíveis foram removidas.',UNSUPPORTED_VERSION:'Este bilhete usa uma versão não compatível. Você pode começar um novo.',STORAGE_UNAVAILABLE:'Não foi possível salvar no navegador. O bilhete ficará disponível somente nesta página.',INVALID_STAKE:'Informe um valor positivo válido.'}},
   mx:{title:'Mi boleto',selections:'selecciones',selection:'selección',close:'Cerrar boleto',remove:'Quitar',clear:'Borrar todo',clearQuestion:'¿Quitar todas las selecciones?',

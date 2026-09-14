@@ -1,5 +1,6 @@
 import type {SlipUiLocale} from './localization';
 import {selectionLabel,slipCopy} from './localization';
+import {comparisonCopy} from './comparison-copy';
 import {formatCombinedOdds,formatMoney,potentialReturn as estimateReturn} from './decimal';
 import type {SlipComparison} from './comparison-types';
 import type {ResolvedSelection,SavedSelection} from './types';
@@ -18,6 +19,7 @@ export interface SlipShareBookmaker {
   potentialReturn:string|null;
   best:boolean;
   missing:string[];
+  incompleteLabel:string;
 }
 export interface SlipSharePayload {
   slipId:string;
@@ -50,10 +52,10 @@ export function slipSharePayload(args:{
   const complete=args.comparison?.bookmakers.filter(b=>b.complete)??[];
   const best=complete.find(b=>b.best)??complete[0]??null;
   return {
-    slipId:args.slipId,generatedAt:args.generatedAt,stake:formatMoney(args.stake,args.locale),
+    slipId:args.slipId,generatedAt:args.generatedAt,stake:formatMoney(args.stake,args.locale)??args.stake,
     stakeLabel:text.stake,returnLabel:text.potentialReturn,
     bestCombined:best?.combinedDecimalOdds?formatCombinedOdds(best.combinedDecimalOdds,args.locale):null,
-    bestReturn:best?.combinedDecimalOdds?formatMoney(estimateReturn(args.stake,best.combinedDecimalOdds)??'0',args.locale):null,
+    bestReturn:best?.combinedDecimalOdds?formatMoney(estimateReturn(args.stake,best.combinedDecimalOdds)??'',args.locale):null,
     bestName:best?.displayName??null,
     legs:args.selections.map(s=>{
       const view=byKey.get(`${s.fixturePublicId}:${s.market}:${s.outcome}`);
@@ -63,14 +65,15 @@ export function slipSharePayload(args:{
         competition:fixture?.competition??'',
         market:text.markets[s.market],
         outcome:selectionLabel(s,args.locale,fixture),
-        odds:view?.price?formatCombinedOdds(view.price.decimalOdds,args.locale):'—',
+        odds:view?.price?formatCombinedOdds(view.price.decimalOdds,args.locale)||slipCopy[args.locale].states.UNAVAILABLE:slipCopy[args.locale].states.UNAVAILABLE,
       };
     }),
     bookmakers:(args.comparison?.bookmakers??[]).map(b=>({
       name:b.displayName,complete:b.complete,best:b.best,
-      combined:b.combinedDecimalOdds?formatCombinedOdds(b.combinedDecimalOdds,args.locale):null,
-      potentialReturn:b.combinedDecimalOdds?formatMoney(estimateReturn(args.stake,b.combinedDecimalOdds)??'0',args.locale):null,
+      combined:b.combinedDecimalOdds?formatCombinedOdds(b.combinedDecimalOdds,args.locale)||null:null,
+      potentialReturn:b.combinedDecimalOdds?formatMoney(estimateReturn(args.stake,b.combinedDecimalOdds)??'',args.locale):null,
       missing:b.selectionQuotes.filter(q=>!q.decimalOdds).map(q=>`${q.fixture?`${q.fixture.home} × ${q.fixture.away}`:text.missing} — ${text.markets[q.selection.market]} ${selectionLabel(q.selection,args.locale,q.fixture)}`),
+      incompleteLabel:b.complete?'':comparisonCopy[args.locale].partial,
     })),
     notice:text.disclaimer,responsible:'18+',notAReceipt:text.notAReceipt,subjectToChange:text.subjectToChange,
   };
@@ -95,7 +98,7 @@ export function drawSlipShareCard(ctx:CanvasRenderingContext2D,payload:SlipShare
   y+=40;
   for(const book of payload.bookmakers){
     ctx.fillStyle=book.best?'#24d39b':'#f4f7fa';ctx.font='700 24px Inter, system-ui, sans-serif';
-    ctx.fillText(`${book.name}  ${book.complete?`${book.combined??''}  ${book.potentialReturn??''}`:'—'}`,48,y);y+=36;
+    ctx.fillText(`${book.name}  ${book.complete?`${book.combined??''}  ${book.potentialReturn??''}`:book.incompleteLabel}`,48,y);y+=36;
   }
   ctx.fillStyle='#9aaabd';ctx.font='500 18px Inter, system-ui, sans-serif';
   wrap(ctx,payload.notice,48,height-150,width-96,26);

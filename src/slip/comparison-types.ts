@@ -3,6 +3,9 @@ import type {CanonicalSelection,ResolvedSelection,SelectionState,SlipResolution}
 
 export type ComparisonState='EMPTY_SLIP'|'ONE_SELECTION'|'MULTI_SELECTION_NO_BOOKMAKER'|'ONE_COMPLETE_BOOKMAKER'|'MULTIPLE_COMPLETE_BOOKMAKERS'|'PARTIAL_BOOKMAKER_COVERAGE'|'STALE_SELECTION'|'MATCH_STARTED'|'MISSING_SELECTION_PRICE'|'MIXED_VALIDITY';
 export type OutboundCapability='NONE'|'HOMEPAGE'|'SPORTSBOOK'|'MARKET_DEEPLINK'|'PREFILLED_SLIP';
+/** Safe server/QA codes. Never shown as raw strings in the UI. */
+export type ComparisonDiagnostic='COMPLETE'|'MISSING_QUOTE'|'STALE_QUOTE'|'WITHDRAWN'|'MARKET_MISSING'|'FIXTURE_MISSING'|'MATCH_STARTED'|'MATCH_FINISHED'|'INVALID_QUOTE'|'SNAPSHOT_INCOMPATIBLE';
+export type BookmakerAvailabilityState='COMPLETE'|'MISSING_LEG'|'STALE_LEG'|'WITHDRAWN_LEG'|'MARKET_UNAVAILABLE'|'FIXTURE_UNAVAILABLE'|'QUOTE_REPRICED'|'BOOKMAKER_NOT_ELIGIBLE_FOR_CTA'|'OTHER_VERIFIED_UNAVAILABLE_REASON';
 export interface BookmakerConfig {
   bookmakerId:string;
   displayName:string;
@@ -14,6 +17,7 @@ export interface SelectionQuote {
   fixture:ResolvedSelection['fixture'];
   state:SelectionState;
   reason:'MISSING_FIXTURE'|'NO_QUOTE'|'INVALID_QUOTE'|null;
+  diagnosticCode:ComparisonDiagnostic;
   decimalOdds:string|null;
   expiresAt:string|null;
   closesAt:string|null;
@@ -24,6 +28,7 @@ export interface BookmakerSlip extends BookmakerConfig {
   missingSelections:SelectionQuote[];
   invalidSelections:SelectionQuote[];
   complete:boolean;
+  availabilityState:BookmakerAvailabilityState;
   selectionQuotes:SelectionQuote[];
   combinedDecimalOdds:string|null;
   best:boolean;

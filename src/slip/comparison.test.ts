@@ -10,6 +10,7 @@ describe('M7 exact decimal arithmetic',()=>{
     expect(multiplyDecimalOdds(['2.10','1.80'])).toBe('3.78');
     expect(multiplyDecimalOdds(Array(10).fill('1.1'))).toBe('2.5937424601');
     expect(multiplyDecimalOdds(['2.10','1.80','1.60'])).toBe('6.048');
+    expect(multiplyDecimalOdds(['2.10','1.75','1.90'])).toBe('6.9825');
     expect(multiplyDecimalOdds(['2.123456789123456789','1.01'])).toBe('2.14469135701469135689');
     expect(multiplyDecimalOdds(Array(10).fill('1000'))).toBe('1000000000000000000000000000000');
   });
@@ -24,7 +25,9 @@ describe('M7 exact decimal arithmetic',()=>{
   it('computes informational potential return from displayed combined odds',()=>{
     expect(parseStake('10')).toBe('10');expect(parseStake('10,5')).toBe('10.5');expect(parseStake('-2')).toBeNull();expect(parseStake('NaN')).toBeNull();
     expect(potentialReturn('10','6.048')).toBe('60.50');expect(formatMoney('60.50','br')).toBe('R$ 60,50');
+    expect(formatCombinedOdds('6.9825','br')).toBe('6,98');expect(potentialReturn('10','6.9825')).toBe('69.80');
     expect(potentialReturn('10','9.20')).toBe('92.00');expect(potentialReturn('10','8.94')).toBe('89.40');
+    expect(formatCombinedOdds('not-a-number','br')).toBe('');expect(formatCombinedOdds('not-a-number','br')).not.toBe('?');
   });
 });
 
@@ -115,5 +118,63 @@ describe('M7 exact canonical identity',()=>{
     expect(r.bookmakers[0]).toMatchObject({complete:true,availableSelectionCount:2,combinedDecimalOdds:'3.57'});
     expect(r.bookmakers[1].combinedDecimalOdds).toBe('3.5475');
     expect(r.generatedAt).toBe(new Date(f.now).toISOString());
+  });
+});
+
+describe('explicit bookmaker availability',()=>{
+  const run=(f:ReturnType<typeof comparisonFixture>)=>buildSlipComparison(f.selections,'br',f.data.fixtures,f.data.bookmakers,f.now);
+  it.each([1,2,3,5])('marks both books complete for %s mixed-market legs',count=>{
+    const r=run(comparisonFixture(count));
+    expect(r.bookmakers).toHaveLength(2);
+    for(const b of r.bookmakers){
+      expect(b.complete).toBe(true);expect(b.availabilityState).toBe('COMPLETE');expect(b.combinedDecimalOdds).toBeTruthy();
+      expect(b.availableSelectionCount).toBe(count);expect(b.selectionQuotes.every(q=>q.diagnosticCode==='COMPLETE')).toBe(true);
+    }
+    expect(r.states).toContain(count===1?'ONE_SELECTION':'MULTIPLE_COMPLETE_BOOKMAKERS');
+  });
+  it('keeps Betano complete and best when its CTA is gated',()=>{
+    const r=run(comparisonFixture());
+    expect(r.bookmakers[1]).toMatchObject({complete:true,availabilityState:'COMPLETE',ctaState:'AFFILIATE_UNAVAILABLE',best:true});
+    expect(r.bookmakers[0]).toMatchObject({complete:true,ctaState:'ENABLED',best:false});
+  });
+  it('classifies a missing BTTS market as MARKET_UNAVAILABLE, not an aggregation bug',()=>{
+    const f=comparisonFixture(1);const home=f.selections[0];const btts={...home,market:'BTTS' as const,outcome:'YES' as const,line:null};
+    const r=buildSlipComparison([home,btts],'br',f.data.fixtures,f.data.bookmakers,f.now);
+    expect(r.bookmakers[0].complete).toBe(false);expect(r.bookmakers[0].availabilityState).toBe('MARKET_UNAVAILABLE');
+    expect(r.bookmakers[0].selectionQuotes[1].diagnosticCode).toBe('MARKET_MISSING');expect(r.bookmakers[0].combinedDecimalOdds).toBeNull();
+  });
+  it('classifies stale quotes as STALE_LEG without a fake total',()=>{
+    const f=comparisonFixture();Object.assign(f.data.fixtures.get(f.selections[0].fixturePublicId)!.snapshot.quotes[1],{status:'STALE'});
+    const betano=run(f).bookmakers[1];
+    expect(betano).toMatchObject({complete:false,availabilityState:'STALE_LEG',combinedDecimalOdds:null,ctaState:'INCOMPLETE'});
+    expect(betano.selectionQuotes[0].diagnosticCode).toBe('STALE_QUOTE');
+  });
+  it('classifies withdrawn quotes as WITHDRAWN_LEG',()=>{
+    const f=comparisonFixture();Object.assign(f.data.fixtures.get(f.selections[0].fixturePublicId)!.snapshot.quotes[0],{status:'SUSPENDED'});
+    expect(run(f).bookmakers[0]).toMatchObject({complete:false,availabilityState:'WITHDRAWN_LEG',combinedDecimalOdds:null});
+    expect(run(f).bookmakers[0].selectionQuotes[0].diagnosticCode).toBe('WITHDRAWN');
+  });
+  it('keeps Betsson complete when Betano is missing one exact leg',()=>{
+    const f=comparisonFixture();
+    const quotes=f.data.fixtures.get(f.selections[1].fixturePublicId)!.snapshot.quotes;
+    quotes.splice(quotes.findIndex(q=>q.bookmaker==='betano.bet.br'),1);
+    const [betsson,betano]=run(f).bookmakers;
+    expect(betsson).toMatchObject({complete:true,availabilityState:'COMPLETE',availableSelectionCount:3,combinedDecimalOdds:'6.048'});
+    expect(betano).toMatchObject({complete:false,availabilityState:'MISSING_LEG',combinedDecimalOdds:null,availableSelectionCount:2});
+  });
+  it('keeps Betano complete when Betsson is missing one exact leg',()=>{
+    const f=comparisonFixture();
+    const quotes=f.data.fixtures.get(f.selections[1].fixturePublicId)!.snapshot.quotes;
+    quotes.splice(quotes.findIndex(q=>q.bookmaker==='betsson'),1);
+    const [betsson,betano]=run(f).bookmakers;
+    expect(betsson).toMatchObject({complete:false,availabilityState:'MISSING_LEG',combinedDecimalOdds:null});
+    expect(betano).toMatchObject({complete:true,availabilityState:'COMPLETE',combinedDecimalOdds:'6.45645'});
+  });
+  it('marks both books incomplete without inventing a combined total',()=>{
+    const f=comparisonFixture();for(const r of f.data.fixtures.values())r.snapshot.quotes=[];
+    for(const b of run(f).bookmakers){
+      expect(b.complete).toBe(false);expect(b.combinedDecimalOdds).toBeNull();
+      expect(b.availabilityState).toBe('MISSING_LEG');expect(b.availableSelectionCount).toBe(0);
+    }
   });
 });
