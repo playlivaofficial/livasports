@@ -18,7 +18,7 @@ export function offerDependencies(db:QueryExecutor):OfferDependencies{return {
   campaigns:locale=>readCampaigns(db,locale),page:context=>readPageContext(db,context),
   pricing:async(context,bookmaker,now)=>{
     if(isSlipPlacement(context.placement)){
-      const selections=context.selections!,data=await readSlipComparison(db,selections.map(s=>s.fixturePublicId),context.locale==='br'?'BR':'MX');
+      const selections=context.selections!,data=await readSlipComparison(db,[...new Set(selections.map(s=>s.fixturePublicId))],context.locale==='br'?'BR':'MX');
       const b=buildSlipComparison(selections,context.locale,data.fixtures,data.bookmakers,now).bookmakers.find(b=>b.bookmakerId===bookmaker);
       return b?.complete?Math.min(...b.selectionQuotes.map(q=>Date.parse(q.expiresAt!))):null;
     }

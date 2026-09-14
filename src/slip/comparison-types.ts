@@ -37,5 +37,6 @@ export interface SlipComparison {
   states:ComparisonState[];
   bookmakers:BookmakerSlip[];
   expiresAt:string|null;
+  generatedAt:string;
 }
 export interface FullSlipResolution extends SlipResolution {comparison:SlipComparison;}

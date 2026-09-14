@@ -11,7 +11,7 @@ export type DestinationType='HOMEPAGE'|'SPORTSBOOK';
 export type PageType='HOME'|'MATCH'|'TEAM'|'PLAYER'|'COMPETITION';
 export interface CommercialContext {
   locale:SiteLocale;pagePath:string;placement:Placement;bookmaker?:Bookmaker;
-  fixturePublicId?:string;market?:OddsMarket;selections?:CanonicalSelection[];competitionSlug?:string;
+  fixturePublicId?:string;market?:OddsMarket;selections?:CanonicalSelection[];competitionSlug?:string;slipId?:string;
 }
 export interface Creative {id:string;placement:Placement;locale:SiteLocale;imageUrl:string|null;imageAlt:string;width:number;height:number;approved:boolean;enabled:boolean;startsAt:string|null;endsAt:string|null;delivery?:'IMAGE'|'BETSSON_EMBED';embedSourceUrl?:string|null;}
 export interface Campaign {

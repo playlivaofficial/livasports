@@ -2,13 +2,14 @@ import type {SiteLocale} from '@/config/i18n';
 
 export const SLIP_LIMIT = 10;
 export const SLIP_SCOPE = 'FULL_TIME_REGULATION' as const;
+export const SLIP_SCHEMA_VERSION = 2 as const;
 export type CanonicalSelection = {fixturePublicId:string;scope:typeof SLIP_SCOPE} & (
   {market:'MATCH_WINNER';outcome:'HOME'|'DRAW'|'AWAY';line:null} |
   {market:'TOTAL_GOALS';outcome:'OVER'|'UNDER';line:2.5} |
   {market:'BTTS';outcome:'YES'|'NO';line:null}
 );
 export type SavedSelection = CanonicalSelection & {addedAt:string};
-export interface StoredSlip {version:1;selections:SavedSelection[];}
+export interface StoredSlip {version:typeof SLIP_SCHEMA_VERSION;slipId:string;stake:string;selections:SavedSelection[];}
 export type SelectionState = 'CURRENT'|'PRICE_CHANGED'|'STALE'|'UNAVAILABLE'|'SUSPENDED'|'CLOSED'|'MATCH_STARTED'|'MATCH_FINISHED';
 export interface ReferencePrice {decimalOdds:string;bookmaker:string;bookmakerName:string;best:boolean;expiresAt:string;}
 export interface ResolvedSelection {
@@ -17,13 +18,33 @@ export interface ResolvedSelection {
   state:SelectionState;
   reason:'NO_VERIFIED_GEO'|'MISSING_FIXTURE'|'NO_QUOTE'|null;
   price:ReferencePrice|null;
+  previousDecimalOdds?:string;
   closesAt:string|null;
 }
 export interface SlipResolution {locale:SiteLocale;resolvedAt:string;selections:ResolvedSelection[];providerRequests:0;}
 
-// M7 may consume this exact identity; neither bookmaker nor kickoff defines a selection.
 export function selectionKey(s:CanonicalSelection):string {
   return `${s.fixturePublicId}:${s.scope}:${s.market}:${s.outcome}:${s.line??'none'}`;
+}
+
+/** One outcome per fixture + market + line. Compatible markets on the same fixture remain distinct. */
+export function marketKey(s:Pick<CanonicalSelection,'fixturePublicId'|'scope'|'market'|'line'>):string {
+  return `${s.fixturePublicId}:${s.scope}:${s.market}:${s.line??'none'}`;
+}
+
+export function uniqueFixtureIds(selections:readonly CanonicalSelection[]):string[] {
+  return [...new Set(selections.map(s=>s.fixturePublicId))];
+}
+
+export function createSlipId():string {
+  const bytes=new Uint8Array(16);
+  (globalThis.crypto??(globalThis as {crypto?:Crypto}).crypto)?.getRandomValues?.(bytes);
+  if(bytes.every(b=>b===0))for(let i=0;i<bytes.length;i++)bytes[i]=Math.floor(Math.random()*256);
+  return [...bytes].map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+export function validSlipId(value:unknown):value is string {
+  return typeof value==='string'&&/^[0-9a-f]{32}$/.test(value);
 }
 
 export function canonicalSelection(value:unknown,strict=false):CanonicalSelection|null {
@@ -45,6 +66,6 @@ export function parseResolutionRequest(value:unknown):{locale:SiteLocale;selecti
   const selections=v.selections.map(s=>canonicalSelection(s,true));
   if(selections.some(s=>s===null))return null;
   const valid=selections as CanonicalSelection[];
-  if(new Set(valid.map(s=>s.fixturePublicId)).size!==valid.length)return null;
+  if(new Set(valid.map(selectionKey)).size!==valid.length||new Set(valid.map(marketKey)).size!==valid.length)return null;
   return {locale:v.locale,selections:valid};
 }

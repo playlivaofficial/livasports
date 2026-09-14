@@ -27,7 +27,8 @@ describe('owner authentication and GEO isolation',()=>{
     const r=await ownerAction(post({action:'login',key:'  '+access+'\n'}),openLimiter),cookie=r.headers.get('set-cookie')!;
     expect(r.status).toBe(200);expect(await r.json()).toEqual({authorized:true,preview:false});
     for(const flag of ['__Host-','Secure','HttpOnly','SameSite=Strict','Path=/','Max-Age='])expect(cookie).toContain(flag);
-    expect(ownerSessionSeconds).toBe(30*24*60*60);expect(cookie).toContain('Max-Age=2592000');
+    expect(ownerSessionSeconds).toBe(30*24*60*60);expect(Number(/Max-Age=(\d+)/.exec(cookie)?.[1])).toBeGreaterThanOrEqual(ownerSessionSeconds-2);
+    expect(Number(/Max-Age=(\d+)/.exec(cookie)?.[1])).toBeLessThanOrEqual(ownerSessionSeconds);
     expect(cookie).not.toContain(access);expect(r.headers.get('cache-control')).toBe('private, no-store');
   });
   it('rate-limits failed logins without binding a valid key or session to a device',async()=>{

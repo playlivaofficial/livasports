@@ -51,6 +51,8 @@
 .sports-board .listing-odds-cell { min-height:35px; border-radius:4px; background:#142b37; }
 .sports-board .listing-odds-price { font-size:11px; font-variant-numeric:tabular-nums; }
 .sports-board .listing-odds-label { font-size:9px; }
+.sports-board .listing-odds-select.is-selected, .sports-board button.listing-odds-select[aria-pressed=true] { background:rgba(36,211,155,.18); border-color:#24d39b; }
+.sports-board .listing-odds-fresh { color:#8ea0b3; font-size:8px; }
 .sports-board .odds-empty { border:0; background:transparent; width:auto; height:auto; font-size:10px; color:#859baa; }
 .board-empty { padding:35px 18px; border:1px solid #263d4c; border-radius:6px; text-align:center; font-size:13px; }
 .board-empty a { display:inline-block; color:#6de2b8; margin-top:12px; padding:10px; }

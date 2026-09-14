@@ -31,7 +31,7 @@ export async function compareSlipRequest(request:Request,service:Pick<Comparison
 export async function currentSlipDestination(bookmaker:string,selections:CanonicalSelection[],locale:SiteLocale,
   reader:(ids:readonly string[],geo:CommercialGeo|null)=>Promise<SlipComparisonRead>=read,geo:CommercialGeo|null=null):Promise<string|null>{
   if(!['betsson','betano.bet.br'].includes(bookmaker)||!selections.length||!parseResolutionRequest({selections,locale}))return null;
-  const data=await reader(selections.map(s=>s.fixturePublicId),geo);
+  const data=await reader([...new Set(selections.map(s=>s.fixturePublicId))],geo);
   const result=buildSlipComparison(selections,locale,data.fixtures,data.bookmakers).bookmakers.find(b=>b.bookmakerId===bookmaker);
   return result?.complete&&result.ctaState==='ENABLED'?data.destinations[bookmaker]??null:null;
 }

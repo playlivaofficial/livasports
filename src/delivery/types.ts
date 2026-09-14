@@ -4,7 +4,7 @@ import type { PageKey, SiteLocale } from '@/config/i18n';
 export type FreshnessState = 'fresh' | 'stale' | 'unavailable';
 export type ProviderDeliveryState = 'available' | 'partial' | 'unavailable' | 'not-configured';
 export interface ProviderState { state: ProviderDeliveryState; freshness: FreshnessState; reason: 'ok' | 'no-data' | 'credentials-missing' | 'provider-error' | 'partial-coverage'; }
-export interface BookmakerPriceView { bookmaker: 'Betano BR' | 'Betsson'; decimalOdds: number; providerUpdatedAt: string; freshness: Exclude<FreshnessState, 'unavailable'>; }
+export interface BookmakerPriceView { bookmaker: 'Betano BR' | 'Betsson'; decimalOdds: number; providerUpdatedAt: string; freshness: Exclude<FreshnessState, 'unavailable'>; expiresAt?: string; }
 export interface OutcomeOddsView { outcome: OutcomeCode; prices: BookmakerPriceView[]; }
 export interface MarketOddsView { market: MarketCode; line: number | null; outcomes: OutcomeOddsView[]; }
 export interface FixtureView {

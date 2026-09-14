@@ -47,4 +47,15 @@ describe('listing MATCH_WINNER cells', () => {
     const value = { ...fixture(), odds: [], oddsState: 'none' as const };
     expect(renderToStaticMarkup(createElement(OddsComparison, { locale: 'br', fixture: value }))).toContain('Indisponível');
   });
+
+  it('turns fresh MATCH_WINNER cells into selectable buttons with a pressed state', () => {
+    const value = fixture();
+    value.publicId = 'aaaaaaaaaaaaaaaa';
+    for (const outcome of value.odds[0].outcomes) for (const price of outcome.prices) price.expiresAt = '2030-01-01T12:00:00.000Z';
+    const html = renderToStaticMarkup(createElement(OddsComparison, { locale: 'br', fixture: value }));
+    expect(html).toContain('listing-odds-select');
+    expect(html).toContain('aria-pressed="false"');
+    expect(html).toContain('Adicionar ao bilhete');
+    expect(html).toContain('type="button"');
+  });
 });

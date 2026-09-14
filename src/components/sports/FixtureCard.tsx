@@ -67,6 +67,6 @@ export function FixtureCard({ locale, fixture }: { locale: SiteLocale; fixture: 
       <div className="team-stack"><TeamIdentity name={fixture.homeTeam} shortName={fixture.homeTeamShortName} imageUrl={fixture.homeTeamImageUrl} /><TeamIdentity name={fixture.awayTeam} shortName={fixture.awayTeamShortName} imageUrl={fixture.awayTeamImageUrl} /></div>
       <ScoreDisplay fixture={fixture} />
     </Link> : <><div className="fixture-timing"><KickoffTime locale={locale} kickoff={fixture.kickoff} /><FixtureStatusBadge locale={locale} status={fixture.status} /></div><div className="team-stack"><TeamIdentity name={fixture.homeTeam} shortName={fixture.homeTeamShortName} imageUrl={fixture.homeTeamImageUrl} /><TeamIdentity name={fixture.awayTeam} shortName={fixture.awayTeamShortName} imageUrl={fixture.awayTeamImageUrl} /></div><ScoreDisplay fixture={fixture} /></>}
-    <OddsComparison locale={locale} fixture={fixture} emptyLabel={dictionary.labels.noOdds} />
+    <OddsComparison locale={locale} commercialLocale={locale} fixture={fixture} emptyLabel={dictionary.labels.noOdds} />
   </article>;
 }

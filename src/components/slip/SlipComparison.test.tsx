@@ -6,18 +6,22 @@ import {buildSlipComparison} from '@/slip/comparison';
 import {comparisonFixture} from '@/slip/comparison-fixtures.test-support';
 describe('M7 semantic localized comparison cards',()=>{
   it('renders exact totals, meaningful sponsored CTA and independent best text',()=>{
-    const f=comparisonFixture();const html=renderToStaticMarkup(<SlipComparison locale="br" selections={f.selections.map(s=>({...s,addedAt:new Date(f.now).toISOString()}))} checking={false} value={buildSlipComparison(f.selections,'br',f.data.fixtures,f.data.bookmakers,f.now)}/>);
-    expect(html).toContain('6,05');expect(html).toContain('6,46');expect(html).toContain('Melhor odd combinada entre as casas comparadas');expect(html).toContain('rel="sponsored nofollow noopener noreferrer"');
-    expect(html).toContain('Ver odds · Betsson');expect(html).not.toContain('Ver odds · Betano');expect(html).not.toContain('partner=test-only');expect(html).not.toMatch(/stake|payout|Open slip|Send slip/);
+    const f=comparisonFixture();const html=renderToStaticMarkup(<SlipComparison locale="br" stake="10" selections={f.selections.map(s=>({...s,addedAt:new Date(f.now).toISOString()}))} checking={false} value={buildSlipComparison(f.selections,'br',f.data.fixtures,f.data.bookmakers,f.now)}/>);
+    expect(html).toContain('6,05');expect(html).toContain('6,46');expect(html).toContain('Melhor retorno para este cupom');expect(html).toContain('Retorno potencial');expect(html).toContain('rel="sponsored nofollow noopener noreferrer"');
+    expect(html).toContain('Ver odds · Betsson');expect(html).not.toContain('Ver odds · Betano');expect(html).not.toContain('partner=test-only');expect(html).not.toMatch(/payout|Open slip|Send slip|guaranteed|profit/);
   });
   it('makes exact missing selections keyboard-accessible with native details',()=>{
     const f=comparisonFixture();f.data.fixtures.get(f.selections[1].fixturePublicId)!.snapshot.quotes.pop();
-    const html=renderToStaticMarkup(<SlipComparison locale="br" selections={f.selections.map(s=>({...s,addedAt:new Date(f.now).toISOString()}))} checking={false} value={buildSlipComparison(f.selections,'br',f.data.fixtures,f.data.bookmakers,f.now)}/>);
-    expect(html).toContain('<details');expect(html).toContain('Real Madrid');expect(html).toContain('Seleções indisponíveis (1)');expect(html).not.toContain('Melhor odd combinada');
+    const html=renderToStaticMarkup(<SlipComparison locale="br" stake="10" selections={f.selections.map(s=>({...s,addedAt:new Date(f.now).toISOString()}))} checking={false} value={buildSlipComparison(f.selections,'br',f.data.fixtures,f.data.bookmakers,f.now)}/>);
+    expect(html).toContain('<details');expect(html).toContain('Real Madrid');expect(html).toContain('Faltam (1)');expect(html).toContain('Indisponível para este cupom completo');
   });
   it('keeps BR-eligible prices when the interface is Spanish',()=>{
-    const f=comparisonFixture();const html=renderToStaticMarkup(<SlipComparison locale="mx" selections={f.selections.map(s=>({...s,addedAt:new Date(f.now).toISOString()}))} checking={false} value={buildSlipComparison(f.selections,'mx',f.data.fixtures,f.data.bookmakers,f.now)}/>);
-    expect(html).toContain('Cuota combinada');expect(html).toContain('Mejor cuota combinada entre las casas comparadas');
+    const f=comparisonFixture();const html=renderToStaticMarkup(<SlipComparison locale="mx" stake="10" selections={f.selections.map(s=>({...s,addedAt:new Date(f.now).toISOString()}))} checking={false} value={buildSlipComparison(f.selections,'mx',f.data.fixtures,f.data.bookmakers,f.now)}/>);
+    expect(html).toContain('Cuota combinada');expect(html).toContain('Mejor retorno para este cupón');
     expect(html).toContain('6.05');expect(html).toContain('6.46');expect(html).not.toContain('Melhor odd');expect(html).not.toContain('No hay casas verificadas');
+  });
+  it('renders English comparison copy without changing the product math',()=>{
+    const f=comparisonFixture();const html=renderToStaticMarkup(<SlipComparison locale="br" uiLocale="en" stake="10" selections={f.selections.map(s=>({...s,addedAt:new Date(f.now).toISOString()}))} checking={false} value={buildSlipComparison(f.selections,'br',f.data.fixtures,f.data.bookmakers,f.now)}/>);
+    expect(html).toContain('Best return for this slip');expect(html).toContain('Potential return');expect(html).toContain('6.05');
   });
 });

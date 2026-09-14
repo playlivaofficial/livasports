@@ -8,7 +8,7 @@ import type {FullSlipResolution} from './comparison-types';
 import {guardSlipComparison} from './comparison';
 
 // Session memory only: prices are never part of localStorage or canonical identity.
-const observations=new Map<string,{price:string;changed:boolean;valid:boolean}>();
+const observations=new Map<string,{price:string;from?:string;changed:boolean;valid:boolean}>();
 export function useSlipResolution(selections:SavedSelection[],locale:SiteLocale){
   const signature=JSON.stringify({locale,selections:selections.map(s=>canonicalSelection(s))});
   const [data,setData]=useState<{signature:string;body:SlipResolution&Partial<Pick<FullSlipResolution,'comparison'>>;received:number}|null>(null);
@@ -36,8 +36,8 @@ export function useSlipResolution(selections:SavedSelection[],locale:SiteLocale)
         body.selections=body.selections.map(value=>{
           const key=`${input.locale}:${selectionKey(value.selection)}`;const previous=observations.get(key);
           let next=markPriceChange(value,previous?.price);
-          if(next.price){const price=next.price.decimalOdds;if(previous?.changed)next={...next,state:'PRICE_CHANGED'};
-            observations.set(key,{price,changed:next.state==='PRICE_CHANGED',valid:true});
+          if(next.price){const price=next.price.decimalOdds;if(previous?.changed)next={...next,state:'PRICE_CHANGED',previousDecimalOdds:previous.from??previous.price};
+            observations.set(key,{price,from:next.previousDecimalOdds??previous?.from??previous?.price,changed:next.state==='PRICE_CHANGED',valid:true});
           }else if(previous?.valid){observations.set(key,{...previous,valid:false});emitSlipEvent('slip_state_invalidated',input.locale,value.selection);}
           return next;
         });

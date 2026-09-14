@@ -39,9 +39,9 @@ function summarize(config:BookmakerConfig,quotes:SelectionQuote[]):BookmakerSlip
     complete,selectionQuotes:quotes,combinedDecimalOdds:complete?combined:null,best:false,tiedBest:false,
     ctaState:!complete?'INCOMPLETE':affiliate?'ENABLED':'AFFILIATE_UNAVAILABLE',outboundCapability:affiliate?(config.affiliateEligibility.destinationType??'HOMEPAGE'):'NONE'};
 }
-function finish(locale:SiteLocale,count:number,bookmakers:BookmakerSlip[]):SlipComparison {
+function finish(locale:SiteLocale,count:number,bookmakers:BookmakerSlip[],generatedAt=new Date().toISOString()):SlipComparison {
   const complete=bookmakers.filter(b=>b.complete);
-  if(complete.length>=2){const highest=complete.reduce((a,b)=>compareDecimal(a.combinedDecimalOdds!,b.combinedDecimalOdds!)>=0?a:b).combinedDecimalOdds!;
+  if(complete.length>=1){const highest=complete.reduce((a,b)=>compareDecimal(a.combinedDecimalOdds!,b.combinedDecimalOdds!)>=0?a:b).combinedDecimalOdds!;
     const winners=complete.filter(b=>compareDecimal(b.combinedDecimalOdds!,highest)===0);
     for(const b of winners){b.best=true;b.tiedBest=winners.length>1;}
   }
@@ -58,7 +58,7 @@ function finish(locale:SiteLocale,count:number,bookmakers:BookmakerSlip[]):SlipC
     if(quotes.some(q=>q.decimalOdds!==null)&&quotes.some(q=>q.decimalOdds===null))states.push('MIXED_VALIDITY');
   }
   const times=quotes.filter(q=>q.decimalOdds!==null).map(q=>Date.parse(q.expiresAt!));
-  return {version:1,locale,states,bookmakers,expiresAt:times.length?new Date(Math.min(...times)).toISOString():null};
+  return {version:1,locale,states,bookmakers,expiresAt:times.length?new Date(Math.min(...times)).toISOString():null,generatedAt};
 }
 function eligibleBookmaker(b:BookmakerConfig){
   return b.geoEligibility.eligible&&(b.bookmakerId==='betsson'||(b.bookmakerId==='betano.bet.br'&&b.geoEligibility.locale==='br'));
@@ -66,7 +66,7 @@ function eligibleBookmaker(b:BookmakerConfig){
 export function buildSlipComparison(selections:CanonicalSelection[],locale:SiteLocale,fixtures:Map<string,SlipFixtureRead>,configs:BookmakerConfig[],now=Date.now()):SlipComparison {
   const eligible=configs.filter(eligibleBookmaker);
   const bookmakers=selections.length?eligible.map(b=>summarize(b,selections.map(s=>selectionQuote(s,fixtures.get(s.fixturePublicId)??null,b.bookmakerId,now)))):[];
-  return finish(locale,selections.length,bookmakers);
+  return finish(locale,selections.length,bookmakers,new Date(now).toISOString());
 }
 export function guardSlipComparison(value:SlipComparison,count:number,now:number,connected=true):SlipComparison {
   return finish(value.locale,count,value.bookmakers.filter(eligibleBookmaker).map(b=>summarize(b,b.selectionQuotes.map(q=>{
@@ -75,5 +75,5 @@ export function guardSlipComparison(value:SlipComparison,count:number,now:number
     if(q.decimalOdds&&(!connected||!Number.isFinite(Date.parse(q.expiresAt??''))||now>=Date.parse(q.expiresAt!)))return {...q,state:'STALE',decimalOdds:null};
     if(q.decimalOdds&&!validDecimalOdds(q.decimalOdds))return {...q,state:'UNAVAILABLE',decimalOdds:null};
     return {...q};
-  }))));
+  }))),value.generatedAt??new Date(now).toISOString());
 }

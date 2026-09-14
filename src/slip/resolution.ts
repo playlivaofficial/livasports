@@ -35,5 +35,6 @@ export function guardResolved(value:ResolvedSelection,now:number,connected=true)
 }
 
 export function markPriceChange(next:ResolvedSelection,previousPrice:string|undefined):ResolvedSelection {
-  return next.state==='CURRENT'&&next.price&&previousPrice!==undefined&&Number(next.price.decimalOdds)!==Number(previousPrice)?{...next,state:'PRICE_CHANGED'}:next;
+  return next.state==='CURRENT'&&next.price&&previousPrice!==undefined&&Number(next.price.decimalOdds)!==Number(previousPrice)
+    ?{...next,state:'PRICE_CHANGED',previousDecimalOdds:previousPrice}:next;
 }

@@ -58,12 +58,12 @@ button.slip-odds-button { position:relative; width:100%; min-width:44px; min-hei
 button.slip-odds-button:hover { border-color:var(--color-accent); background:var(--color-accent-soft); }
 button.slip-odds-button[aria-pressed=true] { border-color:var(--color-accent); background:var(--color-accent-soft); color:var(--color-accent); }
 .slip-selected-indicator { position:absolute; top:1px; right:3px; font:8px var(--font-sans); }
-@media(min-width:1280px) {
+@media(min-width:1024px) {
   body[data-slip-open=true] .site-content-wrapper { margin-right:368px; }
   .slip-panel { top:80px; bottom:auto; max-height:calc(100dvh - 156px); }
   .slip-entry { width:336px; }
 }
-@media(max-width:1279px) {
+@media(max-width:1023px) {
   .slip-panel { right:12px; width:min(420px,calc(100% - 24px)); }
   body[data-slip-open=true] .site-content-wrapper { padding-bottom:calc(var(--slip-panel-height,70dvh) + 90px); }
 }
@@ -99,3 +99,16 @@ button.slip-odds-button[aria-pressed=true] { border-color:var(--color-accent); b
 .slip-missing li>strong,.slip-missing li>span { display:block; }
 .slip-missing li>strong { color:var(--color-text-secondary); }
 .slip-bookmaker-cta { display:flex; justify-content:space-between; align-items:center; gap:.5rem; min-height:44px; margin-top:.6rem; padding:.55rem .75rem; border:1px solid var(--color-accent); border-radius:.4rem; background:var(--color-accent-soft); color:var(--color-accent); font-size:.75rem; font-weight:700; }
+.slip-stake { display:grid; gap:.35rem; margin:.35rem 0 .75rem; color:var(--color-text-secondary); font-size:.68rem; }
+.slip-stake input { min-height:44px; width:100%; padding:.45rem .65rem; border:1px solid var(--color-border-strong); border-radius:.45rem; background:var(--color-surface-raised); color:var(--color-text); font-family:var(--font-numeric); font-size:.95rem; }
+.slip-stake input[aria-invalid=true] { border-color:var(--color-warning); }
+.slip-totals { display:grid; gap:.35rem; margin:0 0 .75rem; padding:.7rem .75rem; border:1px solid var(--color-border); border-radius:.5rem; background:var(--color-surface-raised); font-size:.72rem; }
+.slip-totals b { font-family:var(--font-numeric); }
+.slip-return, .slip-diff { display:flex; justify-content:space-between; gap:.5rem; margin:.35rem 0 0; font-size:.7rem; color:var(--color-text-secondary); }
+.slip-return strong { font-family:var(--font-numeric); color:var(--color-text); }
+.slip-reprice { margin:.4rem 0 0; color:var(--color-accent); font-size:.64rem; }
+.slip-share { display:flex; align-items:center; justify-content:center; width:100%; min-height:44px; margin:.35rem 0 .4rem; border:1px solid var(--color-border-strong); border-radius:.45rem; background:var(--color-surface-raised); color:var(--color-text); font-size:.74rem; font-weight:700; }
+.listing-odds-select { position:relative; width:100%; appearance:none; font:inherit; color:inherit; cursor:pointer; }
+.listing-odds-select.is-selected, button.listing-odds-select[aria-pressed=true] { border-color:var(--color-accent); background:var(--color-accent-soft); box-shadow:inset 0 0 0 1px var(--color-accent); }
+.listing-odds-check { position:absolute; top:1px; right:3px; color:var(--color-accent); font:700 9px var(--font-sans); }
+.listing-odds-fresh { margin:.28rem 0 0; color:var(--color-text-muted); font-size:.55rem; line-height:1.3; text-align:center; }

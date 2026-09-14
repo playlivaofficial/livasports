@@ -10,7 +10,7 @@ export class SlipLoader {
     if(!parseResolutionRequest({selections,locale}))throw new Error('INVALID_SLIP');
     const values=new Map<string,SlipFixtureRead|null>();const missing:string[]=[];
     for(const s of selections){const cached=this.entries.get(`${geo??'none'}:${s.fixturePublicId}`);
-      if(cached&&cached.until>this.now())values.set(s.fixturePublicId,cached.value);else missing.push(s.fixturePublicId);
+      if(cached&&cached.until>this.now())values.set(s.fixturePublicId,cached.value);else if(!missing.includes(s.fixturePublicId))missing.push(s.fixturePublicId);
     }
     if(missing.length){
       const read=await this.readMany(missing,geo);

@@ -22,7 +22,7 @@ export function listingMatchWinnerOdds(snapshot:OddsReadSnapshot,now=Date.now())
       if(!cell||cell.state!=='ACTIVE'||!cell.decimalOdds||!bookmaker)return [];
       const decimalOdds=Number(cell.decimalOdds);
       if(!Number.isFinite(decimalOdds))return [];
-      return [{bookmaker,decimalOdds,providerUpdatedAt:comparison.providerUpdatedAt??'',freshness:'fresh' as const}];
+      return [{bookmaker,decimalOdds,providerUpdatedAt:comparison.providerUpdatedAt??cell.expiresAt??'',freshness:'fresh' as const,...(cell.expiresAt?{expiresAt:cell.expiresAt}:{})}];
     }),
   }));
   const odds:MarketOddsView[]=outcomes.some(outcome=>outcome.prices.length)

@@ -16,7 +16,7 @@ export function isSlipPlacement(p:string){return p==='slip_bookmaker_comparison'
 export function isSponsorPlacement(p:string){return !isSlipPlacement(p)&&p!=='match_odds_table';}
 export function parseContext(value:unknown):CommercialContext|null {
   if(!value||typeof value!=='object'||Array.isArray(value))return null;const v=value as Record<string,unknown>;
-  if(Object.keys(v).some(k=>!['locale','pagePath','placement','bookmaker','fixturePublicId','market','selections','competitionSlug'].includes(k))||
+  if(Object.keys(v).some(k=>!['locale','pagePath','placement','bookmaker','fixturePublicId','market','selections','competitionSlug','slipId'].includes(k))||
     (v.locale!=='br'&&v.locale!=='mx')||typeof v.pagePath!=='string'||v.pagePath.length>240||
     !placements.includes(v.placement as never)||(v.bookmaker!==undefined&&!['betsson','betano.bet.br'].includes(String(v.bookmaker))))return null;
   const type=pageType(v.pagePath),placement=String(v.placement);if(!type)return null;
@@ -27,10 +27,11 @@ export function parseContext(value:unknown):CommercialContext|null {
     placement.startsWith('home_')&&type!=='HOME'||placement==='competition_inline'&&type!=='HOME'||placement==='profile_mobile_inline'&&!['TEAM','PLAYER'].includes(type))return null;
   if(isSlipPlacement(placement)){
     const parsed=parseResolutionRequest({locale:v.locale,selections:v.selections});if(!v.bookmaker||!parsed?.selections.length||v.market!==undefined||v.fixturePublicId!==undefined)return null;
+    if(v.slipId!==undefined&&(typeof v.slipId!=='string'||!/^[0-9a-f]{32}$/.test(v.slipId)))return null;
   }else if(placement==='match_odds_table'){
     if(!v.bookmaker||typeof v.fixturePublicId!=='string'||!/^[a-f0-9]{16}$/.test(v.fixturePublicId)||!v.pagePath.endsWith('-'+v.fixturePublicId)||
-      !['MATCH_WINNER','TOTAL_GOALS','BTTS'].includes(String(v.market))||v.selections!==undefined)return null;
-  }else if(v.fixturePublicId!==undefined||v.market!==undefined||v.selections!==undefined)return null;
+      !['MATCH_WINNER','TOTAL_GOALS','BTTS'].includes(String(v.market))||v.selections!==undefined||v.slipId!==undefined)return null;
+  }else if(v.fixturePublicId!==undefined||v.market!==undefined||v.selections!==undefined||v.slipId!==undefined)return null;
   return v as unknown as CommercialContext;
 }
 export function campaignDestination(c:Campaign,context:CommercialContext,now:number):string|null {

@@ -16,6 +16,11 @@ export function addSlipSelection(value:CanonicalSelection,locale:SiteLocale,expi
   if(!selection||!Number.isFinite(Date.parse(expiresAt))||Date.now()>=Date.parse(expiresAt)){feedback({result:'EXPIRED'});return;}
   const result=slipStore.dispatch({type:'add',selection,addedAt:new Date().toISOString()});
   if(result.result==='ADDED')emitSlipEvent('slip_selection_add',locale,selection,bookmaker);
-  const previous=result.slip.selections.find(s=>s.fixturePublicId===selection.fixturePublicId);
-  feedback({result:result.result,selection,expiresAt,bookmaker,expectedKey:previous?selectionKey(previous):undefined});
+  if(result.result==='REPLACED')emitSlipEvent('slip_selection_replace',locale,selection,bookmaker);
+  if(result.result==='REMOVED')emitSlipEvent('slip_selection_remove',locale,selection);
+  feedback({result:result.result,selection,expiresAt,bookmaker,expectedKey:selectionKey(selection)});
+}
+export function setSlipStake(stake:string){
+  const result=slipStore.dispatch({type:'setStake',stake});
+  if(result.result==='INVALID_STAKE')feedback({result:'INVALID_STAKE'});
 }

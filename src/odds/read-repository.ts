@@ -92,8 +92,9 @@ export interface PublicOddsFixtureRead {
 }
 export async function readPublicOddsFixtures(db:QueryExecutor,publicIds:readonly string[],geo:CommercialGeo|null):Promise<Map<string,PublicOddsFixtureRead>>{
   if(publicIds.length>10||publicIds.some(id=>!/^[a-f0-9]{16}$/.test(id)))throw new Error('INVALID_SLIP_FIXTURES');
-  if(!publicIds.length)return new Map();
-  const result=await db.query(oddsReadSql('publicIds'),[publicIds,commercialIso2(geo)]);
+  const ids=[...new Set(publicIds)];
+  if(!ids.length)return new Map();
+  const result=await db.query(oddsReadSql('publicIds'),[ids,commercialIso2(geo)]);
   const groups=new Map<string,typeof result.rows>();
   for(const row of result.rows){const id=String(row.public_id);const rows=groups.get(id)??[];rows.push(row);groups.set(id,rows);}
   return new Map([...groups].map(([id,rows])=>{

@@ -23,7 +23,7 @@ export class ComparisonLoader {
       let pending=this.pending.get(key);cache=pending?'DEDUP':'MISS';
       if(!pending){
         if(this.pending.size>=32)throw new Error('COMPARISON_BUSY');
-        pending=this.readMany(selections.map(s=>s.fixturePublicId).sort(),geo);this.pending.set(key,pending);
+        pending=this.readMany([...new Set(selections.map(s=>s.fixturePublicId))].sort(),geo);this.pending.set(key,pending);
       }
       try{read=await pending;
         const now=this.now();const comparison=buildSlipComparison(selections,locale,read.fixtures,read.bookmakers,now);

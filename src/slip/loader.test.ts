@@ -13,8 +13,11 @@ describe('bounded DB/cache-only slip reads',()=>{
     now+=15000;await loader.resolve(picks,'br','BR');expect(read).toHaveBeenCalledTimes(3);expect(fetch).not.toHaveBeenCalled();fetch.mockRestore();
   });
   it('does not fetch for empty intent or accept excess/duplicate selections',async()=>{
-    const read=vi.fn();const loader=new SlipLoader(read);expect((await loader.resolve([],'br')).providerRequests).toBe(0);expect(read).not.toHaveBeenCalled();
+    const read=vi.fn().mockResolvedValue(new Map());const loader=new SlipLoader(read);expect((await loader.resolve([],'br')).providerRequests).toBe(0);expect(read).not.toHaveBeenCalled();
     await expect(loader.resolve([pick,pick],'br')).rejects.toThrow('INVALID_SLIP');
+    const btts={...pick,market:'BTTS' as const,outcome:'YES' as const,line:null};
+    await expect(loader.resolve([pick,btts],'br')).resolves.toMatchObject({providerRequests:0,selections:[{selection:pick},{selection:btts}]});
+    expect(read).toHaveBeenCalledTimes(1);expect(read.mock.calls[0][0]).toEqual([pick.fixturePublicId]);
   });
   it('never supplies an expired cache as fallback after database failure',async()=>{
     let now=0;const read=vi.fn().mockResolvedValueOnce(new Map()).mockRejectedValueOnce(new Error('offline'));const loader=new SlipLoader(read,()=>now);
