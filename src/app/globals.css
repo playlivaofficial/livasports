@@ -265,6 +265,10 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .odds-slot { display: grid; min-width: 0; justify-items: stretch; align-content: center; }
 .odds-empty { display: grid; min-height: 2.75rem; place-items: center; border: 1px dashed var(--color-border); border-radius: 6px; color: var(--color-text-muted); font-size: 0.69rem; }
 .listing-odds { display: grid; width: 12.25rem; max-width: 100%; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.38rem; }
+.listing-odds-books { display: grid; gap: 0.34rem; width: 12.25rem; max-width: 100%; }
+.listing-odds-book { display: grid; gap: 0.16rem; min-width: 0; }
+.listing-odds-book-name { color: var(--color-text-muted); font-size: 0.62rem; font-weight: 750; letter-spacing: 0.05em; line-height: 1; text-transform: uppercase; }
+.listing-odds-books .listing-odds { width: 100%; }
 .listing-odds-cell { display: grid; min-width: 0; min-height: 2.85rem; justify-items: center; align-content: center; gap: 0.14rem; border: 1px solid var(--color-border-strong); border-radius: 6px; background: var(--color-surface-raised); padding: 0.32rem 0.18rem; }
 .listing-odds-label { color: var(--color-text-muted); font-size: 0.7rem; font-weight: 700; letter-spacing: 0.04em; line-height: 1; }
 .listing-odds-price { color: var(--color-text); font-family: var(--font-numeric); font-size: 0.98rem; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
@@ -359,7 +363,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .score-stack { justify-items: end; }
   .score-value { font-size: 0.88rem; }
   .odds-slot { display: grid; grid-column: 1 / -1; grid-row: 2; justify-items: stretch; padding-top: 0.45rem; }
-  .odds-empty, .listing-odds { width: 100%; max-width: 22rem; margin-left: auto; }
+  .odds-empty, .listing-odds, .listing-odds-books { width: 100%; max-width: 22rem; margin-left: auto; }
   .listing-odds-cell { min-height: 2.75rem; }
   .listing-odds-price { font-size: 0.95rem; }
   .empty-state { width: 100%; max-width: 100%; margin: 0; overflow: hidden; border-radius: var(--radius-lg); padding: var(--space-5) var(--space-4); }

@@ -1,6 +1,7 @@
 import type {QueryExecutor} from '@/database/client';
 import {FOOTBALL_COMPETITION_TARGETS} from '@/config/footballCompetitions';
 import {KICKOFF_TOLERANCE_MS, type CanonicalOddsFixture, type OddsSnapshot, type ProviderOddsFixture} from './types';
+import {bookmakerParityKey} from './bookmaker';
 import {matchOddsFixture} from './matching';
 import {unmappedFixtureReason} from './coverage-matrix';
 import {resolveCatalogTournaments, schedulerTournaments} from '@/providers/oddspapi/tournament-catalog';
@@ -24,6 +25,7 @@ export type CoverageStatus=typeof COVERAGE_STATUSES[number];
 export type MarketCoverage='AVAILABLE'|'ABSENT'|'STALE'|'WITHDRAWN'|'UNAVAILABLE';
 export const ODDS_INGEST_WINDOW_MS=45*24*60*60*1000;
 const INTERNAL_BUGS=new Set<CoverageStatus>(['FIXTURE_MAPPING_MISSING','TEAM_ALIAS_MISMATCH','KICKOFF_MISMATCH','READ_MODEL_DROPPED_QUOTE']);
+const INTERNAL_BOOK_GAPS=new Set(['FIXTURE_MAPPING_MISSING','TEAM_ALIAS_MISMATCH','KICKOFF_MISMATCH','READ_MODEL_DROPPED_QUOTE','PERSISTENCE_GAP','UNEXPLAINED']);
 
 export interface MarketFlags {
   stored:boolean;
@@ -49,6 +51,8 @@ export interface FixtureCoverageInput {
   matchWinner:Record<'betano'|'betsson',MarketFlags>;
   totalGoals25:Record<'betano'|'betsson',MarketFlags>;
   btts:Record<'betano'|'betsson',MarketFlags>;
+  providerByBook?:Record<'betano'|'betsson',readonly ProviderOddsFixture[]>;
+  pricedMarketsByBook?:Record<'betano'|'betsson',ReadonlyMap<string,readonly string[]>>;
 }
 
 export interface FixtureCoverageRow {
@@ -69,6 +73,18 @@ export interface FixtureCoverageRow {
   classification:CoverageStatus;
   evidence:string;
   internalBug:boolean;
+  betanoProviderFixturePresent:boolean;
+  betssonProviderFixturePresent:boolean;
+  betanoProviderPriced:boolean;
+  betssonProviderPriced:boolean;
+  betanoMarkets:string[];
+  betssonMarkets:string[];
+  listingVisible:boolean;
+  matchPageVisible:boolean;
+  slipUsable:boolean;
+  betanoMissingReason:string|null;
+  betssonMissingReason:string|null;
+  unexplainedMissing:number;
 }
 
 function anyFlag(books:Record<'betano'|'betsson',MarketFlags>,key:keyof MarketFlags):boolean {
@@ -96,6 +112,47 @@ function combineMarket(books:Record<'betano'|'betsson',MarketFlags>):MarketCover
 
 function emptyFlags():MarketFlags {
   return {stored:false,listingCurrent:false,stale:false,withdrawn:false,dropped:false};
+}
+
+function bookProviderPool(input:FixtureCoverageInput,book:'betano'|'betsson'):readonly ProviderOddsFixture[] {
+  return input.providerByBook?.[book]??input.providerFixtures;
+}
+
+function matchProvider(input:FixtureCoverageInput,pool:readonly ProviderOddsFixture[]):{raw:ProviderOddsFixture;match:ReturnType<typeof matchOddsFixture>} | undefined {
+  const canonical:CanonicalOddsFixture={
+    id:input.publicId,competitionId:'',sport:'FOOTBALL',competition:input.slug,kickoff:input.kickoff,
+    status:'SCHEDULED',homeId:'',home:input.home,awayId:'',away:input.away,
+  };
+  return pool.filter(row=>row.competition===input.slug).map(raw=>({raw,match:matchOddsFixture(raw,[canonical],[])})).find(row=>row.match.fixture);
+}
+
+function bookPricedMarkets(input:FixtureCoverageInput,book:'betano'|'betsson',providerId:string|null):{priced:boolean;markets:string[]} {
+  if(providerId&&input.pricedMarketsByBook){
+    const markets=[...(input.pricedMarketsByBook[book].get(providerId)??[])];
+    return {priced:markets.length>0,markets};
+  }
+  const names=['MATCH_WINNER','TOTAL_GOALS_2_5','BTTS'] as const;
+  const flags=[input.matchWinner[book],input.totalGoals25[book],input.btts[book]];
+  const markets=names.filter((_,index)=>flags[index].stored||flags[index].listingCurrent);
+  return {priced:markets.length>0,markets:[...markets]};
+}
+
+function bookMissingReason(input:FixtureCoverageInput,book:'betano'|'betsson',priced:boolean,providerPresent:boolean):string|null {
+  const shown=input.matchWinner[book].listingCurrent||input.totalGoals25[book].listingCurrent||input.btts[book].listingCurrent;
+  if(shown)return null;
+  const flags=input.matchWinner[book];
+  if(priced){
+    if(flags.dropped||input.totalGoals25[book].dropped||input.btts[book].dropped)return 'READ_MODEL_DROPPED_QUOTE';
+    if(flags.stale||input.totalGoals25[book].stale||input.btts[book].stale)return 'QUOTE_STALE';
+    if(flags.withdrawn||input.totalGoals25[book].withdrawn||input.btts[book].withdrawn)return 'WITHDRAWN';
+    if(!input.mapped&&providerPresent)return 'FIXTURE_MAPPING_MISSING';
+    if(input.mapped&&!flags.stored&&!input.totalGoals25[book].stored&&!input.btts[book].stored)return 'PERSISTENCE_GAP';
+    if(input.pricedMarketsByBook)return 'UNEXPLAINED';
+    return input.mapped?'BOOKMAKER_DOES_NOT_PRICE_FIXTURE':'FIXTURE_MAPPING_MISSING';
+  }
+  if(!input.tournamentId)return 'OTHER_VERIFIED_REASON';
+  if(!input.schedulerEnabled)return 'TOURNAMENT_NOT_ACTIVE';
+  return 'PROVIDER_ABSENT';
 }
 
 export function classifyFixtureCoverage(input:FixtureCoverageInput):FixtureCoverageRow {
@@ -167,6 +224,14 @@ export function classifyFixtureCoverage(input:FixtureCoverageInput):FixtureCover
       ?'OddsPapi snapshot for this tournament does not include this fixture'
       :'No applied OddsPapi snapshot fixtures for this tournament';
   }
+  const betanoMatch=matchProvider(input,bookProviderPool(input,'betano'));
+  const betssonMatch=matchProvider(input,bookProviderPool(input,'betsson'));
+  const betanoPriced=bookPricedMarkets(input,'betano',betanoMatch?.raw.providerId??null);
+  const betssonPriced=bookPricedMarkets(input,'betsson',betssonMatch?.raw.providerId??null);
+  const betanoMissing=bookMissingReason(input,'betano',betanoPriced.priced,!!betanoMatch);
+  const betssonMissing=bookMissingReason(input,'betsson',betssonPriced.priced,!!betssonMatch);
+  const unexplainedMissing=[betanoMissing,betssonMissing].filter(reason=>reason==='UNEXPLAINED').length;
+  const listingVisible=input.matchWinner.betano.listingCurrent||input.matchWinner.betsson.listingCurrent;
   return {
     publicId:input.publicId,
     competition:input.competition,
@@ -184,7 +249,19 @@ export function classifyFixtureCoverage(input:FixtureCoverageInput):FixtureCover
     btts,
     classification,
     evidence,
-    internalBug:INTERNAL_BUGS.has(classification),
+    internalBug:INTERNAL_BUGS.has(classification)||INTERNAL_BOOK_GAPS.has(betanoMissing??'')||INTERNAL_BOOK_GAPS.has(betssonMissing??''),
+    betanoProviderFixturePresent:!!betanoMatch||(!!betanoPriced.priced),
+    betssonProviderFixturePresent:!!betssonMatch||(!!betssonPriced.priced),
+    betanoProviderPriced:betanoPriced.priced,
+    betssonProviderPriced:betssonPriced.priced,
+    betanoMarkets:betanoPriced.markets,
+    betssonMarkets:betssonPriced.markets,
+    listingVisible,
+    matchPageVisible:listingVisible,
+    slipUsable:listingVisible,
+    betanoMissingReason:betanoMissing,
+    betssonMissingReason:betssonMissing,
+    unexplainedMissing,
   };
 }
 
@@ -327,14 +404,14 @@ export async function buildFixtureCoverageReport(db:QueryExecutor,now=Date.now()
         o.market_code AS market, o.status,
         o.status='ACTIVE'
           AND mr.state IN ('EXACT','HIGH_CONFIDENCE')
-          AND (fm.metadata->>'canonicalKickoff')::timestamptz=f.kickoff
+          AND abs(extract(epoch from ((fm.metadata->>'canonicalKickoff')::timestamptz - f.kickoff))) <= 600
           AND o.scope='FULL_TIME_REGULATION' AND o.phase='PREGAME'
           AND now()-o.observed_at < make_interval(mins => COALESCE(o.freshness_ttl_minutes, 15)::int)
           AS listing_current,
         o.status='ACTIVE' AND now()-o.observed_at >= make_interval(mins => COALESCE(o.freshness_ttl_minutes, 15)::int) AS stale,
         o.status IN ('SUSPENDED','CLOSED') AS withdrawn,
         o.status='ACTIVE' AND NOT (
-          mr.state IN ('EXACT','HIGH_CONFIDENCE') AND (fm.metadata->>'canonicalKickoff')::timestamptz=f.kickoff
+          mr.state IN ('EXACT','HIGH_CONFIDENCE') AND abs(extract(epoch from ((fm.metadata->>'canonicalKickoff')::timestamptz - f.kickoff))) <= 600
         ) AS dropped
       FROM odds_current o
       JOIN fixtures f ON f.id=o.fixture_id AND f.status='SCHEDULED' AND f.kickoff>now()
@@ -354,16 +431,38 @@ export async function buildFixtureCoverageReport(db:QueryExecutor,now=Date.now()
   const byCanonical=new Map(resolved.map(row=>[row.canonical,row]));
   const scheduledIds=new Set(scheduled.map(row=>row.id));
   const providerBySlug=new Map<string,ProviderOddsFixture[]>();
+  const providerByBookSlug=new Map<string,ProviderOddsFixture[]>();
+  const pricedByBookSlug=new Map<string,Map<string,string[]>>();
   const horizonBySlug=new Map<string,number>();
   for(const row of snapshots.rows){
     const payload=row.payload as OddsSnapshot;
+    const book=bookmakerParityKey(payload.bookmaker)??bookmakerParityKey(row.bookmaker);
     for(const fixture of payload.fixtures??[]){
       if(!fixture.competition)continue;
       const list=providerBySlug.get(fixture.competition)??[];
       list.push(fixture);
       providerBySlug.set(fixture.competition,list);
+      if(book){
+        const key=`${book}:${fixture.competition}`;
+        const bookList=providerByBookSlug.get(key)??[];
+        bookList.push(fixture);
+        providerByBookSlug.set(key,bookList);
+      }
       const kick=Date.parse(fixture.kickoff);
       if(Number.isFinite(kick))horizonBySlug.set(fixture.competition,Math.max(horizonBySlug.get(fixture.competition)??0,kick));
+    }
+    if(book){
+      for(const quote of payload.quotes??[]){
+        const fixture=payload.fixtures?.find(item=>item.providerId===quote.providerFixtureId);
+        if(!fixture?.competition)continue;
+        const key=`${book}:${fixture.competition}`;
+        const markets=pricedByBookSlug.get(key)??new Map<string,string[]>();
+        const list=markets.get(quote.providerFixtureId)??[];
+        const label=quote.market==='TOTAL_GOALS'?'TOTAL_GOALS_2_5':quote.market;
+        if(!list.includes(label))list.push(label);
+        markets.set(quote.providerFixtureId,list);
+        pricedByBookSlug.set(key,markets);
+      }
     }
   }
   const quotesByFixture=new Map<string,QuoteRow[]>();
@@ -396,6 +495,14 @@ export async function buildFixtureCoverageReport(db:QueryExecutor,now=Date.now()
       matchWinner:{betano:flagsFromQuotes(fixtureQuotes,'betano','MATCH_WINNER'),betsson:flagsFromQuotes(fixtureQuotes,'betsson','MATCH_WINNER')},
       totalGoals25:{betano:flagsFromQuotes(fixtureQuotes,'betano','TOTAL_GOALS'),betsson:flagsFromQuotes(fixtureQuotes,'betsson','TOTAL_GOALS')},
       btts:{betano:flagsFromQuotes(fixtureQuotes,'betano','BTTS'),betsson:flagsFromQuotes(fixtureQuotes,'betsson','BTTS')},
+      providerByBook:{
+        betano:providerByBookSlug.get(`betano:${slug}`)??[],
+        betsson:providerByBookSlug.get(`betsson:${slug}`)??[],
+      },
+      pricedMarketsByBook:{
+        betano:pricedByBookSlug.get(`betano:${slug}`)??new Map(),
+        betsson:pricedByBookSlug.get(`betsson:${slug}`)??new Map(),
+      },
     }));
   }
   const enabled=new Set(FOOTBALL_COMPETITION_TARGETS.filter(target=>target.enabled).map(target=>target.slug));
@@ -426,7 +533,7 @@ export async function buildFixtureCoverageReport(db:QueryExecutor,now=Date.now()
     bySlug.set(row.slug,summary);
   }
   const competitionsSummary=[...bySlug.values()].sort((a,b)=>a.competition.localeCompare(b.competition));
-  const unexplained=fixtures.filter(row=>!COVERAGE_STATUSES.includes(row.classification)).length;
+  const unexplained=fixtures.reduce((n,row)=>n+row.unexplainedMissing,0);
   return {
     at:new Date(now).toISOString(),
     providerRequests:0,

@@ -1,5 +1,5 @@
 import {describe,it,expect,vi} from 'vitest';
-import {assertMappingConsistency,persistSnapshot,startOddsJob} from './ingestion';
+import {assertMappingConsistency,persistSnapshot,snapshotAbsenceCloseScope,startOddsJob} from './ingestion';
 import type {DatabaseClient,QueryExecutor} from '@/database/client';
 import type {OddsSnapshot} from './types';
 
@@ -25,5 +25,16 @@ describe('odds ingestion integrity and recovery',()=>{
     await expect(persistSnapshot(db,'expired',snapshot)).rejects.toThrow('ODDS_WORKER_LEASE_LOST');
     expect(query).toHaveBeenCalledTimes(1);expect(query.mock.calls[0][0]).toContain('INSERT INTO odds_sync_snapshots');
     expect(txQuery).toHaveBeenCalledTimes(1);expect(txQuery.mock.calls[0][0]).toContain('lease_expires_at>now()');
+  });
+  it('closes only matched snapshot fixtures, never the rest of the tournament',()=>{
+    const snapshot:OddsSnapshot={bookmaker:'betano.bet.br',observedAt:'2026-09-12T10:00:00Z',tournamentIds:['325'],
+      fixtures:[{providerId:'p1',sport:'FOOTBALL',competition:'brasileirao-serie-a',providerCompetitionId:'325',kickoff:'2026-09-12T19:00:00Z',status:'PREGAME',homeProviderId:'1',awayProviderId:'2',homeNames:['A'],awayNames:['B']}],
+      quotes:[],rejected:{}};
+    expect(snapshotAbsenceCloseScope(snapshot,['aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee'])).toEqual({
+      bookmaker:'betano.bet.br',fixtureIds:['aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee'],providerFixtureIds:['p1'],
+    });
+    expect(snapshotAbsenceCloseScope({...snapshot,bookmaker:'betano',fixtures:[]},[])).toEqual({
+      bookmaker:'betano.bet.br',fixtureIds:[],providerFixtureIds:[],
+    });
   });
 });

@@ -23,13 +23,16 @@ describe('listing MATCH_WINNER cells', () => {
   it('renders compact 1 / X / 2 from current MATCH_WINNER prices', () => {
     const html = renderToStaticMarkup(createElement(OddsComparison, { locale: 'br', fixture: fixture() }));
     expect(html).toContain('listing-odds');
+    expect(html).toContain('listing-odds-book-name');
+    expect(html).toContain('Betano');
+    expect(html).toContain('Betsson');
     expect(html).toContain('>1<');
     expect(html).toContain('>X<');
     expect(html).toContain('>2<');
     expect(html).toContain('1.90');
+    expect(html).toContain('1.85');
     expect(html).toContain('3.20');
     expect(html).toContain('4.10');
-    expect(html).not.toContain('—');
   });
 
   it('hides stale prices and renders a freshness warning instead', () => {

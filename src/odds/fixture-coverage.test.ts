@@ -53,7 +53,14 @@ describe('fixture coverage classification',()=>{
       matchWinner:classification==='CURRENT_ODDS_AVAILABLE'?'AVAILABLE':'ABSENT',
       totalGoals25:classification==='CURRENT_ODDS_AVAILABLE'?'AVAILABLE':'ABSENT',
       btts:classification==='CURRENT_ODDS_AVAILABLE'?'AVAILABLE':'ABSENT',
-      classification,evidence:'test',internalBug:false,...flags,
+      classification,evidence:'test',internalBug:false,
+      betanoProviderFixturePresent:classification==='CURRENT_ODDS_AVAILABLE',betssonProviderFixturePresent:classification==='CURRENT_ODDS_AVAILABLE',
+      betanoProviderPriced:classification==='CURRENT_ODDS_AVAILABLE',betssonProviderPriced:classification==='CURRENT_ODDS_AVAILABLE',
+      betanoMarkets:classification==='CURRENT_ODDS_AVAILABLE'?['MATCH_WINNER']:[],betssonMarkets:classification==='CURRENT_ODDS_AVAILABLE'?['MATCH_WINNER']:[],
+      listingVisible:classification==='CURRENT_ODDS_AVAILABLE',matchPageVisible:classification==='CURRENT_ODDS_AVAILABLE',slipUsable:classification==='CURRENT_ODDS_AVAILABLE',
+      betanoMissingReason:classification==='CURRENT_ODDS_AVAILABLE'?null:'PROVIDER_ABSENT',
+      betssonMissingReason:classification==='CURRENT_ODDS_AVAILABLE'?null:'PROVIDER_ABSENT',
+      unexplainedMissing:0,...flags,
     });
     const now=Date.parse('2026-09-15T12:00:00Z');
     const windows=coverageWindows([
@@ -68,5 +75,53 @@ describe('fixture coverage classification',()=>{
     expect(windows[2]).toMatchObject({total:2,matchWinner:1});
     expect(windows[3]).toMatchObject({total:3,matchWinner:2});
     expect(windows[4]).toMatchObject({total:4,matchWinner:2,percent:50});
+  });
+  it('evaluates Betano and Betsson independently and flags only unexplained priced gaps',()=>{
+    const priced=new Map([['p1',['MATCH_WINNER','BTTS','TOTAL_GOALS_2_5']]]);
+    const both=classifyFixtureCoverage({
+      ...base,mapped:true,providerFixtures:[raw()],matchWinner:books(current,current),
+      totalGoals25:books(current,current),btts:books(current,current),
+      providerByBook:{betano:[raw()],betsson:[raw()]},
+      pricedMarketsByBook:{betano:priced,betsson:priced},
+    });
+    expect(both.betanoProviderPriced).toBe(true);
+    expect(both.betssonProviderPriced).toBe(true);
+    expect(both.listingVisible).toBe(true);
+    expect(both.unexplainedMissing).toBe(0);
+    const betanoOnly=classifyFixtureCoverage({
+      ...base,mapped:true,providerFixtures:[raw()],matchWinner:books(current,off),
+      providerByBook:{betano:[raw()],betsson:[]},
+      pricedMarketsByBook:{betano:priced,betsson:new Map()},
+    });
+    expect(betanoOnly.betanoCurrentQuote).toBe(true);
+    expect(betanoOnly.betssonProviderPriced).toBe(false);
+    expect(betanoOnly.betssonMissingReason).toBe('PROVIDER_ABSENT');
+    expect(betanoOnly.unexplainedMissing).toBe(0);
+    const betssonOnly=classifyFixtureCoverage({
+      ...base,mapped:true,providerFixtures:[raw()],matchWinner:books(off,current),
+      providerByBook:{betano:[],betsson:[raw()]},
+      pricedMarketsByBook:{betano:new Map(),betsson:priced},
+    });
+    expect(betssonOnly.betssonCurrentQuote).toBe(true);
+    expect(betssonOnly.betanoProviderPriced).toBe(false);
+    expect(betssonOnly.betanoMissingReason).toBe('PROVIDER_ABSENT');
+    const silent=classifyFixtureCoverage({
+      ...base,mapped:true,providerFixtures:[raw()],
+      matchWinner:books({stored:true,listingCurrent:false,stale:false,withdrawn:false,dropped:false},current),
+      providerByBook:{betano:[raw()],betsson:[raw()]},
+      pricedMarketsByBook:{betano:priced,betsson:priced},
+    });
+    expect(silent.classification).toBe('CURRENT_ODDS_AVAILABLE');
+    expect(silent.betanoMissingReason).toBe('UNEXPLAINED');
+    expect(silent.unexplainedMissing).toBe(1);
+    expect(silent.internalBug).toBe(true);
+    const persistence=classifyFixtureCoverage({
+      ...base,mapped:true,providerFixtures:[raw()],matchWinner:books(off,current),
+      providerByBook:{betano:[raw()],betsson:[raw()]},
+      pricedMarketsByBook:{betano:priced,betsson:priced},
+    });
+    expect(persistence.betanoMissingReason).toBe('PERSISTENCE_GAP');
+    expect(persistence.unexplainedMissing).toBe(0);
+    expect(persistence.internalBug).toBe(true);
   });
 });

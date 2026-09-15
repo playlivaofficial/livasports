@@ -1,4 +1,5 @@
 import type { NormalizedOddsQuote, OddsMarket, OddsOutcome, OddsSnapshot, ProviderOddsFixture } from '@/odds/types';
+import { canonicalBookmakerSlug } from '@/odds/bookmaker';
 
 type ObjectValue = Record<string,unknown>;
 const obj=(value:unknown):ObjectValue=>value&&typeof value==='object'&&!Array.isArray(value)?value as ObjectValue:{};
@@ -46,6 +47,13 @@ const rules: Record<string,{market:OddsMarket;name:string;type:string;line:numbe
   '104':{market:'BTTS',name:'Both Teams To Score',type:'bothteamsscore',line:null,outcomes:{'104':{name:'Yes',code:'YES'},'105':{name:'No',code:'NO'}}},
   '1010':{market:'TOTAL_GOALS',name:'Over Under Full Time',type:'totals',line:2.5,outcomes:{'1010':{name:'Over',code:'OVER'},'1011':{name:'Under',code:'UNDER'}}},
 };
+export function inspectCatalogMarkets(markets:unknown[]):Array<{marketId:string;marketName:string;marketType:string;period:unknown;playerProp:unknown;handicap:unknown;supported:boolean}>{
+  return markets.map(obj).filter(m=>m.sportId===10).map(m=>({
+    marketId:String(m.marketId),marketName:String(m.marketName??''),marketType:String(m.marketType??''),
+    period:m.period,playerProp:m.playerProp,handicap:m.handicap,supported:String(m.marketId) in rules,
+  }));
+}
+export const SUPPORTED_M5_MARKETS=['MATCH_WINNER','BTTS','TOTAL_GOALS'] as const;
 export function verifyCatalog(markets:unknown[],tournaments:unknown[]):void {
   for(const [id,rule] of Object.entries(rules)) {
     const found=markets.map(obj).filter(m=>String(m.marketId)===id);
@@ -61,8 +69,8 @@ export function verifyCatalog(markets:unknown[],tournaments:unknown[]):void {
 }
 export function normalizeM5Snapshot(data:unknown,bookmaker:string,observedAt:string,tournamentIds:readonly string[],
   catalog:readonly {id:string;slug:string;category:string;canonical:string}[]=M5_TOURNAMENTS):OddsSnapshot {
-  if(!['betano.bet.br','betsson'].includes(bookmaker)||!isoUtc(observedAt)||!Array.isArray(data))throw new Error('Invalid pregame snapshot envelope');
-  const result:OddsSnapshot={bookmaker,observedAt,fixtures:[],quotes:[],rejected:{},tournamentIds:[...tournamentIds]};
+  if(!['betano.bet.br','betsson'].includes(canonicalBookmakerSlug(bookmaker)??bookmaker)||!isoUtc(observedAt)||!Array.isArray(data))throw new Error('Invalid pregame snapshot envelope');
+  const result:OddsSnapshot={bookmaker:canonicalBookmakerSlug(bookmaker)??bookmaker,observedAt,fixtures:[],quotes:[],rejected:{},tournamentIds:[...tournamentIds]};
   const reject=(key:string)=>{result.rejected[key]=(result.rejected[key]??0)+1;};
   const seen=new Set<string>();
   const idCounts=new Map<unknown,number>();for(const row of data){const id=obj(row).fixtureId;idCounts.set(id,(idCounts.get(id)??0)+1);}
@@ -77,7 +85,8 @@ export function normalizeM5Snapshot(data:unknown,bookmaker:string,observedAt:str
       homeNames:texts(r.participant1Name,r.participant1ShortName),awayNames:texts(r.participant2Name,r.participant2ShortName)};
     if(!Number.isInteger(r.participant1Id)||!Number.isInteger(r.participant2Id)||Number(r.participant1Id)<=0||Number(r.participant2Id)<=0||fixture.homeProviderId===fixture.awayProviderId){reject('INVALID_PARTICIPANTS');continue;}
     result.fixtures.push(fixture);
-    const book=obj(obj(r.bookmakerOdds)[bookmaker]);
+    const oddsByBook=obj(r.bookmakerOdds);
+    const book=obj(oddsByBook[bookmaker]??oddsByBook[result.bookmaker]);
     let domain:string|null=null;
     if(typeof book.fixturePath==='string'){try { domain=new URL(book.fixturePath.includes('://')?book.fixturePath:`https://${book.fixturePath}`).hostname;}catch{/* No domain evidence. */}}
     for(const [id,rawMarket] of Object.entries(obj(book.markets))){
@@ -94,7 +103,7 @@ export function normalizeM5Snapshot(data:unknown,bookmaker:string,observedAt:str
         const status:NormalizedOddsQuote['status']=fixture.status!=='PREGAME'||Date.parse(kickoff)<=Date.parse(observedAt)?'CLOSED':
           book.bookmakerIsActive!==true||book.suspended!==false||market.marketActive!==true||price.active!==true?'SUSPENDED':stampInvalid?'STALE':'ACTIVE';
         if(stampInvalid)reject('MISSING_OR_FUTURE_TIMESTAMP');
-        result.quotes.push({providerFixtureId:fixture.providerId,bookmaker,market:rule.market,outcome:outcome.code,line:rule.line,
+        result.quotes.push({providerFixtureId:fixture.providerId,bookmaker:result.bookmaker,market:rule.market,outcome:outcome.code,line:rule.line,
           decimalOdds:String(n),status,scope:'FULL_TIME_REGULATION',phase:'PREGAME',providerUpdatedAt:updated,observedAt,sourceDomain:domain});
       }
     }

@@ -56,6 +56,8 @@
 .sports-board .fixture-row.is-live .score-value { color:#ff92a1; font-size:16px; }
 .sports-board .fixture-row.is-live .status-badge.is-live { font-weight:800; }
 .sports-board .listing-odds { gap:6px; width:100%; }
+.sports-board .listing-odds-books { width:100%; gap:6px; }
+.sports-board .listing-odds-book-name { color:#9aafbd; font-size:10px; letter-spacing:.04em; }
 .sports-board .listing-odds-cell { min-height:46px; border:1px solid #3a5362; border-radius:6px; background:#17303c; padding:5px 3px; }
 .sports-board .listing-odds-price { font-size:16px; font-weight:800; color:#eef6fb; font-variant-numeric:tabular-nums; }
 .sports-board .listing-odds-label { font-size:11px; color:#9aafbd; }
@@ -101,7 +103,7 @@
   .sports-board .fixture-row { grid-template-columns:minmax(0,1fr); grid-template-rows:auto auto; gap:6px; min-height:0; }
   .sports-board .fixture-main-link { grid-column:1; }
   .sports-board .odds-slot { grid-column:1; grid-row:2; justify-items:stretch; padding:2px 0 4px; }
-  .sports-board .listing-odds, .sports-board .odds-empty { width:100%; max-width:22rem; margin-left:auto; }
+  .sports-board .listing-odds, .sports-board .listing-odds-books, .sports-board .odds-empty { width:100%; max-width:22rem; margin-left:auto; }
   .sports-board .listing-odds-cell { min-height:44px; }
 }
 @media(max-width:620px){

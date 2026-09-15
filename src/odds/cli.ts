@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { databaseUrl,PostgresDatabaseClient } from '@/database/client';
 import { runMigrations } from '@/database/migrate';
 import { M5OddsPapiAdapter } from '@/providers/oddspapi/M5OddsPapiAdapter';
-import { normalizeM5Snapshot,verifyCatalog } from '@/providers/oddspapi/m5-normalizer';
+import { normalizeM5Snapshot,verifyCatalog,inspectCatalogMarkets,SUPPORTED_M5_MARKETS } from '@/providers/oddspapi/m5-normalizer';
 import { mergeCatalogTournaments,resolveCatalogTournaments,schedulerTournaments,selectCanaryTournament } from '@/providers/oddspapi/tournament-catalog';
 import { CANARY5_DISCOVERY_REQUEST_CAP, CANARY5_LEDGER_START, COVERAGE_DISCOVERY_REQUEST_CAP } from '@/providers/oddspapi/request-limits';
 import {planUtcParseDefectRepair} from './matching';
@@ -166,7 +166,10 @@ try {
         console.info(JSON.stringify({requestsThisRun:provider.requestCount()}));
     }else{
       snapshots=(await db.query(command==='replay-latest'?
-        'SELECT DISTINCT ON(bookmaker) payload FROM odds_sync_snapshots WHERE applied_at IS NOT NULL ORDER BY bookmaker,observed_at DESC LIMIT 2':
+        `SELECT DISTINCT ON (bookmaker, tid) payload FROM odds_sync_snapshots s
+          CROSS JOIN LATERAL jsonb_array_elements_text(s.payload->'tournamentIds') AS tid
+          WHERE applied_at IS NOT NULL
+          ORDER BY bookmaker, tid, observed_at DESC`:
         'SELECT payload FROM odds_sync_snapshots WHERE applied_at IS NULL ORDER BY observed_at LIMIT 4')).rows.map(r=>r.payload);
     }
     const results=[];for(const snapshot of snapshots)results.push(await persistSnapshot(db,job,snapshot));
@@ -182,6 +185,18 @@ try {
       scheduler:{state:report.scheduler?.state,lastError:report.scheduler?.last_error,lastAutomaticRefreshAt:report.scheduler?.last_automatic_refresh_at,nextDueAt:report.scheduler?.next_due_at},
       schedulerTournaments:report.schedulerTournaments,
       fixtureTotals:fixtures.totals,unexplained:fixtures.unexplained,liveOddsCoverage:fixtures.liveOddsCoverage,
+      parity:{
+        audited:fixtures.fixtures.length,
+        betanoProviderPriced:fixtures.fixtures.filter(row=>row.betanoProviderPriced).length,
+        betanoShown:fixtures.fixtures.filter(row=>row.betanoCurrentQuote).length,
+        betssonProviderPriced:fixtures.fixtures.filter(row=>row.betssonProviderPriced).length,
+        betssonShown:fixtures.fixtures.filter(row=>row.betssonCurrentQuote).length,
+        bothPriced:fixtures.fixtures.filter(row=>row.betanoProviderPriced&&row.betssonProviderPriced).length,
+        bothShown:fixtures.fixtures.filter(row=>row.betanoCurrentQuote&&row.betssonCurrentQuote).length,
+        internalGaps:fixtures.fixtures.filter(row=>row.internalBug).length,
+        providerAbsentBetano:fixtures.fixtures.filter(row=>row.betanoMissingReason==='PROVIDER_ABSENT').length,
+        providerAbsentBetsson:fixtures.fixtures.filter(row=>row.betssonMissingReason==='PROVIDER_ABSENT').length,
+      },
       windows:fixtures.windows,competitions:fixtures.competitions.length,
       competitionSummaries:fixtures.competitions,
       ligaMxUnmapped:report.ligaMxGap.length,
@@ -242,6 +257,12 @@ try {
     const matching=(await db.query('SELECT state,count(*) AS n FROM odds_mapping_reviews GROUP BY state')).rows;
     const report={at:new Date().toISOString(),...result.rows[0],coverage,matching};
     await writeFile('output/m5-verification-private.json',JSON.stringify(report,null,2));console.info(JSON.stringify(report));
+  } else if(command==='inspect-markets'){
+    const catalog=(await db.query("SELECT markets FROM odds_provider_catalog WHERE provider='ODDSPAPI'")).rows[0];
+    if(!catalog)throw new Error('ODDS_CATALOG_NOT_VERIFIED');
+    const rejected=(await db.query(`SELECT payload->'rejected' AS rejected FROM odds_sync_snapshots WHERE applied_at IS NOT NULL ORDER BY observed_at DESC LIMIT 80`)).rows;
+    const outOfScope=rejected.reduce((n:number,row:{rejected?:{OUT_OF_SCOPE_MARKET?:number}})=>n+Number(row.rejected?.OUT_OF_SCOPE_MARKET??0),0);
+    console.info(JSON.stringify({providerRequests:0,supported:SUPPORTED_M5_MARKETS,markets:inspectCatalogMarkets(catalog.markets),outOfScopeRejected:outOfScope}));
   }else throw new Error('UNKNOWN_ODDS_COMMAND');
 }catch(error){
   if(job)await endOddsJob(db,job,false).catch(()=>undefined);
