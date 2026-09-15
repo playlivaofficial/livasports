@@ -8,7 +8,7 @@ import {formatMoney,potentialReturn} from '@/slip/decimal';
 describe('M7 semantic localized comparison cards',()=>{
   it('renders exact totals, meaningful sponsored CTA and independent best text',()=>{
     const f=comparisonFixture();const html=renderToStaticMarkup(<SlipComparison locale="br" stake="10" selections={f.selections.map(s=>({...s,addedAt:new Date(f.now).toISOString()}))} checking={false} value={buildSlipComparison(f.selections,'br',f.data.fixtures,f.data.bookmakers,f.now)}/>);
-    expect(html).toContain('6,05');expect(html).toContain('6,46');expect(html).toContain('Melhor retorno para este cupom');expect(html).toContain('Retorno potencial');expect(html).toContain('rel="sponsored nofollow noopener noreferrer"');
+    expect(html).toContain('6,05');expect(html).toContain('6,46');expect(html).toContain('Melhor retorno estimado');expect(html.match(/Retorno potencial estimado/g)?.length).toBe(2);expect(html).toContain('rel="sponsored nofollow noopener noreferrer"');
     expect(html).toContain('Ver odds na Betsson');expect(html).not.toContain('Ver odds na Betano');expect(html).not.toContain('partner=test-only');expect(html).not.toMatch(/payout|Open slip|Send slip|guaranteed|profit/);
     expect(html.match(/Comparação estimada\. As cotações reais na casa podem ser diferentes\./g)?.length).toBe(2);
   });
@@ -21,12 +21,12 @@ describe('M7 semantic localized comparison cards',()=>{
   });
   it('keeps BR-eligible prices when the interface is Spanish',()=>{
     const f=comparisonFixture();const html=renderToStaticMarkup(<SlipComparison locale="mx" stake="10" selections={f.selections.map(s=>({...s,addedAt:new Date(f.now).toISOString()}))} checking={false} value={buildSlipComparison(f.selections,'mx',f.data.fixtures,f.data.bookmakers,f.now)}/>);
-    expect(html).toContain('Cuota combinada');expect(html).toContain('Mejor retorno para este cupón');
+    expect(html).toContain('Cuota combinada');expect(html).toContain('Mejor retorno estimado');expect(html.match(/Retorno potencial estimado/g)?.length).toBe(2);
     expect(html).toContain('6.05');expect(html).toContain('6.46');expect(html).not.toContain('Melhor odd');expect(html).not.toContain('No hay casas verificadas');
   });
   it('renders English comparison copy without changing the product math',()=>{
     const f=comparisonFixture();const html=renderToStaticMarkup(<SlipComparison locale="br" uiLocale="en" stake="10" selections={f.selections.map(s=>({...s,addedAt:new Date(f.now).toISOString()}))} checking={false} value={buildSlipComparison(f.selections,'br',f.data.fixtures,f.data.bookmakers,f.now)}/>);
-    expect(html).toContain('Best return for this slip');expect(html).toContain('Potential return');    expect(html).toContain('6.05');
+    expect(html).toContain('Best estimated return');expect(html.match(/Estimated potential return/g)?.length).toBe(2);expect(html).toContain('6.05');
   });
   it('recalculates both complete returns when stake changes without rebuilding the slip',()=>{
     const f=comparisonFixture();const value=buildSlipComparison(f.selections,'br',f.data.fixtures,f.data.bookmakers,f.now);
@@ -42,7 +42,7 @@ describe('M7 semantic localized comparison cards',()=>{
   it('renders 5 complete legs for both books without a placeholder total',()=>{
     const f=comparisonFixture(5);const html=renderToStaticMarkup(<SlipComparison locale="br" stake="10" selections={f.selections.map(s=>({...s,addedAt:new Date(f.now).toISOString()}))} checking={false} value={buildSlipComparison(f.selections,'br',f.data.fixtures,f.data.bookmakers,f.now)}/>);
     expect(html).toContain('data-complete="true"');expect(html).toContain('data-availability="COMPLETE"');
-    expect(html).toContain('Odd combinada');expect(html).toContain('Retorno potencial');expect(html).not.toMatch(/>\s*\?\s*</);expect(html).not.toContain('NaN');
+    expect(html).toContain('Odd combinada');expect(html.match(/Retorno potencial estimado/g)?.length).toBe(2);expect(html).not.toMatch(/>\s*\?\s*</);expect(html).not.toContain('NaN');
   });
   it('renders a completed estimated card instead of stale copy when the other book is current',()=>{
     const f=comparisonFixture();Object.assign(f.data.fixtures.get(f.selections[0].fixturePublicId)!.snapshot.quotes[1],{status:'STALE'});
@@ -79,14 +79,15 @@ describe('M7 semantic localized comparison cards',()=>{
     expect(incomplete).toContain('Selection unavailable at Betano');expect(incomplete).not.toContain('Market closed');
   });
   it.each([
-    ['br','Comparação estimada. As cotações reais na casa podem ser diferentes.','Cotação aproximada · baseada na Betsson'],
-    ['mx','Comparación estimada. Las cuotas reales de la casa pueden variar.','Cuota aproximada · basada en Betsson'],
-    ['en','Estimated comparison only. Actual bookmaker odds may differ.','Approx. price · based on Betsson'],
-  ] as const)('discloses all-real and proxy cards in %s',(_locale,disclaimer,proxyCopy)=>{
+    ['br','Comparação estimada. As cotações reais na casa podem ser diferentes.','Cotação aproximada · baseada na Betsson','Retorno potencial estimado'],
+    ['mx','Comparación estimada. Las cuotas reales de la casa pueden variar.','Cuota aproximada · basada en Betsson','Retorno potencial estimado'],
+    ['en','Estimated comparison only. Actual bookmaker odds may differ.','Approx. price · based on Betsson','Estimated potential return'],
+  ] as const)('discloses all-real and proxy cards in %s',(_locale,disclaimer,proxyCopy,returnLabel)=>{
     const f=comparisonFixture();f.data.fixtures.get(f.selections[1].fixturePublicId)!.snapshot.quotes.pop();
     const value=buildSlipComparison(f.selections,'br',f.data.fixtures,f.data.bookmakers,f.now);
     const html=renderToStaticMarkup(<SlipComparison locale="br" uiLocale={_locale} stake="10" selections={f.selections.map(s=>({...s,addedAt:new Date(f.now).toISOString()}))} checking={false} value={value}/>);
     expect(html.match(new RegExp(disclaimer.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'g'))?.length).toBe(2);
+    expect(html.match(new RegExp(returnLabel,'g'))?.length).toBe(2);
     expect(html).toContain(proxyCopy);expect(html).toContain('data-price-kind="PROXY"');expect(html).toContain('data-estimated="true"');
   });
 });

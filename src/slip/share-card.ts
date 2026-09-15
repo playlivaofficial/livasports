@@ -54,7 +54,7 @@ export function slipSharePayload(args:{
   const best=complete.find(b=>b.best)??complete[0]??null;
   return {
     slipId:args.slipId,generatedAt:args.generatedAt,stake:formatMoney(args.stake,args.locale)??args.stake,
-    stakeLabel:text.stake,returnLabel:best?.estimated?comparisonCopy[args.locale].estimatedPotentialReturn:text.potentialReturn,
+    stakeLabel:text.stake,returnLabel:comparisonCopy[args.locale].estimatedPotentialReturn,
     bestCombined:best?.combinedDecimalOdds?`${best.estimated?'~':''}${formatCombinedOdds(best.combinedDecimalOdds,args.locale)}`:null,
     bestReturn:best?.combinedDecimalOdds?`${best.estimated?'~':''}${formatMoney(estimateReturn(args.stake,best.combinedDecimalOdds)??'',args.locale)}`:null,
     bestName:best?.displayName??null,

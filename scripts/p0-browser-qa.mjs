@@ -69,13 +69,25 @@ try{
   await navigate('/br');await seed(5);
   for(const current of ['all-real','betano-proxy','betsson-proxy']){
     scenario=current;await page.reload();await page.click('.slip-trigger');await page.wait(`document.querySelectorAll('.slip-bookmaker').length===2&&document.querySelectorAll('.slip-combined').length===2`,30000);
-    const state=await page.evaluate(`({cards:[...document.querySelectorAll('.slip-bookmaker')].map(card=>({book:card.dataset.bookmaker,estimated:card.dataset.estimated,coverage:card.querySelector('header span')?.textContent})),disclaimers:document.querySelectorAll('.slip-estimated-disclaimer').length,proxies:document.querySelectorAll('.slip-proxy-legs li').length,text:document.querySelector('#slip-comparison').textContent})`);
+    const state=await page.evaluate(`({cards:[...document.querySelectorAll('.slip-bookmaker')].map(card=>({book:card.dataset.bookmaker,estimated:card.dataset.estimated,coverage:card.querySelector('header span')?.textContent})),disclaimers:document.querySelectorAll('.slip-estimated-disclaimer').length,returns:[...document.querySelectorAll('.slip-return span')].map(node=>node.textContent),proxies:document.querySelectorAll('.slip-proxy-legs li').length,missing:document.querySelectorAll('.slip-missing').length,cta:(()=>{const node=document.querySelector('.slip-bookmaker-cta');if(!node)return null;const style=getComputedStyle(node),box=node.getBoundingClientRect();return {height:box.height,background:style.backgroundImage,backgroundColor:style.backgroundColor,color:style.color,fontWeight:Number(style.fontWeight)};})(),text:document.querySelector('#slip-comparison').textContent})`);
     check(`${current} both totals`,state.cards.length===2&&state.cards.every(card=>card.coverage==='5/5'));
     check(`${current} disclaimer on every card`,state.disclaimers===2);
+    check(`${current} always-estimated return label`,state.returns.length===2&&state.returns.every(label=>label==='Retorno potencial estimado'));
+    check(`${current} no resolvable missing state`,state.missing===0);
     if(current==='all-real')check('all-real has no proxy legs',state.proxies===0&&state.cards.every(card=>card.estimated==='false'));
     else check(`${current} disclosed proxy`,state.proxies===1&&state.cards.filter(card=>card.estimated==='true').length===1&&/Cotação aproximada/.test(state.text));
     check(`${current} safe CTA copy`,/Ver odds na Betsson/.test(state.text)&&!/Get\s+\d|Obter\s+\d/.test(state.text));
+    check(`${current} premium CTA treatment`,state.cta?.height>=44&&state.cta.background!=='none'&&state.cta.color!=='rgba(0, 0, 0, 0)'&&state.cta.fontWeight>=700);
   }
+
+  await page.click('.slip-remove');await page.wait(`document.querySelectorAll('.slip-item').length===4`);
+  check('remove leg updates persisted slip',await page.evaluate(`document.querySelector('.slip-trigger .slip-count')?.textContent==='4'`));
+  await page.key('Escape');await page.reload();check('reload preserves slip',await page.evaluate(`document.querySelector('.slip-trigger .slip-count')?.textContent==='4'`));
+  await page.click('.language-picker summary');await page.click('.language-picker button[value="en"]');await page.wait(`location.pathname.startsWith('/en')`,30000);await delay(500);await page.click('.slip-trigger');
+  await page.wait(`document.querySelectorAll('.slip-item').length===4&&document.querySelectorAll('.slip-return').length===2`,30000);
+  check('locale switch preserves slip context',await page.evaluate(`document.querySelector('.slip-trigger .slip-count')?.textContent==='4'&&document.querySelectorAll('.slip-return span')[0]?.textContent==='Estimated potential return'`));
+  await page.key('Escape');await navigate('/br');await page.click('.slip-trigger');await page.click('.slip-summary button');await page.click('.slip-confirm button');await page.wait(`!!document.querySelector('.slip-empty')`);
+  check('clear all retains confirmation flow',await page.evaluate(`document.querySelector('.slip-trigger .slip-count')?.textContent==='0'`));
 
   for(const width of [375,390,430,768,1024,1440]){
     await page.viewport(width,width===1440?1000:844);await navigate('/br');
