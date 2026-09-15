@@ -6,7 +6,10 @@ export function boardDate(value:unknown,today:string,bounds:{from:string;to:stri
   const date=new Date(value+'T12:00:00Z');if(!Number.isFinite(date.getTime())||date.toISOString().slice(0,10)!==value)return;
   return value>=bounds.from&&value<=bounds.to?value:undefined;
 }
-export function boardView(value:unknown):BoardView{return value==='live'||value==='upcoming'||value==='results'?value:'all';}
+export function boardView(value:unknown,fallback:BoardView='all'):BoardView{return value==='all'||value==='live'||value==='upcoming'||value==='results'?value:fallback;}
+export function hasPregameOddsLayout(fixtures:readonly Pick<FixtureView,'status'|'kickoff'>[],now:number):boolean {
+  return fixtures.some(f=>f.status==='SCHEDULED'&&Date.parse(f.kickoff)>now);
+}
 export function matchesView(f:FixtureView,view:BoardView,now:number):boolean {
   if(view==='live')return f.status==='LIVE'||f.status==='HALFTIME';
   if(view==='upcoming')return f.status==='SCHEDULED'&&Date.parse(f.kickoff)>now;

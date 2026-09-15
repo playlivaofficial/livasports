@@ -45,6 +45,7 @@
 .sports-board .competition-count { font-size:10px; white-space:nowrap; }
 .board-odds-heading { font-size:10px; color:#9aafbd; width:196px; text-align:center; letter-spacing:.04em; }
 .sports-board .fixture-row { min-height:68px; padding:6px 12px; grid-template-columns:minmax(0,1fr) 196px; grid-template-rows:auto; gap:12px; }
+.sports-board .fixture-row.has-no-odds { grid-template-columns:minmax(0,1fr); }
 .sports-board .odds-slot { grid-column:2; grid-row:1; padding-top:0; }
 .sports-board .fixture-main-link { display:grid; grid-column:auto; min-height:52px; grid-template-columns:68px minmax(0,1fr) 26px; gap:10px; }
 .sports-board .team-stack,.sports-board .score-stack { gap:4px; }

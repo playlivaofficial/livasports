@@ -59,6 +59,7 @@
     "qa:sports:profiles": "node --require ./scripts/tsx-windows-preload.cjs --import ./scripts/sports-qa-preload.mjs --import tsx --env-file=.env.local scripts/sports-profile-qa.ts",
     "qa:sports:provider": "node --require ./scripts/tsx-windows-preload.cjs --import tsx --env-file=.env.local scripts/sports-provider-audit.ts",
     "qa:p0:routes": "node --require ./scripts/tsx-windows-preload.cjs --import tsx scripts/p0-route-qa.ts",
+    "qa:p0:browser": "node --require ./scripts/tsx-windows-preload.cjs --import tsx scripts/p0-browser-qa.mjs",
     "sync:sports": "node --require ./scripts/tsx-windows-preload.cjs --import tsx --env-file=.env.local scripts/sports-ingestion.ts"
   },
   "engines": {

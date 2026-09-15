@@ -11,7 +11,7 @@ try{
   await p.c.send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});
   for(let i=0;i<paths.length;i++)for(const width of [375,390,430,768,1440]){
     await p.viewport(width,width===1440?1000:844);await p.evaluate('window.__qaOldDocument=true');await p.c.send('Page.navigate',{url:base+paths[i]});
-    await p.wait('!window.__qaOldDocument && document.readyState==="complete" && !!document.querySelector(".lineup-team")',30000);await delay(400);
+    await p.wait('!window.__qaOldDocument && document.readyState==="complete" && !!document.querySelector(".lineup-team")',30000);await delay(1200);await p.wait('document.readyState==="complete"&&!!document.querySelector(".lineup-team")&&document.activeElement===document.body',30000);
     await p.key('Tab');check(`keyboard skip focus ${i} ${width}`,await p.evaluate(`document.activeElement?.classList.contains('skip-link')&&getComputedStyle(document.activeElement).outlineStyle!=='none'`));
     for(let tab=0;tab<12;tab++){if(await p.evaluate(`document.activeElement?.matches('.language-picker summary')`))break;await p.key('Tab');}
     check(`keyboard language control ${i} ${width}`,await p.evaluate(`document.activeElement?.matches('.language-picker summary')`));

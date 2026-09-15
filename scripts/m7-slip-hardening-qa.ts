@@ -42,7 +42,14 @@ function validSlip(legs:Array<{selection:CanonicalSelection}>){
 function unexplainedBook(b:BookmakerSlip|undefined){
   if(!b)return true;
   if(/\bNaN\b/.test(JSON.stringify(b))||b.combinedDecimalOdds==='?'||b.combinedDecimalOdds==='—')return true;
-  if(b.complete)return !b.combinedDecimalOdds||b.availabilityState!=='COMPLETE'||!b.requiredSelectionCount;
+  if(b.complete){
+    const expected=b.proxySelectionCount>0?'ESTIMATED_COMPLETE':'COMPLETE';
+    return !b.combinedDecimalOdds||b.availabilityState!==expected||!b.requiredSelectionCount
+      ||b.availableSelectionCount!==b.requiredSelectionCount
+      ||b.realSelectionCount+b.proxySelectionCount!==b.requiredSelectionCount
+      ||b.estimated!==(b.proxySelectionCount>0)
+      ||b.selectionQuotes.some(quote=>quote.state!=='CURRENT'||quote.decimalOdds===null||(quote.priceKind!=='REAL'&&quote.priceKind!=='PROXY'));
+  }
   return Boolean(b.combinedDecimalOdds)||!b.availabilityState||b.availabilityState==='COMPLETE';
 }
 function classify(comparison:SlipComparison){

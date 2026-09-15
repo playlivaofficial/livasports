@@ -65,4 +65,5 @@ output/m8-replay-match-cta-*.png
 output/g1-*.png
 output/g1-evidence/
 output/g1-*.log
+output/p0-browser-*.png
 !output/g1-visual-report.md

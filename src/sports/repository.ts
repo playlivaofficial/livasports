@@ -66,10 +66,12 @@ export class SportsRepository {
       (SELECT count(*)=6 AND bool_and(status='EMPTY' AND provider_count=0 AND persisted_count=0) FROM sports_season_coverage WHERE season_id=s.id) AS verified_empty
       FROM seasons s LEFT JOIN fixtures f ON f.season_id=s.id AND NOT EXISTS(SELECT 1 FROM sports_pending_fixtures p WHERE p.id=f.id) WHERE s.competition_id=$1 GROUP BY s.id ORDER BY s.is_current DESC,s.starts_at DESC NULLS LAST,s.name DESC`,[row.id])).rows;
     const seasons=seasonRows.map(s=>({id:String(s.id),name:String(s.name),current:Boolean(s.is_current),fixtures:Number(s.fixtures)}));
-    const latestPublished=seasons[0]?.fixtures===0&&seasonRows[0]?.verified_empty===true?seasons.find(s=>s.fixtures>0):undefined;
     const requested=requestedSeason?seasons.find(s=>s.id===requestedSeason):undefined;
-    const season=requested??latestPublished??seasons[0]??null;
-    const base:CompetitionHub={id:String(row.id),slug,name:competitionName(locale,slug)??slug,country:string(row.country),countryCode:string(row.country_code),region:string(row.region)??targetBySlug(slug)?.region??'OTHER',type:String(row.competition_type),coverage:String(row.coverage_status),seasons,season,seasonFallback:!requested&&latestPublished?seasons[0]:null,upcoming:[],results:[],standings:[],scorers:[],teams:[],availability:{},pending:[],pendingTotal:0,counts:{upcoming:0,results:0},page,pageSize:sportsPageSize,providerRequests:0};
+    const preferred=requested??seasons[0]??null;
+    const preferredRow=preferred?seasonRows.find(s=>String(s.id)===preferred.id):undefined;
+    const verifiedEmpty=preferred?.fixtures===0&&preferredRow?.verified_empty===true;
+    const season=verifiedEmpty?(seasons.find(s=>s.fixtures>0)??preferred):preferred;
+    const base:CompetitionHub={id:String(row.id),slug,name:competitionName(locale,slug)??slug,country:string(row.country),countryCode:string(row.country_code),region:string(row.region)??targetBySlug(slug)?.region??'OTHER',type:String(row.competition_type),coverage:String(row.coverage_status),seasons,season,seasonFallback:verifiedEmpty&&preferred&&season?.id!==preferred.id?preferred:null,upcoming:[],results:[],standings:[],scorers:[],teams:[],availability:{},pending:[],pendingTotal:0,counts:{upcoming:0,results:0},page,pageSize:sportsPageSize,providerRequests:0};
     if(!season)return base;
     const values=[row.id,season.id];
     const [counts,upcoming,results,standingRows,scorerRows,teamRows,coverageRows,pendingRows,unlinkedRows]=await Promise.all([

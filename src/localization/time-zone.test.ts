@@ -8,11 +8,13 @@ function request(timeZone:string,mode='manual',returnTo='/en/football?competitio
   return new NextRequest(origin+'/time-zone',{method:'POST',headers:{origin:source},body:data});
 }
 describe('sports time preferences',()=>{
-  it('uses local defaults independently from interface and commercial eligibility',()=>{
-    expect(resolveTimeZone('br',null,'Asia/Tokyo')).toBe('America/Sao_Paulo');
-    expect(resolveTimeZone('mx',null,'Asia/Tokyo')).toBe('America/Mexico_City');
-    expect(resolveTimeZone('en',null,'Asia/Tokyo')).toBe('Asia/Tokyo');
+  it('uses the detected device zone in every interface language without changing commercial eligibility',()=>{
+    expect(resolveTimeZone('br',null,'Asia/Tokyo')).toBe('Asia/Tokyo');
+    expect(resolveTimeZone('mx',null,'Europe/London')).toBe('Europe/London');
+    expect(resolveTimeZone('en',null,'America/Sao_Paulo')).toBe('America/Sao_Paulo');
     expect(resolveTimeZone('en',null,'bad')).toBe('UTC');
+    expect(resolveTimeZone('br',null,'bad')).toBe('America/Sao_Paulo');
+    expect(resolveTimeZone('mx',null,'bad')).toBe('America/Mexico_City');
     for(const locale of ['br','mx','en'] as const)expect(resolveTimeZone(locale,'Pacific/Kiritimati','Asia/Tokyo')).toBe('Pacific/Kiritimati');
   });
   it.each(['','America/Unknown','//evil.test','../UTC','UTC\r\nSet-Cookie:x','+01:00','x'.repeat(81)])('rejects invalid zone %s',v=>expect(validTimeZone(v)).toBeNull());

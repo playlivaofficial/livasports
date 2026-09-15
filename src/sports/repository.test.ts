@@ -39,7 +39,7 @@ describe('sports database read model',()=>{
     const hub=await new SportsRepository(fixtureDb(rows) as never).competition('premier-league','en',undefined);
     expect(hub?.season?.name).toBe('2026');expect(hub?.season?.current).toBe(false);expect(hub?.seasonFallback?.name).toBe('2027');
     const requested=await new SportsRepository(fixtureDb(rows) as never).competition('premier-league','en',season);
-    expect(requested?.season?.name).toBe('2027');expect(requested?.seasonFallback).toBeNull();
+    expect(requested?.season?.name).toBe('2026');expect(requested?.seasonFallback?.name).toBe('2027');
   });
   it.each([{fixtures:0,verified_empty:false},{fixtures:1,verified_empty:true},{fixtures:0,verified_empty:null}])('keeps current seasons with data, pending draws, or unverified coverage: %j',async state=>{
     const db=fixtureDb([{id:season,name:'2027',is_current:true,...state},{id:'previous',name:'2026',fixtures:100}]);

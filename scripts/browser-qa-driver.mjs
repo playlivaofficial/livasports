@@ -7,7 +7,7 @@ export const delay=ms=>new Promise(r=>setTimeout(r,ms));
 export async function browserQA(){
   const root=resolve(tmpdir());const profile=await mkdtemp(join(root,'livasports-m6-qa-'));
   const chrome=spawn(process.env.CHROME_PATH||'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',[
-    '--headless=new','--disable-gpu','--hide-scrollbars','--no-first-run','--remote-debugging-port=0',`--user-data-dir=${profile}`,'about:blank'],
+    '--headless=new','--disable-gpu','--disable-gpu-sandbox','--no-sandbox','--hide-scrollbars','--no-first-run','--remote-debugging-port=0',`--user-data-dir=${profile}`,'about:blank'],
     {stdio:['ignore','ignore','pipe'],windowsHide:true});
   const exited=new Promise(r=>chrome.once('exit',r));
   const address=await new Promise((yes,no)=>{let output='';const timer=setTimeout(()=>no(new Error('BROWSER_START_TIMEOUT')),15000);
@@ -55,5 +55,5 @@ export async function browserQA(){
     };pages.push(page);return page;
   }
   return {newPage,close:async()=>{await control.send('Browser.close').catch(()=>{});for(const p of pages)p.c.close();control.close();await exited;
-    if(dirname(profile)!==root||!basename(profile).startsWith('livasports-m6-qa-'))throw new Error('UNSAFE_QA_CLEANUP');await rm(profile,{recursive:true,force:true});}};
+    if(dirname(profile)!==root||!basename(profile).startsWith('livasports-m6-qa-'))throw new Error('UNSAFE_QA_CLEANUP');await delay(250);await rm(profile,{recursive:true,force:true,maxRetries:8,retryDelay:250});}};
 }
