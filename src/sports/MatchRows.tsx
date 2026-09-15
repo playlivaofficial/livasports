@@ -30,6 +30,6 @@ export async function MatchRows({rows,locale,empty,showCompetition=false,oddsVie
         <span className="sports-match-teams">{[row.home,row.away].map((t,i)=><span key={t.id}><TeamMark initials={t.name.slice(0,2)} imageUrl={t.imageUrl}/><span>{t.name}</span><RedCardCount locale={locale} count={i===0?row.homeRedCards:row.awayRedCards}/></span>)}</span>
         <span className="sports-match-score"><b>{row.status==='SCHEDULED'?'—':row.homeScore??'—'}</b><b>{row.status==='SCHEDULED'?'—':row.awayScore??'—'}</b></span>
       </Link>
-      {oddsViews?<div className="sports-match-odds">{live||pending?<LiveOddsSlot locale={locale} live={live}/>:row.status==='SCHEDULED'&&oddsViews[row.id]?<OddsComparison locale={locale} commercialLocale={commercialLocale} fixture={oddsViews[row.id]}/>:null}</div>:null}</div>;
+      {oddsViews?<div className="sports-match-odds">{live||pending?<LiveOddsSlot locale={locale} live/>:row.status==='SCHEDULED'&&oddsViews[row.id]?<OddsComparison locale={locale} commercialLocale={commercialLocale} fixture={oddsViews[row.id]}/>:null}</div>:null}</div>;
   })}</div>;
 }

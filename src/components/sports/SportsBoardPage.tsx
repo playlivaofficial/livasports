@@ -104,7 +104,7 @@ export async function SportsBoardPage({locale,page,searchParams}:{locale:Interfa
                     {(f.status!=='SCHEDULED'||pending)?<span className={`status-badge ${live?'is-live':''}`}>{pending?text.pending:dictionary.statuses[f.status]}</span>:null}</div>
                   <div className="team-stack"><TeamIdentity name={f.homeTeam} imageUrl={f.homeTeamImageUrl}><RedCardCount locale={locale} count={redCards[f.id]?.home}/></TeamIdentity><TeamIdentity name={f.awayTeam} imageUrl={f.awayTeamImageUrl}><RedCardCount locale={locale} count={redCards[f.id]?.away}/></TeamIdentity></div><ScoreDisplay fixture={f}/>
                 </Link>
-                {f.status==='SCHEDULED'&&!pending?<OddsComparison locale={locale} commercialLocale={commercial??'br'} fixture={f}/>:<LiveOddsSlot locale={locale} live={live}/>}
+                {f.status==='SCHEDULED'&&!pending?<OddsComparison locale={locale} commercialLocale={commercial??'br'} fixture={f}/>:<LiveOddsSlot locale={locale} live={live||pending}/>}
               </article>;
             })}
             {index===0&&sponsors?<SponsoredSlot copyLocale={locale} context={{locale:sponsorLocale,pagePath:sponsorPath,placement:'competition_inline',competitionSlug:section.slug}}/>:null}

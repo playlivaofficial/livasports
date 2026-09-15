@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {classifyFixtureCoverage,COVERAGE_STATUSES,type MarketFlags} from './fixture-coverage';
+import {classifyFixtureCoverage,COVERAGE_STATUSES,coverageWindows,type FixtureCoverageRow,type MarketFlags} from './fixture-coverage';
 import type {ProviderOddsFixture} from './types';
 
 const off:MarketFlags={stored:false,listingCurrent:false,stale:false,withdrawn:false,dropped:false};
@@ -44,5 +44,29 @@ describe('fixture coverage classification',()=>{
     expect(row.classification).toBe('PROVIDER_FIXTURE_ABSENT');
     expect(row.evidence).toContain('horizon');
     expect(row.internalBug).toBe(false);
+  });
+  it('reports near-term coverage windows instead of a full-calendar percentage',()=>{
+    const row=(kickoff:string,classification:FixtureCoverageRow['classification'],flags?:Partial<FixtureCoverageRow>):FixtureCoverageRow=>({
+      publicId:kickoff,competition:'Liga MX',slug:'liga-mx',kickoff,home:'A',away:'B',oddspapiTournamentId:'27464',
+      providerFixturePresent:classification==='CURRENT_ODDS_AVAILABLE',strictMappingPresent:true,
+      betanoCurrentQuote:classification==='CURRENT_ODDS_AVAILABLE',betssonCurrentQuote:classification==='CURRENT_ODDS_AVAILABLE',
+      matchWinner:classification==='CURRENT_ODDS_AVAILABLE'?'AVAILABLE':'ABSENT',
+      totalGoals25:classification==='CURRENT_ODDS_AVAILABLE'?'AVAILABLE':'ABSENT',
+      btts:classification==='CURRENT_ODDS_AVAILABLE'?'AVAILABLE':'ABSENT',
+      classification,evidence:'test',internalBug:false,...flags,
+    });
+    const now=Date.parse('2026-09-15T12:00:00Z');
+    const windows=coverageWindows([
+      row('2026-09-15T20:00:00.000Z','CURRENT_ODDS_AVAILABLE'),
+      row('2026-09-17T20:00:00.000Z','PROVIDER_FIXTURE_ABSENT'),
+      row('2026-09-25T20:00:00.000Z','CURRENT_ODDS_AVAILABLE'),
+      row('2026-11-01T20:00:00.000Z','PROVIDER_FIXTURE_ABSENT'),
+    ],now);
+    expect(windows.map(item=>item.key)).toEqual(['next24h','next3d','next7d','next14d','fullUpcoming']);
+    expect(windows[0]).toMatchObject({total:1,matchWinner:1,percent:100});
+    expect(windows[1]).toMatchObject({total:2,matchWinner:1,percent:50});
+    expect(windows[2]).toMatchObject({total:2,matchWinner:1});
+    expect(windows[3]).toMatchObject({total:3,matchWinner:2});
+    expect(windows[4]).toMatchObject({total:4,matchWinner:2,percent:50});
   });
 });

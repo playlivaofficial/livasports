@@ -45,6 +45,7 @@ export async function persistSnapshot(db:DatabaseClient,jobId:string,snapshot:Od
       metadata->>'homeProviderId' AS "homeProviderId",metadata->>'awayProviderId' AS "awayProviderId",
       metadata->>'canonicalKickoff' AS "canonicalKickoff",metadata->>'providerKickoff' AS "providerKickoff"
       FROM provider_entity_mappings WHERE provider='ODDSPAPI' AND entity_type='FIXTURE'`)).rows as PersistedFixtureMapping[];
+    // Later matchweeks on an already-scheduled tournament map automatically when names+kickoff uniquely match. Ambiguous rows stay unmapped.
     const matches=snapshot.fixtures.map(raw=>({raw,...matchOddsFixture(raw,fixtures,saved)}));
     const duplicateIds=new Set(matches.filter(m=>m.fixture&&matches.filter(other=>other.fixture?.id===m.fixture?.id).length>1).map(m=>m.fixture!.id));
     for(const m of matches)if(m.fixture&&duplicateIds.has(m.fixture.id)){m.fixture=null;m.state='AMBIGUOUS';m.reason='Multiple events claim the same canonical fixture in this response';}

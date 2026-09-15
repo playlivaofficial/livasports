@@ -23,7 +23,8 @@
 .board-filters b { color:#91a5b3; font-size:10px; }
 .board-filters a[aria-current=page] { background:#27d89b; color:#052c21; font-weight:750; }
 .board-filters a[aria-current=page] b { color:#124d3d; }
-.filter-live::before { content:''; width:5px; height:5px; border-radius:50%; background:#ff596f; }
+.board-competitions a[aria-current=page] .competition-nav-count { color:#7bf0c3; }
+.filter-live::before { content:''; width:6px; height:6px; border-radius:50%; background:#ff596f; box-shadow:0 0 0 3px #ff596f33; }
 .board-calendar,.board-calendar form { display:flex; align-items:center; gap:4px; }
 .board-calendar>a { display:grid; place-items:center; min-width:28px; height:36px; border:1px solid #334754; border-radius:4px; font-size:22px; }
 .board-calendar input { color-scheme:dark; background:#0b1822; color:#d8e5ee; border:1px solid #334754; border-radius:4px; width:126px; font:inherit; font-size:11px; padding:7px 3px; min-height:36px; }
@@ -52,6 +53,8 @@
 .sports-board .kickoff-date { font-size:10px; margin-top:3px; }
 .sports-board .status-badge { font-size:9px; margin-top:3px; line-height:1.25; padding:0; border:0; background:transparent; white-space:normal; }
 .sports-board .fixture-row.is-live { box-shadow:inset 2px 0 #ff596f; background:#281e2a55; }
+.sports-board .fixture-row.is-live .score-value { color:#ff92a1; font-size:16px; }
+.sports-board .fixture-row.is-live .status-badge.is-live { font-weight:800; }
 .sports-board .listing-odds { gap:6px; width:100%; }
 .sports-board .listing-odds-cell { min-height:46px; border:1px solid #3a5362; border-radius:6px; background:#17303c; padding:5px 3px; }
 .sports-board .listing-odds-price { font-size:16px; font-weight:800; color:#eef6fb; font-variant-numeric:tabular-nums; }
@@ -119,7 +122,7 @@
   .sports-board .competition-title { font-size:11px; }
   .sports-board .competition-count { display:none; }
   .sports-board .fixture-row { min-height:64px; padding:6px 8px; }
-  .sports-board .fixture-main-link { grid-template-columns:45px minmax(0,1fr) 20px; gap:5px; min-height:50px; }
+  .sports-board .fixture-main-link { grid-template-columns:45px minmax(0,1fr) 26px; gap:5px; min-height:50px; }
   .sports-board .team-identity { grid-template-columns:17px minmax(0,1fr); gap:5px; }
   .sports-board .team-mark,.sports-board .team-logo { width:17px; height:17px; }
   .sports-board .team-name { font-size:11px; line-height:19px; }

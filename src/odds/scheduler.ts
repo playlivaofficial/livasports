@@ -4,6 +4,7 @@ import {verifyCatalog} from '@/providers/oddspapi/m5-normalizer';
 import {schedulerTournaments,isStableOddsTournament,type CatalogTournament} from '@/providers/oddspapi/tournament-catalog';
 import {canonicalFixtures,persistSnapshot,startOddsJob} from './ingestion';
 import {budgetHealth,OddsBudgetStopped,reconcileAccountPeriod} from './budget';
+import {LIVE_ODDS_CAPABILITY} from './live-capability';
 import {isProviderFixtureAbsent} from './canary';
 import {planScheduler,SCHEDULER_BOOKMAKERS,type RefreshTarget} from './scheduler-policy';
 import type {OddsSnapshot} from './types';
@@ -127,5 +128,6 @@ export async function schedulerHealth(db:DatabaseClient,automationConfigured=fal
     lastSuccessfulAutomatedRefreshAt:row?.last_automatic_refresh_at??null,lastAutomaticInvocationAt:row?.last_automatic_invocation_at??null,
     nextExpectedRun:automationConfigured?row?.next_due_at??null:null,
     nextPolicyDueAt:row?.next_due_at??null,fixturesConsidered:row?.fixtures_considered??0,feedsRefreshed:row?.feeds_refreshed??[],
-    lastError:row?.last_error??null,activeLease:lease.rows[0]??null,feedStatus:feeds.rows,budget,providerRequests:0};
+    lastError:row?.last_error??null,activeLease:lease.rows[0]??null,feedStatus:feeds.rows,budget,providerRequests:0,
+    liveOdds:LIVE_ODDS_CAPABILITY};
 }

@@ -5,6 +5,7 @@ import {matchOddsFixture, namesMatch} from './matching';
 import {M5_REJECTED_TOURNAMENTS,M5_TOURNAMENTS} from '@/providers/oddspapi/m5-normalizer';
 import {resolveCatalogTournaments, schedulerTournaments} from '@/providers/oddspapi/tournament-catalog';
 import {budgetHealth} from './budget';
+import {LIVE_ODDS_CAPABILITY} from './live-capability';
 
 export function coverageGapCode(reason:string,context:{tournamentActive?:boolean;hasQuote?:boolean;stale?:boolean;readModelDropped?:boolean}={}):string {
   if(context.readModelDropped)return 'QUOTE_DROPPED_BY_READ_MODEL';
@@ -194,7 +195,7 @@ export async function buildCoverageMatrix(db: QueryExecutor) {
       betsson: {matchWinner: Number(row.betsson_mw), totalGoals25: Number(row.betsson_ou), btts: Number(row.betsson_btts)},
       betano: {matchWinner: Number(row.betano_mw), totalGoals25: Number(row.betano_ou), btts: Number(row.betano_btts)},
       schedulerEnabled,
-      liveOddsCoverage:'PLAN-BLOCKED',
+      liveOddsCoverage:LIVE_ODDS_CAPABILITY.status,
       disabledReason,
     };
   });

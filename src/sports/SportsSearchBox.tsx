@@ -67,7 +67,7 @@ export function SportsSearchBox({locale,query}:{locale:InterfaceLocale;query:str
     <button type="submit">{t.searchGo}</button>
     {showList?<ul id={listId} className="sports-search-suggest" role="listbox" aria-label={t.search}>
       {failed?<li className="sports-search-empty" role="status">{t.unavailable}</li>
-        :!current?<li className="sports-search-empty" role="status">…</li>
+        :!current?<li className="sports-search-empty" role="status">{t.searchLoading}</li>
           :!suggestions.length?<li className="sports-search-empty" role="status">{t.searchEmpty}</li>
             :suggestions.map((row,index)=>{
               const mark=resultMark(row);

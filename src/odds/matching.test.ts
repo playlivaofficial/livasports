@@ -211,4 +211,12 @@ describe('safe odds fixture matching',()=>{
     expect(matchOddsFixture({...raw,kickoff:'2026-09-12T19:05:00Z'},[canonical],[saved]).state).toBe('TIME_MISMATCH');
     expect(matchOddsFixture(raw,[{...canonical,kickoff:'2026-09-12T19:05:00Z'}],[saved]).state).toBe('TIME_MISMATCH');
   });
+  it('maps a later matchweek automatically when names and kickoff uniquely match, and never maps ambiguous twins',()=>{
+    const later={...canonical,id:'week2',kickoff:'2026-10-12T19:00:00Z'};
+    const provider={...raw,providerId:'later-week',kickoff:later.kickoff};
+    expect(matchOddsFixture(provider,[canonical,later],[]).state).toBe('HIGH_CONFIDENCE');
+    expect(matchOddsFixture(provider,[canonical,later],[]).fixture?.id).toBe('week2');
+    expect(matchOddsFixture(provider,[later,{...later,id:'twin'}],[]).state).toBe('AMBIGUOUS');
+    expect(matchOddsFixture(provider,[later,{...later,id:'twin'}],[]).fixture).toBeNull();
+  });
 });

@@ -4,6 +4,7 @@ import {KICKOFF_TOLERANCE_MS, type CanonicalOddsFixture, type OddsSnapshot, type
 import {matchOddsFixture} from './matching';
 import {unmappedFixtureReason} from './coverage-matrix';
 import {resolveCatalogTournaments, schedulerTournaments} from '@/providers/oddspapi/tournament-catalog';
+import {LIVE_ODDS_CAPABILITY} from './live-capability';
 
 export const COVERAGE_STATUSES=[
   'PROVIDER_FIXTURE_ABSENT',
@@ -213,6 +214,8 @@ function flagsFromQuotes(quotes:readonly QuoteRow[],bookmaker:string,market:stri
 export interface CompetitionCoverageSummary {
   competition:string;
   slug:string;
+  oddspapiTournamentId:string|null;
+  schedulerEnabled:boolean;
   upcoming:number;
   providerFixturesPresent:number;
   mapped:number;
@@ -222,16 +225,64 @@ export interface CompetitionCoverageSummary {
   btts:number;
   providerAbsent:number;
   mappingBugs:number;
+  kickoffMismatch:number;
   readModelBugs:number;
   stale:number;
+  withdrawn:number;
+  noMarket:number;
   other:number;
+}
+
+export const COVERAGE_WINDOW_SPECS=[
+  {key:'next24h',hours:24},
+  {key:'next3d',hours:72},
+  {key:'next7d',hours:168},
+  {key:'next14d',hours:336},
+  {key:'fullUpcoming',hours:null},
+] as const;
+export type CoverageWindowKey=typeof COVERAGE_WINDOW_SPECS[number]['key'];
+export interface CoverageWindowKpi {
+  key:CoverageWindowKey;
+  hours:number|null;
+  total:number;
+  matchWinner:number;
+  betano:number;
+  betsson:number;
+  totalGoals25:number;
+  btts:number;
+  percent:number;
+}
+
+export function coverageWindowKpi(fixtures:readonly FixtureCoverageRow[],now:number,spec:{key:CoverageWindowKey;hours:number|null}):CoverageWindowKpi {
+  const end=spec.hours==null?Number.POSITIVE_INFINITY:now+spec.hours*3600000;
+  const rows=fixtures.filter(row=>{
+    const kick=Date.parse(row.kickoff);
+    return Number.isFinite(kick)&&kick>now&&kick<=end;
+  });
+  const matchWinner=rows.filter(row=>row.classification==='CURRENT_ODDS_AVAILABLE').length;
+  return {
+    key:spec.key,
+    hours:spec.hours,
+    total:rows.length,
+    matchWinner,
+    betano:rows.filter(row=>row.betanoCurrentQuote).length,
+    betsson:rows.filter(row=>row.betssonCurrentQuote).length,
+    totalGoals25:rows.filter(row=>row.totalGoals25==='AVAILABLE').length,
+    btts:rows.filter(row=>row.btts==='AVAILABLE').length,
+    percent:rows.length?Math.round((matchWinner/rows.length)*1000)/10:0,
+  };
+}
+
+export function coverageWindows(fixtures:readonly FixtureCoverageRow[],now:number):CoverageWindowKpi[] {
+  return COVERAGE_WINDOW_SPECS.map(spec=>coverageWindowKpi(fixtures,now,spec));
 }
 
 export interface FixtureCoverageReport {
   at:string;
   providerRequests:0;
-  liveOddsCoverage:'PLAN-BLOCKED';
+  liveOddsCoverage:'PLAN-BLOCKED'|'SUPPORTED';
   unexplained:number;
+  windows:CoverageWindowKpi[];
   totals:{
     upcoming:number;
     oddsAvailable:number;
@@ -249,6 +300,14 @@ export interface FixtureCoverageReport {
 
 function iso(value:unknown):string {
   return value instanceof Date?value.toISOString():String(value);
+}
+
+function emptyCompetitionSummary(competition:string,slug:string,oddspapiTournamentId:string|null,schedulerEnabled:boolean):CompetitionCoverageSummary {
+  return {
+    competition,slug,oddspapiTournamentId,schedulerEnabled,
+    upcoming:0,providerFixturesPresent:0,mapped:0,betanoMw:0,betssonMw:0,totalGoals25:0,btts:0,
+    providerAbsent:0,mappingBugs:0,kickoffMismatch:0,readModelBugs:0,stale:0,withdrawn:0,noMarket:0,other:0,
+  };
 }
 
 export async function buildFixtureCoverageReport(db:QueryExecutor,now=Date.now()):Promise<FixtureCoverageReport> {
@@ -342,11 +401,13 @@ export async function buildFixtureCoverageReport(db:QueryExecutor,now=Date.now()
   const enabled=new Set(FOOTBALL_COMPETITION_TARGETS.filter(target=>target.enabled).map(target=>target.slug));
   const bySlug=new Map<string,CompetitionCoverageSummary>();
   for(const slug of enabled){
+    const tournament=byCanonical.get(slug);
     const name=fixtures.find(row=>row.slug===slug)?.competition??FOOTBALL_COMPETITION_TARGETS.find(target=>target.slug===slug)?.canonicalName??slug;
-    bySlug.set(slug,{competition:name,slug,upcoming:0,providerFixturesPresent:0,mapped:0,betanoMw:0,betssonMw:0,totalGoals25:0,btts:0,providerAbsent:0,mappingBugs:0,readModelBugs:0,stale:0,other:0});
+    bySlug.set(slug,emptyCompetitionSummary(name,slug,tournament?.id??null,tournament?scheduledIds.has(tournament.id):false));
   }
   for(const row of fixtures){
-    const summary=bySlug.get(row.slug)??{competition:row.competition,slug:row.slug,upcoming:0,providerFixturesPresent:0,mapped:0,betanoMw:0,betssonMw:0,totalGoals25:0,btts:0,providerAbsent:0,mappingBugs:0,readModelBugs:0,stale:0,other:0};
+    const tournament=byCanonical.get(row.slug);
+    const summary=bySlug.get(row.slug)??emptyCompetitionSummary(row.competition,row.slug,tournament?.id??row.oddspapiTournamentId,row.oddspapiTournamentId?scheduledIds.has(row.oddspapiTournamentId):false);
     summary.upcoming++;
     if(row.providerFixturePresent)summary.providerFixturesPresent++;
     if(row.strictMappingPresent)summary.mapped++;
@@ -355,9 +416,12 @@ export async function buildFixtureCoverageReport(db:QueryExecutor,now=Date.now()
     if(row.totalGoals25==='AVAILABLE')summary.totalGoals25++;
     if(row.btts==='AVAILABLE')summary.btts++;
     if(row.classification==='PROVIDER_FIXTURE_ABSENT')summary.providerAbsent++;
-    else if(row.classification==='FIXTURE_MAPPING_MISSING'||row.classification==='TEAM_ALIAS_MISMATCH'||row.classification==='KICKOFF_MISMATCH')summary.mappingBugs++;
+    else if(row.classification==='KICKOFF_MISMATCH'){summary.kickoffMismatch++;summary.mappingBugs++;}
+    else if(row.classification==='FIXTURE_MAPPING_MISSING'||row.classification==='TEAM_ALIAS_MISMATCH')summary.mappingBugs++;
     else if(row.classification==='READ_MODEL_DROPPED_QUOTE')summary.readModelBugs++;
     else if(row.classification==='QUOTE_STALE')summary.stale++;
+    else if(row.classification==='WITHDRAWN')summary.withdrawn++;
+    else if(row.classification==='MARKET_UNAVAILABLE'||row.classification==='BOOKMAKER_DOES_NOT_PRICE_FIXTURE')summary.noMarket++;
     else if(row.classification!=='CURRENT_ODDS_AVAILABLE')summary.other++;
     bySlug.set(row.slug,summary);
   }
@@ -366,8 +430,9 @@ export async function buildFixtureCoverageReport(db:QueryExecutor,now=Date.now()
   return {
     at:new Date(now).toISOString(),
     providerRequests:0,
-    liveOddsCoverage:'PLAN-BLOCKED',
+    liveOddsCoverage:LIVE_ODDS_CAPABILITY.status,
     unexplained,
+    windows:coverageWindows(fixtures,now),
     totals:{
       upcoming:fixtures.length,
       oddsAvailable:fixtures.filter(row=>row.classification==='CURRENT_ODDS_AVAILABLE').length,
