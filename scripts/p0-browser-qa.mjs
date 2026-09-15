@@ -82,7 +82,7 @@ try{
 
   await page.click('.slip-remove');await page.wait(`document.querySelectorAll('.slip-item').length===4`);
   check('remove leg updates persisted slip',await page.evaluate(`document.querySelector('.slip-trigger .slip-count')?.textContent==='4'`));
-  await page.key('Escape');await page.reload();check('reload preserves slip',await page.evaluate(`document.querySelector('.slip-trigger .slip-count')?.textContent==='4'`));
+  await page.key('Escape');await page.reload();await page.wait(`!document.querySelector('.loading-header')`,30000);check('reload preserves slip',await page.evaluate(`document.querySelector('.slip-trigger .slip-count')?.textContent==='4'`));
   await page.click('.language-picker summary');await page.click('.language-picker button[value="en"]');await page.wait(`location.pathname.startsWith('/en')`,30000);await delay(500);await page.click('.slip-trigger');
   await page.wait(`document.querySelectorAll('.slip-item').length===4&&document.querySelectorAll('.slip-return').length===2`,30000);
   check('locale switch preserves slip context',await page.evaluate(`document.querySelector('.slip-trigger .slip-count')?.textContent==='4'&&document.querySelectorAll('.slip-return span')[0]?.textContent==='Estimated potential return'`));
