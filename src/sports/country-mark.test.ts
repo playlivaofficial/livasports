@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {competitionCountryMark,countryMarkForSlug,countryMarkFromIso,sportsSearchMark} from './country-mark';
+import {competitionCountryMark,competitionMark,countryMarkForSlug,countryMarkFromIso,sportsSearchMark} from './country-mark';
 import {targetBySlug} from '@/config/footballCompetitions';
 import {countryCodeFromName} from '@/profiles/localization';
 
@@ -17,10 +17,12 @@ describe('competition country marks',()=>{
     expect(premier.countryCode).toBe('GB');
     expect(premier.countryNames).toContain('England');
     expect(competitionCountryMark(premier)).toMatchObject({emoji:'\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}',assetCode:'gb-eng'});
+    expect(competitionMark({slug:'premier-league',countryCode:'EN',countryName:'England'})).toMatchObject({label:'England',assetCode:'gb-eng'});
     expect(countryMarkFromIso('GB','United Kingdom').emoji).toBe('🇬🇧');
   });
   it('uses an international mark when the model has no country code',()=>{
     expect(countryMarkForSlug('champions-league')).toMatchObject({kind:'international',emoji:'🌍',label:'UEFA / Europe',assetCode:null});
+    expect(competitionMark({slug:'champions-league',countryCode:'EU',countryName:'Europe',region:'EUROPE'})).toMatchObject({kind:'international',emoji:'🌍',label:'UEFA / Europe',assetCode:null});
     expect(countryMarkForSlug('copa-libertadores')).toMatchObject({kind:'international',emoji:'🌎',label:'CONMEBOL / South America'});
     expect(competitionCountryMark(null).kind).toBe('international');
   });

@@ -26,13 +26,20 @@ export function countryMarkForSlug(slug:string):CountryMark {
 
 export function countryMarkFromIso(iso2:string|null|undefined,label?:string|null):CountryMark {
   if(!iso2)return {kind:'international',emoji:'🌐',label:label??'International',assetCode:null};
-  if(iso2.toUpperCase()==='GB'&&label==='England')return {kind:'country',emoji:ENGLAND_FLAG,label:'England',assetCode:'gb-eng'};
+  if((iso2.toUpperCase()==='GB'&&label==='England')||iso2.toUpperCase()==='EN')return {kind:'country',emoji:ENGLAND_FLAG,label:'England',assetCode:'gb-eng'};
   return {kind:'country',emoji:regionalFlag(iso2),label:label??iso2,assetCode:iso2.toLowerCase()};
 }
 
 export function competitionMark(value:{slug:string;countryCode?:string|null;countryName?:string|null;region?:string|null}):CountryMark {
-  if(value.countryCode)return countryMarkFromIso(value.countryCode,value.countryName);
   const target=targetBySlug(value.slug),region=value.region??target?.region;
+  // Canonical competition metadata wins over provider pseudo-countries such as EU.
+  if(target&&!target.countryCode){
+    if(region==='EUROPE')return {kind:'international',emoji:'🌍',label:'UEFA / Europe',assetCode:null};
+    if(region==='SOUTH_AMERICA')return {kind:'international',emoji:'🌎',label:'CONMEBOL / South America',assetCode:null};
+    if(region==='NORTH_AMERICA')return {kind:'international',emoji:'🌎',label:'CONCACAF / North America',assetCode:null};
+    return {kind:'international',emoji:'🏆',label:'International competition',assetCode:null};
+  }
+  if(value.countryCode)return countryMarkFromIso(value.countryCode,value.countryName);
   if(target?.countryCode)return competitionCountryMark(target);
   if(region==='EUROPE')return {kind:'international',emoji:'🌍',label:'UEFA / Europe',assetCode:null};
   if(region==='SOUTH_AMERICA')return {kind:'international',emoji:'🌎',label:'CONMEBOL / South America',assetCode:null};
