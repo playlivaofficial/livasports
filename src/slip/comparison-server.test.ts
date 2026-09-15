@@ -31,7 +31,7 @@ describe('M7 request/security boundary',()=>{
     expect(await currentSlipDestination('betano.bet.br',f.selections,'br',read,'BR')).toBeNull();
     expect(await currentSlipDestination('betsson',f.selections,'mx',read,'BR')).toBe(f.data.destinations.betsson);
     f.data.fixtures.get(f.selections[1].fixturePublicId)!.snapshot.quotes[0].status='SUSPENDED';
-    expect(await currentSlipDestination('betsson',f.selections,'br',read,'BR')).toBeNull();expect(read).toHaveBeenCalledTimes(4);expect(fetch).not.toHaveBeenCalled();
+    expect(await currentSlipDestination('betsson',f.selections,'br',read,'BR')).toBe(f.data.destinations.betsson);expect(read).toHaveBeenCalledTimes(4);expect(fetch).not.toHaveBeenCalled();
   });
   it('allows current proxy coverage but refuses expired, started, unconfigured or unapproved coverage',async()=>{
     for(const scenario of ['expired','started','partial','unconfigured','unapproved']){

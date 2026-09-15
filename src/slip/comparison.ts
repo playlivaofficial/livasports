@@ -116,7 +116,7 @@ export function buildSlipComparison(selections:CanonicalSelection[],locale:SiteL
   const eligible=configs.filter(eligibleBookmaker);
   const native=selections.length?eligible.map(config=>({config,quotes:selections.map(s=>selectionQuote(s,fixtures.get(s.fixturePublicId)??null,config.bookmakerId,now))})):[];
   const withProxies=native.map(({config,quotes},targetIndex)=>({config,quotes:quotes.map((targetQuote,selectionIndex)=>{
-    if(targetQuote.state!=='UNAVAILABLE'||!['MISSING_QUOTE','MARKET_MISSING'].includes(targetQuote.diagnosticCode))return targetQuote;
+    if(targetQuote.state==='CURRENT')return targetQuote;
     const source=native.find((candidate,index)=>index!==targetIndex&&candidate.quotes[selectionIndex]?.state==='CURRENT'&&candidate.quotes[selectionIndex]?.priceKind==='REAL')?.quotes[selectionIndex];
     if(!source?.decimalOdds||!source.sourceBookmakerId||!source.sourceBookmakerName||!source.sourceQuoteId||!source.sourceObservedAt)return targetQuote;
     return withDiagnostic({...targetQuote,state:'CURRENT',reason:null,decimalOdds:source.decimalOdds,expiresAt:source.expiresAt,closesAt:source.closesAt,priceKind:'PROXY',sourceBookmakerId:source.sourceBookmakerId,sourceBookmakerName:source.sourceBookmakerName,sourceQuoteId:source.sourceQuoteId,sourceObservedAt:source.sourceObservedAt},'PROXY_QUOTE');

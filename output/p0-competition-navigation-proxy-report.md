@@ -19,7 +19,7 @@
 
 ## Verification evidence
 
-- Full automated tests: **841 passed, 0 failed** (17 Node tests and 824 Vitest tests).
+- Full automated tests: **845 passed, 0 failed** (17 Node tests and 828 Vitest tests).
 - TypeScript: **PASS**.
 - ESLint: **PASS** with zero warnings.
 - Production build: **PASS**.
@@ -30,6 +30,8 @@
 - Keyboard/accessibility browser QA: **213 checks passed** across PT-BR, ES-MX and EN match routes.
 - Ordinary navigation provider requests: **0**.
 - Proxy comparison browser QA: **PASS** for all-real, Betano-proxy and Betsson-proxy combined slips, including per-leg labels and localized estimated-comparison disclosure.
+- Production-regression coverage now treats every unusable target state as eligible for an exact current quote from the other bookmaker. The persisted Botafogo–Grêmio Draw case resolves Betano 3.70 as REAL and the suspended Betsson leg as a disclosed PROXY, with complete estimated coverage.
+- Live-data hardening QA: **30/30 slips produced both totals**, including a five-leg slip with mixed REAL/PROXY legs on both cards; unexplained states **0**, provider requests **0**.
 
 ## Data safety
 

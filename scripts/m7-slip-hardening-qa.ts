@@ -57,6 +57,11 @@ function classify(comparison:SlipComparison){
   const betsson=comparison.bookmakers.find(b=>b.bookmakerId==='betsson');
   return {betano,betsson,both:Boolean(betano?.complete&&betsson?.complete),betanoOnly:Boolean(betano?.complete&&!betsson?.complete),betssonOnly:Boolean(!betano?.complete&&betsson?.complete)};
 }
+function sameBook(left:BookmakerSlip|undefined,right:BookmakerSlip|undefined){
+  return Boolean(left&&right&&left.complete===right.complete&&left.availableSelectionCount===right.availableSelectionCount
+    &&left.requiredSelectionCount===right.requiredSelectionCount&&left.proxySelectionCount===right.proxySelectionCount
+    &&left.selectionQuotes.map(q=>q.priceKind).join('|')===right.selectionQuotes.map(q=>q.priceKind).join('|'));
+}
 async function compareRemote(selections:CanonicalSelection[]){
   const response=await fetch(origin+'/api/slip/compare',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({locale:'br',selections}),cache:'no-store',signal:AbortSignal.timeout(20000)});
   const body=await response.json() as {providerRequests?:number;comparison?:{bookmakers:BookmakerSlip[]};error?:string};
@@ -98,10 +103,17 @@ try{
   const both=evaluated.filter(v=>v.both);
   const betanoOnly=evaluated.filter(v=>v.betanoOnly);
   const betssonOnly=evaluated.filter(v=>v.betssonOnly);
+  const rawBetanoOnly=candidates.filter(v=>v.books['betano.bet.br']&&!v.books.betsson);
+  const rawBetssonOnly=candidates.filter(v=>v.books.betsson&&!v.books['betano.bet.br']);
   const mwBoth=both.filter(v=>v.selection.market==='MATCH_WINNER');
   const btts=both.filter(v=>v.selection.market==='BTTS');
   const ou=both.filter(v=>v.selection.market==='TOTAL_GOALS');
-  const plans:Array<{id:string;legs:typeof both;stake:string}> =[];
+  const plans:Array<{id:string;legs:Array<(typeof candidates)[number]>;stake:string}> =[];
+  if(rawBetanoOnly.length&&rawBetssonOnly.length){
+    const used=new Set<string>();
+    const mixed=[...take(rawBetanoOnly,1,used),...take(rawBetssonOnly,1,used),...take(candidates,3,used)];
+    if(mixed.length===5&&validSlip(mixed))plans.push({id:'union-mixed-5',legs:mixed,stake:'10'});
+  }
   for(const [n,label] of [[1,'1'],[2,'2'],[3,'3'],[4,'4'],[5,'5']] as const){
     const legs=take(mwBoth,n);
     if(legs.length===n&&validSlip(legs))plans.push({id:`both-mw-${label}`,legs,stake:'10'});
@@ -150,8 +162,11 @@ try{
     const books=comparison.bookmakers;
     const betano=books.find(b=>b.bookmakerId==='betano.bet.br');
     const betsson=books.find(b=>b.bookmakerId==='betsson');
+    const remoteBetano=remote.body.comparison?.bookmakers.find(b=>b.bookmakerId==='betano.bet.br');
+    const remoteBetsson=remote.body.comparison?.bookmakers.find(b=>b.bookmakerId==='betsson');
     const unexplained=unexplainedBook(betano)||unexplainedBook(betsson)
       ||remote.body.providerRequests!==0||(remote.status!==200&&remote.status!==0)
+      ||!sameBook(betano,remoteBetano)||!sameBook(betsson,remoteBetsson)
       ||/\bNaN\b/.test(JSON.stringify(comparison));
     rows.push({
       slipId:plan.id,legCount:selections.length,markets:[...new Set(selections.map(s=>s.market))],
@@ -160,10 +175,12 @@ try{
       betanoReturn:betano?.complete&&betano.combinedDecimalOdds?potentialReturn(plan.stake,betano.combinedDecimalOdds):null,
       betanoReason:betano?.complete?null:betano?.availabilityState??'MISSING',
       betanoDiagnostic:betano?.selectionQuotes.map(q=>q.diagnosticCode)??[],
+      betanoProxyCount:betano?.proxySelectionCount??0,remoteBetanoProxyCount:remoteBetano?.proxySelectionCount??0,
       betssonComplete:Boolean(betsson?.complete),betssonTotal:betsson?.combinedDecimalOdds??null,
       betssonReturn:betsson?.complete&&betsson.combinedDecimalOdds?potentialReturn(plan.stake,betsson.combinedDecimalOdds):null,
       betssonReason:betsson?.complete?null:betsson?.availabilityState??'MISSING',
       betssonDiagnostic:betsson?.selectionQuotes.map(q=>q.diagnosticCode)??[],
+      betssonProxyCount:betsson?.proxySelectionCount??0,remoteBetssonProxyCount:remoteBetsson?.proxySelectionCount??0,
       bestComplete:books.find(book=>book.best)?.displayName??null,
       unexplained,providerRequests:remote.body.providerRequests??null,http:remote.status,
       localProductCheck:betano?.complete&&betsson?.complete&&plan.legs.every(v=>v.books['betano.bet.br']&&v.books['betsson'])?{
@@ -178,10 +195,11 @@ try{
     betssonOnly:rows.filter(r=>!r.betanoComplete&&r.betssonComplete).length,
     bothIncomplete:rows.filter(r=>!r.betanoComplete&&!r.betssonComplete).length,
     unexplained:rows.filter(r=>r.unexplained).length,providerRequests:rows.every(r=>r.providerRequests===0),
+    unionMixedFive:rows.some(r=>r.slipId==='union-mixed-5'&&r.betanoComplete&&r.betssonComplete&&r.betanoProxyCount>0&&r.betssonProxyCount>0&&r.remoteBetanoProxyCount>0&&r.remoteBetssonProxyCount>0),
     competitions:[...new Set(rows.flatMap(r=>r.competitions))],
-    pools:{both:both.length,betanoOnly:betanoOnly.length,betssonOnly:betssonOnly.length,mwBoth:mwBoth.length,btts:btts.length,ou:ou.length},
+    pools:{both:both.length,betanoOnly:betanoOnly.length,betssonOnly:betssonOnly.length,rawBetanoOnly:rawBetanoOnly.length,rawBetssonOnly:rawBetssonOnly.length,mwBoth:mwBoth.length,btts:btts.length,ou:ou.length},
   };
   await writeFile('output/m7-slip-hardening-private.json',JSON.stringify({at:new Date().toISOString(),origin,summary,rows},null,2));
   console.info(JSON.stringify(summary));
-  if(summary.tested<30||summary.unexplained!==0||!summary.providerRequests||summary.bothComplete<10)process.exitCode=1;
+  if(summary.tested<30||summary.unexplained!==0||!summary.providerRequests||summary.bothComplete<10||!summary.unionMixedFive)process.exitCode=1;
 }finally{await db.close();}

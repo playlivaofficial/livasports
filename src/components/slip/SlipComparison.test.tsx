@@ -44,11 +44,11 @@ describe('M7 semantic localized comparison cards',()=>{
     expect(html).toContain('data-complete="true"');expect(html).toContain('data-availability="COMPLETE"');
     expect(html).toContain('Odd combinada');expect(html).toContain('Retorno potencial');expect(html).not.toMatch(/>\s*\?\s*</);expect(html).not.toContain('NaN');
   });
-  it('names a stale leg without inventing a combined total',()=>{
+  it('renders a completed estimated card instead of stale copy when the other book is current',()=>{
     const f=comparisonFixture();Object.assign(f.data.fixtures.get(f.selections[0].fixturePublicId)!.snapshot.quotes[1],{status:'STALE'});
     const html=renderToStaticMarkup(<SlipComparison locale="br" stake="20" selections={f.selections.map(s=>({...s,addedAt:new Date(f.now).toISOString()}))} checking={false} value={buildSlipComparison(f.selections,'br',f.data.fixtures,f.data.bookmakers,f.now)}/>);
-    expect(html).toContain('Odd desatualizada');expect(html).toContain('data-availability="STALE_LEG"');expect(html).toContain('data-diagnostic="STALE_QUOTE"');
-    expect(html).toContain('Indisponível para este cupom completo');expect(html).not.toMatch(/>\s*\?\s*</);
+    expect(html).not.toContain('Odd desatualizada');expect(html).toContain('data-availability="ESTIMATED_COMPLETE"');expect(html).toContain('data-price-kind="PROXY"');
+    expect(html).toContain('Cotação aproximada · baseada na Betsson');expect(html).not.toContain('Indisponível para este cupom completo');expect(html).not.toMatch(/>\s*\?\s*</);
   });
   it('renders both complete totals at once and names a missing BTTS market',()=>{
     const both=comparisonFixture(3);
@@ -70,10 +70,10 @@ describe('M7 semantic localized comparison cards',()=>{
     expect(html).toContain('Faltam 2');expect(html).toContain('Seleção indisponível na Betano');
     expect(html).not.toContain('Mercado encerrado');expect(html.match(/data-complete="false"/g)?.length).toBe(2);
   });
-  it('keeps genuine closed copy only when the quote state is CLOSED',()=>{
+  it('removes closed copy from the final card when a current proxy resolves the leg',()=>{
     const f=comparisonFixture();Object.assign(f.data.fixtures.get(f.selections[0].fixturePublicId)!.snapshot.quotes[1],{status:'CLOSED'});
     const html=renderToStaticMarkup(<SlipComparison locale="br" uiLocale="en" stake="10" selections={f.selections.map(s=>({...s,addedAt:new Date(f.now).toISOString()}))} checking={false} value={buildSlipComparison(f.selections,'br',f.data.fixtures,f.data.bookmakers,f.now)}/>);
-    expect(html).toContain('Market closed');expect(html).toContain('data-availability="WITHDRAWN_LEG"');
+    expect(html).not.toContain('Market closed');expect(html).toContain('data-availability="ESTIMATED_COMPLETE"');expect(html).toContain('Approx. price · based on Betsson');
     const missing=comparisonFixture();missing.data.fixtures.get(missing.selections[0].fixturePublicId)!.snapshot.quotes=[];
     const incomplete=renderToStaticMarkup(<SlipComparison locale="br" uiLocale="en" stake="10" selections={missing.selections.map(s=>({...s,addedAt:new Date(missing.now).toISOString()}))} checking={false} value={buildSlipComparison(missing.selections,'br',missing.data.fixtures,missing.data.bookmakers,missing.now)}/>);
     expect(incomplete).toContain('Selection unavailable at Betano');expect(incomplete).not.toContain('Market closed');

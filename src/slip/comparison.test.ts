@@ -48,18 +48,19 @@ describe('M7 bookmaker completeness and price-only ranking',()=>{
     const f=comparisonFixture();for(const r of f.data.fixtures.values())r.snapshot.quotes=[];
     for(const b of run(f).bookmakers){expect(b.availableSelectionCount).toBe(0);expect(b.missingSelections).toHaveLength(3);expect(b.combinedDecimalOdds).toBeNull();}
   });
-  it.each(['STALE','SUSPENDED','CLOSED','HISTORICAL','UNKNOWN'])('excludes %s and cannot retain a total or win',state=>{
+  it.each(['STALE','SUSPENDED','CLOSED','WITHDRAWN','HISTORICAL','UNKNOWN'])('uses the other current exact quote when the target is %s',state=>{
     const f=comparisonFixture();Object.assign(f.data.fixtures.get(f.selections[0].fixturePublicId)!.snapshot.quotes[1],{status:state});
-    const [a,b]=run(f).bookmakers;expect(a.complete).toBe(true);expect(a.best).toBe(true);expect(b.complete).toBe(false);expect(b.combinedDecimalOdds).toBeNull();expect(b.best).toBe(false);
+    const [a,b]=run(f).bookmakers;expect(a.complete).toBe(true);expect(b).toMatchObject({complete:true,estimated:true,availabilityState:'ESTIMATED_COMPLETE',availableSelectionCount:3,proxySelectionCount:1});
+    expect(b.selectionQuotes[0]).toMatchObject({state:'CURRENT',diagnosticCode:'PROXY_QUOTE',priceKind:'PROXY',sourceBookmakerId:'betsson',decimalOdds:'2.10'});
   });
   it.each(['LIVE','HALFTIME','FINISHED','POSTPONED','UNKNOWN'])('invalidates every bookmaker on fixture status %s',status=>{
     const f=comparisonFixture();const r=f.data.fixtures.get(f.selections[0].fixturePublicId)!;r.fixture.status=status;r.snapshot.fixtureStatus=status;
     for(const b of run(f).bookmakers){expect(b.complete).toBe(false);expect(b.invalidSelections).toHaveLength(1);expect(b.ctaState).toBe('INCOMPLETE');}
   });
-  it('expires at the two-feed near-kickoff cadence plus one tick, and on the earlier provider kickoff',()=>{
+  it('expires both feeds at the freshness boundary and proxies an unusable target provider kickoff from the other current book',()=>{
     const f=comparisonFixture();f.now+=freshnessTtlMs(1,2);expect(run(f).bookmakers.every(b=>!b.complete&&b.combinedDecimalOdds===null)).toBe(true);
     const g=comparisonFixture();g.data.fixtures.get(g.selections[0].fixturePublicId)!.snapshot.quotes[0].providerKickoff=new Date(g.now-1).toISOString();
-    expect(run(g).bookmakers[0].selectionQuotes[0].state).toBe('MATCH_STARTED');
+    expect(run(g).bookmakers[0].selectionQuotes[0]).toMatchObject({state:'CURRENT',priceKind:'PROXY',sourceBookmakerId:'betano.bet.br'});
   });
   it('updates prices and handles ties without affiliate bias',()=>{
     const f=comparisonFixture();for(const r of f.data.fixtures.values())r.snapshot.quotes[1].decimalOdds=r.snapshot.quotes[0].decimalOdds;
@@ -79,14 +80,14 @@ describe('M7 bookmaker completeness and price-only ranking',()=>{
   it('does not invent BR books when commercial GEO produced none',()=>{
     const f=comparisonFixture();f.data.bookmakers=[];expect(buildSlipComparison(f.selections,'br',f.data.fixtures,f.data.bookmakers,f.now).bookmakers).toEqual([]);
   });
-  it('uses identical duplicate current quotes and fails closed on conflicting or corrupted prices',()=>{
+  it('uses identical duplicates and falls back to the other current exact quote when the target data is conflicting or corrupted',()=>{
     const f=comparisonFixture();const r=f.data.fixtures.get(f.selections[0].fixturePublicId)!;
     r.snapshot.quotes.push({...r.snapshot.quotes[0]});
     expect(run(f).bookmakers[0].complete).toBe(true);
     r.snapshot.quotes.push({...r.snapshot.quotes[0],decimalOdds:'2.99'});
-    expect(run(f).bookmakers[0]).toMatchObject({complete:false,selectionQuotes:expect.arrayContaining([expect.objectContaining({reason:'INVALID_QUOTE'})])});
+    expect(run(f).bookmakers[0]).toMatchObject({complete:true,estimated:true,selectionQuotes:expect.arrayContaining([expect.objectContaining({priceKind:'PROXY',sourceBookmakerId:'betano.bet.br'})])});
     const g=comparisonFixture();g.data.fixtures.get(g.selections[0].fixturePublicId)!.snapshot.quotes[1].decimalOdds='NaN';
-    expect(run(g).bookmakers[1]).toMatchObject({complete:false,selectionQuotes:expect.arrayContaining([expect.objectContaining({reason:'INVALID_QUOTE'})])});
+    expect(run(g).bookmakers[1]).toMatchObject({complete:true,estimated:true,selectionQuotes:expect.arrayContaining([expect.objectContaining({priceKind:'PROXY',sourceBookmakerId:'betsson'})])});
     expect(run(g).bookmakers[0].complete).toBe(true);
   });
   it('browser clock, offline and error guards withdraw totals, best labels and CTAs while keeping intent',()=>{
@@ -143,16 +144,35 @@ describe('explicit bookmaker availability',()=>{
     expect(r.bookmakers[0].complete).toBe(false);expect(r.bookmakers[0].availabilityState).toBe('MARKET_UNAVAILABLE');
     expect(r.bookmakers[0].selectionQuotes[1].diagnosticCode).toBe('MARKET_MISSING');expect(r.bookmakers[0].combinedDecimalOdds).toBeNull();
   });
-  it('classifies stale quotes as STALE_LEG without a fake total',()=>{
+  it('replaces a stale target quote with the other current exact quote',()=>{
     const f=comparisonFixture();Object.assign(f.data.fixtures.get(f.selections[0].fixturePublicId)!.snapshot.quotes[1],{status:'STALE'});
     const betano=run(f).bookmakers[1];
-    expect(betano).toMatchObject({complete:false,availabilityState:'STALE_LEG',combinedDecimalOdds:null,ctaState:'INCOMPLETE'});
-    expect(betano.selectionQuotes[0].diagnosticCode).toBe('STALE_QUOTE');
+    expect(betano).toMatchObject({complete:true,estimated:true,availabilityState:'ESTIMATED_COMPLETE',proxySelectionCount:1});
+    expect(betano.selectionQuotes[0]).toMatchObject({state:'CURRENT',diagnosticCode:'PROXY_QUOTE',priceKind:'PROXY',sourceBookmakerId:'betsson'});
   });
-  it('classifies withdrawn quotes as WITHDRAWN_LEG',()=>{
+  it('resolves Betsson SUSPENDED plus Betano CURRENT as a complete Betsson proxy card',()=>{
     const f=comparisonFixture();Object.assign(f.data.fixtures.get(f.selections[0].fixturePublicId)!.snapshot.quotes[0],{status:'SUSPENDED'});
-    expect(run(f).bookmakers[0]).toMatchObject({complete:false,availabilityState:'WITHDRAWN_LEG',combinedDecimalOdds:null});
-    expect(run(f).bookmakers[0].selectionQuotes[0].diagnosticCode).toBe('WITHDRAWN');
+    const betsson=run(f).bookmakers[0];
+    expect(betsson).toMatchObject({complete:true,estimated:true,availabilityState:'ESTIMATED_COMPLETE',availableSelectionCount:3,proxySelectionCount:1});
+    expect(betsson.selectionQuotes[0]).toMatchObject({state:'CURRENT',diagnosticCode:'PROXY_QUOTE',priceKind:'PROXY',sourceBookmakerId:'betano.bet.br',decimalOdds:'2.15'});
+  });
+  it('regresses Botafogo–Grêmio Draw: Betano 3.70 real completes the suspended Betsson card as a proxy',()=>{
+    const f=comparisonFixture(1);const read=f.data.fixtures.get(f.selections[0].fixturePublicId)!;
+    Object.assign(read.fixture,{home:'Botafogo',away:'Grêmio'});
+    Object.assign(f.selections[0],{market:'MATCH_WINNER',outcome:'DRAW',line:null});
+    for(const quote of read.snapshot.quotes)Object.assign(quote,{market:'MATCH_WINNER',outcome:'DRAW',line:null});
+    Object.assign(read.snapshot.quotes.find(q=>q.bookmaker==='betano.bet.br')!,{decimalOdds:'3.70',status:'ACTIVE'});
+    Object.assign(read.snapshot.quotes.find(q=>q.bookmaker==='betsson')!,{status:'SUSPENDED'});
+    const [betsson,betano]=run(f).bookmakers;
+    expect(betano.selectionQuotes[0]).toMatchObject({state:'CURRENT',priceKind:'REAL',decimalOdds:'3.70',sourceBookmakerId:'betano.bet.br'});
+    expect(betsson).toMatchObject({complete:true,estimated:true,availabilityState:'ESTIMATED_COMPLETE',availableSelectionCount:1,requiredSelectionCount:1,proxySelectionCount:1});
+    expect(betsson.selectionQuotes[0]).toMatchObject({state:'CURRENT',diagnosticCode:'PROXY_QUOTE',priceKind:'PROXY',decimalOdds:'3.70',sourceBookmakerId:'betano.bet.br'});
+  });
+  it('resolves Betano SUSPENDED plus Betsson CURRENT as a complete Betano proxy card',()=>{
+    const f=comparisonFixture();Object.assign(f.data.fixtures.get(f.selections[0].fixturePublicId)!.snapshot.quotes[1],{status:'SUSPENDED'});
+    const betano=run(f).bookmakers[1];
+    expect(betano).toMatchObject({complete:true,estimated:true,availabilityState:'ESTIMATED_COMPLETE',availableSelectionCount:3,proxySelectionCount:1});
+    expect(betano.selectionQuotes[0]).toMatchObject({state:'CURRENT',diagnosticCode:'PROXY_QUOTE',priceKind:'PROXY',sourceBookmakerId:'betsson',decimalOdds:'2.10'});
   });
   it('uses Betsson as the proxy source when Betano is missing one exact leg',()=>{
     const f=comparisonFixture();
@@ -191,6 +211,14 @@ describe('explicit bookmaker availability',()=>{
     quotes.splice(quotes.findIndex(q=>q.bookmaker==='betsson'),1);
     Object.assign(quotes.find(q=>q.bookmaker==='betano.bet.br')!,{status});
     const betsson=run(f).bookmakers[0];expect(betsson.complete).toBe(false);expect(betsson.selectionQuotes[0].priceKind).toBeNull();
+  });
+  it('remains unavailable when neither bookmaker has a current exact quote',()=>{
+    const f=comparisonFixture();const quotes=f.data.fixtures.get(f.selections[0].fixturePublicId)!.snapshot.quotes;
+    Object.assign(quotes.find(q=>q.bookmaker==='betsson')!,{status:'SUSPENDED'});
+    Object.assign(quotes.find(q=>q.bookmaker==='betano.bet.br')!,{status:'STALE'});
+    const [betsson,betano]=run(f).bookmakers;
+    expect(betsson).toMatchObject({complete:false,combinedDecimalOdds:null,proxySelectionCount:0});
+    expect(betano).toMatchObject({complete:false,combinedDecimalOdds:null,proxySelectionCount:0});
   });
   it('builds proxy presentation without mutating provider truth',()=>{
     const f=comparisonFixture();f.data.fixtures.get(f.selections[1].fixturePublicId)!.snapshot.quotes.pop();

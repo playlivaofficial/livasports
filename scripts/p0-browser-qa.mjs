@@ -16,8 +16,8 @@ function comparisonResponse(input){
     const read=fixture.data.fixtures.get(fixture.selections[index].fixturePublicId);
     read.fixture.publicId=selection.fixturePublicId;read.fixture.kickoff=new Date(now+3600000).toISOString();read.snapshot.kickoff=read.fixture.kickoff;
     for(const quote of read.snapshot.quotes)Object.assign(quote,{market:selection.market,outcome:selection.outcome,line:selection.line,providerKickoff:read.fixture.kickoff,observedAt:new Date(now).toISOString(),providerUpdatedAt:new Date(now).toISOString(),lastSuccessfulRefreshAt:new Date(now).toISOString()});
-    const missing=scenario==='betano-proxy'?'betano.bet.br':scenario==='betsson-proxy'?'betsson':null;
-    if(missing&&index===0)read.snapshot.quotes=read.snapshot.quotes.filter(quote=>quote.bookmaker!==missing);
+    const suspended=scenario==='betano-proxy'?'betano.bet.br':scenario==='betsson-proxy'?'betsson':null;
+    if(suspended&&index===0)for(const quote of read.snapshot.quotes)if(quote.bookmaker===suspended)quote.status='SUSPENDED';
     data.fixtures.set(selection.fixturePublicId,read);
   });
   return {locale:input.locale,resolvedAt:new Date(now).toISOString(),providerRequests:0,selections:input.selections.map(selection=>resolveSelection(selection,data.fixtures.get(selection.fixturePublicId),now)),comparison:buildSlipComparison(input.selections,input.locale,data.fixtures,data.bookmakers,now)};
@@ -66,11 +66,11 @@ try{
   check('invalid season falls back',await page.evaluate(`!!document.querySelector('#competition-season option:checked')&&!/Unable to load this page/i.test(document.querySelector('main').innerText)`));
   check('recent results adjacent to fixtures',await page.evaluate(`!!document.querySelector('.sports-fixtures-recent')`));
 
-  await navigate('/br');await seed(3);
+  await navigate('/br');await seed(5);
   for(const current of ['all-real','betano-proxy','betsson-proxy']){
     scenario=current;await page.reload();await page.click('.slip-trigger');await page.wait(`document.querySelectorAll('.slip-bookmaker').length===2&&document.querySelectorAll('.slip-combined').length===2`,30000);
     const state=await page.evaluate(`({cards:[...document.querySelectorAll('.slip-bookmaker')].map(card=>({book:card.dataset.bookmaker,estimated:card.dataset.estimated,coverage:card.querySelector('header span')?.textContent})),disclaimers:document.querySelectorAll('.slip-estimated-disclaimer').length,proxies:document.querySelectorAll('.slip-proxy-legs li').length,text:document.querySelector('#slip-comparison').textContent})`);
-    check(`${current} both totals`,state.cards.length===2&&state.cards.every(card=>card.coverage==='3/3'));
+    check(`${current} both totals`,state.cards.length===2&&state.cards.every(card=>card.coverage==='5/5'));
     check(`${current} disclaimer on every card`,state.disclaimers===2);
     if(current==='all-real')check('all-real has no proxy legs',state.proxies===0&&state.cards.every(card=>card.estimated==='false'));
     else check(`${current} disclosed proxy`,state.proxies===1&&state.cards.filter(card=>card.estimated==='true').length===1&&/Cotação aproximada/.test(state.text));
