@@ -54,7 +54,7 @@ describe('sports navigation boundaries',()=>{
     expect(sportsPage('-1')).toBe(1);expect(sportsPage('9999')).toBe(1000);expect(sportsPage(['2'])).toBe(1);
     expect(sportsSeason('x')).toBeUndefined();expect(sportsSeason('01234567-89ab-cdef-0123-456789abcdef')).toBeTruthy();
     expect(sportsQuery('  Arsenal\u0000  ')).toBe('Arsenal');expect(sportsQuery('x'.repeat(100))).toHaveLength(80);
-    expect(competitionTab('sql')).toBe('overview');expect(competitionTab('standings')).toBe('standings');
+    expect(competitionTab('sql')).toBe('fixtures');expect(competitionTab(undefined)).toBe('fixtures');expect(competitionTab('standings')).toBe('standings');
   });
   it('does not turn absent/invalid season statistics into zero',()=>{
     for(const raw of [null,{}, {total:''},{total:-1},{total:'NaN'},{average:8}])expect(numericStatistic(raw)).toBeNull();

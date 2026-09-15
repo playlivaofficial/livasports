@@ -1,16 +1,16 @@
 import {interfaceRoutes,type InterfaceLocale} from '@/localization/interface';
 import {FOOTBALL_COMPETITION_TARGETS} from '@/config/footballCompetitions';
 import {englishCompetition} from '@/localization/sports-copy';
-export const competitionTabs=['overview','fixtures','results','standings','scorers','teams'] as const;
+export const competitionTabs=['fixtures','results','standings','scorers','teams'] as const;
 export type CompetitionTab=typeof competitionTabs[number];
 export const sportsPageSize=30;
-export function competitionTab(value:unknown):CompetitionTab{return competitionTabs.includes(value as CompetitionTab)?value as CompetitionTab:'overview';}
+export function competitionTab(value:unknown):CompetitionTab{return competitionTabs.includes(value as CompetitionTab)?value as CompetitionTab:'fixtures';}
 export function sportsPage(value:unknown){const n=typeof value==='string'&&/^\d{1,4}$/.test(value)?Number(value):1;return Math.max(1,Math.min(1000,n));}
 export function sportsSeason(value:unknown){return typeof value==='string'&&/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i.test(value)?value:undefined;}
 export function sportsQuery(value:unknown){return typeof value==='string'?value.normalize('NFKC').replace(/[\u0000-\u001f\u007f]/g,'').trim().slice(0,80):'';}
 export function competitionPath(locale:InterfaceLocale,slug:string,options:{tab?:CompetitionTab;season?:string;page?:number}={}){
   const query=new URLSearchParams({competition:slug});
-  if(options.tab&&options.tab!=='overview')query.set('tab',options.tab);
+  if(options.tab&&options.tab!=='fixtures')query.set('tab',options.tab);
   if(options.season)query.set('season',options.season);
   if(options.page&&options.page>1)query.set('p',String(options.page));
   return `${interfaceRoutes[locale].football}?${query}`;

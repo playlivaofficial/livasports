@@ -33,6 +33,7 @@ export interface OddsProvider {
   snapshot(bookmaker: string, tournamentIds: readonly string[]): Promise<OddsSnapshot>;
 }
 export interface ReadOddsQuote extends NormalizedOddsQuote {
+  quoteId: string;
   freshnessTtlMinutes?: number | null;
   fixtureId: string; bookmakerId: string; bookmakerName: string;
   /** Legacy field name: verified feed/content eligibility, never visitor affiliate permission. */

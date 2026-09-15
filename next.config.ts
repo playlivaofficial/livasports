@@ -6,6 +6,7 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: 'cdn.sportmonks.com', port: '', pathname: '/**' },
+      { protocol: 'https', hostname: 'flagcdn.com', port: '', pathname: '/**' },
     ],
   },
 };

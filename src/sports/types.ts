@@ -14,15 +14,15 @@ export interface SportsStanding {
   home:StandingSplit;away:StandingSplit;
 }
 export interface StandingSplit {played:number|null;won:number|null;drawn:number|null;lost:number|null;goalsFor:number|null;goalsAgainst:number|null;goalDifference:number|null;points:number|null}
-export interface SportsScorer {publicId:string|null;sourceKey?:string;name:string;team:SportsTeam|null;goals:number;assists:number|null;appearances:number|null;minutes:number|null;rank:number}
+export interface SportsScorer {publicId:string|null;sourceKey?:string;name:string;team:SportsTeam|null;nationality:string|null;countryCode:string|null;goals:number;assists:number|null;appearances:number|null;minutes:number|null;rank:number}
 export interface PendingSportsFixture {publicId:string;kickoff:string|null;round:string|null;stage:string|null;competitionSlug:string;seasonId:string;season:string;home:string|null;away:string|null;}
 export interface CompetitionHub {
-  id:string;slug:string;name:string;country:string|null;type:string;coverage:string;seasons:SportsSeason[];season:SportsSeason|null;
+  id:string;slug:string;name:string;country:string|null;countryCode:string|null;region:string;type:string;coverage:string;seasons:SportsSeason[];season:SportsSeason|null;
   seasonFallback:SportsSeason|null;
   upcoming:SportsFixture[];results:SportsFixture[];standings:SportsStanding[];scorers:SportsScorer[];teams:SportsTeam[];
   counts:{upcoming:number;results:number};page:number;pageSize:number;providerRequests:0;
   availability:Record<string,{status:string;checkedAt:string|null}>;
   pending:PendingSportsFixture[];pendingTotal:number;
 }
-export interface SportsSearchResult {kind:'competition'|'team'|'player';publicId:string;name:string;context:string|null;slug:string|null;countryCode:string|null;imageUrl:string|null}
-export interface CompetitionNavItem {slug:string;name:string;group:string;count:number}
+export interface SportsSearchResult {kind:'competition'|'team'|'player';publicId:string;name:string;context:string|null;slug:string|null;countryCode:string|null;countryName:string|null;region:string|null;imageUrl:string|null}
+export interface CompetitionNavItem {slug:string;name:string;group:string;count:number;countryCode:string|null;countryName:string|null;region:string|null}

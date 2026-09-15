@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import {matchPath} from '@/localization/interface';
 import type {SlipComparison as Comparison} from '@/slip/comparison-types';
-import {bookmakerShortName,missingLegReason} from '@/slip/comparison-copy';
+import {bookmakerShortName,comparisonCopy,missingLegReason} from '@/slip/comparison-copy';
 import {formatSlipOdds} from '@/slip/decimal';
 import {oddsFreshnessCompact,selectionLabel,slipCopy,type SlipUiLocale} from '@/slip/localization';
 import {selectionKey,type ResolvedSelection,type SavedSelection} from '@/slip/types';
@@ -25,7 +25,7 @@ export function SlipLegs({uiLocale,selections,resolvedByKey,comparison,checking,
       const price=view?.price?formatSlipOdds(view.price.decimalOdds,uiLocale):null;
       const quotes=books.map(b=>{
         const quote=b.selectionQuotes.find(q=>selectionKey(q.selection)===key)??null;
-        return {id:b.bookmakerId,name:bookmakerShortName(b.bookmakerId,b.displayName),available:quote?.decimalOdds!==null&&quote?.decimalOdds!==undefined,quote};
+        return {id:b.bookmakerId,name:bookmakerShortName(b.bookmakerId,b.displayName),available:quote?.decimalOdds!==null&&quote?.decimalOdds!==undefined,priceKind:quote?.priceKind??null,sourceName:quote?.sourceBookmakerName??null,quote};
       });
       const missing=quotes.filter(q=>q.quote&&!q.available);
       const freshness=oddsFreshnessCompact(resolvedAt,now,uiLocale);
@@ -53,7 +53,7 @@ export function SlipLegs({uiLocale,selections,resolvedByKey,comparison,checking,
           {view?.state==='CURRENT'&&!missing.length&&freshness?<small>{freshness}</small>:null}
         </div>
         {quotes.length?<p className="slip-leg-books">{quotes.map(q=>
-          <span key={q.id} data-bookmaker={q.id} data-available={q.available}>{q.name} {q.available?'✓':'—'}</span>
+          <span key={q.id} data-bookmaker={q.id} data-available={q.available} data-price-kind={q.priceKind??'NONE'} title={q.priceKind==='PROXY'&&q.sourceName?`${q.name}: ${comparisonCopy[uiLocale].proxyBasedOn(bookmakerShortName('',q.sourceName))}`:undefined}>{q.name} {q.available?(q.priceKind==='PROXY'?'~':'✓'):'—'}</span>
         )}</p>:null}
         {missing.length>1?<ul className="slip-leg-missing">{missing.map(q=>q.quote?
           <li key={q.id}>{missingLegReason(q.quote,q.name,uiLocale)}</li>:null)}</ul>:null}

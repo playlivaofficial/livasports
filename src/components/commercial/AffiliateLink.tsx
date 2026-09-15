@@ -29,13 +29,13 @@ export function AffiliateAnchor({offer,locale,className,children,onActivate}:{of
     onClick={event=>{if(!event.isTrusted||qaBrowser())event.currentTarget.href=offer.href+'&qa=1';onActivate?.();}}
     onAuxClick={event=>{if(!event.isTrusted||qaBrowser())event.currentTarget.href=offer.href+'&qa=1';}}>{children??<>{text.cta} <span aria-hidden="true">↗</span></>}</a>;
 }
-export function AffiliateLink({context,className,onActivate,compact=false,onAvailability,uiLocale}:{context:Omit<CommercialContext,'pagePath'>;className?:string;onActivate?:()=>void;compact?:boolean;onAvailability?:(bookmaker:string,available:boolean)=>void;uiLocale?:CommercialCopyLocale}){
+export function AffiliateLink({context,className,onActivate,compact=false,onAvailability,uiLocale,children}:{context:Omit<CommercialContext,'pagePath'>;className?:string;onActivate?:()=>void;compact?:boolean;onAvailability?:(bookmaker:string,available:boolean)=>void;uiLocale?:CommercialCopyLocale;children?:ReactNode}){
   const pathname=usePathname()??'';
   const pagePath=context.locale==='br'&&pathname.startsWith('/en')?translatedPath(pathname,'br'):pathname;
   const offer=useCommercialOffer({...context,pagePath});const text=commercialCopy[uiLocale??context.locale];
   const available=!!offer,bookmaker=context.bookmaker??'';
   useEffect(()=>{onAvailability?.(bookmaker,available);return()=>onAvailability?.(bookmaker,false);},[onAvailability,bookmaker,available]);
   if(!offer)return null;
-  return <div className="affiliate-action"><AffiliateAnchor key={offer.token} offer={offer} locale={uiLocale??context.locale} className={className} onActivate={onActivate}/>
+  return <div className="affiliate-action"><AffiliateAnchor key={offer.token} offer={offer} locale={uiLocale??context.locale} className={className} onActivate={onActivate}>{children}</AffiliateAnchor>
     {!compact?<><p className="commercial-caption">{text.destination}</p><p className="commercial-caption">{text.disclosure}</p></>:null}</div>;
 }

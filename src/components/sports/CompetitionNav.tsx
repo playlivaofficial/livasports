@@ -1,7 +1,8 @@
 import Link from '@/sports/SportsLink';
 import type {InterfaceLocale} from '@/localization/interface';
 import {competitionPath} from '@/sports/policy';
-import {countryMarkForSlug} from '@/sports/country-mark';
+import {competitionMark} from '@/sports/country-mark';
+import {CountryMarkIcon} from './CountryMarkIcon';
 import type {CompetitionNavItem} from '@/sports/types';
 
 export type {CompetitionNavItem};
@@ -14,10 +15,10 @@ const groupCopy={
 
 export function CompetitionNavRow({locale,item,active,allHref,allLabel}:{locale:InterfaceLocale;item?:CompetitionNavItem;active:boolean;allHref?:string;allLabel?:string}){
   if(!item)return <Link href={allHref!} aria-current={active?'page':undefined} className="competition-nav-row">{allLabel}</Link>;
-  const mark=countryMarkForSlug(item.slug);
+  const mark=competitionMark(item);
   return <Link href={competitionPath(locale,item.slug)} aria-current={active?'page':undefined} aria-label={item.count>0?`${item.name}, ${item.count}`:item.name} className="competition-nav-row">
     <span className="competition-nav-main">
-      <span className="competition-nav-flag" aria-hidden="true" title={mark.label}>{mark.emoji}</span>
+      <CountryMarkIcon mark={mark}/>
       <span className="competition-nav-name">{item.name}</span>
     </span>
     {item.count>0?<span className="competition-nav-count">{item.count}</span>:null}

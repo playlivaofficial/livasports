@@ -71,6 +71,8 @@ export interface SquadPlayer {
   positionId: number | null;
   position: string | null;
   jerseyNumber: number | null;
+  nationality: string | null;
+  countryCode: string | null;
 }
 
 export interface SquadContext {

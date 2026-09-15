@@ -7,6 +7,7 @@ import type {
 } from './types';
 import { persistedStatistic,seasonStatisticValue } from './statistics';
 import {SportsSitemapRepository} from '@/sports/sitemap-repository';
+import {countryCodeFromName} from './localization';
 
 type Row = Record<string, unknown>;
 const nullableString = (value: unknown) => value === null || value === undefined || value === '' ? null : String(value);
@@ -111,7 +112,7 @@ export class PostgresProfileRepository {
   private async squad(teamId: string, locale: SiteLocale): Promise<SquadContext[]> {
     const result = await this.database.query<Row>(`SELECT s.id AS season_id,s.name AS season_name,s.is_current,
       CASE WHEN $2='br' THEN c.display_name_pt_br ELSE c.display_name_es_mx END AS competition_name,
-      p.id,p.public_id,p.display_name,p.image_url,sm.position_id,sm.position_name,sm.jersey_number
+      p.id,p.public_id,p.display_name,p.image_url,p.nationality_name,sm.position_id,sm.position_name,sm.jersey_number
       FROM team_squad_memberships sm JOIN seasons s ON s.id=sm.season_id JOIN competitions c ON c.id=s.competition_id
       JOIN players p ON p.id=sm.player_id WHERE sm.team_id=$1
       ORDER BY s.is_current DESC,s.starts_at DESC NULLS LAST,c.slug,sm.position_id NULLS LAST,sm.jersey_number NULLS LAST,p.display_name`, [teamId, locale]);
@@ -121,7 +122,7 @@ export class PostgresProfileRepository {
       const context = contexts.get(key) ?? { competition: String(row.competition_name), season: String(row.season_name), seasonId: key, players: [] };
       context.players.push({ id: String(row.id), publicId: String(row.public_id), name: String(row.display_name),
         imageUrl: nullableString(row.image_url), positionId: nullableNumber(row.position_id), position: nullableString(row.position_name),
-        jerseyNumber: nullableNumber(row.jersey_number) });
+        jerseyNumber: nullableNumber(row.jersey_number),nationality:nullableString(row.nationality_name),countryCode:countryCodeFromName(nullableString(row.nationality_name)) });
       contexts.set(key, context);
     }
     return [...contexts.values()];

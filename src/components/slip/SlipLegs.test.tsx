@@ -43,13 +43,13 @@ describe('My Slip selected-leg list',()=>{
     expect(html.match(/class="slip-item"/g)?.length).toBe(1);
     expect(html).toContain('Full-time result — Draw');expect(html).not.toContain('Full-time result — Flamengo');
   });
-  it('marks the exact missing Betano leg on the row without a closed-market lie',()=>{
+  it('marks the exact proxied Betano leg without a closed-market lie',()=>{
     const f=comparisonFixture();f.data.fixtures.get(f.selections[1].fixturePublicId)!.snapshot.quotes.pop();
     const selections=saved(f);
     const comparison=buildSlipComparison(f.selections,'br',f.data.fixtures,f.data.bookmakers,f.now);
     const html=renderToStaticMarkup(<SlipLegs uiLocale="en" selections={selections} resolvedByKey={resolved(f,selections)} comparison={comparison} checking={false} resolvedAt={new Date(f.now).toISOString()} now={f.now} onRemove={()=>{}}/>);
-    expect(html).toContain('data-bookmaker="betano.bet.br" data-available="false"');
-    expect(html).toContain('Unavailable at Betano');expect(html).not.toContain('Market closed');
+    expect(html).toContain('data-bookmaker="betano.bet.br" data-available="true" data-price-kind="PROXY"');
+    expect(html).toContain('Approx. price · based on Betsson');expect(html).not.toContain('Market closed');
     expect(html).toContain('Betsson ✓');
   });
 });

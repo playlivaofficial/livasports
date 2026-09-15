@@ -11,7 +11,7 @@ import {inspectCatalogMarkets,SUPPORTED_M5_MARKETS} from '@/providers/oddspapi/m
 
 const now=Date.parse('2026-09-12T18:00:00Z');
 const quote=(overrides:Partial<ReadOddsQuote>={}):ReadOddsQuote=>({
-  fixtureId:'f',providerFixtureId:'p',bookmaker:'betano.bet.br',bookmakerId:'b',bookmakerName:'Betano BR',
+  quoteId:'quote-test',fixtureId:'f',providerFixtureId:'p',bookmaker:'betano.bet.br',bookmakerId:'b',bookmakerName:'Betano BR',
   market:'MATCH_WINNER',outcome:'HOME',line:null,decimalOdds:'1.90',status:'ACTIVE',scope:'FULL_TIME_REGULATION',
   phase:'PREGAME',providerUpdatedAt:'2026-09-12T10:00:00Z',observedAt:new Date(now).toISOString(),
   persistedAt:new Date(now).toISOString(),lastSuccessfulRefreshAt:new Date(now).toISOString(),

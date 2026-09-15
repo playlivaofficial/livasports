@@ -9,10 +9,11 @@ describe('M7 semantic localized comparison cards',()=>{
   it('renders exact totals, meaningful sponsored CTA and independent best text',()=>{
     const f=comparisonFixture();const html=renderToStaticMarkup(<SlipComparison locale="br" stake="10" selections={f.selections.map(s=>({...s,addedAt:new Date(f.now).toISOString()}))} checking={false} value={buildSlipComparison(f.selections,'br',f.data.fixtures,f.data.bookmakers,f.now)}/>);
     expect(html).toContain('6,05');expect(html).toContain('6,46');expect(html).toContain('Melhor retorno para este cupom');expect(html).toContain('Retorno potencial');expect(html).toContain('rel="sponsored nofollow noopener noreferrer"');
-    expect(html).toContain('Ver odds · Betsson');expect(html).not.toContain('Ver odds · Betano');expect(html).not.toContain('partner=test-only');expect(html).not.toMatch(/payout|Open slip|Send slip|guaranteed|profit/);
+    expect(html).toContain('Ver odds na Betsson');expect(html).not.toContain('Ver odds na Betano');expect(html).not.toContain('partner=test-only');expect(html).not.toMatch(/payout|Open slip|Send slip|guaranteed|profit/);
+    expect(html.match(/Comparação estimada\. As cotações reais na casa podem ser diferentes\./g)?.length).toBe(2);
   });
   it('names exact missing legs without hiding them behind details or false closed copy',()=>{
-    const f=comparisonFixture();f.data.fixtures.get(f.selections[1].fixturePublicId)!.snapshot.quotes.pop();
+    const f=comparisonFixture();f.data.fixtures.get(f.selections[1].fixturePublicId)!.snapshot.quotes=[];
     const html=renderToStaticMarkup(<SlipComparison locale="br" stake="10" selections={f.selections.map(s=>({...s,addedAt:new Date(f.now).toISOString()}))} checking={false} value={buildSlipComparison(f.selections,'br',f.data.fixtures,f.data.bookmakers,f.now)}/>);
     expect(html).not.toContain('<details');expect(html).toContain('Real Madrid vs Barcelona');expect(html).toContain('Falta');expect(html).toContain('Indisponível para este cupom completo');
     expect(html).toContain('Total de gols · 2,5 — Mais de 2,5');expect(html).toContain('Seleção indisponível na Betano');
@@ -62,19 +63,30 @@ describe('M7 semantic localized comparison cards',()=>{
   });
   it('lists every missing fixture when a bookmaker lacks multiple legs',()=>{
     const f=comparisonFixture();
-    f.data.fixtures.get(f.selections[0].fixturePublicId)!.snapshot.quotes.pop();
-    f.data.fixtures.get(f.selections[1].fixturePublicId)!.snapshot.quotes.pop();
+    f.data.fixtures.get(f.selections[0].fixturePublicId)!.snapshot.quotes=[];
+    f.data.fixtures.get(f.selections[1].fixturePublicId)!.snapshot.quotes=[];
     const html=renderToStaticMarkup(<SlipComparison locale="br" stake="10" selections={f.selections.map(s=>({...s,addedAt:new Date(f.now).toISOString()}))} checking={false} value={buildSlipComparison(f.selections,'br',f.data.fixtures,f.data.bookmakers,f.now)}/>);
     expect(html).toContain('Flamengo vs Palmeiras');expect(html).toContain('Real Madrid vs Barcelona');
     expect(html).toContain('Faltam 2');expect(html).toContain('Seleção indisponível na Betano');
-    expect(html).not.toContain('Mercado encerrado');expect(html).toContain('data-complete="true"');
+    expect(html).not.toContain('Mercado encerrado');expect(html.match(/data-complete="false"/g)?.length).toBe(2);
   });
   it('keeps genuine closed copy only when the quote state is CLOSED',()=>{
     const f=comparisonFixture();Object.assign(f.data.fixtures.get(f.selections[0].fixturePublicId)!.snapshot.quotes[1],{status:'CLOSED'});
     const html=renderToStaticMarkup(<SlipComparison locale="br" uiLocale="en" stake="10" selections={f.selections.map(s=>({...s,addedAt:new Date(f.now).toISOString()}))} checking={false} value={buildSlipComparison(f.selections,'br',f.data.fixtures,f.data.bookmakers,f.now)}/>);
     expect(html).toContain('Market closed');expect(html).toContain('data-availability="WITHDRAWN_LEG"');
-    const missing=comparisonFixture();missing.data.fixtures.get(missing.selections[0].fixturePublicId)!.snapshot.quotes.pop();
+    const missing=comparisonFixture();missing.data.fixtures.get(missing.selections[0].fixturePublicId)!.snapshot.quotes=[];
     const incomplete=renderToStaticMarkup(<SlipComparison locale="br" uiLocale="en" stake="10" selections={missing.selections.map(s=>({...s,addedAt:new Date(missing.now).toISOString()}))} checking={false} value={buildSlipComparison(missing.selections,'br',missing.data.fixtures,missing.data.bookmakers,missing.now)}/>);
     expect(incomplete).toContain('Selection unavailable at Betano');expect(incomplete).not.toContain('Market closed');
+  });
+  it.each([
+    ['br','Comparação estimada. As cotações reais na casa podem ser diferentes.','Cotação aproximada · baseada na Betsson'],
+    ['mx','Comparación estimada. Las cuotas reales de la casa pueden variar.','Cuota aproximada · basada en Betsson'],
+    ['en','Estimated comparison only. Actual bookmaker odds may differ.','Approx. price · based on Betsson'],
+  ] as const)('discloses all-real and proxy cards in %s',(_locale,disclaimer,proxyCopy)=>{
+    const f=comparisonFixture();f.data.fixtures.get(f.selections[1].fixturePublicId)!.snapshot.quotes.pop();
+    const value=buildSlipComparison(f.selections,'br',f.data.fixtures,f.data.bookmakers,f.now);
+    const html=renderToStaticMarkup(<SlipComparison locale="br" uiLocale={_locale} stake="10" selections={f.selections.map(s=>({...s,addedAt:new Date(f.now).toISOString()}))} checking={false} value={value}/>);
+    expect(html.match(new RegExp(disclaimer.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'g'))?.length).toBe(2);
+    expect(html).toContain(proxyCopy);expect(html).toContain('data-price-kind="PROXY"');expect(html).toContain('data-estimated="true"');
   });
 });

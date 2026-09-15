@@ -3,7 +3,7 @@ import {buildComparison,quoteState} from './comparison';
 import {freshnessTtlMs} from './scheduler-policy';
 import type {OddsReadSnapshot,ReadOddsQuote} from './types';
 const now=Date.parse('2026-09-12T18:00:00Z');
-const q:ReadOddsQuote={fixtureId:'f',providerFixtureId:'p',bookmaker:'betano.bet.br',bookmakerId:'b',bookmakerName:'Betano BR',market:'MATCH_WINNER',outcome:'HOME',line:null,decimalOdds:'2.12345678',status:'ACTIVE',scope:'FULL_TIME_REGULATION',phase:'PREGAME',providerUpdatedAt:'2026-09-12T10:00:00Z',observedAt:new Date(now).toISOString(),persistedAt:new Date(now).toISOString(),lastSuccessfulRefreshAt:new Date(now).toISOString(),providerKickoff:'2026-09-12T19:00:00Z',sourceDomain:'www.betano.bet.br',geoEligible:true};
+const q:ReadOddsQuote={quoteId:'quote-test',fixtureId:'f',providerFixtureId:'p',bookmaker:'betano.bet.br',bookmakerId:'b',bookmakerName:'Betano BR',market:'MATCH_WINNER',outcome:'HOME',line:null,decimalOdds:'2.12345678',status:'ACTIVE',scope:'FULL_TIME_REGULATION',phase:'PREGAME',providerUpdatedAt:'2026-09-12T10:00:00Z',observedAt:new Date(now).toISOString(),persistedAt:new Date(now).toISOString(),lastSuccessfulRefreshAt:new Date(now).toISOString(),providerKickoff:'2026-09-12T19:00:00Z',sourceDomain:'www.betano.bet.br',geoEligible:true};
 const snapshot:OddsReadSnapshot={quotes:[q],kickoff:q.providerKickoff,fixtureStatus:'SCHEDULED'};
 const nearTtl=freshnessTtlMs(1,1);
 describe('exact selection comparison',()=>{

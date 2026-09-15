@@ -13,9 +13,12 @@
 .board-competitions h3 { font-size:10px; text-transform:uppercase; color:#859aa8; margin:14px 8px 5px; }
 .board-competitions a { display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:32px; padding:6px 8px; font-size:12px; border-radius:4px; line-height:1.35; }
 .competition-nav-main { display:flex; align-items:center; gap:8px; min-width:0; }
-.competition-nav-flag { flex:none; font-size:14px; line-height:1; }
+.competition-nav-flag { display:inline-flex; width:20px; height:15px; flex:none; align-items:center; justify-content:center; font-size:14px; line-height:1; }
+.competition-nav-flag img { display:block; width:20px; height:15px; border-radius:2px; object-fit:cover; }
 .competition-nav-name { min-width:0; overflow:hidden; text-overflow:ellipsis; }
 .competition-nav-count { flex:none; color:#8ca1b0; font-size:10px; font-variant-numeric:tabular-nums; }
+.sports-player-name { display:inline-flex; align-items:center; gap:6px; min-width:0; }
+.sports-fixtures-recent { margin-top:22px; }
 .board-competitions a:hover,.board-competitions a[aria-current=page] { background:#18362f; color:#7bf0c3; }
 .board-toolbar { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:8px; background:#12212d; border:1px solid #283b48; border-radius:6px 6px 0 0; }
 .board-filters { display:flex; gap:3px; }
@@ -37,6 +40,7 @@
 .sports-board .competition-section { border-radius:5px; }
 .sports-board .competition-header { min-height:36px; padding:6px 12px; gap:10px; background:#1b2b37; }
 .sports-board .competition-header>a { min-width:0; flex:1; }
+.sports-board .competition-header>a { display:flex; align-items:center; gap:7px; }
 .sports-board .competition-title { font-size:12px; font-weight:750; }
 .sports-board .competition-count { font-size:10px; white-space:nowrap; }
 .board-odds-heading { font-size:10px; color:#9aafbd; width:196px; text-align:center; letter-spacing:.04em; }

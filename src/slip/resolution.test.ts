@@ -5,7 +5,7 @@ import {freshnessTtlMs} from '@/odds/scheduler-policy';
 import type {ReadOddsQuote} from '@/odds/types';
 const now=Date.parse('2026-09-12T18:00:00Z');
 export const testPick:CanonicalSelection={fixturePublicId:'1111111111111111',scope:SLIP_SCOPE,market:'MATCH_WINNER',outcome:'HOME',line:null};
-const quote:ReadOddsQuote={fixtureId:'test',providerFixtureId:'test-provider',bookmaker:'betano.bet.br',bookmakerId:'test-book',bookmakerName:'Betano BR',market:'MATCH_WINNER',outcome:'HOME',line:null,
+const quote:ReadOddsQuote={quoteId:'quote-test',fixtureId:'test',providerFixtureId:'test-provider',bookmaker:'betano.bet.br',bookmakerId:'test-book',bookmakerName:'Betano BR',market:'MATCH_WINNER',outcome:'HOME',line:null,
   decimalOdds:'2.12345678',status:'ACTIVE',scope:SLIP_SCOPE,phase:'PREGAME',providerUpdatedAt:'2026-09-12T17:59:00Z',observedAt:new Date(now).toISOString(),persistedAt:new Date(now).toISOString(),lastSuccessfulRefreshAt:new Date(now).toISOString(),
   providerKickoff:'2026-09-12T19:00:00Z',sourceDomain:'www.betano.bet.br',geoEligible:true};
 export const testRead:SlipFixtureRead={fixture:{publicId:testPick.fixturePublicId,home:'Test Home',away:'Test Away',competition:'Test Competition',kickoff:quote.providerKickoff,status:'SCHEDULED'},snapshot:{quotes:[quote],kickoff:quote.providerKickoff,fixtureStatus:'SCHEDULED'}};

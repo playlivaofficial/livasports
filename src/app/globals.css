@@ -532,6 +532,8 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .profile-hero>.team-mark { width: 5.25rem; height: 5.25rem; flex: 0 0 auto; border-radius: 1.25rem; font-size: 1.1rem; }
 .profile-hero>div { min-width: 0; }
 .profile-hero>div>span { color: var(--color-accent); font-size: .67rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
+.profile-country-mark,.squad-country-mark { display: inline-flex; width: 20px; height: 15px; align-items:center; justify-content:center; margin-right: .28rem; vertical-align:-2px; font-style: normal; line-height: 1; }
+.profile-country-mark img,.squad-country-mark img { display:block; width:20px; height:15px; border-radius:2px; object-fit:cover; }
 .profile-hero h1 { margin: .25rem 0 .55rem; overflow-wrap: anywhere; font-size: clamp(1.65rem,4vw,2.6rem); letter-spacing: -.045em; line-height: 1.05; }
 .profile-hero-facts { display: flex; flex-wrap: wrap; gap: .4rem .85rem; }
 .profile-hero-facts small { color: var(--color-text-secondary); font-size: .72rem; }

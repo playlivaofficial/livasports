@@ -4,8 +4,8 @@ import type {CanonicalSelection,ResolvedSelection,SelectionState,SlipResolution}
 export type ComparisonState='EMPTY_SLIP'|'ONE_SELECTION'|'MULTI_SELECTION_NO_BOOKMAKER'|'ONE_COMPLETE_BOOKMAKER'|'MULTIPLE_COMPLETE_BOOKMAKERS'|'PARTIAL_BOOKMAKER_COVERAGE'|'STALE_SELECTION'|'MATCH_STARTED'|'MISSING_SELECTION_PRICE'|'MIXED_VALIDITY';
 export type OutboundCapability='NONE'|'HOMEPAGE'|'SPORTSBOOK'|'MARKET_DEEPLINK'|'PREFILLED_SLIP';
 /** Safe server/QA codes. Never shown as raw strings in the UI. */
-export type ComparisonDiagnostic='COMPLETE'|'MISSING_QUOTE'|'STALE_QUOTE'|'WITHDRAWN'|'MARKET_MISSING'|'FIXTURE_MISSING'|'MATCH_STARTED'|'MATCH_FINISHED'|'INVALID_QUOTE'|'SNAPSHOT_INCOMPATIBLE';
-export type BookmakerAvailabilityState='COMPLETE'|'MISSING_LEG'|'STALE_LEG'|'WITHDRAWN_LEG'|'MARKET_UNAVAILABLE'|'FIXTURE_UNAVAILABLE'|'QUOTE_REPRICED'|'BOOKMAKER_NOT_ELIGIBLE_FOR_CTA'|'OTHER_VERIFIED_UNAVAILABLE_REASON';
+export type ComparisonDiagnostic='COMPLETE'|'PROXY_QUOTE'|'MISSING_QUOTE'|'STALE_QUOTE'|'WITHDRAWN'|'MARKET_MISSING'|'FIXTURE_MISSING'|'MATCH_STARTED'|'MATCH_FINISHED'|'INVALID_QUOTE'|'SNAPSHOT_INCOMPATIBLE';
+export type BookmakerAvailabilityState='COMPLETE'|'ESTIMATED_COMPLETE'|'MISSING_LEG'|'STALE_LEG'|'WITHDRAWN_LEG'|'MARKET_UNAVAILABLE'|'FIXTURE_UNAVAILABLE'|'QUOTE_REPRICED'|'BOOKMAKER_NOT_ELIGIBLE_FOR_CTA'|'OTHER_VERIFIED_UNAVAILABLE_REASON';
 export interface BookmakerConfig {
   bookmakerId:string;
   displayName:string;
@@ -21,13 +21,21 @@ export interface SelectionQuote {
   decimalOdds:string|null;
   expiresAt:string|null;
   closesAt:string|null;
+  priceKind:'REAL'|'PROXY'|null;
+  sourceBookmakerId:string|null;
+  sourceBookmakerName:string|null;
+  sourceQuoteId:string|null;
+  sourceObservedAt:string|null;
 }
 export interface BookmakerSlip extends BookmakerConfig {
   requiredSelectionCount:number;
   availableSelectionCount:number;
+  realSelectionCount:number;
+  proxySelectionCount:number;
   missingSelections:SelectionQuote[];
   invalidSelections:SelectionQuote[];
   complete:boolean;
+  estimated:boolean;
   availabilityState:BookmakerAvailabilityState;
   selectionQuotes:SelectionQuote[];
   combinedDecimalOdds:string|null;

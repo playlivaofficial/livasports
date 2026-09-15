@@ -16,7 +16,7 @@ it.each(['complete','incomplete','stale','suspended','kickoff','finished','mx'])
   if(state==='mx')f.data.bookmakers=[];
   vi.mocked(readSlipComparison).mockResolvedValue(f.data);
   const result=await offerDependencies(db).pricing({...context(),selections:f.selections},'betsson',now);
-  expect(result!==null).toBe(state==='complete');expect(readSlipComparison).toHaveBeenCalledTimes(1);expect(db.query).not.toHaveBeenCalled();
+  expect(result!==null).toBe(state==='complete'||state==='incomplete');expect(readSlipComparison).toHaveBeenCalledTimes(1);expect(db.query).not.toHaveBeenCalled();
 });
 it.each(['current','stale','kickoff'])('M8 match CTA requires current pregame price: %s',async state=>{
   const now=Date.now(),f=comparisonFixture(1,now),fixture=f.data.fixtures.values().next().value!;

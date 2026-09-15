@@ -3,7 +3,7 @@ import {foldSearchText,moveSearchActive,rankSportsSearch,SEARCH_SUGGESTION_LIMIT
 import type {SportsSearchResult} from './types';
 
 function row(kind:SportsSearchResult['kind'],name:string,slug:string|null=null):SportsSearchResult {
-  return {kind,publicId:slug??name,name,context:null,slug,countryCode:null,imageUrl:null};
+  return {kind,publicId:slug??name,name,context:null,slug,countryCode:null,countryName:null,region:null,imageUrl:null};
 }
 
 describe('sports autocomplete ranking',()=>{

@@ -12,7 +12,7 @@ export function comparisonFixture(count=3,now=Date.parse('2026-09-12T15:00:00Z')
   for(const [i,s] of selections.entries()){
     const kickoff=new Date(now+3600000).toISOString(),observedAt=new Date(now).toISOString();
     const fixture={publicId:s.fixturePublicId,home:['Flamengo','Real Madrid','Club América'][i%3],away:['Palmeiras','Barcelona','Tigres UANL'][i%3],competition:'Competição de teste',kickoff,status:'SCHEDULED'};
-    const quotes:ReadOddsQuote[]=data.bookmakers.map(b=>({fixtureId:s.fixturePublicId,providerFixtureId:`test-${i}`,bookmaker:b.bookmakerId,bookmakerId:b.bookmakerId,bookmakerName:b.displayName,
+    const quotes:ReadOddsQuote[]=data.bookmakers.map(b=>({quoteId:`quote-${b.bookmakerId}-${i}`,fixtureId:s.fixturePublicId,providerFixtureId:`test-${i}`,bookmaker:b.bookmakerId,bookmakerId:b.bookmakerId,bookmakerName:b.displayName,
       market:s.market,outcome:s.outcome,line:s.line,decimalOdds:b.bookmakerId==='betsson'?['2.10','1.80','1.60'][i%3]:['2.15','1.82','1.65'][i%3],status:'ACTIVE',scope:SLIP_SCOPE,phase:'PREGAME',
       providerUpdatedAt:observedAt,observedAt,persistedAt:observedAt,lastSuccessfulRefreshAt:observedAt,sourceDomain:b.bookmakerId==='betsson'?'www.betsson.com':'www.betano.bet.br',providerKickoff:kickoff,geoEligible:true}));
     data.fixtures.set(s.fixturePublicId,{fixture,snapshot:{kickoff,fixtureStatus:'SCHEDULED',quotes}});

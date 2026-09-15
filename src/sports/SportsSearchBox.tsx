@@ -4,10 +4,11 @@ import type {InterfaceLocale} from '@/localization/interface';
 import {interfaceRoutes,playerPath,teamPath} from '@/localization/interface';
 import {competitionPath} from '@/sports/policy';
 import {sportsCopy} from '@/sports/copy';
-import {countryMarkForSlug,countryMarkFromIso} from '@/sports/country-mark';
+import {sportsSearchMark} from '@/sports/country-mark';
 import {moveSearchActive,SEARCH_SUGGESTION_LIMIT} from '@/sports/search-rank';
 import type {SportsSearchResult} from '@/sports/types';
 import {TeamMark} from '@/components/sports/TeamMark';
+import {CountryMarkIcon} from '@/components/sports/CountryMarkIcon';
 
 const DEBOUNCE_MS=200;
 
@@ -15,11 +16,6 @@ function resultHref(locale:InterfaceLocale,row:SportsSearchResult):string {
   if(row.kind==='competition'&&row.slug)return competitionPath(locale,row.slug);
   if(row.kind==='team')return teamPath(locale,row.publicId,row.name);
   return playerPath(locale,row.publicId,row.name);
-}
-
-function resultMark(row:SportsSearchResult){
-  if(row.kind==='competition'&&row.slug)return countryMarkForSlug(row.slug);
-  return countryMarkFromIso(row.countryCode,row.context);
 }
 
 export function SportsSearchBox({locale,query}:{locale:InterfaceLocale;query:string}){
@@ -70,10 +66,10 @@ export function SportsSearchBox({locale,query}:{locale:InterfaceLocale;query:str
         :!current?<li className="sports-search-empty" role="status">{t.searchLoading}</li>
           :!suggestions.length?<li className="sports-search-empty" role="status">{t.searchEmpty}</li>
             :suggestions.map((row,index)=>{
-              const mark=resultMark(row);
+              const mark=sportsSearchMark(row);
               return <li key={`${row.kind}:${row.publicId}`} id={`${listId}-${index}`} role="option" aria-selected={index===active}>
                 <a className={index===active?'is-active':undefined} href={resultHref(locale,row)} onMouseDown={event=>event.preventDefault()} onClick={event=>{event.preventDefault();go(row);}}>
-                  {row.kind==='team'?<TeamMark initials={row.name.slice(0,2)} imageUrl={row.imageUrl} size={26}/>:<span className="competition-nav-flag" aria-hidden="true">{mark.emoji}</span>}
+                  {row.kind==='team'?<TeamMark initials={row.name.slice(0,2)} imageUrl={row.imageUrl} size={26}/>:row.kind==='player'&&!row.countryCode?<span className="competition-nav-flag" aria-hidden="true">👤</span>:<CountryMarkIcon mark={mark} decorative={row.kind==='competition'}/>}
                   <span className="sports-search-suggest-name">{row.name}</span>
                   <small>{t[row.kind]}</small>
                 </a>

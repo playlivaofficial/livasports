@@ -20,6 +20,6 @@ export function unlinkedScorers(rows:Row[],locale:InterfaceLocale):SportsScorer[
     const goal=group.find(r=>Number(object(r.payload).type_id)===208),goals=number(object(goal?.payload).total);
     if(!goal||goals===null||goals<=0)return [];
     const assist=group.find(r=>Number(object(r.payload).type_id)===209);
-    return [{publicId:text(goal.player_public_id),sourceKey:`unlinked-scorer:${goal.provider_record_id}`,name:text(goal.player_name)??text(object(object(goal.payload).player).display_name)??(locale==='br'?'Jogador não informado pela fonte':locale==='mx'?'Jugador no informado por la fuente':'Player not supplied by the source'),team:knownTeam(goal),goals,assists:assist?number(object(assist.payload).total):null,appearances:null,minutes:null,rank:0}];
+    return [{publicId:text(goal.player_public_id),sourceKey:`unlinked-scorer:${goal.provider_record_id}`,name:text(goal.player_name)??text(object(object(goal.payload).player).display_name)??(locale==='br'?'Jogador não informado pela fonte':locale==='mx'?'Jugador no informado por la fuente':'Player not supplied by the source'),team:knownTeam(goal),nationality:null,countryCode:null,goals,assists:assist?number(object(assist.payload).total):null,appearances:null,minutes:null,rank:0}];
   });
 }

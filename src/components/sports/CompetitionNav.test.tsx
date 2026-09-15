@@ -5,15 +5,16 @@ import {CompetitionNav} from './CompetitionNav';
 
 describe('competition navigation',()=>{
   const items=[
-    {slug:'brasileirao-serie-a',name:'Brasileirão Série A',group:'BRAZIL',count:1},
-    {slug:'copa-do-brasil',name:'Copa do Brasil',group:'BRAZIL',count:0},
-    {slug:'liga-mx',name:'Liga MX',group:'AMERICAS',count:2},
-    {slug:'premier-league',name:'Premier League',group:'EUROPE',count:1},
+    {slug:'brasileirao-serie-a',name:'Brasileirão Série A',group:'BRAZIL',count:1,countryCode:'BR',countryName:'Brazil',region:'BRAZIL'},
+    {slug:'copa-do-brasil',name:'Copa do Brasil',group:'BRAZIL',count:0,countryCode:'BR',countryName:'Brazil',region:'BRAZIL'},
+    {slug:'liga-mx',name:'Liga MX',group:'AMERICAS',count:2,countryCode:'MX',countryName:'Mexico',region:'NORTH_AMERICA'},
+    {slug:'premier-league',name:'Premier League',group:'EUROPE',count:1,countryCode:'GB',countryName:'England',region:'EUROPE'},
   ];
   it('keeps flags, names and counts as separate elements and links to the competition hub',()=>{
     const html=renderToStaticMarkup(<CompetitionNav locale="br" items={items} activeSlug="liga-mx" allHref="/br/futebol" allLabel="Todas" title="Competições"/>);
-    expect(html).toContain('🇧🇷');
-    expect(html).toContain('🇲🇽');
+    expect(html).toContain('https://flagcdn.com/br.svg');
+    expect(html).toContain('https://flagcdn.com/mx.svg');
+    expect(html).toContain('https://flagcdn.com/gb-eng.svg');
     expect(html).toContain('class="competition-nav-name">Brasileirão Série A');
     expect(html).toContain('class="competition-nav-count">1');
     expect(html).not.toContain('Brasileirão Série A1');

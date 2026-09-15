@@ -22,7 +22,7 @@ function withDiagnostic(quote:Omit<SelectionQuote,'diagnosticCode'>&Partial<Pick
   return {...rest,diagnosticCode:forced??diagnosticForState(rest.state,rest.reason)};
 }
 export function bookmakerAvailabilityState(quotes:readonly SelectionQuote[],complete:boolean):BookmakerAvailabilityState {
-  if(complete)return 'COMPLETE';
+  if(complete)return quotes.some(q=>q.priceKind==='PROXY')?'ESTIMATED_COMPLETE':'COMPLETE';
   const codes=quotes.map(q=>q.diagnosticCode);
   if(codes.includes('FIXTURE_MISSING'))return 'FIXTURE_UNAVAILABLE';
   if(codes.includes('MATCH_STARTED')||codes.includes('MATCH_FINISHED'))return 'FIXTURE_UNAVAILABLE';
@@ -48,7 +48,7 @@ function evaluatedQuote(selection:CanonicalSelection,read:SlipFixtureRead,quote:
   const ttl=quoteFreshnessTtlMs(quote,snapshot,now);
   const expires=Math.min(close,Date.parse(quote.observedAt)+ttl,Date.parse(quote.lastSuccessfulRefreshAt)+ttl);
   if(!Number.isFinite(expires)||now>=expires)return withDiagnostic({...base,state:'STALE',reason:null});
-  return withDiagnostic({...base,state:'CURRENT',reason:null,decimalOdds:quote.decimalOdds,expiresAt:new Date(expires).toISOString()});
+  return withDiagnostic({...base,state:'CURRENT',reason:null,decimalOdds:quote.decimalOdds,expiresAt:new Date(expires).toISOString(),priceKind:'REAL',sourceBookmakerId:quote.bookmaker,sourceBookmakerName:quote.bookmakerName,sourceQuoteId:quote.quoteId,sourceObservedAt:quote.observedAt});
 }
 function absentQuote(selection:CanonicalSelection,read:SlipFixtureRead,bookmaker:string,base:SelectionQuote):SelectionQuote {
   const bookmakerQuotes=read.snapshot.quotes.filter(q=>q.geoEligible&&q.bookmaker===bookmaker&&q.phase==='PREGAME');
@@ -57,7 +57,7 @@ function absentQuote(selection:CanonicalSelection,read:SlipFixtureRead,bookmaker
   return withDiagnostic(base);
 }
 function selectionQuote(selection:CanonicalSelection,read:SlipFixtureRead|null,bookmaker:string,now:number):SelectionQuote {
-  const base:Omit<SelectionQuote,'diagnosticCode'>={selection,fixture:read?.fixture??null,state:'UNAVAILABLE',reason:read?'NO_QUOTE':'MISSING_FIXTURE',decimalOdds:null,expiresAt:null,closesAt:read?.fixture.kickoff??null};
+  const base:Omit<SelectionQuote,'diagnosticCode'>={selection,fixture:read?.fixture??null,state:'UNAVAILABLE',reason:read?'NO_QUOTE':'MISSING_FIXTURE',decimalOdds:null,expiresAt:null,closesAt:read?.fixture.kickoff??null,priceKind:null,sourceBookmakerId:null,sourceBookmakerName:null,sourceQuoteId:null,sourceObservedAt:null};
   if(!read)return withDiagnostic(base);
   const {fixture}=read;
   if(fixture.status==='FINISHED')return withDiagnostic({...base,state:'MATCH_FINISHED',reason:null});
@@ -77,13 +77,15 @@ function selectionQuote(selection:CanonicalSelection,read:SlipFixtureRead|null,b
 
 function summarize(config:BookmakerConfig,quotes:SelectionQuote[]):BookmakerSlip {
   const available=quotes.filter(q=>q.state==='CURRENT'&&q.decimalOdds!==null).length;
+  const realSelectionCount=quotes.filter(q=>q.state==='CURRENT'&&q.decimalOdds!==null&&q.priceKind==='REAL').length;
+  const proxySelectionCount=quotes.filter(q=>q.state==='CURRENT'&&q.decimalOdds!==null&&q.priceKind==='PROXY').length;
   const combined=available===quotes.length?multiplyDecimalOdds(quotes.map(q=>q.decimalOdds!)):null;
   const complete=quotes.length>0&&available===quotes.length&&combined!==null;
   const affiliate=config.affiliateEligibility.approved&&config.affiliateEligibility.destinationConfigured;
-  return {...config,requiredSelectionCount:quotes.length,availableSelectionCount:available,
+  return {...config,requiredSelectionCount:quotes.length,availableSelectionCount:available,realSelectionCount,proxySelectionCount,
     missingSelections:quotes.filter(q=>q.state==='UNAVAILABLE'&&q.reason!=='INVALID_QUOTE'),
     invalidSelections:quotes.filter(q=>q.state!=='CURRENT'&&(q.state!=='UNAVAILABLE'||q.reason==='INVALID_QUOTE')),
-    complete,availabilityState:bookmakerAvailabilityState(quotes,complete),selectionQuotes:quotes,combinedDecimalOdds:complete?combined:null,best:false,tiedBest:false,
+    complete,estimated:proxySelectionCount>0,availabilityState:bookmakerAvailabilityState(quotes,complete),selectionQuotes:quotes,combinedDecimalOdds:complete?combined:null,best:false,tiedBest:false,
     ctaState:!complete?'INCOMPLETE':affiliate?'ENABLED':'AFFILIATE_UNAVAILABLE',outboundCapability:affiliate?(config.affiliateEligibility.destinationType??'HOMEPAGE'):'NONE'};
 }
 function finish(locale:SiteLocale,count:number,bookmakers:BookmakerSlip[],generatedAt=new Date().toISOString()):SlipComparison {
@@ -112,7 +114,14 @@ function eligibleBookmaker(b:BookmakerConfig){
 }
 export function buildSlipComparison(selections:CanonicalSelection[],locale:SiteLocale,fixtures:Map<string,SlipFixtureRead>,configs:BookmakerConfig[],now=Date.now()):SlipComparison {
   const eligible=configs.filter(eligibleBookmaker);
-  const bookmakers=selections.length?eligible.map(b=>summarize(b,selections.map(s=>selectionQuote(s,fixtures.get(s.fixturePublicId)??null,b.bookmakerId,now)))):[];
+  const native=selections.length?eligible.map(config=>({config,quotes:selections.map(s=>selectionQuote(s,fixtures.get(s.fixturePublicId)??null,config.bookmakerId,now))})):[];
+  const withProxies=native.map(({config,quotes},targetIndex)=>({config,quotes:quotes.map((targetQuote,selectionIndex)=>{
+    if(targetQuote.state!=='UNAVAILABLE'||!['MISSING_QUOTE','MARKET_MISSING'].includes(targetQuote.diagnosticCode))return targetQuote;
+    const source=native.find((candidate,index)=>index!==targetIndex&&candidate.quotes[selectionIndex]?.state==='CURRENT'&&candidate.quotes[selectionIndex]?.priceKind==='REAL')?.quotes[selectionIndex];
+    if(!source?.decimalOdds||!source.sourceBookmakerId||!source.sourceBookmakerName||!source.sourceQuoteId||!source.sourceObservedAt)return targetQuote;
+    return withDiagnostic({...targetQuote,state:'CURRENT',reason:null,decimalOdds:source.decimalOdds,expiresAt:source.expiresAt,closesAt:source.closesAt,priceKind:'PROXY',sourceBookmakerId:source.sourceBookmakerId,sourceBookmakerName:source.sourceBookmakerName,sourceQuoteId:source.sourceQuoteId,sourceObservedAt:source.sourceObservedAt},'PROXY_QUOTE');
+  })}));
+  const bookmakers=withProxies.map(({config,quotes})=>summarize(config,quotes));
   return finish(locale,selections.length,bookmakers,new Date(now).toISOString());
 }
 export function guardSlipComparison(value:SlipComparison,count:number,now:number,connected=true):SlipComparison {

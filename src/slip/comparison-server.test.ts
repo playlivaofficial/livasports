@@ -33,14 +33,15 @@ describe('M7 request/security boundary',()=>{
     f.data.fixtures.get(f.selections[1].fixturePublicId)!.snapshot.quotes[0].status='SUSPENDED';
     expect(await currentSlipDestination('betsson',f.selections,'br',read,'BR')).toBeNull();expect(read).toHaveBeenCalledTimes(4);expect(fetch).not.toHaveBeenCalled();
   });
-  it('refuses a CTA with expired, started, partial or unconfigured bookmaker coverage',async()=>{
+  it('allows current proxy coverage but refuses expired, started, unconfigured or unapproved coverage',async()=>{
     for(const scenario of ['expired','started','partial','unconfigured','unapproved']){
       const f=comparisonFixture(3,Date.now()-(scenario==='expired'?freshnessTtlMs(1,2)+1:0));const r=f.data.fixtures.get(f.selections[0].fixturePublicId)!;
       if(scenario==='started'){r.fixture.status='LIVE';r.snapshot.fixtureStatus='LIVE';}
       if(scenario==='partial')r.snapshot.quotes.shift();
       if(scenario==='unconfigured')f.data.bookmakers[0].affiliateEligibility.destinationConfigured=false;
       if(scenario==='unapproved')f.data.bookmakers[0].affiliateEligibility.approved=false;
-      expect(await currentSlipDestination('betsson',f.selections,'br',async()=>f.data,'BR')).toBeNull();
+      const destination=await currentSlipDestination('betsson',f.selections,'br',async()=>f.data,'BR');
+      expect(destination).toBe(scenario==='partial'?f.data.destinations.betsson:null);
     }
   });
   it('outbound does not accept arbitrary destinations, duplicate arguments or provider identity',async()=>{

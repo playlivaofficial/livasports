@@ -44,6 +44,7 @@ describe('player profile read model', () => {
     } };
     const result = await new PostgresProfileRepository(database as never).player('fedcba9876543210','br');
     expect(result?.dateOfBirth).toBe('1995-08-20');
+    expect(result?.nationality).toBe('Argentina');
     expect(result?.matches.data).toHaveLength(1);
     expect(result?.matches.data[0]?.minutesPlayed).toBe(90);
   });

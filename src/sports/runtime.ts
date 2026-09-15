@@ -6,7 +6,7 @@ import {NextServerCache} from '@/cache/next-server-cache';
 import {SportsRepository} from './repository';
 import type {InterfaceLocale} from '@/localization/interface';
 import type {CommercialGeo} from '@/odds/commercial-geo';
-import {readListingOddsSnapshots} from '@/odds/read-repository';
+import {readListingOddsSnapshots,type InternalOddsRead} from '@/odds/read-repository';
 let repository:SportsRepository|undefined;
 let dbClient:PostgresDatabaseClient|undefined;
 const serverCache=new NextServerCache();
@@ -21,7 +21,10 @@ export const loadCompetitionNav=cache(async(locale:InterfaceLocale,timeZone?:str
   (await serverCache.getOrSet(`sports:v1:nav:${locale}:${timeZone??'default'}`,{ttlSeconds:60,staleIfErrorSeconds:300,tags:['livasports:v1:fixtures:br','livasports:v1:fixtures:mx']},()=>sportsRepository().boardNav(locale,timeZone))).value);
 export const searchSports=cache(async(query:string,locale:InterfaceLocale)=>
   (await serverCache.getOrSet(`sports:v2:search:${locale}:${encodeURIComponent(query)}`,{ttlSeconds:300,staleIfErrorSeconds:0},()=>sportsRepository().search(query,locale))).value);
-export const loadListingMatchOdds=cache(async(ids:readonly string[],geo:CommercialGeo|null)=>
-  (await serverCache.getOrSet(`sports:v1:listing-odds:${geo??'none'}:${createHash('sha256').update([...ids].sort().join(',')).digest('hex')}`,{ttlSeconds:30,staleIfErrorSeconds:0,tags:['livasports:v1:fixtures:br','livasports:v1:fixtures:mx']},()=>readListingOddsSnapshots(sportsDb(),ids,geo))).value);
+export const loadListingMatchOdds=cache(async(ids:readonly string[],geo:CommercialGeo|null)=>{
+  // Next's persistent cache serializes values; cache entries rather than a Map, then restore the read model.
+  const result=await serverCache.getOrSet<Array<[string,InternalOddsRead]>>(`sports:v2:listing-odds:${geo??'none'}:${createHash('sha256').update([...ids].sort().join(',')).digest('hex')}`,{ttlSeconds:30,staleIfErrorSeconds:0,tags:['livasports:v1:fixtures:br','livasports:v1:fixtures:mx']},async()=>[...(await readListingOddsSnapshots(sportsDb(),ids,geo))]);
+  return new Map(result.value);
+});
 export const loadTeamHistory=cache(async(id:string,locale:InterfaceLocale,view:'fixtures'|'results',page:number,season?:string)=>
   (await serverCache.getOrSet(`sports:v1:team:${id}:${locale}:${view}:${page}:${season??'all'}`,{ttlSeconds:60,staleIfErrorSeconds:300,tags:['livasports:v1:fixtures:br','livasports:v1:fixtures:mx']},()=>sportsRepository().teamHistory(id,locale,view,page,season))).value);

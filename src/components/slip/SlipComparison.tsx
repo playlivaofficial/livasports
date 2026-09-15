@@ -33,6 +33,7 @@ export function SlipComparison({locale,selections,value,checking,uiLocale,stake,
     observer.observe(current);current.querySelectorAll('.slip-bookmaker').forEach(card=>observer.observe(card));return()=>observer.disconnect();
   },[eventSignature]);
   const complete=value?.bookmakers.filter(b=>b.complete).length??0;
+  const comparisonEstimated=value?.bookmakers.some(b=>b.estimated)??false;
   const bestReturn=value?.bookmakers.find(b=>b.best&&b.combinedDecimalOdds)?.combinedDecimalOdds;
   const bestMoney=bestReturn?potentialReturn(stake,bestReturn):null;
   return <section id="slip-comparison" className="slip-comparison" ref={section} aria-labelledby="slip-comparison-title" tabIndex={-1} data-states={value?.states.join(' ')}>
@@ -41,23 +42,28 @@ export function SlipComparison({locale,selections,value,checking,uiLocale,stake,
     {!selections.length?<p className="slip-comparison-note">{text.empty}</p>:!value?<p className="slip-comparison-note">{checking?text.checking:text.unavailable}</p>:<>
       {selections.length===1?<p className="slip-comparison-note">{text.one}</p>:null}
       {!value.bookmakers.length?<p className="slip-comparison-note">{text.noBookmaker}</p>:value.bookmakers.map(b=>{
-        const combined=b.complete&&b.combinedDecimalOdds?formatSlipOdds(b.combinedDecimalOdds,copyLocale):null;
+        const combined=b.complete&&b.combinedDecimalOdds?`${b.estimated?'~':''}${formatSlipOdds(b.combinedDecimalOdds,copyLocale)}`:null;
         const estimated=combined&&b.combinedDecimalOdds?potentialReturn(stake,b.combinedDecimalOdds):null;
         const estimatedLabel=estimated?formatMoney(estimated,copyLocale):null;
         const stakeOk=parseStake(stake)!==null;
         const diff=estimated&&bestMoney?moneyDiff(estimated,bestMoney):null;
         const missing=missingQuotes(b);
+        const proxies=b.selectionQuotes.filter(q=>q.priceKind==='PROXY'&&q.decimalOdds!==null);
         const bookName=bookmakerShortName(b.bookmakerId,b.displayName);
-        return <article className={`slip-bookmaker${b.best?' is-best':''}`} key={b.bookmakerId} aria-labelledby={`slip-bookmaker-${b.bookmakerId}`}
-          data-bookmaker={b.bookmakerId} data-complete={b.complete} data-availability={b.availabilityState} data-cta={b.ctaState}>
+        return <article className={`slip-bookmaker${b.best?' is-best':''}${b.estimated?' is-estimated':''}`} key={b.bookmakerId} aria-labelledby={`slip-bookmaker-${b.bookmakerId}`}
+          data-bookmaker={b.bookmakerId} data-complete={b.complete} data-estimated={b.estimated} data-availability={b.availabilityState} data-cta={b.ctaState}>
           <header><h4 id={`slip-bookmaker-${b.bookmakerId}`}>{b.displayName}</h4><span aria-label={`${text.available}: ${b.availableSelectionCount}/${b.requiredSelectionCount}`}>{b.availableSelectionCount}/{b.requiredSelectionCount}</span></header>
-          {b.best?<p className="slip-best-label">{b.tiedBest?text.tie:text.best}</p>:null}
+          {b.best?<p className="slip-best-label">{comparisonEstimated?(b.tiedBest?text.tieEstimated:text.bestEstimated):(b.tiedBest?text.tie:text.best)}</p>:null}
           <p className="slip-coverage-state">{b.complete?text.complete:text.partial}</p>
           {b.complete&&combined?<div className="slip-combined-block">
             <p className="slip-combined"><span>{text.combined}</span><strong>{combined}</strong></p>
-            {estimatedLabel?<p className="slip-return"><span>{text.potentialReturn}</span><strong>{estimatedLabel}</strong></p>:b.complete&&stakeOk?<p className="slip-comparison-note">{text.unavailable}</p>:null}
+            {estimatedLabel?<p className="slip-return"><span>{b.estimated?text.estimatedPotentialReturn:text.potentialReturn}</span><strong>{b.estimated?'~':''}{estimatedLabel}</strong></p>:b.complete&&stakeOk?<p className="slip-comparison-note">{text.unavailable}</p>:null}
             {b.complete&&!b.best&&diff?(()=>{const label=formatMoney(diff,copyLocale);return label?<p className="slip-diff">{text.difference}: {label}</p>:null;})():null}
           </div>:b.complete?<p className="slip-comparison-note">{text.unavailable}</p>:missing.length?null:<p className="slip-comparison-note">{text.unavailable}</p>}
+          {proxies.length?<ul className="slip-proxy-legs" aria-label={text.bestEstimated}>{proxies.map(q=><li key={selectionKey(q.selection)} data-price-kind="PROXY" data-source-quote={q.sourceQuoteId??undefined}>
+            <span>{q.fixture?`${q.fixture.home} vs ${q.fixture.away}`:text.fixtureUnavailable} · {slip.markets[q.selection.market]} — {selectionLabel(q.selection,copyLocale,q.fixture)}</span>
+            <strong>~{formatSlipOdds(q.decimalOdds!,copyLocale)}</strong><small>{text.proxyBasedOn(bookmakerShortName(q.sourceBookmakerId??'',q.sourceBookmakerName??''))}</small>
+          </li>)}</ul>:null}
           {!b.complete&&missing.length?<div className="slip-missing" data-reason="missing-legs">
             <p className="slip-missing-heading">{text.missingCount(missing.length)}</p>
             <ul>{missing.map(q=>{
@@ -69,7 +75,8 @@ export function SlipComparison({locale,selections,value,checking,uiLocale,stake,
               </li>;
             })}</ul>
           </div>:null}
-          {b.ctaState==='ENABLED'?<AffiliateLink className="slip-bookmaker-cta" uiLocale={copyLocale} context={{locale,placement:'slip_bookmaker_comparison',bookmaker:b.bookmakerId as 'betsson'|'betano.bet.br',selections:selections.map(s=>canonicalSelection(s)! ),...(validSlipId(slipId)?{slipId}:{})}}/>:b.complete?<p className="slip-comparison-note">{text.gated}</p>:null}
+          {b.ctaState==='ENABLED'?<AffiliateLink className="slip-bookmaker-cta" uiLocale={copyLocale} context={{locale,placement:'slip_bookmaker_comparison',bookmaker:b.bookmakerId as 'betsson'|'betano.bet.br',selections:selections.map(s=>canonicalSelection(s)! ),...(validSlipId(slipId)?{slipId}:{})}}>{text.ctaAt(bookName)} <span aria-hidden="true">↗</span></AffiliateLink>:b.complete?<p className="slip-comparison-note">{text.gated}</p>:null}
+          <p className="slip-estimated-disclaimer">{text.estimatedDisclaimer}</p>
         </article>;
       })}
       <p className="slip-comparison-note">{text.oddsMayChange}</p>

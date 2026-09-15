@@ -39,10 +39,10 @@ describe('M7 bookmaker completeness and price-only ranking',()=>{
     expect(betano).toMatchObject({complete:true,availableSelectionCount:3,combinedDecimalOdds:'6.45645',best:true,ctaState:'AFFILIATE_UNAVAILABLE',outboundCapability:'NONE'});
     expect(r.states).toContain('MULTIPLE_COMPLETE_BOOKMAKERS');
   });
-  it('exposes useful 2/3 coverage without a partial total or CTA, and still ranks the complete book',()=>{
+  it('uses the other current exact quote as a display-only proxy for a missing leg',()=>{
     const f=comparisonFixture();f.data.fixtures.get(f.selections[1].fixturePublicId)!.snapshot.quotes.pop();
-    const [a,b]=run(f).bookmakers;expect(a.best).toBe(true);expect(b).toMatchObject({complete:false,availableSelectionCount:2,combinedDecimalOdds:null,best:false,ctaState:'INCOMPLETE'});
-    expect(b.missingSelections.map(q=>q.selection)).toEqual([f.selections[1]]);
+    const [,b]=run(f).bookmakers;expect(b).toMatchObject({complete:true,estimated:true,realSelectionCount:2,proxySelectionCount:1,availabilityState:'ESTIMATED_COMPLETE'});
+    expect(b.selectionQuotes[1]).toMatchObject({priceKind:'PROXY',sourceBookmakerId:'betsson',sourceQuoteId:'quote-betsson-1',sourceObservedAt:new Date(f.now).toISOString()});
   });
   it('shows 0/3 and retains the exact missing selections',()=>{
     const f=comparisonFixture();for(const r of f.data.fixtures.values())r.snapshot.quotes=[];
@@ -100,8 +100,8 @@ describe('M7 bookmaker completeness and price-only ranking',()=>{
 
 describe('M7 exact canonical identity',()=>{
   it.each([{line:3.5},{market:'DRAW_NO_BET'},{market:'DOUBLE_CHANCE'},{market:'TO_QUALIFY'},{scope:'FIRST_HALF'},{phase:'LIVE'},{outcome:'UNDER'}])('never substitutes %j',change=>{
-    const f=comparisonFixture();Object.assign(f.data.fixtures.get(f.selections[0].fixturePublicId)!.snapshot.quotes[0],change);
-    expect(buildSlipComparison(f.selections,'br',f.data.fixtures,f.data.bookmakers,f.now).bookmakers[0].complete).toBe(false);
+    const f=comparisonFixture();for(const quote of f.data.fixtures.get(f.selections[0].fixturePublicId)!.snapshot.quotes)Object.assign(quote,change);
+    expect(buildSlipComparison(f.selections,'br',f.data.fixtures,f.data.bookmakers,f.now).bookmakers.every(book=>!book.complete)).toBe(true);
   });
   it('rejects non-2.5 totals, DNB, first-half input, extra provider identifiers, duplicates and >10',()=>{
     const f=comparisonFixture();for(const change of [{line:3.5},{market:'DRAW_NO_BET'},{scope:'FIRST_HALF'},{providerFixtureId:'123'},{fixturePublicId:'not-public'}])
@@ -154,20 +154,22 @@ describe('explicit bookmaker availability',()=>{
     expect(run(f).bookmakers[0]).toMatchObject({complete:false,availabilityState:'WITHDRAWN_LEG',combinedDecimalOdds:null});
     expect(run(f).bookmakers[0].selectionQuotes[0].diagnosticCode).toBe('WITHDRAWN');
   });
-  it('keeps Betsson complete when Betano is missing one exact leg',()=>{
+  it('uses Betsson as the proxy source when Betano is missing one exact leg',()=>{
     const f=comparisonFixture();
     const quotes=f.data.fixtures.get(f.selections[1].fixturePublicId)!.snapshot.quotes;
     quotes.splice(quotes.findIndex(q=>q.bookmaker==='betano.bet.br'),1);
     const [betsson,betano]=run(f).bookmakers;
     expect(betsson).toMatchObject({complete:true,availabilityState:'COMPLETE',availableSelectionCount:3,combinedDecimalOdds:'6.048'});
-    expect(betano).toMatchObject({complete:false,availabilityState:'MISSING_LEG',combinedDecimalOdds:null,availableSelectionCount:2});
+    expect(betano).toMatchObject({complete:true,estimated:true,availabilityState:'ESTIMATED_COMPLETE',availableSelectionCount:3,realSelectionCount:2,proxySelectionCount:1});
+    expect(betano.selectionQuotes[1]).toMatchObject({priceKind:'PROXY',sourceBookmakerId:'betsson'});
   });
-  it('keeps Betano complete when Betsson is missing one exact leg',()=>{
+  it('uses Betano as the proxy source when Betsson is missing one exact leg',()=>{
     const f=comparisonFixture();
     const quotes=f.data.fixtures.get(f.selections[1].fixturePublicId)!.snapshot.quotes;
     quotes.splice(quotes.findIndex(q=>q.bookmaker==='betsson'),1);
     const [betsson,betano]=run(f).bookmakers;
-    expect(betsson).toMatchObject({complete:false,availabilityState:'MISSING_LEG',combinedDecimalOdds:null});
+    expect(betsson).toMatchObject({complete:true,estimated:true,availabilityState:'ESTIMATED_COMPLETE',proxySelectionCount:1});
+    expect(betsson.selectionQuotes[1]).toMatchObject({priceKind:'PROXY',sourceBookmakerId:'betano.bet.br'});
     expect(betano).toMatchObject({complete:true,availabilityState:'COMPLETE',combinedDecimalOdds:'6.45645'});
   });
   it('marks both books incomplete without inventing a combined total',()=>{
@@ -176,5 +178,24 @@ describe('explicit bookmaker availability',()=>{
       expect(b.complete).toBe(false);expect(b.combinedDecimalOdds).toBeNull();
       expect(b.availabilityState).toBe('MISSING_LEG');expect(b.availableSelectionCount).toBe(0);
     }
+  });
+  it('replaces a prior proxy with the target real quote on the next read',()=>{
+    const f=comparisonFixture();const quotes=f.data.fixtures.get(f.selections[1].fixturePublicId)!.snapshot.quotes;
+    const target=quotes.splice(quotes.findIndex(q=>q.bookmaker==='betsson'),1)[0];
+    expect(run(f).bookmakers[0]).toMatchObject({estimated:true,proxySelectionCount:1});
+    quotes.push({...target,decimalOdds:'1.91',quoteId:'replacement-real'});
+    expect(run(f).bookmakers[0]).toMatchObject({estimated:false,realSelectionCount:3,proxySelectionCount:0,availabilityState:'COMPLETE'});
+  });
+  it.each(['STALE','SUSPENDED','CLOSED'] as const)('never proxies from a %s source',status=>{
+    const f=comparisonFixture();const quotes=f.data.fixtures.get(f.selections[0].fixturePublicId)!.snapshot.quotes;
+    quotes.splice(quotes.findIndex(q=>q.bookmaker==='betsson'),1);
+    Object.assign(quotes.find(q=>q.bookmaker==='betano.bet.br')!,{status});
+    const betsson=run(f).bookmakers[0];expect(betsson.complete).toBe(false);expect(betsson.selectionQuotes[0].priceKind).toBeNull();
+  });
+  it('builds proxy presentation without mutating provider truth',()=>{
+    const f=comparisonFixture();f.data.fixtures.get(f.selections[1].fixturePublicId)!.snapshot.quotes.pop();
+    const before=JSON.stringify([...f.data.fixtures.values()].map(read=>read.snapshot.quotes));
+    const result=run(f);expect(result.bookmakers.some(book=>book.estimated)).toBe(true);
+    expect(JSON.stringify([...f.data.fixtures.values()].map(read=>read.snapshot.quotes))).toBe(before);
   });
 });

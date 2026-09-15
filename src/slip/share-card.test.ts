@@ -14,16 +14,14 @@ describe('shareable slip card payload',()=>{
     expect(JSON.stringify(payload)).not.toMatch(/\/go\/|partner=|guaranteed|profit|Place bet/);
     expect(JSON.stringify(payload)).not.toMatch(/>\s*\?\s*|NaN|"—"/);
   });
-  it('names incomplete books instead of leaving a blank or placeholder total',()=>{
+  it('labels proxy-based shared totals as estimates',()=>{
     const f=comparisonFixture();f.data.fixtures.get(f.selections[1].fixturePublicId)!.snapshot.quotes.pop();
     const comparison=buildSlipComparison(f.selections,'br',f.data.fixtures,f.data.bookmakers,f.now);
     const resolved=f.selections.map(s=>resolveSelection(s,f.data.fixtures.get(s.fixturePublicId)??null,f.now));
     const payload=slipSharePayload({locale:'br',slipId:'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',stake:'10',generatedAt:new Date(f.now).toISOString(),selections:f.selections.map(s=>({...s,addedAt:new Date(f.now).toISOString()})),resolved,comparison});
-    const incomplete=payload.bookmakers.find(b=>!b.complete)!;
-    expect(incomplete.combined).toBeNull();expect(incomplete.potentialReturn).toBeNull();
-    expect(incomplete.incompleteLabel).toBe('Indisponível para este cupom completo');
-    expect(incomplete.missing.length).toBeGreaterThan(0);
-    expect(incomplete.combined).not.toBe('?');expect(incomplete.potentialReturn).not.toBe('?');
-    expect(JSON.stringify({combined:incomplete.combined,potentialReturn:incomplete.potentialReturn})).not.toContain('NaN');
+    const estimated=payload.bookmakers.find(b=>b.estimated)!;
+    expect(estimated.complete).toBe(true);expect(estimated.combined).toMatch(/^~/);expect(estimated.potentialReturn).toMatch(/^~/);
+    expect(estimated.incompleteLabel).toBe('');expect(estimated.missing).toEqual([]);
+    expect(JSON.stringify({combined:estimated.combined,potentialReturn:estimated.potentialReturn})).not.toContain('NaN');
   });
 });

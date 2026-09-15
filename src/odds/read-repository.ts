@@ -56,7 +56,7 @@ function hydrateOddsSnapshot(rows:QueryResultRow[],fixtureId:string,geo:Commerci
     // A BR feed remains BR content wherever it is read; this grants no commercial eligibility.
     const sourceEligible=eligibleSource(row.provider_slug,row.source_geo,row.source_verification_state,row.source_domain);
     const commercialEligible=row.geo_eligible&&eligibleSource(row.provider_slug,geo,row.verification_state,row.source_domain);
-    const quote:ReadOddsQuote={fixtureId,providerFixtureId:row.provider_fixture_id,bookmaker:canonicalBookmakerSlug(row.provider_slug)??row.provider_slug,bookmakerId:row.bookmaker_id,bookmakerName:row.display_name,
+    const quote:ReadOddsQuote={quoteId:String(row.id),fixtureId,providerFixtureId:row.provider_fixture_id,bookmaker:canonicalBookmakerSlug(row.provider_slug)??row.provider_slug,bookmakerId:row.bookmaker_id,bookmakerName:row.display_name,
       market:row.market_code,outcome:row.outcome_code,line:row.line===null?null:Number(row.line),decimalOdds:String(row.decimal_odds),status:row.status,scope:row.scope,phase:row.phase,
       providerUpdatedAt:row.provider_updated_at?date(row.provider_updated_at):null,observedAt:date(row.observed_at),persistedAt:date(row.persisted_at),lastSuccessfulRefreshAt:date(row.last_successful_refresh_at),
       sourceDomain:row.source_domain,providerKickoff:date(row.provider_kickoff),freshnessTtlMinutes:row.freshness_ttl_minutes==null?null:Number(row.freshness_ttl_minutes),geoEligible:Boolean(row.display_eligible&&sourceEligible&&row.mapping_verified)};

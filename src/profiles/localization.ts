@@ -47,6 +47,7 @@ for(const first of 'ABCDEFGHIJKLMNOPQRSTUVWXYZ')for(const second of 'ABCDEFGHIJK
 }
 for(const [name,code] of Object.entries({korearepublic:'KR',republicofireland:'IE',congodr:'CD',drcongo:'CD',democraticrepublicofthecongo:'CD',czechrepublic:'CZ',ivorycoast:'CI',capeverde:'CV',russianfederation:'RU',republicofnorthmacedonia:'MK',
   antiguaandbarbuda:'AG',bosniaandherzegovina:'BA',koreadpr:'KP',kyrgyzrepublic:'KG',palestine:'PS',republicofthecongo:'CG',saintkittsandnevis:'KN',saintlucia:'LC',saintvincentandthegrenadines:'VC',saotomeandprincipe:'ST',trinidadandtobago:'TT',
+  england:'GB',scotland:'GB',wales:'GB',northernireland:'GB',
 }))countryCodes.set(name,code);
 const displayCountries={br:new Intl.DisplayNames(['pt-BR'],{type:'region',fallback:'none'}),mx:new Intl.DisplayNames(['es-MX'],{type:'region',fallback:'none'})};
 
@@ -63,4 +64,8 @@ export function localizedCountry(locale: SiteLocale, value: string | null | unde
   if (!value) return null;
   const key=positionKey(value),code=countryCodes.get(key);
   return countryLabels[locale][key] ?? (code?displayCountries[locale].of(code):null) ?? value;
+}
+
+export function countryCodeFromName(value:string|null|undefined):string|null {
+  return value?countryCodes.get(positionKey(value))??null:null;
 }

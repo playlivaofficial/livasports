@@ -8,7 +8,7 @@ import type {OddsReadSnapshot,ReadOddsQuote} from './types';
 const now=Date.parse('2026-09-12T18:00:00Z');
 const fixtureId='aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
 const quote=(overrides:Partial<ReadOddsQuote>={}):ReadOddsQuote=>({
-  fixtureId,providerFixtureId:'p',bookmaker:'betano.bet.br',bookmakerId:'b',bookmakerName:'Betano BR',
+  quoteId:'quote-test',fixtureId,providerFixtureId:'p',bookmaker:'betano.bet.br',bookmakerId:'b',bookmakerName:'Betano BR',
   market:'MATCH_WINNER',outcome:'HOME',line:null,decimalOdds:'4.45',status:'ACTIVE',scope:'FULL_TIME_REGULATION',
   phase:'PREGAME',providerUpdatedAt:'2026-09-12T10:00:00Z',observedAt:new Date(now).toISOString(),
   persistedAt:new Date(now).toISOString(),lastSuccessfulRefreshAt:new Date(now).toISOString(),

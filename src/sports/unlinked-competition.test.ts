@@ -2,7 +2,7 @@ import {expect,it} from 'vitest';
 import {unlinkedScorers,unlinkedStanding,unlinkedTeamLabel} from './unlinked-competition';
 it('preserves player goals and explicit missing team without fabricating a profile',()=>{
  const rows=[{provider_record_id:1,provider_player_id:2,provider_participant_id:3,player_public_id:'known-player',player_name:'Official player',payload:{type_id:208,total:2}},{provider_record_id:4,provider_player_id:2,provider_participant_id:3,payload:{type_id:209,total:0}}];
- expect(unlinkedScorers(rows,'en')).toEqual([{publicId:'known-player',sourceKey:'unlinked-scorer:1',name:'Official player',team:null,goals:2,assists:0,appearances:null,minutes:null,rank:0}]);
+ expect(unlinkedScorers(rows,'en')).toEqual([{publicId:'known-player',sourceKey:'unlinked-scorer:1',name:'Official player',team:null,nationality:null,countryCode:null,goals:2,assists:0,appearances:null,minutes:null,rank:0}]);
 });
 it('does not fabricate a global player ID or silently merge different teams',()=>{
  const rows=[{provider_record_id:1,provider_player_id:2,provider_participant_id:3,payload:{type_id:208,total:1}},{provider_record_id:4,provider_player_id:2,provider_participant_id:5,payload:{type_id:208,total:2}}];
