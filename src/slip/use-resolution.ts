@@ -73,7 +73,7 @@ export function useSlipResolution(selections:SavedSelection[],locale:SiteLocale)
     }
   },[invalidSignature,locale]);
   const comparison=current?.body.comparison?guardSlipComparison(current.body.comparison,selections.length,now,online&&!failed):null;
-  return {resolved,comparison,failed,online,checking:!current&&!failed,resolvedAt:current?.body.resolvedAt??null};
+  return {resolved,comparison,failed,online,checking:!current&&!failed,resolvedAt:current?.body.resolvedAt??null,now};
 }
 
 export function resolvedByKey(values:ResolvedSelection[]){return new Map(values.map(v=>[selectionKey(v.selection),v]));}

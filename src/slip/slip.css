@@ -21,6 +21,7 @@
 .slip-summary { display:flex; align-items:center; justify-content:space-between; gap:.5rem; min-height:52px; color:var(--color-text-muted); font-size:.69rem; }
 .slip-summary>div { display:grid; gap:.18rem; }.slip-summary small { font-size:.58rem; }
 .slip-summary button { min-height:44px; border:0; border-radius:.4rem; background:none; color:var(--color-text-secondary); text-decoration:underline; text-underline-offset:3px; }
+.slip-leg-count { margin:.7rem 0 .45rem; color:var(--color-text-secondary); font-size:.72rem; font-weight:650; }
 .slip-list { margin:0; padding:0; list-style:none; }
 .slip-item { min-width:0; border:1px solid var(--color-border); border-radius:.6rem; padding:.7rem .75rem; margin-bottom:.65rem; background:var(--color-bg); }
 .slip-item-header { display:flex; justify-content:space-between; gap:.25rem; align-items:flex-start; }
@@ -28,15 +29,20 @@
 .slip-item-header a,.slip-item-header strong { display:block; font-size:.77rem; font-weight:700; line-height:1.45; overflow-wrap:anywhere; }
 .slip-item-header a:hover { color:var(--color-accent); }
 .slip-item-header small { display:block; margin-top:.3rem; color:var(--color-text-muted); font-size:.6rem; line-height:1.5; overflow-wrap:anywhere; }
-.slip-remove { margin:-.45rem -.6rem 0 0; }
-.slip-market { margin:.9rem 0 .3rem; color:var(--color-text-muted); font-size:.62rem; }
-.slip-pick { display:flex; justify-content:space-between; align-items:center; gap:.65rem; min-height:1.65rem; }
-.slip-pick>strong:first-child { min-width:0; overflow-wrap:anywhere; font-size:.85rem; }
+.slip-remove { display:grid; flex:0 0 auto; place-items:center; width:44px; height:44px; margin:-.45rem -.55rem 0 0; padding:0; border:1px solid transparent; border-radius:.45rem; background:transparent; color:var(--color-text-secondary); font-size:1.45rem !important; line-height:1; }
+.slip-remove:hover,.slip-remove:focus-visible { background:var(--color-surface-hover); border-color:var(--color-border-strong); color:var(--color-text); }
+.slip-market { margin:.55rem 0 .25rem; color:var(--color-text-muted); font-size:.68rem; line-height:1.45; overflow-wrap:anywhere; }
+.slip-pick { display:flex; justify-content:flex-end; align-items:center; gap:.65rem; min-height:1.65rem; }
 .slip-price { flex:0 0 auto; padding:.35rem .5rem; border-radius:.4rem; background:var(--color-accent-soft); color:var(--color-accent); font-family:var(--font-numeric); font-size:.91rem; }
-.slip-no-price { color:var(--color-text-muted); }
-.slip-state { display:grid; gap:.2rem; margin-top:.6rem; color:var(--color-warning); font-size:.64rem; line-height:1.4; }
+.slip-no-price { color:var(--color-text-muted); font-size:.72rem; }
+.slip-state { display:grid; gap:.2rem; margin-top:.45rem; color:var(--color-warning); font-size:.64rem; line-height:1.4; }
 .slip-state.is-current { color:var(--color-text-secondary); }
+.slip-state.is-partial { color:var(--color-warning); }
 .slip-state small { color:var(--color-text-muted); font-size:.61rem; }
+.slip-leg-books { display:flex; flex-wrap:wrap; gap:.35rem .7rem; margin:.45rem 0 0; color:var(--color-text-muted); font-size:.62rem; }
+.slip-leg-books span[data-available=true] { color:var(--color-text-secondary); }
+.slip-leg-books span[data-available=false] { color:var(--color-warning); }
+.slip-leg-missing { margin:.35rem 0 0; padding:0; list-style:none; color:var(--color-warning); font-size:.6rem; line-height:1.45; }
 .slip-item[data-state=PRICE_CHANGED] .slip-state>span { color:var(--color-accent); }
 .slip-footer { flex:0 0 auto; border-top:1px solid var(--color-border); padding:.8rem 1rem; background:var(--color-surface-raised); }
 .slip-footer p { margin:0 0 .3rem; color:var(--color-text-secondary); font-size:.66rem; line-height:1.45; }
@@ -75,10 +81,11 @@ button.slip-odds-button[aria-pressed=true]:hover { background:rgba(36,211,155,.3
   .slip-trigger>span:last-child { margin-left:auto; }
   .slip-panel { bottom:calc(max(12px,env(safe-area-inset-bottom)) + 60px); max-height:68dvh; }
   .slip-body { padding:0 .8rem; }
+  .slip-remove { width:48px; height:48px; }
 }
 @media(prefers-reduced-motion:reduce) {.guest-slip *,button.slip-odds-button { scroll-behavior:auto; transition:none; }}
 .slip-compare-jump { display:flex; align-items:center; min-height:44px; margin:0 0 .5rem; padding:0; border:0; background:none; color:var(--color-accent); font-size:.74rem !important; text-decoration:underline; text-underline-offset:3px; }
-.slip-comparison { position:sticky; bottom:0; z-index:1; min-width:0; margin:1rem 0 0; padding:1rem 0 .55rem; border-top:1px solid var(--color-border-strong); scroll-margin-top:.6rem; background:var(--color-surface); }
+.slip-comparison { min-width:0; margin:1rem 0 0; padding:1rem 0 .55rem; border-top:1px solid var(--color-border-strong); scroll-margin-top:.6rem; background:var(--color-surface); }
 /* The inner body scrolls; focus/scrollIntoView must never move the fixed header/footer. */
 .slip-panel { overflow:clip; }
 .slip-comparison h3 { margin:0 0 .4rem; font-size:.9rem; }
@@ -94,11 +101,12 @@ button.slip-odds-button[aria-pressed=true]:hover { background:rgba(36,211,155,.3
 .slip-combined>span { color:var(--color-text-secondary); font-size:.7rem; }
 .slip-combined strong { max-width:100%; overflow-wrap:anywhere; font-family:var(--font-numeric); font-size:1.3rem; font-variant-numeric:tabular-nums; }
 .slip-missing { font-size:.65rem; color:var(--color-warning); }
-.slip-missing summary { cursor:pointer; min-height:44px; align-content:center; line-height:1.5; }
-.slip-missing ul { margin:0; padding:0 0 0 1rem; }
+.slip-missing-heading { margin:.55rem 0 .35rem; font-weight:700; line-height:1.5; }
+.slip-missing ul { margin:0; padding:0; list-style:none; }
 .slip-missing li { margin:.5rem 0 .75rem; overflow-wrap:anywhere; line-height:1.55; }
-.slip-missing li>strong,.slip-missing li>span { display:block; overflow-wrap:anywhere; }
+.slip-missing li>strong,.slip-missing li>span,.slip-missing li>small { display:block; overflow-wrap:anywhere; }
 .slip-missing li>strong { color:var(--color-text-secondary); }
+.slip-missing li>small { margin-top:.2rem; color:var(--color-text-muted); }
 .slip-bookmaker-cta { display:flex; justify-content:space-between; align-items:center; gap:.5rem; min-height:44px; margin-top:.6rem; padding:.55rem .75rem; border:1px solid var(--color-accent); border-radius:.4rem; background:var(--color-accent-soft); color:var(--color-accent); font-size:.75rem; font-weight:700; }
 .slip-stake { display:grid; gap:.35rem; margin:.35rem 0 .75rem; color:var(--color-text-secondary); font-size:.68rem; }
 .slip-stake input { min-height:44px; width:100%; padding:.45rem .65rem; border:1px solid var(--color-border-strong); border-radius:.45rem; background:var(--color-surface-raised); color:var(--color-text); font-family:var(--font-numeric); font-size:.95rem; }

@@ -1,4 +1,5 @@
-import type {SlipUiLocale} from './localization';
+import type {SelectionQuote} from './comparison-types';
+import {slipCopy,type SlipUiLocale} from './localization';
 
 export const comparisonCopy={
   br:{title:'Comparar casas',intro:'As mesmas seleções, com todas as odds de uma única casa.',jump:'Comparar casas ↓',
@@ -11,8 +12,11 @@ export const comparisonCopy={
     gated:'Link da casa indisponível.',disclosure:'Podemos receber comissão pelo link. Isso não altera a comparação.',
     potentialReturn:'Retorno potencial',difference:'Diferença vs melhor',oddsMayChange:'Cotações podem mudar na casa de apostas.',
     summary:(complete:number,total:number)=>`${complete} de ${total} casas com todas as seleções disponíveis.`,
-    updated:'Preço atualizado',stale:'Cota desatualizada',withdrawn:'Mercado encerrado',
+    updated:'Preço atualizado',stale:'Odd desatualizada',withdrawn:'Mercado retirado',closed:'Mercado encerrado',
+    suspended:'Mercado suspenso',matchFinished:'Partida encerrada',
     fixtureUnavailable:'Partida indisponível',marketUnavailable:'Mercado indisponível nesta casa',
+    marketUnavailableAt:(name:string)=>`Mercado indisponível na ${name}`,
+    selectionUnavailableAt:(name:string)=>`Seleção indisponível na ${name}`,
     missingCount:(n:number)=>n===1?'Falta:':`Faltam ${n}:`},
   mx:{title:'Comparar casas',intro:'Las mismas selecciones, con todas las cuotas de una sola casa.',jump:'Comparar casas ↓',
     checking:'Consultando la comparación…',unavailable:'Comparación temporalmente no disponible. Volveremos a intentarlo.',
@@ -24,8 +28,11 @@ export const comparisonCopy={
     gated:'Enlace de la casa no disponible.',disclosure:'Podemos recibir una comisión por el enlace. Esto no altera la comparación.',
     potentialReturn:'Retorno potencial',difference:'Diferencia vs el mejor',oddsMayChange:'Las cuotas pueden cambiar en la casa de apuestas.',
     summary:(complete:number,total:number)=>`${complete} de ${total} casas con todas las selecciones disponibles.`,
-    updated:'Cuota actualizada',stale:'Cuota desactualizada',withdrawn:'Mercado cerrado',
+    updated:'Cuota actualizada',stale:'Cuota desactualizada',withdrawn:'Mercado retirado',closed:'Mercado cerrado',
+    suspended:'Mercado suspendido',matchFinished:'Partido finalizado',
     fixtureUnavailable:'Partido no disponible',marketUnavailable:'Mercado no disponible en esta casa',
+    marketUnavailableAt:(name:string)=>`Mercado no disponible en ${name}`,
+    selectionUnavailableAt:(name:string)=>`Selección no disponible en ${name}`,
     missingCount:(n:number)=>n===1?'Falta:':`Faltan ${n}:`},
   en:{title:'Compare bookmakers',intro:'The same selections, using every price from a single bookmaker.',jump:'Compare bookmakers ↓',
     checking:'Loading the comparison…',unavailable:'Comparison is temporarily unavailable. We will try again.',
@@ -37,7 +44,30 @@ export const comparisonCopy={
     gated:'Bookmaker link unavailable.',disclosure:'We may receive a commission from the link. That does not change the comparison.',
     potentialReturn:'Potential return',difference:'Difference vs best',oddsMayChange:'Odds can change at the bookmaker.',
     summary:(complete:number,total:number)=>`${complete} of ${total} bookmakers have every selected outcome.`,
-    updated:'Odds updated',stale:'Odds out of date',withdrawn:'Market closed',
+    updated:'Odds updated',stale:'Odds outdated',withdrawn:'Market withdrawn',closed:'Market closed',
+    suspended:'Market suspended',matchFinished:'Match finished',
     fixtureUnavailable:'Match unavailable',marketUnavailable:'Market unavailable at this bookmaker',
+    marketUnavailableAt:(name:string)=>`Market unavailable at ${name}`,
+    selectionUnavailableAt:(name:string)=>`Selection unavailable at ${name}`,
     missingCount:(n:number)=>n===1?'Missing:':`Missing ${n}:`},
-} satisfies Record<SlipUiLocale,{summary:(complete:number,total:number)=>string;missingCount:(n:number)=>string;[key:string]:unknown}>;
+} satisfies Record<SlipUiLocale,{summary:(complete:number,total:number)=>string;missingCount:(n:number)=>string;marketUnavailableAt:(name:string)=>string;selectionUnavailableAt:(name:string)=>string;[key:string]:unknown}>;
+
+export function bookmakerShortName(bookmakerId:string,displayName:string):string {
+  if(bookmakerId==='betano.bet.br'||/^betano/i.test(displayName))return 'Betano';
+  if(bookmakerId==='betsson'||/^betsson/i.test(displayName))return 'Betsson';
+  return displayName;
+}
+
+/** Human copy for an incomplete bookmaker leg. Never maps a missing quote to “Market closed”. */
+export function missingLegReason(quote:Pick<SelectionQuote,'state'|'reason'|'diagnosticCode'>,bookmakerName:string,locale:SlipUiLocale):string {
+  const text=comparisonCopy[locale];
+  if(quote.state==='CLOSED')return text.closed;
+  if(quote.state==='SUSPENDED')return text.suspended;
+  if(quote.diagnosticCode==='STALE_QUOTE'||quote.state==='STALE')return text.stale;
+  if(quote.diagnosticCode==='WITHDRAWN')return text.withdrawn;
+  if(quote.diagnosticCode==='MATCH_FINISHED'||quote.state==='MATCH_FINISHED')return text.matchFinished;
+  if(quote.diagnosticCode==='MATCH_STARTED'||quote.state==='MATCH_STARTED')return slipCopy[locale].states.MATCH_STARTED;
+  if(quote.diagnosticCode==='MARKET_MISSING')return text.marketUnavailableAt(bookmakerName);
+  if(quote.diagnosticCode==='FIXTURE_MISSING')return text.fixtureUnavailable;
+  return text.selectionUnavailableAt(bookmakerName);
+}
