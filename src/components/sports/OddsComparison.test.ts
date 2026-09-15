@@ -33,6 +33,9 @@ describe('listing MATCH_WINNER cells', () => {
     expect(html).toContain('1.85');
     expect(html).toContain('3.20');
     expect(html).toContain('4.10');
+    expect(html.match(/odds-approx-mark/g)?.length).toBe(6);
+    expect(html).toContain('data-price-kind="PROXY"');
+    expect(html).toContain('Fonte estimada: Betano BR');
   });
 
   it('hides stale prices and renders a freshness warning instead', () => {
@@ -64,6 +67,7 @@ describe('listing MATCH_WINNER cells', () => {
     expect(html).toContain('aria-pressed="false"');
     expect(html).toContain('Adicionar ao bilhete');
     expect(html).toContain('type="button"');
+    expect(html).toContain('data-target-bookmaker="betsson"');
   });
   it('keeps compact listing freshness copy locale-independent of canonical 1X2 identity',()=>{
     expect(oddsFreshnessCompact('2026-09-14T12:00:00.000Z',Date.parse('2026-09-14T12:10:20.000Z'),'br')).toBe('Há 10m');

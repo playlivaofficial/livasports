@@ -103,13 +103,16 @@ export class M2DataDeliveryService {
       marketKeys.set(key, [...(marketKeys.get(key) ?? []), quote]);
     }
     const bookmakerName = new Map(V1_BOOKMAKERS.map(bookmaker => [bookmaker.id, bookmaker.displayName as 'Betano BR' | 'Betsson']));
+    const bookmakerSlug = new Map(V1_BOOKMAKERS.map(bookmaker => [bookmaker.id, bookmaker.providerSlug]));
     return [...marketKeys.values()].map(rows => ({
       market: rows[0].market, line: rows[0].line,
       outcomes: [...new Set(rows.map(row => row.outcome))].map(outcome => ({
         outcome,
         prices: rows.filter(row => row.outcome === outcome).flatMap(row => {
           const bookmaker = bookmakerName.get(row.bookmakerId);
-          return bookmaker ? [{ bookmaker, decimalOdds: row.decimalOdds, providerUpdatedAt: row.providerUpdatedAt.toISOString(), freshness: this.quoteFreshness(row, now) }] : [];
+          const sourceBookmaker=bookmakerSlug.get(row.bookmakerId);
+          return bookmaker&&sourceBookmaker ? [{ bookmaker, decimalOdds: row.decimalOdds, providerUpdatedAt: row.providerUpdatedAt.toISOString(), freshness: this.quoteFreshness(row, now),
+            priceKind:'REAL' as const,targetBookmaker:sourceBookmaker,sourceBookmaker,sourceBookmakerName:bookmaker,sourceQuoteId:String(row.id),sourceObservedAt:row.receivedAt.toISOString() }] : [];
         }).sort((left, right) => left.bookmaker.localeCompare(right.bookmaker)),
       })),
     })).sort((left, right) => [MarketCode.MATCH_WINNER, MarketCode.TOTAL_GOALS, MarketCode.BTTS].indexOf(left.market)

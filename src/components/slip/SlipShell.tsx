@@ -15,6 +15,7 @@ import {SlipLegs} from './SlipLegs';
 import {comparisonCopy} from '@/slip/comparison-copy';
 import {formatMoney,formatSlipOdds,parseStake,potentialReturn} from '@/slip/decimal';
 import {shareSlipImage,slipSharePayload} from '@/slip/share-card';
+import {ApproximatePrice} from '@/components/odds/ApproximatePrice';
 
 function TicketIcon(){return <svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 3h14v6a3 3 0 0 0 0 6v6l-3-2-4 2-4-2-3 2v-6a3 3 0 0 0 0-6V3Z" stroke="currentColor" strokeWidth="1.5"/><path d="M9 8h6M9 12h6M9 16h3" stroke="currentColor" strokeWidth="1.5"/></svg>;}
 
@@ -48,7 +49,8 @@ function SlipDrawer({locale,uiLocale,selections,stake,slipId,pending,onPending,o
   const best=comparison?.bookmakers.find(b=>b.best&&b.combinedDecimalOdds);
   const priced=best??comparison?.bookmakers.find(b=>b.combinedDecimalOdds);
   const combined=priced?.combinedDecimalOdds??null;
-  const combinedLabel=combined?`${priced?.estimated?'~':''}${formatSlipOdds(combined,uiLocale)}`:null;
+  const combinedLabel=combined?formatSlipOdds(combined,uiLocale):null;
+  const approximateLabel=uiLocale==='br'?'preço aproximado':uiLocale==='mx'?'cuota aproximada':'approximate price';
   const estimated=combined?potentialReturn(stake,combined):null;
   const estimatedLabel=estimated?formatMoney(estimated,uiLocale):null;
   const browse=uiLocale==='en'?interfaceRoutes.en.football:uiLocale==='mx'?interfaceRoutes.mx.football:interfaceRoutes.br.football;
@@ -69,7 +71,7 @@ function SlipDrawer({locale,uiLocale,selections,stake,slipId,pending,onPending,o
           <input inputMode="decimal" enterKeyHint="done" autoComplete="off" value={stakeValue} aria-invalid={parseStake(stakeValue)===null} aria-describedby="slip-stake-hint"
             onChange={event=>setStakeDraft(event.target.value)} onBlur={commitStake} onKeyDown={event=>{if(event.key==='Enter'){event.preventDefault();commitStake();}}}/>
           <small id="slip-stake-hint">{text.stakeHint} · {text.oddsMayChange}</small></label>
-        {combinedLabel?<p className="slip-totals" role="status"><span>{text.combined}: <b>{combinedLabel}</b></span>{estimatedLabel?<span>{comparisonCopy[uiLocale].estimatedPotentialReturn}: <b>{priced?.estimated?'~':''}{estimatedLabel}</b></span>:null}</p>:null}
+        {combinedLabel?<p className="slip-totals" role="status"><span>{text.combined}: <b><ApproximatePrice value={combinedLabel} label={approximateLabel}/></b></span>{estimatedLabel?<span>{comparisonCopy[uiLocale].estimatedPotentialReturn}: <b>{estimatedLabel}</b></span>:null}</p>:null}
         <button className="slip-compare-jump" type="button" onClick={()=>{const target=panel.current?.querySelector<HTMLElement>('#slip-comparison');const body=panel.current?.querySelector<HTMLElement>('.slip-body');
           if(target&&body){target.focus({preventScroll:true});body.scrollTo({top:body.scrollTop+target.getBoundingClientRect().top-body.getBoundingClientRect().top-8,behavior:'instant'});}}}>{comparisonCopy[uiLocale].jump}</button>
         {!online||failed?<p className="slip-notice">{!online?text.offline:text.retry}</p>:null}

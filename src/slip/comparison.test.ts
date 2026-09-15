@@ -124,7 +124,7 @@ describe('M7 exact canonical identity',()=>{
 
 describe('explicit bookmaker availability',()=>{
   const run=(f:ReturnType<typeof comparisonFixture>)=>buildSlipComparison(f.selections,'br',f.data.fixtures,f.data.bookmakers,f.now);
-  it.each([1,2,3,5])('marks both books complete for %s mixed-market legs',count=>{
+  it.each([1,2,3,5,10])('marks both books complete for %s mixed-market legs',count=>{
     const r=run(comparisonFixture(count));
     expect(r.bookmakers).toHaveLength(2);
     for(const b of r.bookmakers){
@@ -132,6 +132,19 @@ describe('explicit bookmaker availability',()=>{
       expect(b.availableSelectionCount).toBe(count);expect(b.selectionQuotes.every(q=>q.diagnosticCode==='COMPLETE')).toBe(true);
     }
     expect(r.states).toContain(count===1?'ONE_SELECTION':'MULTIPLE_COMPLETE_BOOKMAKERS');
+  });
+  it.each([3,5,10])('completes both bookmaker cards for %s mixed real/proxy legs',count=>{
+    const f=comparisonFixture(count);
+    f.selections.forEach((selection,index)=>{
+      const quotes=f.data.fixtures.get(selection.fixturePublicId)!.snapshot.quotes;
+      const target=index%2===0?'betsson':'betano.bet.br';
+      quotes.splice(quotes.findIndex(quote=>quote.bookmaker===target),1);
+    });
+    const result=run(f);
+    expect(result.bookmakers).toHaveLength(2);
+    expect(result.bookmakers.every(book=>book.complete&&book.combinedDecimalOdds!==null)).toBe(true);
+    expect(result.bookmakers.every(book=>book.proxySelectionCount>0&&book.availabilityState==='ESTIMATED_COMPLETE')).toBe(true);
+    expect(result.bookmakers.every(book=>book.missingSelections.length===0)).toBe(true);
   });
   it('keeps Betano complete and best when its CTA is gated',()=>{
     const r=run(comparisonFixture());

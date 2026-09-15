@@ -43,7 +43,7 @@ function evaluatedQuote(selection:CanonicalSelection,read:SlipFixtureRead,quote:
   base={...base,closesAt:new Date(close).toISOString()};
   if(now>=close)return withDiagnostic({...base,state:'MATCH_STARTED',reason:null});
   const state=quoteState(quote,snapshot,now);
-  if(state!=='ACTIVE')return withDiagnostic({...base,state:['STALE','SUSPENDED','CLOSED'].includes(state)?state:'UNAVAILABLE',reason:null});
+  if(state!=='ACTIVE')return withDiagnostic({...base,state:state==='WITHDRAWN'?'SUSPENDED':state,reason:null});
   if(!validDecimalOdds(quote.decimalOdds))return withDiagnostic({...base,reason:'INVALID_QUOTE'});
   const ttl=quoteFreshnessTtlMs(quote,snapshot,now);
   const expires=Math.min(close,Date.parse(quote.observedAt)+ttl,Date.parse(quote.lastSuccessfulRefreshAt)+ttl);

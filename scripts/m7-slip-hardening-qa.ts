@@ -103,15 +103,16 @@ try{
   const both=evaluated.filter(v=>v.both);
   const betanoOnly=evaluated.filter(v=>v.betanoOnly);
   const betssonOnly=evaluated.filter(v=>v.betssonOnly);
-  const rawBetanoOnly=candidates.filter(v=>v.books['betano.bet.br']&&!v.books.betsson);
-  const rawBetssonOnly=candidates.filter(v=>v.books.betsson&&!v.books['betano.bet.br']);
+  const currentKeys=new Set(both.map(v=>marketKey(v.selection)));
+  const rawBetanoOnly=candidates.filter(v=>currentKeys.has(marketKey(v.selection))&&v.books['betano.bet.br']&&!v.books.betsson);
+  const rawBetssonOnly=candidates.filter(v=>currentKeys.has(marketKey(v.selection))&&v.books.betsson&&!v.books['betano.bet.br']);
   const mwBoth=both.filter(v=>v.selection.market==='MATCH_WINNER');
   const btts=both.filter(v=>v.selection.market==='BTTS');
   const ou=both.filter(v=>v.selection.market==='TOTAL_GOALS');
   const plans:Array<{id:string;legs:Array<(typeof candidates)[number]>;stake:string}> =[];
   if(rawBetanoOnly.length&&rawBetssonOnly.length){
     const used=new Set<string>();
-    const mixed=[...take(rawBetanoOnly,1,used),...take(rawBetssonOnly,1,used),...take(candidates,3,used)];
+    const mixed=[...take(rawBetanoOnly,1,used),...take(rawBetssonOnly,1,used),...take(both,3,used)];
     if(mixed.length===5&&validSlip(mixed))plans.push({id:'union-mixed-5',legs:mixed,stake:'10'});
   }
   for(const [n,label] of [[1,'1'],[2,'2'],[3,'3'],[4,'4'],[5,'5']] as const){

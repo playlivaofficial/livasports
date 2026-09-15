@@ -6,6 +6,7 @@ import {bookmakerShortName,comparisonCopy,missingLegReason} from '@/slip/compari
 import {formatSlipOdds} from '@/slip/decimal';
 import {oddsFreshnessCompact,selectionLabel,slipCopy,type SlipUiLocale} from '@/slip/localization';
 import {selectionKey,type ResolvedSelection,type SavedSelection} from '@/slip/types';
+import {ApproximatePrice} from '@/components/odds/ApproximatePrice';
 
 function fixtureTitle(fixture:ResolvedSelection['fixture'],fallback:string){
   return fixture?`${fixture.home} vs ${fixture.away}`:fallback;
@@ -17,6 +18,7 @@ export function SlipLegs({uiLocale,selections,resolvedByKey,comparison,checking,
   resolvedAt:string|null;now:number;onRemove:(selection:SavedSelection,index:number)=>void;onNavigate?:()=>void;
 }){
   const text=slipCopy[uiLocale];
+  const approximateLabel=uiLocale==='br'?'preço aproximado':uiLocale==='mx'?'cuota aproximada':'approximate price';
   const books=comparison?.bookmakers??[];
   return <ol className="slip-list" aria-label={`${selections.length} ${selections.length===1?text.selection:text.selections}`}>
     {selections.map((s,index)=>{
@@ -44,16 +46,16 @@ export function SlipLegs({uiLocale,selections,resolvedByKey,comparison,checking,
         </div>
         <p className="slip-market">{text.markets[s.market]} — {selectionLabel(s,uiLocale,fixture)}</p>
         <div className="slip-pick">
-          {price?<strong className="slip-price">{price}</strong>:<span className="slip-no-price">{checking?text.checking:'—'}</span>}
+          {price?<strong className="slip-price"><ApproximatePrice value={price} label={approximateLabel}/></strong>:<span className="slip-no-price">{checking?text.checking:'—'}</span>}
         </div>
         {view?.state==='PRICE_CHANGED'&&view.previousDecimalOdds&&view.price&&formatSlipOdds(view.previousDecimalOdds,uiLocale)&&price?
-          <p className="slip-reprice">{formatSlipOdds(view.previousDecimalOdds,uiLocale)} → {price}</p>:null}
+          <p className="slip-reprice"><ApproximatePrice value={formatSlipOdds(view.previousDecimalOdds,uiLocale)!} label={approximateLabel}/> → <ApproximatePrice value={price} label={approximateLabel}/></p>:null}
         <div className={`slip-state${view?.state==='CURRENT'&&!missing.length?' is-current':''}${missing.length?' is-partial':''}`}>
           <span>{missing.length||(view&&view.state!=='CURRENT')?'! ':view?.state==='CURRENT'?'✓ ':''}{status}</span>
           {view?.state==='CURRENT'&&!missing.length&&freshness?<small>{freshness}</small>:null}
         </div>
         {quotes.length?<p className="slip-leg-books">{quotes.map(q=>
-          <span key={q.id} data-bookmaker={q.id} data-available={q.available} data-price-kind={q.priceKind??'NONE'} title={q.priceKind==='PROXY'&&q.sourceName?`${q.name}: ${comparisonCopy[uiLocale].proxyBasedOn(bookmakerShortName('',q.sourceName))}`:undefined}>{q.name} {q.available?(q.priceKind==='PROXY'?'~':'✓'):'—'}</span>
+          <span key={q.id} data-bookmaker={q.id} data-available={q.available} data-price-kind={q.priceKind??'NONE'} title={q.priceKind==='PROXY'&&q.sourceName?`${q.name}: ${comparisonCopy[uiLocale].proxyBasedOn(bookmakerShortName('',q.sourceName))}`:undefined}>{q.name} {q.available?'✓':'—'}</span>
         )}</p>:null}
         {missing.length>1?<ul className="slip-leg-missing">{missing.map(q=>q.quote?
           <li key={q.id}>{missingLegReason(q.quote,q.name,uiLocale)}</li>:null)}</ul>:null}

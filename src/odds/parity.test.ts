@@ -45,13 +45,13 @@ describe('full odds parity identity',()=>{
       expect(comparison.rows.every(row=>row.cells.some(cell=>cell.decimalOdds!==null))).toBe(true);
     }
   });
-  it('shows Betano only or Betsson only without inventing the missing book',()=>{
+  it('presents both target bookmaker rows from either single current source',()=>{
     const betano=listingMatchWinnerOdds({kickoff:'2026-09-12T19:00:00Z',fixtureStatus:'SCHEDULED',quotes:allMarkets('betano.bet.br','Betano BR','1.90')},now);
     const betsson=listingMatchWinnerOdds({kickoff:'2026-09-12T19:00:00Z',fixtureStatus:'SCHEDULED',quotes:allMarkets('betsson','Betsson','1.85')},now);
-    expect(betano.oddsState).toBe('partial');
-    expect(betano.odds[0].outcomes[0].prices.map(price=>price.bookmaker)).toEqual(['Betano BR']);
-    expect(betsson.oddsState).toBe('partial');
-    expect(betsson.odds[0].outcomes[0].prices.map(price=>price.bookmaker)).toEqual(['Betsson']);
+    expect(betano.oddsState).toBe('complete');
+    expect(betano.odds[0].outcomes[0].prices.map(price=>[price.bookmaker,price.priceKind])).toEqual([['Betano BR','REAL'],['Betsson','PROXY']]);
+    expect(betsson.oddsState).toBe('complete');
+    expect(betsson.odds[0].outcomes[0].prices.map(price=>[price.bookmaker,price.priceKind])).toEqual([['Betano BR','PROXY'],['Betsson','REAL']]);
   });
   it('keeps canonical market identity independent of locale labels',()=>{
     expect(SUPPORTED_M5_MARKETS).toEqual(['MATCH_WINNER','BTTS','TOTAL_GOALS']);

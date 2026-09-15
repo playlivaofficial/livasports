@@ -7,6 +7,7 @@ import {addSlipSelection,useSlip} from '@/slip/client';
 import {canonicalSelection,selectionKey,SLIP_SCOPE} from '@/slip/types';
 import {slipCopy,selectionLabel} from '@/slip/localization';
 import {AffiliateLink,commercialCopy} from '@/components/commercial/AffiliateLink';
+import {ApproximatePrice} from '@/components/odds/ApproximatePrice';
 
 const copy={
   br:{title:'Compare as odds',pregame:'Pré-jogo · 90 minutos',markets:{MATCH_WINNER:'Resultado final',TOTAL_GOALS:'Gols · 2,5',BTTS:'Ambas marcam'},
@@ -54,6 +55,8 @@ export function PregameOdds({initial,context,fixturePublicId,uiLocale}:{initial:
   const pastKickoff=clock!==null&&selected?.closesAt&&clock>=Date.parse(selected.closesAt);
   const unavailable=allClosed||pastKickoff?text.closed:anyExpired?text.stale:selected?.rows.some(r=>r.cells.some(c=>c.state==='SUSPENDED'))?text.suspended:text.empty;
   const date=(value:string)=>new Intl.DateTimeFormat(presentation==='en'?'en-GB':presentation==='br'?'pt-BR':'es-MX',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',timeZone:presentation==='en'?'UTC':presentation==='br'?'America/Sao_Paulo':'America/Mexico_City'}).format(new Date(value));
+  const approximateLabel=presentation==='br'?'preço aproximado':presentation==='mx'?'cuota aproximada':'approximate price';
+  const proxySource=(name:string)=>presentation==='br'?`Fonte estimada: ${name}`:presentation==='mx'?`Fuente estimada: ${name}`:`Estimated source: ${name}`;
   function select(next:OddsMarket){selectedMarket.current=next;setMarket(next);if(!sent.current.has(next)){sent.current.add(next);emitMatchEvent('odds_market_view',context,'match_odds',{market:next});}}
   return <section id="odds" ref={root} className="match-panel commercial-panel pregame-odds" aria-label={text.title}>
     <div className="odds-title"><div><h2>{text.title}</h2><p>{text.pregame}</p></div><span className="age-label">18+</span></div>
@@ -68,10 +71,12 @@ export function PregameOdds({initial,context,fixturePublicId,uiLocale}:{initial:
           const intent=canonicalSelection({fixturePublicId,market,outcome:cell.outcome,line:selected.line,scope:SLIP_SCOPE});
           const pressed=intent?saved.slip.selections.some(s=>selectionKey(s)===selectionKey(intent)):false;
           const priceLabel=current?new Intl.NumberFormat(presentation==='en'?'en-GB':presentation==='br'?'pt-BR':'es-MX',{minimumFractionDigits:2,maximumFractionDigits:2}).format(Number(cell.decimalOdds)):'—';
+          const sourceTitle=cell.priceKind==='PROXY'&&cell.sourceBookmakerName?proxySource(cell.sourceBookmakerName):undefined;
           return <td key={cell.outcome}>{current&&intent?<button type="button" className={`pregame-price slip-odds-button${best?' is-best':''}`} aria-pressed={pressed} disabled={!saved.ready}
-            aria-label={`${pressed?slipText.selected:slipText.add}: ${slipText.markets[market]}, ${selectionLabel(intent,presentation)}, ${priceLabel}, ${row.name}`}
-            onClick={()=>addSlipSelection(intent,commercialLocale,cell.expiresAt!,row.bookmaker)}>{pressed?<span className="slip-selected-indicator" aria-hidden="true">✓</span>:null}{priceLabel}{best?<span className="sr-only"> {text.best}</span>:null}</button>:
-            <span className={`pregame-price${best?' is-best':''}${!current?' is-unavailable':''}`} title={best?text.best:!current?unavailable:undefined}>{priceLabel}{best?<span className="sr-only"> {text.best}</span>:null}</span>}</td>;})}
+            data-price-kind={cell.priceKind??'UNAVAILABLE'} data-target-bookmaker={cell.targetBookmaker} data-source-bookmaker={cell.sourceBookmaker??undefined} data-source-quote={cell.sourceQuoteId??undefined} data-source-observed-at={cell.sourceObservedAt??undefined} title={sourceTitle}
+            aria-label={`${pressed?slipText.selected:slipText.add}: ${slipText.markets[market]}, ${selectionLabel(intent,presentation)}, ${priceLabel}, ${approximateLabel}, ${row.name}${sourceTitle?`, ${sourceTitle}`:''}`}
+            onClick={()=>addSlipSelection(intent,commercialLocale,cell.expiresAt!,row.bookmaker,{targetBookmaker:cell.targetBookmaker,priceKind:cell.priceKind!,sourceBookmaker:cell.sourceBookmaker!,...(cell.sourceQuoteId?{sourceQuoteId:cell.sourceQuoteId}:{}),sourceObservedAt:cell.sourceObservedAt!})}>{pressed?<span className="slip-selected-indicator" aria-hidden="true">✓</span>:null}<ApproximatePrice value={priceLabel} label={approximateLabel}/>{best?<span className="sr-only"> {text.best}</span>:null}</button>:
+            <span className={`pregame-price${best?' is-best':''}${!current?' is-unavailable':''}`} data-price-kind={cell.priceKind??'UNAVAILABLE'} title={sourceTitle??(best?text.best:!current?unavailable:undefined)}>{current?<ApproximatePrice value={priceLabel} label={`${approximateLabel}${sourceTitle?`, ${sourceTitle}`:''}`}/>:priceLabel}{best?<span className="sr-only"> {text.best}</span>:null}</span>}</td>;})}
           <td>{row.action&&row.cells.some(cellCurrent)&&fixturePublicId?<AffiliateLink compact className="match-affiliate-cta" uiLocale={presentation} onAvailability={onAvailability} context={{locale:commercialLocale,placement:'match_odds_table',bookmaker:row.bookmaker as 'betsson'|'betano.bet.br',fixturePublicId,market}}/>:<span className="odds-no-action">—</span>}</td></tr>)}</tbody></table>:null}
       {!available?<p className="pregame-empty" role="status">{unavailable}</p>:available===1?<p className="odds-note">{text.single}</p>:null}
       {selected?.observedAt?<p className="odds-freshness">{text.observed} <time dateTime={selected.observedAt}>{date(selected.observedAt)}</time>{selected.providerUpdatedAt?<span> · {text.changed}: {date(selected.providerUpdatedAt)}</span>:null}</p>:null}

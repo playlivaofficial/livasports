@@ -55,8 +55,8 @@ export function slipSharePayload(args:{
   return {
     slipId:args.slipId,generatedAt:args.generatedAt,stake:formatMoney(args.stake,args.locale)??args.stake,
     stakeLabel:text.stake,returnLabel:comparisonCopy[args.locale].estimatedPotentialReturn,
-    bestCombined:best?.combinedDecimalOdds?`${best.estimated?'~':''}${formatCombinedOdds(best.combinedDecimalOdds,args.locale)}`:null,
-    bestReturn:best?.combinedDecimalOdds?`${best.estimated?'~':''}${formatMoney(estimateReturn(args.stake,best.combinedDecimalOdds)??'',args.locale)}`:null,
+    bestCombined:best?.combinedDecimalOdds?`≈${formatCombinedOdds(best.combinedDecimalOdds,args.locale)}`:null,
+    bestReturn:best?.combinedDecimalOdds?formatMoney(estimateReturn(args.stake,best.combinedDecimalOdds)??'',args.locale):null,
     bestName:best?.displayName??null,
     legs:args.selections.map(s=>{
       const view=byKey.get(`${s.fixturePublicId}:${s.market}:${s.outcome}`);
@@ -66,13 +66,13 @@ export function slipSharePayload(args:{
         competition:fixture?.competition??'',
         market:text.markets[s.market],
         outcome:selectionLabel(s,args.locale,fixture),
-        odds:view?.price?formatCombinedOdds(view.price.decimalOdds,args.locale)||slipCopy[args.locale].states.UNAVAILABLE:slipCopy[args.locale].states.UNAVAILABLE,
+        odds:view?.price?`≈${formatCombinedOdds(view.price.decimalOdds,args.locale)}`:slipCopy[args.locale].states.UNAVAILABLE,
       };
     }),
     bookmakers:(args.comparison?.bookmakers??[]).map(b=>({
       name:b.displayName,complete:b.complete,best:b.best,estimated:b.estimated,
-      combined:b.combinedDecimalOdds?`${b.estimated?'~':''}${formatCombinedOdds(b.combinedDecimalOdds,args.locale)}`:null,
-      potentialReturn:b.combinedDecimalOdds?`${b.estimated?'~':''}${formatMoney(estimateReturn(args.stake,b.combinedDecimalOdds)??'',args.locale)}`:null,
+      combined:b.combinedDecimalOdds?`≈${formatCombinedOdds(b.combinedDecimalOdds,args.locale)}`:null,
+      potentialReturn:b.combinedDecimalOdds?formatMoney(estimateReturn(args.stake,b.combinedDecimalOdds)??'',args.locale):null,
       missing:b.selectionQuotes.filter(q=>!q.decimalOdds).map(q=>`${q.fixture?`${q.fixture.home} × ${q.fixture.away}`:text.missing} — ${text.markets[q.selection.market]} ${selectionLabel(q.selection,args.locale,q.fixture)}`),
       incompleteLabel:b.complete?'':comparisonCopy[args.locale].partial,
     })),

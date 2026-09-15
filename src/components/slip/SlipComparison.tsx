@@ -8,6 +8,7 @@ import {selectionLabel,slipCopy,type SlipUiLocale} from '@/slip/localization';
 import {formatMoney,formatSlipOdds,moneyDiff,parseStake,potentialReturn} from '@/slip/decimal';
 import {emitComparisonEvent} from '@/slip/comparison-events';
 import {AffiliateLink} from '@/components/commercial/AffiliateLink';
+import {ApproximatePrice} from '@/components/odds/ApproximatePrice';
 
 function missingQuotes(book:BookmakerSlip){
   return book.selectionQuotes.filter(q=>q.decimalOdds===null);
@@ -15,6 +16,7 @@ function missingQuotes(book:BookmakerSlip){
 
 export function SlipComparison({locale,selections,value,checking,uiLocale,stake,slipId}:{locale:SiteLocale;selections:SavedSelection[];value:Comparison|null;checking:boolean;uiLocale?:SlipUiLocale;stake:string;slipId?:string}){
   const copyLocale:SlipUiLocale=uiLocale??locale;const text=comparisonCopy[copyLocale],slip=slipCopy[copyLocale];const section=useRef<HTMLElement>(null);
+  const approximateLabel=copyLocale==='br'?'preço aproximado':copyLocale==='mx'?'cuota aproximada':'approximate price';
   const eventSignature=JSON.stringify({locale,selections:selections.map(s=>canonicalSelection(s)),bookmakers:value?.bookmakers??null});
   useEffect(()=>{
     const current=section.current;if(!current)return;
@@ -41,7 +43,7 @@ export function SlipComparison({locale,selections,value,checking,uiLocale,stake,
     {!selections.length?<p className="slip-comparison-note">{text.empty}</p>:!value?<p className="slip-comparison-note">{checking?text.checking:text.unavailable}</p>:<>
       {selections.length===1?<p className="slip-comparison-note">{text.one}</p>:null}
       {!value.bookmakers.length?<p className="slip-comparison-note">{text.noBookmaker}</p>:value.bookmakers.map(b=>{
-        const combined=b.complete&&b.combinedDecimalOdds?`${b.estimated?'~':''}${formatSlipOdds(b.combinedDecimalOdds,copyLocale)}`:null;
+        const combined=b.complete&&b.combinedDecimalOdds?formatSlipOdds(b.combinedDecimalOdds,copyLocale):null;
         const estimated=combined&&b.combinedDecimalOdds?potentialReturn(stake,b.combinedDecimalOdds):null;
         const estimatedLabel=estimated?formatMoney(estimated,copyLocale):null;
         const stakeOk=parseStake(stake)!==null;
@@ -55,13 +57,13 @@ export function SlipComparison({locale,selections,value,checking,uiLocale,stake,
           {b.best?<p className="slip-best-label">{b.tiedBest?text.tieEstimated:text.bestEstimated}</p>:null}
           <p className="slip-coverage-state">{b.complete?text.complete:text.partial}</p>
           {b.complete&&combined?<div className="slip-combined-block">
-            <p className="slip-combined"><span>{text.combined}</span><strong>{combined}</strong></p>
-            {estimatedLabel?<p className="slip-return"><span>{text.estimatedPotentialReturn}</span><strong>{b.estimated?'~':''}{estimatedLabel}</strong></p>:b.complete&&stakeOk?<p className="slip-comparison-note">{text.unavailable}</p>:null}
+            <p className="slip-combined"><span>{text.combined}</span><strong><ApproximatePrice value={combined} label={approximateLabel}/></strong></p>
+            {estimatedLabel?<p className="slip-return"><span>{text.estimatedPotentialReturn}</span><strong>{estimatedLabel}</strong></p>:b.complete&&stakeOk?<p className="slip-comparison-note">{text.unavailable}</p>:null}
             {b.complete&&!b.best&&diff?(()=>{const label=formatMoney(diff,copyLocale);return label?<p className="slip-diff">{text.difference}: {label}</p>:null;})():null}
           </div>:b.complete?<p className="slip-comparison-note">{text.unavailable}</p>:missing.length?null:<p className="slip-comparison-note">{text.unavailable}</p>}
           {proxies.length?<ul className="slip-proxy-legs" aria-label={text.bestEstimated}>{proxies.map(q=><li key={selectionKey(q.selection)} data-price-kind="PROXY" data-source-quote={q.sourceQuoteId??undefined}>
             <span>{q.fixture?`${q.fixture.home} vs ${q.fixture.away}`:text.fixtureUnavailable} · {slip.markets[q.selection.market]} — {selectionLabel(q.selection,copyLocale,q.fixture)}</span>
-            <strong>~{formatSlipOdds(q.decimalOdds!,copyLocale)}</strong><small>{text.proxyBasedOn(bookmakerShortName(q.sourceBookmakerId??'',q.sourceBookmakerName??''))}</small>
+            <strong><ApproximatePrice value={formatSlipOdds(q.decimalOdds!,copyLocale)??''} label={text.proxyBasedOn(bookmakerShortName(q.sourceBookmakerId??'',q.sourceBookmakerName??''))}/></strong><small>{text.proxyBasedOn(bookmakerShortName(q.sourceBookmakerId??'',q.sourceBookmakerName??''))}</small>
           </li>)}</ul>:null}
           {!b.complete&&missing.length?<div className="slip-missing" data-reason="missing-legs">
             <p className="slip-missing-heading">{text.missingCount(missing.length)}</p>

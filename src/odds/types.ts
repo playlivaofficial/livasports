@@ -1,6 +1,6 @@
 export type OddsMarket = 'MATCH_WINNER' | 'TOTAL_GOALS' | 'BTTS';
 export type OddsOutcome = 'HOME' | 'DRAW' | 'AWAY' | 'OVER' | 'UNDER' | 'YES' | 'NO';
-export type OddsStatus = 'ACTIVE' | 'STALE' | 'SUSPENDED' | 'CLOSED';
+export type OddsStatus = 'ACTIVE' | 'STALE' | 'SUSPENDED' | 'WITHDRAWN' | 'CLOSED';
 export type MatchConfidence = 'EXACT' | 'HIGH_CONFIDENCE' | 'AMBIGUOUS' | 'NO_MATCH' | 'TIME_MISMATCH' | 'TEAM_MISMATCH' | 'COMPETITION_MISMATCH';
 export const SELECTIONS: Record<OddsMarket, readonly OddsOutcome[]> = {
   MATCH_WINNER: ['HOME','DRAW','AWAY'], TOTAL_GOALS: ['OVER','UNDER'], BTTS: ['YES','NO'],
@@ -41,7 +41,15 @@ export interface ReadOddsQuote extends NormalizedOddsQuote {
   persistedAt: string; lastSuccessfulRefreshAt: string; providerKickoff: string;
 }
 export interface OddsReadSnapshot { quotes: ReadOddsQuote[]; kickoff: string; fixtureStatus: string; }
-export interface OddsCell { outcome: OddsOutcome; decimalOdds: string | null; state: OddsStatus | 'UNAVAILABLE'; best: boolean; expiresAt: string | null; }
+export interface OddsCell {
+  outcome: OddsOutcome; decimalOdds: string | null; state: OddsStatus | 'UNAVAILABLE'; best: boolean; expiresAt: string | null;
+  priceKind: 'REAL' | 'PROXY' | null;
+  targetBookmaker: string;
+  sourceBookmaker: string | null;
+  sourceBookmakerName: string | null;
+  sourceQuoteId: string | null;
+  sourceObservedAt: string | null;
+}
 export interface OddsBookmakerRow { bookmaker: string; name: string; cells: OddsCell[]; action: string | null; }
 export interface OddsComparison {
   market: OddsMarket; line: number | null; rows: OddsBookmakerRow[];

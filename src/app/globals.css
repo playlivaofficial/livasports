@@ -2,6 +2,17 @@
 
 @import "../slip/slip.css";
 
+.odds-approx-mark {
+  display:inline-block;
+  margin-right:1px;
+  color:currentColor;
+  font-size:.56em;
+  font-weight:650;
+  line-height:1;
+  opacity:.58;
+  vertical-align:.55em;
+}
+
 .match-affiliate-cta { display: inline-flex; min-height: 44px; min-width: 44px; align-items: center; justify-content: center; gap: 3px; }
 
 :root {
