@@ -1,6 +1,7 @@
 import {getDictionary,localeRoutes,type PageKey,type SiteLocale} from '@/config/i18n';
 import {matchPath as legacyMatchPath,slugifyMatch} from '@/match-center/routes';
 import {teamPath as legacyTeamPath,playerPath as legacyPlayerPath,slugifyProfileName} from '@/profiles/routes';
+import {authRoutes,type AuthRouteKey} from './auth-copy';
 import {legalKind,legalPath} from './legal-routes';
 
 // Presentation preferences never replace the existing commercial jurisdiction.
@@ -26,10 +27,12 @@ export function translatedPath(input:string,target:InterfaceLocale):string{
   const url=new URL(input,'https://livasports.com');
   const source=pathLocale(url.pathname);if(!source)return interfaceRoutes[target].home;
   const page=(Object.keys(interfaceRoutes[source]) as PageKey[]).find(key=>interfaceRoutes[source][key]===url.pathname);
+  const auth=(Object.keys(authRoutes[source]) as AuthRouteKey[]).find(key=>authRoutes[source][key]===url.pathname);
   const legal=legalKind(source,url.pathname.split('/')[2]);
   const entity=/^\/(?:br\/(jogo|time|jogador)|mx\/(partido|equipo|jugador)|en\/(match|team|player))\/([a-z0-9-]+-[a-f0-9]{16})$/i.exec(url.pathname);
   let path:string=interfaceRoutes[target].home;
   if(legal&&url.pathname===legalPath(source,legal))path=legalPath(target,legal);
+  else if(auth)path=authRoutes[target][auth];
   else if(page)path=interfaceRoutes[target][page];
   else if(entity){
     const segment=entity[1]??entity[2]??entity[3];

@@ -47,6 +47,10 @@ describe('context preservation and safe language POST',()=>{
   it.each(['home','football','today','live'] as const)('preserves %s page',(page)=>{
     for(const from of ['br','mx','en'] as const)for(const to of ['br','mx','en'] as const)expect(translatedPath(interfaceRoutes[from][page]+'?view=list#fixtures-content',to)).toBe(interfaceRoutes[to][page]+'?view=list#fixtures-content');
   });
+  it.each(['signin','account'] as const)('preserves auth %s routes',(kind)=>{
+    const routes={signin:{br:'/br/entrar',mx:'/mx/iniciar-sesion',en:'/en/sign-in'},account:{br:'/br/conta',mx:'/mx/cuenta',en:'/en/account'}};
+    for(const from of ['br','mx','en'] as const)for(const to of ['br','mx','en'] as const)expect(translatedPath(routes[kind][from],to)).toBe(routes[kind][to]);
+  });
   it.each([['jogo','partido','match'],['time','equipo','team'],['jogador','jugador','player']])('preserves %s public identity, filters and section',(br,mx,en)=>{
     const segments={br,mx,en},suffix='/same-entity-0123456789abcdef?view=recent#statistics';
     for(const from of ['br','mx','en'] as const)for(const to of ['br','mx','en'] as const)expect(translatedPath(`/${from}/${segments[from]}${suffix}`,to)).toBe(`/${to}/${segments[to]}${suffix}`);

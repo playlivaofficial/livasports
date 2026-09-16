@@ -522,6 +522,7 @@ button.listing-odds-select[aria-pressed="true"] { border-color: var(--color-acce
   .nav-home,
   .sports-search-link { display: none; }
   .sports-header-actions { margin-left: 0; gap: .2rem; }
+  .auth-header-link { max-width: 4.8rem; min-height: 36px; font-size: .65rem; padding: 0 .4rem; }
   .time-zone-control { display: none; }
   .locale-switcher { padding: 2px; }
   .locale-link { min-width: 38px; min-height: 38px; font-size: .65rem; }

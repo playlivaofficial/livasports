@@ -1,0 +1,20 @@
+.auth-page { width:min(100%,32rem); margin:0 auto; padding:clamp(1.1rem,.8rem + 2vw,2rem) clamp(.85rem,4vw,1.5rem) 3rem; }
+.auth-page h1 { margin:0 0 .6rem; font-size:clamp(1.45rem,3vw,2rem); letter-spacing:-.03em; }
+.auth-lead,.auth-unavailable,.auth-check { color:var(--color-text-secondary); font-size:.92rem; line-height:1.55; }
+.auth-methods { display:grid; gap:1rem; margin-top:1.4rem; }
+.auth-google,.auth-email-form button,.auth-signout,.auth-email-form input,.auth-name input { min-height:44px; width:100%; border-radius:.55rem; font:inherit; }
+.auth-google,.auth-email-form button,.auth-signout,.auth-name button { border:1px solid var(--color-border-strong); background:var(--color-surface-raised); color:var(--color-text); font-weight:700; cursor:pointer; }
+.auth-google { background:var(--color-accent-soft); border-color:var(--color-accent); color:var(--color-accent); }
+.auth-or { margin:0; text-align:center; color:var(--color-text-muted); font-size:.75rem; }
+.auth-method-label { margin:0; font-weight:700; font-size:.85rem; }
+.auth-email-form,.auth-name,.auth-account { display:grid; gap:.65rem; }
+.auth-email-form label,.auth-name label { display:grid; gap:.3rem; color:var(--color-text-secondary); font-size:.78rem; }
+.auth-email-form input,.auth-name input { padding:.55rem .75rem; border:1px solid var(--color-border-strong); background:var(--color-surface); color:var(--color-text); }
+.auth-account { margin-top:1.2rem; padding:1rem; border:1px solid var(--color-border); border-radius:.75rem; background:var(--color-surface); }
+.auth-identity { display:flex; align-items:center; gap:.85rem; min-width:0; }
+.auth-avatar { width:48px; height:48px; border-radius:50%; object-fit:cover; background:var(--color-accent-soft); color:var(--color-accent); display:grid; place-items:center; font-weight:800; }
+.auth-identity strong,.auth-identity span { display:block; overflow-wrap:anywhere; }
+.auth-methods-list { margin:0; padding-left:1.1rem; color:var(--color-text-secondary); font-size:.85rem; }
+.auth-reserved { color:var(--color-text-muted); font-size:.78rem; }
+html[data-theme=dark] .auth-page { color:var(--color-text); }
+.auth-page, .auth-identity, .auth-identity strong, .auth-identity span { overflow-wrap:anywhere; min-width:0; }

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import {AuthHeaderLink} from '@/auth/AuthHeaderLink';
 import type {PageKey} from '@/config/i18n';
 import {interfaceDictionary as getDictionary,interfaceRoutes as localeRoutes,type InterfaceLocale as SiteLocale} from '@/localization/interface';
 import {LanguageSelector} from '@/localization/LanguageSelector';
@@ -25,7 +26,7 @@ export function SiteHeader({ locale, activePage, contentId = 'fixtures-content' 
           {items.map(([key, href, label]) => <Link key={key} href={href} aria-current={activePage === key ? 'page' : undefined} className={`nav-link nav-${key}`}>{key==='live'?<span className="nav-live-dot" aria-hidden="true"/>:null}{label}</Link>)}
         </nav>
         <div className="sports-header-actions"><Link className="sports-search-link" href={`${routes.football}#sports-search`} aria-label={sportsCopy[locale].search}>{sportsCopy[locale].search}</Link>
-        <TimeZoneSelector locale={locale}/><ThemeToggle locale={locale}/><LanguageSelector locale={locale}/></div>
+        <TimeZoneSelector locale={locale}/><ThemeToggle locale={locale}/><LanguageSelector locale={locale}/><AuthHeaderLink locale={locale}/></div>
       </div>
     </header>
   );

@@ -1,6 +1,8 @@
 /* Sports-only additions, sharing the existing Brazil visual system. */
 .sports-round>a{display:block;max-width:100%;width:fit-content;min-height:26px;padding-block:4px;color:#94e7c8;overflow-wrap:anywhere}
 .sports-header-actions{display:flex;align-items:center;justify-content:flex-end;gap:14px;min-width:0}
+.auth-header-link{display:inline-flex;align-items:center;min-height:40px;max-width:8.5rem;padding:0 .55rem;border:1px solid rgba(255,255,255,.12);border-radius:.45rem;color:#d5ece6;font-size:.72rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.auth-header-link:hover{color:#fff;border-color:rgba(255,255,255,.28)}
 .sports-overview-leaders{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr));gap:12px;margin:12px 0}
 .sports-overview-leaders section{min-width:0;border:1px solid #2c4552;border-radius:7px;padding:0 12px 8px;background:#10232c}
 .sports-overview-leaders section>div{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:7px 0;border-top:1px solid #253c47;font-size:12px}
