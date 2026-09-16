@@ -12,6 +12,16 @@ export function normalizeEmail(value:unknown):string|null {
   return email;
 }
 
+export function canonicalAuthUrl(authUrl=process.env.AUTH_URL, vercel=process.env.VERCEL):string {
+  const value=authUrl?.trim()??'';
+  if(/^https:\/\/livasports\.com\/?$/i.test(value))return 'https://livasports.com';
+  try{
+    const parsed=new URL(value);
+    if(parsed.protocol==='https:'||parsed.protocol==='http:')return `${parsed.protocol}//${parsed.host}`;
+  }catch{/* AUTH_URL must be a public origin, never a client secret or other opaque value. */}
+  return vercel==='1'?'https://livasports.com':'';
+}
+
 export function userSessionCookieName(secure:boolean):string {
   return secure?USER_SESSION_COOKIE_SECURE:USER_SESSION_COOKIE;
 }

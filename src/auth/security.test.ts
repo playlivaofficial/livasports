@@ -2,7 +2,7 @@ import {readFileSync} from 'node:fs';
 import {describe,expect,it} from 'vitest';
 import {ownerCookie,requestOwnerSession,signOwnerSession,newOwnerSession,accessKeyHash} from '@/owner/session';
 import {authCallbackUrl,safeAuthPath} from './redirect';
-import {USER_SESSION_COOKIE,USER_SESSION_COOKIE_SECURE,userSessionCookieName,userSessionCookieOptions} from './identity';
+import {USER_SESSION_COOKIE,USER_SESSION_COOKIE_SECURE,canonicalAuthUrl,userSessionCookieName,userSessionCookieOptions} from './identity';
 
 const config=readFileSync('src/auth/config.ts','utf8');
 const pages=readFileSync('src/auth/pages.tsx','utf8');
@@ -22,6 +22,12 @@ describe('callback, cookie and owner isolation',()=>{
     expect(authCallbackUrl('en','/en/account')).toBe('/en/account');
     expect(safeAuthPath('/api/auth/callback/google','en')).toBe('/en');
     expect(config).toContain('safeAuthPath');
+  });
+
+  it('rejects a non-URL AUTH_URL and uses the public production origin on Vercel',()=>{
+    expect(canonicalAuthUrl('https://livasports.com','1')).toBe('https://livasports.com');
+    expect(canonicalAuthUrl('not-a-url','1')).toBe('https://livasports.com');
+    expect(canonicalAuthUrl('not-a-url')).toBe('');
   });
 
   it('uses a distinct HttpOnly Lax user cookie and never reuses owner secrets or cookies',()=>{

@@ -6,7 +6,7 @@ import nodemailer from 'nodemailer';
 import {pathLocale} from '@/localization/interface';
 import {createAuthAdapter} from './adapter';
 import {authConfigured,authDatabase,emailAuthConfigured,googleAuthConfigured} from './database';
-import {googleSignInAllowed,MAGIC_LINK_TTL_SECONDS,SESSION_TTL_SECONDS,userSessionCookieName,userSessionCookieOptions} from './identity';
+import {canonicalAuthUrl,googleSignInAllowed,MAGIC_LINK_TTL_SECONDS,SESSION_TTL_SECONDS,userSessionCookieName,userSessionCookieOptions} from './identity';
 import {safeAuthPath} from './redirect';
 
 // P1.1 does not auto-link Google to an existing magic-link user by email.
@@ -65,19 +65,38 @@ let cached:AuthExports|null=null;
 
 function instance():AuthExports|null {
   if(!authConfigured())return null;
+  const url=canonicalAuthUrl(process.env.AUTH_URL,process.env.VERCEL);
+  if(url)process.env.AUTH_URL=url;
+  else delete process.env.AUTH_URL;
   cached??=NextAuth(buildAuthConfig);
   return cached;
 }
 
 export const handlers={
-  GET:(request:Request)=>instance()?.handlers.GET(request as never)??Response.json({user:null}),
-  POST:(request:Request)=>instance()?.handlers.POST(request as never)??new Response(null,{status:503}),
+  GET:async(request:Request)=>{
+    try{
+      return await instance()?.handlers.GET(request as never)??Response.json({user:null});
+    }catch{
+      return Response.json({user:null});
+    }
+  },
+  POST:async(request:Request)=>{
+    try{
+      return await instance()?.handlers.POST(request as never)??new Response(null,{status:503});
+    }catch{
+      return new Response(null,{status:503});
+    }
+  },
 };
 
 export async function auth():Promise<Session|null> {
   const current=instance();
   if(!current)return null;
-  return (current.auth as ()=>Promise<Session|null>)();
+  try{
+    return await (current.auth as ()=>Promise<Session|null>)();
+  }catch{
+    return null;
+  }
 }
 
 export async function signIn(...args:Parameters<NonNullable<AuthExports['signIn']>>){
