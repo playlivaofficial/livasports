@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { DatabaseClient } from '@/database/client';
 import type { OddsProvider, OddsSnapshot } from '@/odds/types';
-import { M5_TOURNAMENTS, normalizeM5Snapshot } from './m5-normalizer';
+import { inspectM5OfferFlags, M5_TOURNAMENTS, normalizeM5Snapshot } from './m5-normalizer';
 import type { CatalogTournament } from './tournament-catalog';
 import { MAX_TOURNAMENTS_PER_ODDSPAPI_REQUEST } from './request-limits';
 import {reserveOddsRequest,verifiedAccountPeriod} from '@/odds/budget';
@@ -58,5 +58,10 @@ export class M5OddsPapiAdapter implements OddsProvider {
   async snapshot(bookmaker:string,tournamentIds:readonly string[]):Promise<OddsSnapshot>{
     const response=await this.request(bookmaker,tournamentIds);
     return normalizeM5Snapshot(response.data,bookmaker,response.observedAt,tournamentIds,this.catalogTournaments);
+  }
+  async inspectOfferFlags(bookmaker:string,tournamentIds:readonly string[]){
+    const response=await this.request(bookmaker,tournamentIds);
+    return {observedAt:response.observedAt,flags:inspectM5OfferFlags(response.data,bookmaker),
+      snapshot:normalizeM5Snapshot(response.data,bookmaker,response.observedAt,tournamentIds,this.catalogTournaments)};
   }
 }

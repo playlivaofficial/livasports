@@ -47,6 +47,40 @@ const rules: Record<string,{market:OddsMarket;name:string;type:string;line:numbe
   '104':{market:'BTTS',name:'Both Teams To Score',type:'bothteamsscore',line:null,outcomes:{'104':{name:'Yes',code:'YES'},'105':{name:'No',code:'NO'}}},
   '1010':{market:'TOTAL_GOALS',name:'Over Under Full Time',type:'totals',line:2.5,outcomes:{'1010':{name:'Over',code:'OVER'},'1011':{name:'Under',code:'UNDER'}}},
 };
+export function inspectM5OfferFlags(data:unknown,bookmaker:string){
+  const stats={fixtures:0,withBook:0,listedQuotes:0,bookmakerIsActiveTrue:0,bookmakerIsActiveFalse:0,bookmakerIsActiveMissing:0,
+    suspendedTrue:0,suspendedFalse:0,marketActiveTrue:0,marketActiveFalse:0,priceActiveTrue:0,priceActiveFalse:0,
+    currentLogicActive:0,listedWhileBookmakerInactive:0,listedWhileMarketInactive:0,listedIndependentOfBookActive:0};
+  if(!Array.isArray(data))return stats;
+  for(const value of data){
+    const r=obj(value);stats.fixtures++;
+    const oddsByBook=obj(r.bookmakerOdds);
+    const book=obj(oddsByBook[bookmaker]??{});
+    if(!Object.keys(book).length)continue;
+    stats.withBook++;
+    if(book.bookmakerIsActive===true)stats.bookmakerIsActiveTrue++;
+    else if(book.bookmakerIsActive===false)stats.bookmakerIsActiveFalse++;
+    else stats.bookmakerIsActiveMissing++;
+    if(book.suspended===true)stats.suspendedTrue++;else stats.suspendedFalse++;
+    for(const [id,rawMarket] of Object.entries(obj(book.markets))){
+      if(!(id in rules))continue;
+      const market=obj(rawMarket);
+      for(const outcome of Object.values(obj(market.outcomes))){
+        const price=obj(obj(obj(outcome).players)['0']);
+        const n=typeof price.price==='number'?price.price:NaN;
+        if(!Number.isFinite(n)||n<=1||n>1000)continue;
+        stats.listedQuotes++;
+        if(price.active===true)stats.priceActiveTrue++;else stats.priceActiveFalse++;
+        if(market.marketActive===true)stats.marketActiveTrue++;else stats.marketActiveFalse++;
+        if(book.bookmakerIsActive!==true)stats.listedWhileBookmakerInactive++;
+        else if(market.marketActive!==true)stats.listedWhileMarketInactive++;
+        else stats.currentLogicActive++;
+        if(market.marketActive===true)stats.listedIndependentOfBookActive++;
+      }
+    }
+  }
+  return stats;
+}
 export function inspectCatalogMarkets(markets:unknown[]):Array<{marketId:string;marketName:string;marketType:string;period:unknown;playerProp:unknown;handicap:unknown;supported:boolean}>{
   return markets.map(obj).filter(m=>m.sportId===10).map(m=>({
     marketId:String(m.marketId),marketName:String(m.marketName??''),marketType:String(m.marketType??''),
@@ -100,10 +134,10 @@ export function normalizeM5Snapshot(data:unknown,bookmaker:string,observedAt:str
         if(!Number.isFinite(n)||n<=1||n>1000){reject('INVALID_DECIMAL_ODDS');continue;}
         const updated=isoUtc(price.bookmakerChangedAt)??isoUtc(price.changedAt);
         const stampInvalid=!updated||Date.parse(updated)>Date.parse(observedAt)+60000;
-        // Listed decimals on a collected, active market stay current. OddsPapi's book.suspended /
-        // price.active flags currently wipe Betsson while independent prices continue to arrive.
+        // Listed decimals on a collected, active market stay current. OddsPapi currently marks every
+        // Betsson fixture bookmakerIsActive=false and suspended=true while still returning independent prices.
         const status:NormalizedOddsQuote['status']=fixture.status!=='PREGAME'||Date.parse(kickoff)<=Date.parse(observedAt)?'CLOSED':
-          book.bookmakerIsActive!==true||market.marketActive!==true?'SUSPENDED':stampInvalid?'STALE':'ACTIVE';
+          market.marketActive!==true?'SUSPENDED':stampInvalid?'STALE':'ACTIVE';
         if(stampInvalid)reject('MISSING_OR_FUTURE_TIMESTAMP');
         result.quotes.push({providerFixtureId:fixture.providerId,bookmaker:result.bookmaker,market:rule.market,outcome:outcome.code,line:rule.line,
           decimalOdds:String(n),status,scope:'FULL_TIME_REGULATION',phase:'PREGAME',providerUpdatedAt:updated,observedAt,sourceDomain:domain});

@@ -258,6 +258,21 @@ try {
     const matching=(await db.query('SELECT state,count(*) AS n FROM odds_mapping_reviews GROUP BY state')).rows;
     const report={at:new Date().toISOString(),...result.rows[0],coverage,matching};
     await writeFile('output/m5-verification-private.json',JSON.stringify(report,null,2));console.info(JSON.stringify(report));
+  } else if(command==='inspect-offer-flags'){
+    const slug=process.argv[3]??'';
+    const bookmaker=process.argv[4]==='betano.bet.br'?'betano.bet.br':'betsson';
+    const catalog=(await db.query("SELECT markets,tournaments FROM odds_provider_catalog WHERE provider='ODDSPAPI'")).rows[0];
+    if(!catalog)throw new Error('ODDS_CATALOG_NOT_VERIFIED');verifyCatalog(catalog.markets,catalog.tournaments);
+    const candidate=resolveCatalogTournaments(catalog.tournaments).find(row=>row.canonical===slug);
+    if(!candidate)throw new Error('ODDS_TOURNAMENT_UNVERIFIED');
+    job=await startOddsJob(db);
+    const mapped=schedulerTournaments(catalog.tournaments);
+    const provider=new M5OddsPapiAdapter(db,process.env.ODDSPAPI_API_KEY!,job,1,false,Date.now()+60000,mapped);
+    const inspected=await provider.inspectOfferFlags(bookmaker,[candidate.id]);
+    const statuses=inspected.snapshot.quotes.reduce((acc:Record<string,number>,quote)=>{acc[quote.status]=(acc[quote.status]??0)+1;return acc;},{} as Record<string,number>);
+    await endOddsJob(db,job,true);job=null;
+    console.info(JSON.stringify({providerRequests:provider.requestCount(),canonical:candidate.canonical,tournamentId:candidate.id,bookmaker,
+      observedAt:inspected.observedAt,flags:inspected.flags,normalized:{quotes:inspected.snapshot.quotes.length,statuses,rejected:inspected.snapshot.rejected}}));
   } else if(command==='inspect-markets'){
     const catalog=(await db.query("SELECT markets FROM odds_provider_catalog WHERE provider='ODDSPAPI'")).rows[0];
     if(!catalog)throw new Error('ODDS_CATALOG_NOT_VERIFIED');
