@@ -4,7 +4,7 @@ import {matchPath} from '@/localization/interface';
 import type {SlipComparison as Comparison} from '@/slip/comparison-types';
 import {bookmakerShortName,comparisonCopy,missingLegReason} from '@/slip/comparison-copy';
 import {formatSlipOdds} from '@/slip/decimal';
-import {oddsFreshnessCompact,selectionLabel,slipCopy,type SlipUiLocale} from '@/slip/localization';
+import {selectionLabel,slipCopy,type SlipUiLocale} from '@/slip/localization';
 import {selectionKey,type ResolvedSelection,type SavedSelection} from '@/slip/types';
 import {ApproximatePrice} from '@/components/odds/ApproximatePrice';
 
@@ -12,7 +12,7 @@ function fixtureTitle(fixture:ResolvedSelection['fixture'],fallback:string){
   return fixture?`${fixture.home} vs ${fixture.away}`:fallback;
 }
 
-export function SlipLegs({uiLocale,selections,resolvedByKey,comparison,checking,resolvedAt,now,onRemove,onNavigate}:{
+export function SlipLegs({uiLocale,selections,resolvedByKey,comparison,checking,onRemove,onNavigate}:{
   uiLocale:SlipUiLocale;selections:SavedSelection[];
   resolvedByKey:Map<string,ResolvedSelection>;comparison:Comparison|null;checking:boolean;
   resolvedAt:string|null;now:number;onRemove:(selection:SavedSelection,index:number)=>void;onNavigate?:()=>void;
@@ -30,7 +30,6 @@ export function SlipLegs({uiLocale,selections,resolvedByKey,comparison,checking,
         return {id:b.bookmakerId,name:bookmakerShortName(b.bookmakerId,b.displayName),available:quote?.decimalOdds!==null&&quote?.decimalOdds!==undefined,priceKind:quote?.priceKind??null,sourceName:quote?.sourceBookmakerName??null,quote};
       });
       const missing=quotes.filter(q=>q.quote&&!q.available);
-      const freshness=oddsFreshnessCompact(resolvedAt,now,uiLocale);
       let status:string;
       if(view?.state==='PRICE_CHANGED')status=text.legOddsChanged;
       else if(missing.length===1)status=text.unavailableAtBook(missing[0].name);
@@ -44,7 +43,7 @@ export function SlipLegs({uiLocale,selections,resolvedByKey,comparison,checking,
             <span aria-hidden="true">×</span>
           </button>
         </div>
-        <p className="slip-market">{text.markets[s.market]} — {selectionLabel(s,uiLocale,fixture)}</p>
+        <p className="slip-market"><span>{text.markets[s.market]}</span><strong>{selectionLabel(s,uiLocale,fixture)}</strong></p>
         <div className="slip-pick">
           {price?<strong className="slip-price"><ApproximatePrice value={price} label={approximateLabel}/></strong>:<span className="slip-no-price">{checking?text.checking:'—'}</span>}
         </div>
@@ -52,7 +51,6 @@ export function SlipLegs({uiLocale,selections,resolvedByKey,comparison,checking,
           <p className="slip-reprice"><ApproximatePrice value={formatSlipOdds(view.previousDecimalOdds,uiLocale)!} label={approximateLabel}/> → <ApproximatePrice value={price} label={approximateLabel}/></p>:null}
         <div className={`slip-state${view?.state==='CURRENT'&&!missing.length?' is-current':''}${missing.length?' is-partial':''}`}>
           <span>{missing.length||(view&&view.state!=='CURRENT')?'! ':view?.state==='CURRENT'?'✓ ':''}{status}</span>
-          {view?.state==='CURRENT'&&!missing.length&&freshness?<small>{freshness}</small>:null}
         </div>
         {quotes.length?<p className="slip-leg-books">{quotes.map(q=>
           <span key={q.id} data-bookmaker={q.id} data-available={q.available} data-price-kind={q.priceKind??'NONE'} title={q.priceKind==='PROXY'&&q.sourceName?`${q.name}: ${comparisonCopy[uiLocale].proxyBasedOn(bookmakerShortName('',q.sourceName))}`:undefined}>{q.name} {q.available?'✓':'—'}</span>

@@ -11,7 +11,7 @@ function PublisherEmbed({offer,onFailure}:{offer:PublicOffer;onFailure:()=>void}
   useEffect(()=>{
     const el=box.current;if(!el)return;
     const denied=()=>privacyOptOut()||offer.embedPermission==='consent'&&!/(?:^|;\s*)livasports_analytics_consent=granted(?:;|$)/.test(document.cookie);
-    const size=new ResizeObserver(()=>{const width=el.getBoundingClientRect().width;if(width>0)setScale(Math.min(1,width/c.width));});size.observe(el);
+    const size=new ResizeObserver(()=>{const width=el.getBoundingClientRect().width;if(width>0)setScale(width/c.width);});size.observe(el);
     const near=new IntersectionObserver(entries=>{if(denied()){onFailure();return;}if(entries.some(e=>e.isIntersecting)&&document.visibilityState==='visible')setLoad(true);},{rootMargin:'160px'});near.observe(el);
     const visibility=()=>{if(denied())onFailure();};document.addEventListener('visibilitychange',visibility);window.addEventListener('livasports:privacy-change',visibility);
     const message=(event:MessageEvent)=>{

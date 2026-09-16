@@ -4,6 +4,7 @@ import {interfaceDictionary as getDictionary,interfaceRoutes as localeRoutes,typ
 import {LanguageSelector} from '@/localization/LanguageSelector';
 import {sportsCopy} from '@/sports/copy';
 import {TimeZoneSelector} from '@/localization/TimeZoneSelector';
+import {ThemeToggle} from './ThemeToggle';
 
 export function SiteHeader({ locale, activePage, contentId = 'fixtures-content' }: { locale: SiteLocale; activePage: PageKey; localeHrefs?: { br: string; mx: string }; contentId?: string }) {
   const dictionary = getDictionary(locale);
@@ -24,7 +25,7 @@ export function SiteHeader({ locale, activePage, contentId = 'fixtures-content' 
           {items.map(([key, href, label]) => <Link key={key} href={href} aria-current={activePage === key ? 'page' : undefined} className={`nav-link nav-${key}`}>{key==='live'?<span className="nav-live-dot" aria-hidden="true"/>:null}{label}</Link>)}
         </nav>
         <div className="sports-header-actions"><Link className="sports-search-link" href={`${routes.football}#sports-search`} aria-label={sportsCopy[locale].search}>{sportsCopy[locale].search}</Link>
-        <TimeZoneSelector locale={locale}/><LanguageSelector locale={locale}/></div>
+        <TimeZoneSelector locale={locale}/><ThemeToggle locale={locale}/><LanguageSelector locale={locale}/></div>
       </div>
     </header>
   );

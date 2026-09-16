@@ -7,7 +7,7 @@ import type { FixtureView } from '@/delivery/types';
 import { MarketCode, OutcomeCode } from '@/domain/enums';
 import { addSlipSelection, useSlip } from '@/slip/client';
 import { canonicalSelection, selectionKey, SLIP_SCOPE } from '@/slip/types';
-import { oddsFreshnessCompact, oddsFreshnessLabel, selectionLabel, slipCopy, type SlipUiLocale } from '@/slip/localization';
+import { selectionLabel, slipCopy, type SlipUiLocale } from '@/slip/localization';
 import { ApproximatePrice } from '@/components/odds/ApproximatePrice';
 
 const MATCH_WINNER_CELLS = [
@@ -70,13 +70,10 @@ export function OddsComparison({ locale, fixture, emptyLabel, commercialLocale =
     return <div className="odds-slot"><span className="odds-empty" title={unavailableLabel} aria-label={unavailableLabel}>—</span></div>;
   }
   const summary = books.map(book => `${book.label} ${book.cells.map(cell => cell.price === null ? '—' : cell.price.decimalOdds.toFixed(2)).join(' / ')}`).join(' · ');
-  const observed = books.flatMap(book => book.cells.map(cell => cell.price?.observedAt)).filter((v): v is string => !!v).sort().at(-1) ?? null;
-  const freshness = clock ? oddsFreshnessLabel(observed, clock, uiLocale) : null;
-  const compactFreshness = clock ? oddsFreshnessCompact(observed, clock, uiLocale) : null;
   const approximateLabel = locale==='br'?'preço aproximado':locale==='mx'?'cuota aproximada':'approximate price';
   const proxySource = (name:string) => locale==='br'?`Fonte estimada: ${name}`:locale==='mx'?`Fuente estimada: ${name}`:`Estimated source: ${name}`;
   const selectable = /^[0-9a-f]{16}$/.test(fixture.publicId ?? '');
-  return <div className="odds-slot" aria-label={`${labels.odds}: ${summary}${freshness ? `. ${freshness}. ${slipText.oddsMayChange}` : ''}`}>
+  return <div className="odds-slot" aria-label={`${labels.odds}: ${summary}. ${slipText.oddsMayChange}`}>
     <div className="listing-odds-books">
       {books.map(book => (
         <div className="listing-odds-book" key={book.bookmaker}>
@@ -107,6 +104,5 @@ export function OddsComparison({ locale, fixture, emptyLabel, commercialLocale =
         </div>
       ))}
     </div>
-    {compactFreshness && observed ? <p className="listing-odds-fresh"><time dateTime={observed} title={`${freshness}. ${slipText.oddsMayChange}`}>{compactFreshness}</time></p> : null}
   </div>;
 }

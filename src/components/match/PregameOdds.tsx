@@ -54,7 +54,6 @@ export function PregameOdds({initial,context,fixturePublicId,uiLocale}:{initial:
   const allClosed=selected?.rows.length&&selected.rows.every(r=>r.cells.every(c=>c.state==='CLOSED'||c.state==='UNAVAILABLE'));
   const pastKickoff=clock!==null&&selected?.closesAt&&clock>=Date.parse(selected.closesAt);
   const unavailable=allClosed||pastKickoff?text.closed:anyExpired?text.stale:selected?.rows.some(r=>r.cells.some(c=>c.state==='SUSPENDED'))?text.suspended:text.empty;
-  const date=(value:string)=>new Intl.DateTimeFormat(presentation==='en'?'en-GB':presentation==='br'?'pt-BR':'es-MX',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',timeZone:presentation==='en'?'UTC':presentation==='br'?'America/Sao_Paulo':'America/Mexico_City'}).format(new Date(value));
   const approximateLabel=presentation==='br'?'preço aproximado':presentation==='mx'?'cuota aproximada':'approximate price';
   const proxySource=(name:string)=>presentation==='br'?`Fonte estimada: ${name}`:presentation==='mx'?`Fuente estimada: ${name}`:`Estimated source: ${name}`;
   function select(next:OddsMarket){selectedMarket.current=next;setMarket(next);if(!sent.current.has(next)){sent.current.add(next);emitMatchEvent('odds_market_view',context,'match_odds',{market:next});}}
@@ -79,8 +78,7 @@ export function PregameOdds({initial,context,fixturePublicId,uiLocale}:{initial:
             <span className={`pregame-price${best?' is-best':''}${!current?' is-unavailable':''}`} data-price-kind={cell.priceKind??'UNAVAILABLE'} title={sourceTitle??(best?text.best:!current?unavailable:undefined)}>{current?<ApproximatePrice value={priceLabel} label={`${approximateLabel}${sourceTitle?`, ${sourceTitle}`:''}`}/>:priceLabel}{best?<span className="sr-only"> {text.best}</span>:null}</span>}</td>;})}
           <td>{row.action&&row.cells.some(cellCurrent)&&fixturePublicId?<AffiliateLink compact className="match-affiliate-cta" uiLocale={presentation} onAvailability={onAvailability} context={{locale:commercialLocale,placement:'match_odds_table',bookmaker:row.bookmaker as 'betsson'|'betano.bet.br',fixturePublicId,market}}/>:<span className="odds-no-action">—</span>}</td></tr>)}</tbody></table>:null}
       {!available?<p className="pregame-empty" role="status">{unavailable}</p>:available===1?<p className="odds-note">{text.single}</p>:null}
-      {selected?.observedAt?<p className="odds-freshness">{text.observed} <time dateTime={selected.observedAt}>{date(selected.observedAt)}</time>{selected.providerUpdatedAt?<span> · {text.changed}: {date(selected.providerUpdatedAt)}</span>:null}</p>:null}
-      <p className="odds-freshness">{slipText.oddsMayChange}</p>
+      <p className="odds-note">{slipText.oddsMayChange}</p>
     </div>
     {Object.values(commercial).some(Boolean)?<p className="affiliate-disclosure">{commercialCopy[presentation].destination} {commercialCopy[presentation].disclosure}</p>:null}
     <p className="affiliate-disclosure">{text.responsible}</p>

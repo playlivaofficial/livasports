@@ -23,7 +23,7 @@ describe('My Slip selected-leg list',()=>{
     const comparison=buildSlipComparison(f.selections,'br',f.data.fixtures,f.data.bookmakers,f.now);
     const html=renderToStaticMarkup(<SlipLegs uiLocale="en" selections={selections} resolvedByKey={resolved(f,selections)} comparison={comparison} checking={false} resolvedAt={new Date(f.now).toISOString()} now={f.now} onRemove={()=>{}}/>);
     expect(html).toContain('Flamengo vs Palmeiras');expect(html).toContain('Real Madrid vs Barcelona');expect(html).toContain('Club América vs Tigres UANL');
-    expect(html).toContain('Full-time result — Flamengo');expect(html).toContain('Total goals · 2.5 — Over 2.5');expect(html).toContain('Both teams to score — Yes');
+    expect(html).toContain('<span>Full-time result</span><strong>Flamengo</strong>');expect(html).toContain('<span>Total goals · 2.5</span><strong>Over 2.5</strong>');expect(html).toContain('<span>Both teams to score</span><strong>Yes</strong>');
     expect(html.match(/class="slip-remove"/g)?.length).toBe(3);
     expect(html.match(/class="slip-item"/g)?.length).toBe(3);
     expect(html).toContain('Betano ✓');expect(html).toContain('Betsson ✓');
@@ -41,7 +41,7 @@ describe('My Slip selected-leg list',()=>{
     const next:SavedSelection={fixturePublicId:original.fixturePublicId,scope:original.scope,market:'MATCH_WINNER',outcome:'DRAW',line:null,addedAt:original.addedAt};
     const html=renderToStaticMarkup(<SlipLegs uiLocale="en" selections={[next]} resolvedByKey={resolved(f,[next])} comparison={null} checking={false} resolvedAt={null} now={f.now} onRemove={()=>{}}/>);
     expect(html.match(/class="slip-item"/g)?.length).toBe(1);
-    expect(html).toContain('Full-time result — Draw');expect(html).not.toContain('Full-time result — Flamengo');
+    expect(html).toContain('<span>Full-time result</span><strong>Draw</strong>');expect(html).not.toContain('<strong>Flamengo</strong>');
   });
   it('marks the exact proxied Betano leg without a closed-market lie',()=>{
     const f=comparisonFixture();f.data.fixtures.get(f.selections[1].fixturePublicId)!.snapshot.quotes.pop();

@@ -30,7 +30,6 @@ function SlipDrawer({locale,uiLocale,selections,stake,slipId,pending,onPending,o
   useEffect(()=>{const observer=new ResizeObserver(()=>{if(panel.current)document.body.style.setProperty('--slip-panel-height',`${panel.current.getBoundingClientRect().height}px`);});
     if(panel.current)observer.observe(panel.current);return()=>{observer.disconnect();document.body.style.removeProperty('--slip-panel-height');};
   },[]);
-  const date=(value:string)=>new Intl.DateTimeFormat(uiLocale==='br'?'pt-BR':uiLocale==='mx'?'es-MX':'en-GB',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',timeZone:uiLocale==='br'?'America/Sao_Paulo':uiLocale==='mx'?'America/Mexico_City':'UTC'}).format(new Date(value));
   function remove(s:SavedSelection,index:number){
     const result=slipStore.dispatch({type:'remove',key:selectionKey(s)});
     if(result.result==='REMOVED')emitSlipEvent('slip_selection_remove',locale,s);
@@ -76,7 +75,7 @@ function SlipDrawer({locale,uiLocale,selections,stake,slipId,pending,onPending,o
           if(target&&body){target.focus({preventScroll:true});body.scrollTo({top:body.scrollTop+target.getBoundingClientRect().top-body.getBoundingClientRect().top-8,behavior:'instant'});}}}>{comparisonCopy[uiLocale].jump}</button>
         {!online||failed?<p className="slip-notice">{!online?text.offline:text.retry}</p>:null}
         <SlipComparison locale={locale} uiLocale={uiLocale} selections={selections} value={comparison} checking={checking} stake={stake} slipId={slipId}/>
-        {resolvedAt?<p className="slip-verified">{text.updated}: <time dateTime={resolvedAt}>{date(resolvedAt)}</time><br/>{currentCount}/{selections.length} {text.currentCount}</p>:null}
+        {resolvedAt?<p className="slip-verified">{currentCount}/{selections.length} {text.currentCount}</p>:null}
         <button type="button" className="slip-share" disabled={sharing||!selections.length} onClick={async()=>{setSharing(true);await shareSlipImage(slipSharePayload({locale:uiLocale,slipId:slipId||'local',stake,generatedAt:resolvedAt??new Date().toISOString(),selections,resolved,comparison}));setSharing(false);}}>{text.share}</button>
         <p className="slip-comparison-note">{text.shareHint}</p>
       </>}
