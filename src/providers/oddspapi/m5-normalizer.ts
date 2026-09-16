@@ -100,8 +100,10 @@ export function normalizeM5Snapshot(data:unknown,bookmaker:string,observedAt:str
         if(!Number.isFinite(n)||n<=1||n>1000){reject('INVALID_DECIMAL_ODDS');continue;}
         const updated=isoUtc(price.bookmakerChangedAt)??isoUtc(price.changedAt);
         const stampInvalid=!updated||Date.parse(updated)>Date.parse(observedAt)+60000;
+        // Listed decimals on a collected, active market stay current. OddsPapi's book.suspended /
+        // price.active flags currently wipe Betsson while independent prices continue to arrive.
         const status:NormalizedOddsQuote['status']=fixture.status!=='PREGAME'||Date.parse(kickoff)<=Date.parse(observedAt)?'CLOSED':
-          book.bookmakerIsActive!==true||book.suspended!==false||market.marketActive!==true||price.active!==true?'SUSPENDED':stampInvalid?'STALE':'ACTIVE';
+          book.bookmakerIsActive!==true||market.marketActive!==true?'SUSPENDED':stampInvalid?'STALE':'ACTIVE';
         if(stampInvalid)reject('MISSING_OR_FUTURE_TIMESTAMP');
         result.quotes.push({providerFixtureId:fixture.providerId,bookmaker:result.bookmaker,market:rule.market,outcome:outcome.code,line:rule.line,
           decimalOdds:String(n),status,scope:'FULL_TIME_REGULATION',phase:'PREGAME',providerUpdatedAt:updated,observedAt,sourceDomain:domain});

@@ -199,6 +199,7 @@ try {
       },
       windows:fixtures.windows,competitions:fixtures.competitions.length,
       competitionSummaries:fixtures.competitions,
+      bookmakerHealth:report.bookmakerHealth,
       ligaMxUnmapped:report.ligaMxGap.length,
       ligaMxSnapshotAt:report.ligaMxSnapshotAt,
       serieBUnmapped:report.serieBGap.length,

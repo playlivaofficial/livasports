@@ -22,10 +22,18 @@ describe('strict audited OddsPapi markets',()=>{
     const f=structuredClone(fixture);f.bookmakerOdds['betano.bet.br'].markets['101'].outcomes['101'].players['0'].price=value;
     expect(normalize([f]).quotes).toHaveLength(0);
   });
-  it('does not invent missing timestamps or treat suspended prices as executable',()=>{
+  it('does not invent missing timestamps or treat a collected-inactive market as executable',()=>{
     const f=structuredClone(fixture);f.bookmakerOdds['betano.bet.br'].markets['101'].outcomes['101'].players['0'].changedAt='';
     expect(normalize([f]).quotes[0].providerUpdatedAt).toBe(null);expect(normalize([f]).quotes[0].status).toBe('STALE');
-    f.bookmakerOdds['betano.bet.br'].suspended=true;expect(normalize([f]).quotes[0].status).toBe('SUSPENDED');
+    const inactive=structuredClone(fixture);inactive.bookmakerOdds['betano.bet.br'].bookmakerIsActive=false;
+    expect(normalize([inactive]).quotes[0].status).toBe('SUSPENDED');
+    const deadMarket=structuredClone(fixture);deadMarket.bookmakerOdds['betano.bet.br'].markets['101'].marketActive=false;
+    expect(normalize([deadMarket]).quotes[0].status).toBe('SUSPENDED');
+  });
+  it('keeps listed Betsson prices current when OddsPapi marks the fixture suspended but still collects an active market',()=>{
+    const f={...structuredClone(fixture),bookmakerOdds:{betsson:{bookmakerIsActive:true,suspended:true,fixturePath:'https://www.betsson.com/fixture',markets:{'101':{marketActive:true,outcomes:{'101':{players:{'0':{...price,active:false}}}}}}}}};
+    const snapshot=normalizeM5Snapshot([f],'betsson',at,['325']);
+    expect(snapshot.quotes[0]).toMatchObject({bookmaker:'betsson',decimalOdds:'2.12345678',status:'ACTIVE'});
   });
   it('cannot ingest basketball/live as active pregame',()=>{
     expect(normalize([{...fixture,sportId:11}]).quotes).toHaveLength(0);

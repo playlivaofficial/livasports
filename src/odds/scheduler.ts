@@ -5,6 +5,7 @@ import {schedulerTournaments,isStableOddsTournament,type CatalogTournament} from
 import {canonicalFixtures,persistSnapshot,startOddsJob} from './ingestion';
 import {budgetHealth,OddsBudgetStopped,reconcileAccountPeriod} from './budget';
 import {LIVE_ODDS_CAPABILITY} from './live-capability';
+import {readBookmakerCoverageHealth} from './bookmaker-coverage-health';
 import {isProviderFixtureAbsent} from './canary';
 import {planScheduler,SCHEDULER_BOOKMAKERS,type RefreshTarget} from './scheduler-policy';
 import type {OddsSnapshot} from './types';
@@ -117,9 +118,10 @@ export async function runOddsScheduler(db:DatabaseClient,key:string,trigger:'CON
   return result;
 }
 export async function schedulerHealth(db:DatabaseClient,automationConfigured=false){
-  const [budget,status,lease,feeds]=await Promise.all([budgetHealth(db),db.query('SELECT * FROM odds_scheduler_health WHERE id=true'),
+  const [budget,status,lease,feeds,bookmakerHealth]=await Promise.all([budgetHealth(db),db.query('SELECT * FROM odds_scheduler_health WHERE id=true'),
     db.query("SELECT status,heartbeat_at,lease_expires_at,provider_requests FROM odds_sync_jobs WHERE status='RUNNING' ORDER BY started_at DESC LIMIT 1"),
-    db.query('SELECT bookmaker,tournament_id,last_success_at,retry_after,consecutive_failures,last_error FROM odds_refresh_targets ORDER BY bookmaker,tournament_id')]);
+    db.query('SELECT bookmaker,tournament_id,last_success_at,retry_after,consecutive_failures,last_error FROM odds_refresh_targets ORDER BY bookmaker,tournament_id'),
+    readBookmakerCoverageHealth(db)]);
   const row=status.rows[0];
   const healthyAutomatic=automationConfigured&&row?.last_automatic_invocation_at&&Date.now()-row.last_automatic_invocation_at.getTime()<10*60000
     &&!['FAILED','BUDGET_STOPPED'].includes(row.state);
@@ -129,5 +131,5 @@ export async function schedulerHealth(db:DatabaseClient,automationConfigured=fal
     nextExpectedRun:automationConfigured?row?.next_due_at??null:null,
     nextPolicyDueAt:row?.next_due_at??null,fixturesConsidered:row?.fixtures_considered??0,feedsRefreshed:row?.feeds_refreshed??[],
     lastError:row?.last_error??null,activeLease:lease.rows[0]??null,feedStatus:feeds.rows,budget,providerRequests:0,
-    liveOdds:LIVE_ODDS_CAPABILITY};
+    liveOdds:LIVE_ODDS_CAPABILITY,bookmakerHealth};
 }

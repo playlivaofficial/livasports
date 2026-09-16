@@ -6,6 +6,7 @@ import {M5_REJECTED_TOURNAMENTS,M5_TOURNAMENTS} from '@/providers/oddspapi/m5-no
 import {resolveCatalogTournaments, schedulerTournaments} from '@/providers/oddspapi/tournament-catalog';
 import {budgetHealth} from './budget';
 import {LIVE_ODDS_CAPABILITY} from './live-capability';
+import {readBookmakerCoverageHealth} from './bookmaker-coverage-health';
 
 export function coverageGapCode(reason:string,context:{tournamentActive?:boolean;hasQuote?:boolean;stale?:boolean;readModelDropped?:boolean}={}):string {
   if(context.readModelDropped)return 'QUOTE_DROPPED_BY_READ_MODEL';
@@ -154,6 +155,7 @@ export async function buildCoverageMatrix(db: QueryExecutor) {
   const byCanonical = new Map(resolved.map(row => [row.canonical, row]));
   const scheduledIds = new Set(scheduled.map(row => row.id));
   const stableIds = new Set<string>(M5_TOURNAMENTS.map(row => row.id));
+  const bookmakerHealth = await readBookmakerCoverageHealth(db);
   const ligaMxProvider = ligaMxSnapshots.rows.flatMap(row => (row.payload as OddsSnapshot).fixtures ?? []);
   const serieBProvider = serieBSnapshots.rows.flatMap(row => (row.payload as OddsSnapshot).fixtures ?? []);
   const rows = competitions.rows.map(row => {
@@ -211,5 +213,6 @@ export async function buildCoverageMatrix(db: QueryExecutor) {
     ligaMxSnapshotAt: ligaMxSnapshots.rows.map(row => ({bookmaker: row.bookmaker, observedAt: row.observed_at})),
     serieBGap: gapFromRows('brasileirao-serie-b', serieB.rows, serieBProvider),
     serieBSnapshotAt: serieBSnapshots.rows.map(row => ({bookmaker: row.bookmaker, observedAt: row.observed_at})),
+    bookmakerHealth,
   };
 }
