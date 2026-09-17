@@ -23,7 +23,10 @@ import {FavoriteButton} from '@/favorites/FavoriteButton';
 export async function CompetitionPanel({hub,locale,tab}:{hub:CompetitionHub;locale:InterfaceLocale;tab:CompetitionTab}){
   const timeZone=await requestTimeZone(locale);
   const t=sportsCopy[locale],dictionary=interfaceDictionary(locale);
-  const href=(next:CompetitionTab,page=1)=>competitionPath(locale,hub.slug,{tab:next,season:hub.season?.id,page});
+  // Internal links use the canonical form: the default season carries no ?season parameter (P2 policy).
+  const canonicalSeason=hub.season&&hub.season.id!==hub.defaultSeasonId?hub.season.id:undefined;
+  const href=(next:CompetitionTab,page=1)=>competitionPath(locale,hub.slug,{tab:next,season:canonicalSeason,page});
+  const seasonLinks=hub.seasons.filter(s=>s.fixtures>0).slice(0,6);
   const teamLink=(team:CompetitionHub['teams'][number]|null)=>team?<Link prefetch={false} className="sports-team-link" href={teamPath(locale,team.publicId,team.name)}><TeamMark initials={team.name.slice(0,2)} imageUrl={team.imageUrl}/><span>{team.name}</span></Link>:<span className="sports-data-note">{unlinkedTeamLabel(locale)}</span>;
   const pages=Math.max(1,Math.ceil((tab==='results'?hub.counts.results:Math.max(hub.counts.upcoming,hub.pendingTotal))/hub.pageSize));
   const groups=new Map<string,{label:string;rows:CompetitionHub['standings']}>();
@@ -50,6 +53,7 @@ export async function CompetitionPanel({hub,locale,tab}:{hub:CompetitionHub;loca
       <input type="hidden" name="competition" value={hub.slug}/><input type="hidden" name="tab" value={tab}/>
       <label htmlFor="competition-season">{t.season}</label><select id="competition-season" name="season" defaultValue={hub.season?.id??''} disabled={!hub.seasons.length}>{!hub.season?<option value="">{t.noSeason}</option>:null}{hub.seasons.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select><button type="submit" disabled={!hub.seasons.length}>{t.apply}</button>
     </form>
+    {seasonLinks.length>1?<nav className="sports-profile-contexts" aria-label={t.allSeasons}>{seasonLinks.map(s=><Link prefetch={false} key={s.id} href={competitionPath(locale,hub.slug,{tab,season:s.id===hub.defaultSeasonId?undefined:s.id})} aria-current={s.id===hub.season?.id?'page':undefined}>{s.name}</Link>)}</nav>:null}
     {hub.seasonFallback&&hub.season?<p className="sports-data-note" role="status">{locale==='br'?`Exibindo ${hub.season.name}. A fonte ainda não informa dados para ${hub.seasonFallback.name}.`:locale==='mx'?`Mostrando ${hub.season.name}. La fuente aún no informa datos para ${hub.seasonFallback.name}.`:`Showing ${hub.season.name}. The source has not yet published data for ${hub.seasonFallback.name}.`} <Link prefetch={false} href={competitionPath(locale,hub.slug,{season:hub.seasonFallback.id,tab})}>{t.season} {hub.seasonFallback.name} →</Link></p>:null}
     <nav className="sports-section-tabs" aria-label={t.competition}>{competitionTabs.map(key=><Link prefetch={false} key={key} href={href(key)} data-competition-tab={key} aria-current={tab===key?'page':undefined}>{t[key]}</Link>)}</nav>
     {!hub.season?<p className="sports-empty">{t.noSeason}</p>:<>

@@ -15,7 +15,7 @@ vi.mock('@/localization/time-zone-server',()=>({requestTimeZone:async()=> 'UTC'}
 
 function hub(status:string):CompetitionHub {
   const season={id:'season',name:'2026/2027',current:true,fixtures:0};
-  return {id:'competition',slug:'europa-league',name:'UEFA Europa League',country:null,countryCode:null,region:'EUROPE',type:'CUP',coverage:'SUPPORTED',season,seasons:[season],seasonFallback:null,upcoming:[],results:[],standings:[],scorers:[],teams:[],counts:{upcoming:0,results:0},page:1,pageSize:30,providerRequests:0,availability:{SCORERS:{status,checkedAt:null}},pending:[],pendingTotal:0};
+  return {id:'competition',slug:'europa-league',name:'UEFA Europa League',country:null,countryCode:null,region:'EUROPE',type:'CUP',coverage:'SUPPORTED',season,seasons:[season],defaultSeasonId:season.id,seasonFallback:null,upcoming:[],results:[],standings:[],scorers:[],teams:[],counts:{upcoming:0,results:0},page:1,pageSize:30,providerRequests:0,availability:{SCORERS:{status,checkedAt:null}},pending:[],pendingTotal:0};
 }
 
 describe('competition source availability notices',()=>{
@@ -44,7 +44,10 @@ describe('competition source availability notices',()=>{
     expect(html).toContain('tab=standings');
     expect(html).toContain('tab=teams');
     expect(html).toContain('tab=scorers');
-    expect(html).toContain('season=season');
+    // P2 canonical links: the default season carries no ?season; a historical season keeps it on every tab link.
+    expect(html).not.toContain('season=season');
+    const historical=renderToStaticMarkup(await CompetitionPanel({hub:{...data,defaultSeasonId:'other-season'},locale:'en',tab:'fixtures'}));
+    expect(historical).toContain('tab=standings&amp;season=season');
     expect(html).toContain('/en/football?competition=europa-league');
   });
 });

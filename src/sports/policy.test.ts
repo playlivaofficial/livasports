@@ -1,7 +1,6 @@
 import {describe,it,expect} from 'vitest';
 import {competitionPath,competitionTab,sportsPage,sportsSeason,sportsQuery,numericStatistic,sportStage,sportGroup,competitionName,pendingParticipant} from './policy';
 import {localizedCountry} from '@/profiles/localization';
-import {footballMetadata} from './metadata';
 import {FOOTBALL_COMPETITION_TARGETS} from '@/config/footballCompetitions';
 import {translatedPath} from '@/localization/interface';
 describe('sports navigation boundaries',()=>{
@@ -70,20 +69,5 @@ describe('sports navigation boundaries',()=>{
     expect(pendingParticipant('mx','Winner Match 29')).toBe('Ganador · partido 29');
     expect(sportStage('br','1st Round Qualifying Replays')).toBe('1ª fase classificatória · desempates');
     expect(localizedCountry('br','Norway')).toBe('Noruega');expect(localizedCountry('mx','Sweden')).toBe('Suecia');
-  });
-  it('provides reciprocal competition SEO and excludes search results from indexing',async()=>{
-    const metadata=await footballMetadata('br',Promise.resolve({competition:'premier-league',tab:'standings'}));
-    expect(metadata.alternates?.canonical).toBe('/br/futebol?competition=premier-league');
-    expect(metadata.alternates?.languages?.['x-default']).toBe('/en/football?competition=premier-league');
-    expect((await footballMetadata('en',Promise.resolve({q:'Arsenal'}))).robots).toEqual({index:false,follow:true});
-  });
-  it('keeps historical canonical and language context across competition tabs',async()=>{
-    const season='01234567-89ab-cdef-0123-456789abcdef';
-    for(const locale of ['br','mx','en'] as const)for(const tab of ['results','standings','scorers']){
-      const metadata=await footballMetadata(locale,Promise.resolve({competition:'champions-league',season,tab}));
-      expect(metadata.alternates?.canonical).toBe(competitionPath(locale,'champions-league',{season}));
-      expect(metadata.alternates?.languages?.['x-default']).toBe(competitionPath('en','champions-league',{season}));
-      expect(metadata.title).toContain(competitionName(locale,'champions-league'));
-    }
   });
 });

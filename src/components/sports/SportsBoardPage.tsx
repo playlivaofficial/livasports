@@ -25,6 +25,9 @@ import {CompetitionNav} from './CompetitionNav';
 import {competitionMark} from '@/sports/country-mark';
 import {CountryMarkIcon} from './CountryMarkIcon';
 import {FavoriteButton} from '@/favorites/FavoriteButton';
+import {notFound} from 'next/navigation';
+import {JsonLd} from '@/seo/json-ld';
+import {competitionHubSchema,siteSchema} from '@/seo/structured-data';
 
 const copy={
   br:{all:'Todos',live:'Ao vivo',upcoming:'Próximos',results:'Resultados',today:'Hoje',calendar:'Data dos jogos',go:'Ver',previous:'Dia anterior',next:'Dia seguinte',period:'Próximos 7 dias',competitions:'Competições',allCompetitions:'Todas as competições',empty:'Nenhum jogo neste filtro.',other:'Ver próximos jogos',odds:'Odds 1 X 2',pending:'Aguardando placar',fresh:'Últimos placares salvos',delayed:'Atualizações atrasadas',unavailable:'Atualizações indisponíveis',matches:'jogos',intro:'Placares, próximos jogos e comparação de odds — monte seu bilhete em um só lugar.'},
@@ -41,6 +44,8 @@ export async function SportsBoardPage({locale,page,searchParams}:{locale:Interfa
   const view=page==='live'?'live':boardView(query.view,page==='home'?'upcoming':'all');
   const base=interfaceRoutes[locale][page];
   const requestedCompetition=typeof query.competition==='string'&&FOOTBALL_COMPETITION_TARGETS.some(t=>t.slug===query.competition)?query.competition:undefined;
+  // A competition slug outside the registry is not a filter to ignore: it is an unknown entity (real 404, no soft-404 listing).
+  if(page==='football'&&typeof query.competition==='string'&&query.competition!==''&&!requestedCompetition)notFound();
   const tab=competitionTab(query.tab),season=sportsSeason(query.season);
   const hub=page==='football'&&requestedCompetition?await loadCompetition(requestedCompetition,locale,season,sportsPage(query.p)).catch(()=>null):null;
   const showListing=!hub;
@@ -68,6 +73,7 @@ export async function SportsBoardPage({locale,page,searchParams}:{locale:Interfa
   const sponsors=locale!=='en'||commercial==='br';
   const sponsor=(placement:'home_top_banner'|'mobile_inline'|'home_right_rail')=>sponsors?<SponsoredSlot copyLocale={locale} context={{locale:sponsorLocale,pagePath:sponsorPath,placement}}/>:null;
   return <div lang={dictionary.locale} className={`app-shell sports-board ${locale==='en'?'english-sports':''}`}>
+    {page==='home'?<JsonLd data={siteSchema(locale)}/>:hub?<JsonLd data={competitionHubSchema(locale,hub,tab)}/>:null}
     <SiteHeader locale={locale} activePage={page}/>
     <BoardRefresh live={allFixtures.some(f=>f.status==='LIVE'||f.status==='HALFTIME')}/>
     <main id="fixtures-content" className="page-container" data-board-view={view} data-time-zone={timeZone}>

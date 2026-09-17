@@ -1,7 +1,8 @@
 import {currentUser} from '@/auth/session';
 import {SiteHeader} from '@/components/sports/SiteHeader';
 import {favoritesCopy,favoritesPath} from '@/localization/favorites-copy';
-import {languageAlternates,languageTags,type InterfaceLocale} from '@/localization/interface';
+import {languageTags,type InterfaceLocale} from '@/localization/interface';
+import {noindexRobots} from '@/seo/policy';
 import {favoritesRepository} from './database';
 import type {MyMatchRow} from './feed';
 import {MyMatchesClient} from './MyMatchesClient';
@@ -9,7 +10,8 @@ import {MyMatchesClient} from './MyMatchesClient';
 export function myMatchesMetadata(locale:InterfaceLocale){
   const text=favoritesCopy[locale];
   const path=favoritesPath(locale);
-  return {title:text.title,description:text.lead,alternates:{canonical:path,languages:languageAlternates(favoritesPath('br'),favoritesPath('mx'),favoritesPath('en'))}};
+  // Personalised feed: never indexed, never in a sitemap, no hreflang cluster. Access to favourites stays behind authentication/local storage.
+  return {title:text.title,description:text.lead,robots:noindexRobots,alternates:{canonical:path}};
 }
 
 export async function MyMatchesPage({locale}:{locale:InterfaceLocale}){

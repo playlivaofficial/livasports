@@ -1,0 +1,81 @@
+import type {InterfaceLocale} from './interface';
+import type {HelpKind} from './help-routes';
+/** P2 evergreen help. Describes implemented product behaviour only; no predictions, licences, experts or prices. */
+export type HelpArticle={title:string;intro:string;sections:{title:string;body:string}[];related:HelpKind[]};
+export const helpReviewedAt='2026-09-17';
+export const helpCopy={
+  br:{eyebrow:'Ajuda',navigation:'Ajuda LivaSports',reviewed:'Atualizado em',related:'Veja também',football:'Ver partidas'},
+  mx:{eyebrow:'Ayuda',navigation:'Ayuda LivaSports',reviewed:'Actualizado el',related:'Ver también',football:'Ver partidos'},
+  en:{eyebrow:'Help',navigation:'LivaSports help',reviewed:'Updated',related:'See also',football:'Browse matches'},
+} as const;
+export const helpContent:Record<InterfaceLocale,Record<HelpKind,HelpArticle>>={
+ br:{
+  comparison:{title:'Como funciona a comparação de odds da LivaSports',intro:'A LivaSports mostra, lado a lado, as odds pré-jogo registradas para as casas de apostas cobertas. Você não precisa de conta nem de aposta para consultar.',sections:[
+   {title:'De onde vêm as odds',body:'As odds exibidas são cotações pré-jogo salvas a partir de uma fonte de dados de odds. Cada valor mostra a casa e o horário da última observação. Cotações com mais de 15 minutos são tratadas como desatualizadas e deixam de ser exibidas como atuais.'},
+   {title:'Preço próprio e preço aproximado',body:'Quando existe uma cotação da própria casa para o mercado, ela aparece como preço real dessa casa. Quando a fonte não informa a cotação de uma casa, a LivaSports pode exibir um preço aproximado, baseado na cotação de outra casa coberta. Esse valor é sempre identificado como aproximado e nunca é apresentado como cotação confirmada da casa.'},
+   {title:'Por que a odd pode ser diferente na casa',body:'As casas alteram as odds ao longo do tempo, aplicam margens próprias e podem suspender mercados. O que você vê na LivaSports é a última observação registrada, não uma garantia de preço. Confira sempre a odd no site da casa antes de qualquer decisão.'},
+   {title:'Melhor preço e cobertura',body:'A marcação de melhor preço compara apenas as casas exibidas naquele momento e considera apenas o valor da odd. A cobertura de casas depende do país e da elegibilidade comercial de cada uma; o México não herda a cobertura do Brasil.'},
+   {title:'Meu bilhete é planejamento',body:'O bilhete de visitante guarda até dez seleções neste navegador, uma por partida, para comparar a odd combinada entre as casas. Nenhuma aposta é feita na LivaSports. Links de saída para casas parceiras são identificados como publicidade e destinados a maiores de 18 anos.'},
+  ],related:['decimalOdds','favorites']},
+  decimalOdds:{title:'Como ler odds decimais e o retorno estimado',intro:'As odds na LivaSports usam o formato decimal. Este guia explica o que o número significa e como o retorno estimado do bilhete é calculado.',sections:[
+   {title:'O que a odd decimal representa',body:'Uma odd decimal indica o retorno total por unidade apostada, incluindo o valor da aposta. Com odd 2,50, cada 1,00 devolveria 2,50 em caso de acerto: 1,50 de ganho mais 1,00 da aposta. Uma odd de 1,20 devolve 1,20 por unidade.'},
+   {title:'Probabilidade implícita',body:'Dividir 1 pela odd indica a probabilidade implícita: 1 ÷ 2,50 = 0,40, ou 40%. Somando as probabilidades implícitas de todos os resultados de um mercado, o total costuma passar de 100%; a diferença é a margem da casa. A LivaSports mostra as odds como registradas e não recalcula esse valor.'},
+   {title:'Odd combinada do bilhete',body:'No Meu bilhete, a odd combinada é o produto das odds de cada seleção. Duas seleções a 1,80 e 2,00 resultam em 3,60. Quando alguma seleção depende de um preço aproximado, a odd combinada também é marcada como aproximada.'},
+   {title:'Retorno estimado',body:'O retorno estimado é o valor informado como aposta multiplicado pela odd combinada, arredondado a duas casas. Com 10,00 e odd combinada 3,60, o retorno estimado é 36,00. É um cálculo informativo: não considera regras, limites, impostos ou promoções de cada casa, e não é uma aposta feita.'},
+   {title:'Odds mudam',body:'As odds registradas podem mudar antes do início da partida. Se uma seleção do bilhete for reprecificada, a LivaSports mostra a odd anterior e a atual. Apostar envolve risco de perda; informação esportiva não é recomendação de aposta.'},
+  ],related:['comparison','favorites']},
+  favorites:{title:'Favoritos e Meus jogos',intro:'Marque times, competições e partidas com a estrela para montar sua própria agenda em Meus jogos. Funciona sem conta e sincroniza quando você entra.',sections:[
+   {title:'Como favoritar',body:'Toque na estrela ao lado de um time, de uma competição ou de uma partida. Cada tipo aceita até 50 favoritos. A mesma estrela remove o favorito.'},
+   {title:'Sem conta: salvo neste navegador',body:'Sem entrar, os favoritos ficam guardados apenas neste navegador. Limpar os dados do site ou usar outro dispositivo não mostra a mesma lista.'},
+   {title:'Com conta: sincronizado',body:'Ao entrar com Google ou com o link de acesso por e-mail, os favoritos guardados neste navegador são adicionados à sua conta uma única vez e passam a valer em qualquer dispositivo conectado. A página Conta mostra a contagem de favoritos.'},
+   {title:'O que aparece em Meus jogos',body:'Meus jogos reúne as partidas dos seus times e competições favoritos e as partidas marcadas diretamente, com filtros para tudo, ao vivo, próximos e resultados. Os horários seguem o fuso horário selecionado.'},
+   {title:'Privacidade',body:'Favoritos não aparecem em páginas públicas, em resultados de busca nem em previews sociais. Avisos de partida não fazem parte desta versão.'},
+  ],related:['comparison','decimalOdds']},
+ },
+ mx:{
+  comparison:{title:'Cómo funciona la comparación de cuotas de LivaSports',intro:'LivaSports muestra, lado a lado, las cuotas prepartido registradas de las casas de apuestas cubiertas. No necesitas cuenta ni apostar para consultarlas.',sections:[
+   {title:'De dónde vienen las cuotas',body:'Las cuotas mostradas son cotizaciones prepartido guardadas desde una fuente de datos de cuotas. Cada valor indica la casa y la hora de la última observación. Las cotizaciones con más de 15 minutos se consideran desactualizadas y dejan de mostrarse como vigentes.'},
+   {title:'Precio propio y precio aproximado',body:'Cuando existe una cotización de la propia casa para el mercado, se muestra como precio real de esa casa. Cuando la fuente no informa la cotización de una casa, LivaSports puede mostrar un precio aproximado, basado en la cotización de otra casa cubierta. Ese valor siempre se identifica como aproximado y nunca se presenta como cotización confirmada de la casa.'},
+   {title:'Por qué la cuota puede ser distinta en la casa',body:'Las casas cambian sus cuotas con el tiempo, aplican márgenes propios y pueden suspender mercados. Lo que ves en LivaSports es la última observación registrada, no una garantía de precio. Verifica siempre la cuota en el sitio de la casa antes de cualquier decisión.'},
+   {title:'Mejor precio y cobertura',body:'La marca de mejor precio compara solo las casas mostradas en ese momento y considera únicamente el valor de la cuota. La cobertura de casas depende del país y de la elegibilidad comercial de cada una; México no hereda la cobertura de Brasil.'},
+   {title:'Mi boleto es planificación',body:'El boleto de visitante guarda hasta diez selecciones en este navegador, una por partido, para comparar la cuota combinada entre casas. En LivaSports no se realiza ninguna apuesta. Los enlaces de salida a casas asociadas se identifican como publicidad y son para mayores de 18 años.'},
+  ],related:['decimalOdds','favorites']},
+  decimalOdds:{title:'Cómo leer cuotas decimales y el retorno estimado',intro:'Las cuotas en LivaSports usan el formato decimal. Esta guía explica qué significa el número y cómo se calcula el retorno estimado del boleto.',sections:[
+   {title:'Qué representa la cuota decimal',body:'Una cuota decimal indica el retorno total por unidad apostada, incluido el importe de la apuesta. Con cuota 2.50, cada 1.00 devolvería 2.50 si acierta: 1.50 de ganancia más 1.00 de la apuesta. Una cuota de 1.20 devuelve 1.20 por unidad.'},
+   {title:'Probabilidad implícita',body:'Dividir 1 entre la cuota indica la probabilidad implícita: 1 ÷ 2.50 = 0.40, es decir, 40%. Al sumar las probabilidades implícitas de todos los resultados de un mercado, el total suele superar el 100%; la diferencia es el margen de la casa. LivaSports muestra las cuotas tal como se registraron y no recalcula ese valor.'},
+   {title:'Cuota combinada del boleto',body:'En Mi boleto, la cuota combinada es el producto de las cuotas de cada selección. Dos selecciones a 1.80 y 2.00 dan 3.60. Cuando alguna selección depende de un precio aproximado, la cuota combinada también se marca como aproximada.'},
+   {title:'Retorno estimado',body:'El retorno estimado es el importe indicado como apuesta multiplicado por la cuota combinada, redondeado a dos decimales. Con 10.00 y cuota combinada 3.60, el retorno estimado es 36.00. Es un cálculo informativo: no considera reglas, límites, impuestos ni promociones de cada casa, y no es una apuesta realizada.'},
+   {title:'Las cuotas cambian',body:'Las cuotas registradas pueden cambiar antes del inicio del partido. Si una selección del boleto cambia de precio, LivaSports muestra la cuota anterior y la actual. Apostar implica riesgo de pérdida; la información deportiva no es una recomendación de apuesta.'},
+  ],related:['comparison','favorites']},
+  favorites:{title:'Favoritos y Mis partidos',intro:'Marca equipos, competiciones y partidos con la estrella para armar tu propia agenda en Mis partidos. Funciona sin cuenta y se sincroniza cuando inicias sesión.',sections:[
+   {title:'Cómo marcar favoritos',body:'Toca la estrella junto a un equipo, una competición o un partido. Cada tipo admite hasta 50 favoritos. La misma estrella quita el favorito.'},
+   {title:'Sin cuenta: guardado en este navegador',body:'Sin iniciar sesión, los favoritos se guardan solo en este navegador. Borrar los datos del sitio o usar otro dispositivo no muestra la misma lista.'},
+   {title:'Con cuenta: sincronizado',body:'Al iniciar sesión con Google o con el enlace de acceso por correo, los favoritos guardados en este navegador se agregan a tu cuenta una sola vez y quedan disponibles en cualquier dispositivo conectado. La página Cuenta muestra el conteo de favoritos.'},
+   {title:'Qué aparece en Mis partidos',body:'Mis partidos reúne los partidos de tus equipos y competiciones favoritos y los partidos marcados directamente, con filtros para todos, en vivo, próximos y resultados. Los horarios siguen la zona horaria seleccionada.'},
+   {title:'Privacidad',body:'Los favoritos no aparecen en páginas públicas, en resultados de búsqueda ni en vistas previas sociales. Los avisos de partido no forman parte de esta versión.'},
+  ],related:['comparison','decimalOdds']},
+ },
+ en:{
+  comparison:{title:'How LivaSports odds comparison works',intro:'LivaSports shows recorded pre-match odds from the covered bookmakers side by side. No account and no bet are needed to look.',sections:[
+   {title:'Where the odds come from',body:'Displayed odds are pre-match quotes saved from an odds data source. Each value shows the bookmaker and the time of the last observation. Quotes older than 15 minutes are treated as stale and are no longer shown as current.'},
+   {title:'Own price versus approximate price',body:'When the bookmaker\'s own quote exists for a market, it is shown as that bookmaker\'s real price. When the source does not report a bookmaker\'s quote, LivaSports may show an approximate price based on another covered bookmaker\'s quote. That value is always labelled as approximate and is never presented as a confirmed price at the bookmaker.'},
+   {title:'Why the price can differ at the bookmaker',body:'Bookmakers move their odds over time, apply their own margins and may suspend markets. What you see on LivaSports is the last recorded observation, not a price guarantee. Always check the odds on the bookmaker\'s site before any decision.'},
+   {title:'Best price and coverage',body:'The best-price label compares only the bookmakers displayed at that moment and considers the odds value alone. Bookmaker coverage depends on your country and each bookmaker\'s commercial eligibility; Mexico does not inherit Brazil\'s coverage.'},
+   {title:'My Slip is planning',body:'The guest slip keeps up to ten selections in this browser, one per match, to compare the combined odds across bookmakers. No bet is placed on LivaSports. Outbound links to partner bookmakers are marked as advertising and intended for adults aged 18 or over.'},
+  ],related:['decimalOdds','favorites']},
+  decimalOdds:{title:'How to read decimal odds and the estimated return',intro:'Odds on LivaSports use the decimal format. This guide explains what the number means and how the slip\'s estimated return is calculated.',sections:[
+   {title:'What a decimal price represents',body:'A decimal price is the total return per unit staked, including the stake. At 2.50, each 1.00 would return 2.50 if it wins: 1.50 profit plus the 1.00 stake. A price of 1.20 returns 1.20 per unit.'},
+   {title:'Implied probability',body:'Dividing 1 by the price gives the implied probability: 1 ÷ 2.50 = 0.40, or 40%. Adding the implied probabilities of every outcome in a market usually exceeds 100%; the difference is the bookmaker\'s margin. LivaSports shows odds as recorded and does not recalculate this value.'},
+   {title:'Combined odds on the slip',body:'On My Slip, the combined price is the product of each selection\'s odds. Two selections at 1.80 and 2.00 give 3.60. When any selection depends on an approximate price, the combined price is marked as approximate too.'},
+   {title:'Estimated return',body:'The estimated return is the amount entered as the stake multiplied by the combined price, rounded to two decimals. With 10.00 and combined odds of 3.60, the estimated return is 36.00. It is informational: it ignores each bookmaker\'s rules, limits, taxes and promotions, and it is not a placed bet.'},
+   {title:'Odds change',body:'Recorded odds can change before kick-off. If a slip selection is repriced, LivaSports shows the previous and the current price. Betting involves a risk of loss; sports information is not a betting recommendation.'},
+  ],related:['comparison','favorites']},
+  favorites:{title:'Favorites and My Matches',intro:'Star teams, competitions and matches to build your own schedule in My Matches. It works without an account and syncs when you sign in.',sections:[
+   {title:'How to favorite',body:'Tap the star next to a team, a competition or a match. Each type holds up to 50 favorites. The same star removes the favorite.'},
+   {title:'Without an account: saved in this browser',body:'When you are not signed in, favorites are stored only in this browser. Clearing site data or using another device will not show the same list.'},
+   {title:'With an account: synced',body:'When you sign in with Google or with the email sign-in link, favorites stored in this browser are added to your account once and then apply on any signed-in device. The Account page shows your favorite counts.'},
+   {title:'What My Matches shows',body:'My Matches gathers matches from your favorite teams and competitions plus the matches you starred directly, with filters for all, live, upcoming and results. Times follow your selected time zone.'},
+   {title:'Privacy',body:'Favorites never appear on public pages, in search results or in social previews. Match notifications are not part of this release.'},
+  ],related:['comparison','decimalOdds']},
+ },
+};

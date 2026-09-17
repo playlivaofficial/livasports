@@ -1,5 +1,6 @@
 import {matchDateDescription,sportsMatchSchema} from '@/sports/match-seo';
 import 'server-only';
+import {JsonLd} from '@/seo/json-ld';
 import {loadPendingFixture} from '@/sports/runtime';
 import {PendingMatch,pendingMetadata} from '@/sports/PendingMatch';
 import {cache} from 'react';
@@ -21,7 +22,7 @@ import {commercialLocale,requestCommercialGeo} from '@/odds/commercial-geo';
 const matchData=cache((id:string)=>loadMatchCenter(id,'br'));
 const teamData=cache((id:string)=>loadTeamProfile(id,'br'));
 const playerData=cache((id:string)=>loadPlayerProfile(id,'br'));
-function jsonLd(value:object){return <script type="application/ld+json" dangerouslySetInnerHTML={{__html:JSON.stringify(value).replace(/</g,'\\u003c')}}/>;}
+function jsonLd(value:object){return <JsonLd data={value}/>;}
 export async function englishMatchMetadata(params:Promise<{match:string}>):Promise<Metadata>{
   await connection();const parsed=parseMatchParam((await params).match);
   const result=parsed?await matchData(parsed.publicId):null;

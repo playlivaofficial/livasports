@@ -19,6 +19,8 @@ export interface PendingSportsFixture {publicId:string;kickoff:string|null;round
 export interface CompetitionHub {
   id:string;slug:string;name:string;country:string|null;countryCode:string|null;region:string;type:string;coverage:string;seasons:SportsSeason[];season:SportsSeason|null;
   seasonFallback:SportsSeason|null;
+  /** Season resolved when no ?season is requested (P2 canonical policy). */
+  defaultSeasonId:string|null;
   upcoming:SportsFixture[];results:SportsFixture[];standings:SportsStanding[];scorers:SportsScorer[];teams:SportsTeam[];
   counts:{upcoming:number;results:number};page:number;pageSize:number;providerRequests:0;
   availability:Record<string,{status:string;checkedAt:string|null}>;

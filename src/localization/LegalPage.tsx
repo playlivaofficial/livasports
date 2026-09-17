@@ -2,20 +2,26 @@ import type {Metadata} from 'next';
 import Link from 'next/link';
 import {notFound} from 'next/navigation';
 import {SiteHeader} from '@/components/sports/SiteHeader';
-import {interfaceRoutes,languageAlternates,languageTags,type InterfaceLocale} from './interface';
+import {interfaceRoutes,languageTags,type InterfaceLocale} from './interface';
 import {legalKind,legalKinds,legalPath,type LegalKind} from './legal-routes';
 import {legalContent,legalReviewedAt,officialSafetySources,safetyCopy} from './legal-content';
+import {helpKinds,helpPath} from './help-routes';
+import {helpContent,helpCopy} from './help-content';
+import {legalPaths,localizedAlternates,openGraphLocale} from '@/seo/policy';
 
 export function legalMetadata(locale:InterfaceLocale,slug:string):Metadata{
   const kind=legalKind(locale,slug);if(!kind)return {title:'LivaSports',robots:{index:false,follow:false}};
-  const content=legalContent[locale][kind];
-  return {title:content.title,description:content.intro,alternates:{canonical:legalPath(locale,kind),languages:languageAlternates(legalPath('br',kind),legalPath('mx',kind),legalPath('en',kind))},other:{'content-language':languageTags[locale]}};
+  const content=legalContent[locale][kind],paths=legalPaths(kind);
+  return {title:content.title,description:content.intro,alternates:localizedAlternates(locale,paths),
+    openGraph:{type:'article',siteName:'LivaSports',title:content.title,description:content.intro,url:paths[locale],locale:openGraphLocale(locale),modifiedTime:legalReviewedAt},
+    other:{'content-language':languageTags[locale]}};
 }
 export function SafetyNotice({locale}:{locale:InterfaceLocale}){return <p className="sports-safety-note"><b>18+</b><span>{safetyCopy[locale].warning}</span></p>;}
 export function SiteFooter({locale}:{locale:InterfaceLocale}){
   const text=safetyCopy[locale];
   return <footer className="sports-site-footer" lang={languageTags[locale]}><div><strong>LivaSports</strong><p>{text.footer}</p>
-    <nav aria-label={text.navigation}>{legalKinds.map(kind=><Link prefetch={false} key={kind} href={legalPath(locale,kind)}>{legalContent[locale][kind].title}</Link>)}</nav><SafetyNotice locale={locale}/>
+    <nav aria-label={text.navigation}>{legalKinds.map(kind=><Link prefetch={false} key={kind} href={legalPath(locale,kind)}>{legalContent[locale][kind].title}</Link>)}</nav>
+    <nav aria-label={helpCopy[locale].navigation}>{helpKinds.map(kind=><Link prefetch={false} key={kind} href={helpPath(locale,kind)}>{helpContent[locale][kind].title}</Link>)}</nav><SafetyNotice locale={locale}/>
   </div></footer>;
 }
 export function LegalPage({locale,slug}:{locale:InterfaceLocale;slug:string}){

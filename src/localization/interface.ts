@@ -4,6 +4,7 @@ import {teamPath as legacyTeamPath,playerPath as legacyPlayerPath,slugifyProfile
 import {authRoutes,type AuthRouteKey} from './auth-copy';
 import {favoritesRoutes,type FavoritesRouteKey} from './favorites-copy';
 import {legalKind,legalPath} from './legal-routes';
+import {helpKind,helpPath} from './help-routes';
 
 // Presentation preferences never replace the existing commercial jurisdiction.
 export type InterfaceLocale=SiteLocale|'en';
@@ -31,9 +32,11 @@ export function translatedPath(input:string,target:InterfaceLocale):string{
   const auth=(Object.keys(authRoutes[source]) as AuthRouteKey[]).find(key=>authRoutes[source][key]===url.pathname);
   const favorites=(Object.keys(favoritesRoutes[source]) as FavoritesRouteKey[]).find(key=>favoritesRoutes[source][key]===url.pathname);
   const legal=legalKind(source,url.pathname.split('/')[2]);
+  const help=helpKind(source,url.pathname.split('/')[2]);
   const entity=/^\/(?:br\/(jogo|time|jogador)|mx\/(partido|equipo|jugador)|en\/(match|team|player))\/([a-z0-9-]+-[a-f0-9]{16})$/i.exec(url.pathname);
   let path:string=interfaceRoutes[target].home;
   if(legal&&url.pathname===legalPath(source,legal))path=legalPath(target,legal);
+  else if(help&&url.pathname===helpPath(source,help))path=helpPath(target,help);
   else if(auth)path=authRoutes[target][auth];
   else if(favorites)path=favoritesRoutes[target][favorites];
   else if(page)path=interfaceRoutes[target][page];

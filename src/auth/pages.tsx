@@ -2,7 +2,7 @@ import {redirect} from 'next/navigation';
 import Link from 'next/link';
 import {authCopy,authPath} from '@/localization/auth-copy';
 import {favoritesCopy,favoritesPath} from '@/localization/favorites-copy';
-import {languageAlternates,type InterfaceLocale} from '@/localization/interface';
+import {type InterfaceLocale} from '@/localization/interface';
 import {authConfigured,emailAuthConfigured,googleAuthConfigured} from './database';
 import {auth} from './config';
 import {signOutUser,updateDisplayName} from './actions';
@@ -16,7 +16,7 @@ export function authPageMetadata(locale:InterfaceLocale,kind:'signin'|'account')
   const text=authCopy[locale];
   const path=authPath(locale,kind);
   return {title:kind==='signin'?text.signInTitle:text.accountTitle,robots:{index:false,follow:false},
-    alternates:{canonical:path,languages:languageAlternates(authPath('br',kind),authPath('mx',kind),authPath('en',kind))}};
+    alternates:{canonical:path}};
 }
 
 export async function SignInPage({locale,searchParams}:{locale:InterfaceLocale;searchParams?:Promise<Record<string,string|string[]|undefined>>}){
