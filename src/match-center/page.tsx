@@ -6,6 +6,7 @@ import { connection } from 'next/server';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { MatchCenter } from '@/components/match/MatchCenter';
 import {JsonLd} from '@/seo/json-ld';
+import {openGraphImages} from '@/seo/open-graph';
 import type { SiteLocale } from '@/config/i18n';
 import { loadMatchCenter } from './runtime';
 import { matchPath, parseMatchParam, slugifyMatch } from './routes';
@@ -39,7 +40,7 @@ export async function matchMetadata(paramPromise: Promise<{ match: string }>, lo
   return { title, description: `${title} ${copy.at} ${header.competition}. ${when?when+'. ':''}${copy.description}`,
     alternates: { canonical, languages: languageAlternates(br,mx,interfaceMatchPath('en',header.publicId,header.home.name,header.away.name)) },
     openGraph: { type: 'website', siteName: 'LivaSports', title, url: canonical, locale: localeTag[locale].replace('-','_'),
-      description: `${header.competition} · ${copy.description}` }, other: { 'content-language': localeTag[locale] } };
+      description: `${header.competition} · ${copy.description}`, images: openGraphImages() }, other: { 'content-language': localeTag[locale] } };
 }
 
 export async function MatchRoutePage({ params, locale }: { params: Promise<{ match: string }>; locale: SiteLocale }) {

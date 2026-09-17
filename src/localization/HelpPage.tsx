@@ -4,6 +4,7 @@ import {notFound} from 'next/navigation';
 import {SiteHeader} from '@/components/sports/SiteHeader';
 import {JsonLd} from '@/seo/json-ld';
 import {absoluteUrl,helpPaths,localizedAlternates,openGraphLocale} from '@/seo/policy';
+import {openGraphImages} from '@/seo/open-graph';
 import {interfaceRoutes,languageTags,type InterfaceLocale} from './interface';
 import {helpKind,helpKinds,helpPath,type HelpKind} from './help-routes';
 import {helpContent,helpCopy,helpReviewedAt} from './help-content';
@@ -13,7 +14,7 @@ export function helpMetadata(locale:InterfaceLocale,slug:string):Metadata{
   const kind=helpKind(locale,slug);if(!kind)return {title:'LivaSports',robots:{index:false,follow:false}};
   const content=helpContent[locale][kind],paths=helpPaths(kind);
   return {title:content.title,description:content.intro,alternates:localizedAlternates(locale,paths),
-    openGraph:{type:'article',siteName:'LivaSports',title:content.title,description:content.intro,url:paths[locale],locale:openGraphLocale(locale),modifiedTime:helpReviewedAt},
+    openGraph:{type:'article',siteName:'LivaSports',title:content.title,description:content.intro,url:paths[locale],locale:openGraphLocale(locale),modifiedTime:helpReviewedAt,images:openGraphImages()},
     other:{'content-language':languageTags[locale]}};
 }
 export function HelpPage({locale,slug}:{locale:InterfaceLocale;slug:string}){

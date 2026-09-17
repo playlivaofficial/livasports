@@ -87,6 +87,19 @@ describe('P2 route policy',()=>{
   });
 });
 
+describe('P2 unknown competition identity',()=>{
+  it('answers a real 404 at the proxy for slugs outside the registry and passes registry slugs through',async()=>{
+    const {NextRequest}=await import('next/server');const {proxy}=await import('@/proxy');
+    for(const [locale,path] of [['br','/br/futebol'],['mx','/mx/futbol'],['en','/en/football']] as const){
+      const missing=await proxy(new NextRequest(`https://livasports.com${path}?competition=not-a-league`));
+      expect(missing.status).toBe(404);expect(await missing.text()).toContain('noindex');expect(missing.headers.get('content-type')).toContain('text/html');
+      expect((await proxy(new NextRequest(`https://livasports.com${path}?competition=${slugs[0]}&tab=results`))).status).toBe(200);
+      expect((await proxy(new NextRequest(`https://livasports.com${path}?date=2026-09-17`))).status).toBe(200);
+      expect((await proxy(new NextRequest(`https://livasports.com/${locale}?competition=not-a-league`))).status).toBe(200);
+    }
+  });
+});
+
 describe('P2 sitemap policy',()=>{
   const summary=(slug:string,over:Partial<Parameters<typeof competitionClusters>[0] extends readonly (infer T)[]|null?T:never>={})=>({slug,seasonId:S1,upcoming:3,results:10,standings:true,scorers:false,teams:true,updatedAt:new Date('2026-09-10T00:00:00Z'),...over});
   it('emits only indexable tabs for the default season and drops tab detail (not competitions) when the database fails',()=>{
@@ -150,5 +163,15 @@ describe('P2 evergreen help',()=>{
       expect(text).not.toMatch(/licen[cs]|expert|especialista|prediction|previs[ãa]o|pron[óo]stico|melhor pre[çc]o garantido|best price guaranteed/i);
     }
     expect(documentMetadata('en','not-a-document').robots).toEqual({index:false,follow:false});
+  });
+});
+
+describe('P2 migration 024',()=>{
+  it('only adds idempotent indexes for the player sitemap eligibility scan',async()=>{
+    const {readFileSync}=await import('node:fs');
+    const sql=readFileSync('db/migrations/024_p2_sitemap_player_indexes.sql','utf8');
+    expect(sql.startsWith('BEGIN;')).toBe(true);expect(sql.trim().endsWith('COMMIT;')).toBe(true);
+    expect(sql.match(/CREATE INDEX IF NOT EXISTS/g)).toHaveLength(2);
+    expect(sql).not.toMatch(/ALTER TABLE|DROP|INSERT|UPDATE|DELETE|CREATE TABLE/);
   });
 });

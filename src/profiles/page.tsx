@@ -8,6 +8,7 @@ import { loadPlayerProfile, loadTeamProfile } from './runtime';
 import { parseProfileParam, playerPath, slugifyProfileName, teamPath } from './routes';
 import {TeamHistoryPanel} from '@/sports/TeamHistoryPanel';
 import {JsonLd} from '@/seo/json-ld';
+import {openGraphImages} from '@/seo/open-graph';
 import {cache} from 'react';
 
 // Metadata and the page body share one request-scoped read per profile.
@@ -39,7 +40,7 @@ export async function profileMetadata(paramPromise: Promise<{ profile: string }>
     robots: profile.indexable ? { index: true, follow: true } : { index: false, follow: true },
     alternates: { canonical, languages: languageAlternates(br,mx,(entity==='team'?interfaceTeamPath:interfacePlayerPath)('en',profile.publicId,profile.name)) },
     openGraph: { type: 'website', siteName: 'LivaSports', title: profile.name, description, url: canonical,
-      locale: localeTag[locale].replace('-', '_'), images: profile.imageUrl ? [{ url: profile.imageUrl, alt: profile.name }] : undefined },
+      locale: localeTag[locale].replace('-', '_'), images: openGraphImages(profile.imageUrl ? { url: profile.imageUrl, alt: profile.name } : null) },
     other: { 'content-language': localeTag[locale] } };
 }
 

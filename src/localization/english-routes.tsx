@@ -1,6 +1,7 @@
 import {matchDateDescription,sportsMatchSchema} from '@/sports/match-seo';
 import 'server-only';
 import {JsonLd} from '@/seo/json-ld';
+import {openGraphImages} from '@/seo/open-graph';
 import {loadPendingFixture} from '@/sports/runtime';
 import {PendingMatch,pendingMetadata} from '@/sports/PendingMatch';
 import {cache} from 'react';
@@ -32,7 +33,7 @@ export async function englishMatchMetadata(params:Promise<{match:string}>):Promi
   const when=matchDateDescription('en',h);
   const description=`${title} in ${englishCompetition(h.competition)}. ${when?when+'. ':''}Scores, lineups, statistics and match events.`;
   return {title,description,alternates:{canonical:paths[2],languages:languageAlternates(paths[0],paths[1],paths[2])},
-    openGraph:{type:'website',siteName:'LivaSports',title,description,url:paths[2],locale:'en'},other:{'content-language':'en'}};
+    openGraph:{type:'website',siteName:'LivaSports',title,description,url:paths[2],locale:'en',images:openGraphImages()},other:{'content-language':'en'}};
 }
 export async function EnglishMatchRoute({params}:{params:Promise<{match:string}>}){
   await connection();const parsed=parseMatchParam((await params).match);if(!parsed)notFound();
@@ -50,7 +51,7 @@ export async function englishProfileMetadata(params:Promise<{profile:string}>,en
   const title=`${p.name}: ${entity==='team'?'matches, squad and statistics':'statistics, matches and profile'}`;
   const description=`${title}. Football profiles on LivaSports.`;
   return {title,description,robots:{index:p.indexable,follow:true},alternates:{canonical:paths[2],languages:languageAlternates(paths[0],paths[1],paths[2])},
-    openGraph:{type:'website',siteName:'LivaSports',title,description,url:paths[2],locale:'en',images:p.imageUrl?[{url:p.imageUrl,alt:p.name}]:undefined},other:{'content-language':'en'}};
+    openGraph:{type:'website',siteName:'LivaSports',title,description,url:paths[2],locale:'en',images:openGraphImages(p.imageUrl?{url:p.imageUrl,alt:p.name}:null)},other:{'content-language':'en'}};
 }
 export async function EnglishProfileRoute({params,entity,searchParams}:{params:Promise<{profile:string}>;entity:'team'|'player';searchParams?:Promise<Record<string,string|string[]|undefined>>}){
   await connection();const parsed=parseProfileParam((await params).profile);if(!parsed)notFound();

@@ -6,6 +6,7 @@ import {competitionName} from './policy';
 import {sportsCopy} from './copy';
 import type {CompetitionHub} from './types';
 import {loadCompetition} from './runtime';
+import {openGraphImages} from '@/seo/open-graph';
 
 /** Resolve the view the board will render for this hub, so canonical/title describe the actual season, tab and page. */
 export function resolvedCompetitionView(hub:CompetitionHub,tab:ResolvedCompetitionView['tab'],page:number):ResolvedCompetitionView{
@@ -35,7 +36,7 @@ export function competitionMetadata(locale:InterfaceLocale,hub:CompetitionHub,vi
   return {title,description,
     robots:indexable?{index:true,follow:true}:noindexRobots,
     ...(indexable?{alternates:localizedAlternates(locale,canonical.paths)}:{alternates:{canonical:canonical.paths[locale]}}),
-    openGraph:{type:'website',siteName:'LivaSports',title,description,url:canonical.paths[locale],locale:openGraphLocale(locale)}};
+    openGraph:{type:'website',siteName:'LivaSports',title,description,url:canonical.paths[locale],locale:openGraphLocale(locale),images:openGraphImages()}};
 }
 
 export async function footballMetadata(locale:InterfaceLocale,searchParams:Promise<Record<string,string|string[]|undefined>>):Promise<Metadata>{
