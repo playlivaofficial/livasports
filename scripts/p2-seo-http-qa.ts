@@ -52,11 +52,12 @@ async function get(path:string,agent:keyof typeof userAgents='html'){
     const response=await fetchOnce(url,agent);return {response,body:await response.text(),ms:Math.round(performance.now()-started)};
   }
 }
-const attr=(tag:string,name:string)=>new RegExp(`${name}=["']([^"']*)["']`).exec(tag)?.[1]??null;
+// React serialises hrefLang in camel case and & as &amp; inside attributes; HTML is case-insensitive and entity-decoded.
+const attr=(tag:string,name:string)=>new RegExp(`${name}=["']([^"']*)["']`,'i').exec(tag)?.[1]?.replace(/&amp;/g,'&')??null;
 function head(body:string){
   const tags=body.match(/<(?:link|meta)\b[^>]*>/g)??[];
   const canonical=tags.filter(t=>/rel=["']canonical["']/.test(t)).map(t=>attr(t,'href'));
-  const alternates=tags.filter(t=>/rel=["']alternate["']/.test(t)&&/hreflang=/.test(t)).map(t=>({lang:attr(t,'hreflang'),href:attr(t,'href')}));
+  const alternates=tags.filter(t=>/rel=["']alternate["']/.test(t)&&/hreflang=/i.test(t)).map(t=>({lang:attr(t,'hreflang'),href:attr(t,'href')}));
   const robots=tags.filter(t=>/name=["']robots["']/.test(t)).map(t=>attr(t,'content'));
   const og=tags.filter(t=>/property=["']og:/.test(t)).map(t=>[attr(t,'property'),attr(t,'content')] as const);
   const jsonLd=[...body.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map(m=>{try{return JSON.parse(m[1]);}catch{return {'@type':'INVALID_JSON'};}});
@@ -135,7 +136,8 @@ for(const locale of locales){
   checks.push({id:'search',path:`${interfaceRoutes[locale].football}?q=fla`,expect:{index:false}});
   checks.push({id:'unknown-competition',path:`${interfaceRoutes[locale].football}?competition=not-a-real-league`,expect:{status:404}});
   checks.push({id:'signin',path:authRoutes[locale].signin,expect:{status:[200,307,303],index:false}});
-  checks.push({id:'account',path:authRoutes[locale].account,expect:{status:[302,303,307]}});
+  // Signed-out account renders a client redirect to sign-in (200 + noindex,nofollow) because the shell is streamed before redirect().
+  checks.push({id:'account',path:authRoutes[locale].account,expect:{status:[200,302,303,307],index:false,noUserData:true}});
   checks.push({id:'my-matches',path:favoritesRoutes[locale].myMatches,expect:{index:false,noUserData:true}});
   for(const kind of helpKinds)checks.push({id:`help-${kind}`,path:helpPath(locale,kind),expect:{canonical:helpPath(locale,kind),index:true,alternates:4,jsonLd:['BreadcrumbList'],h1:true}});
   checks.push({id:'legal',path:legalPath(locale,legalKinds[0]),expect:{canonical:legalPath(locale,legalKinds[0]),index:true,alternates:4}});

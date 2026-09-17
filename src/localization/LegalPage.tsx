@@ -8,12 +8,13 @@ import {legalContent,legalReviewedAt,officialSafetySources,safetyCopy} from './l
 import {helpKinds,helpPath} from './help-routes';
 import {helpContent,helpCopy} from './help-content';
 import {legalPaths,localizedAlternates,openGraphLocale} from '@/seo/policy';
+import {openGraphImages} from '@/seo/open-graph';
 
 export function legalMetadata(locale:InterfaceLocale,slug:string):Metadata{
   const kind=legalKind(locale,slug);if(!kind)return {title:'LivaSports',robots:{index:false,follow:false}};
   const content=legalContent[locale][kind],paths=legalPaths(kind);
   return {title:content.title,description:content.intro,alternates:localizedAlternates(locale,paths),
-    openGraph:{type:'article',siteName:'LivaSports',title:content.title,description:content.intro,url:paths[locale],locale:openGraphLocale(locale),modifiedTime:legalReviewedAt},
+    openGraph:{type:'article',siteName:'LivaSports',title:content.title,description:content.intro,url:paths[locale],locale:openGraphLocale(locale),modifiedTime:legalReviewedAt,images:openGraphImages()},
     other:{'content-language':languageTags[locale]}};
 }
 export function SafetyNotice({locale}:{locale:InterfaceLocale}){return <p className="sports-safety-note"><b>18+</b><span>{safetyCopy[locale].warning}</span></p>;}
