@@ -7,11 +7,11 @@ vi.mock('@/auth/actions',()=>({signOutUser:async()=>undefined,updateDisplayName:
 vi.mock('@/auth/session',()=>({userProviders:async()=>[],currentUser:async()=>null}));
 vi.mock('@/favorites/database',()=>({favoritesRepository:()=>({})}));
 import {absoluteUrl,competitionCanonical,competitionRequest,enabledCompetitionSlugs,isNonSemanticParam,isPrivatePath,locales,privatePathPrefixes,robotsDisallow,routePolicies} from './policy';
-import {competitionClusters,primarySitemap} from './sitemap';
+import {competitionClusters,primarySitemap,primarySitemapXml} from './sitemap';
 import {serializeJsonLd} from './json-ld';
 import {competitionHubSchema,siteSchema} from './structured-data';
 import {robotsForEnvironment} from '@/app/robots';
-import {validateSitemapUrls,sitemapEntriesXml} from '@/sports/sitemap';
+import {validateSitemapUrls,sitemapEntriesXml,sitemapIndexXml,sitemapXmlProblems} from '@/sports/sitemap';
 import {competitionPath,competitionTabs,resolveDefaultSeason} from '@/sports/policy';
 import {translatedPath} from '@/localization/interface';
 import {myMatchesMetadata} from '@/favorites/pages';
@@ -173,5 +173,28 @@ describe('P2 migration 024',()=>{
     expect(sql.startsWith('BEGIN;')).toBe(true);expect(sql.trim().endsWith('COMMIT;')).toBe(true);
     expect(sql.match(/CREATE INDEX IF NOT EXISTS/g)).toHaveLength(2);
     expect(sql).not.toMatch(/ALTER TABLE|DROP|INSERT|UPDATE|DELETE|CREATE TABLE/);
+  });
+});
+
+describe('P2 sitemap XML well-formedness (Search Console "Parsing error" regression)',()=>{
+  const S='11111111-1111-4111-8111-111111111111';
+  it('escapes & in every loc/href of the primary sitemap and keeps only supported elements',()=>{
+    const body=primarySitemapXml(primarySitemap([{slug:'la-liga',seasonId:S,upcoming:3,results:10,standings:true,scorers:true,teams:true,updatedAt:new Date('2026-09-17T13:15:13Z')}]));
+    expect(sitemapXmlProblems(body)).toEqual([]);
+    expect(body).toContain('<loc>https://livasports.com/en/football?competition=la-liga&amp;tab=standings</loc>');
+    expect(body).toContain('href="https://livasports.com/mx/futbol?competition=la-liga&amp;tab=standings"');
+    expect(body).toContain('<lastmod>2026-09-17T13:15:13.000Z</lastmod>');
+    expect(body).not.toMatch(/<(changefreq|priority)>/);
+  });
+  it('entity batches and the index are well-formed too',()=>{
+    expect(sitemapXmlProblems(sitemapEntriesXml('matches',[{publicId:'0123456789abcdef',name:'A & B',away:'C <D>',updatedAt:'2026-09-01T00:00:00Z'}]))).toEqual([]);
+    expect(sitemapXmlProblems(sitemapIndexXml({matches:2,teams:1,players:0}))).toEqual([]);
+  });
+  it('the checker itself catches the defects Google rejected',()=>{
+    const bad='<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>https://livasports.com/a?b=1&c=2</loc><lastmod>17/09/2026</lastmod><foo/></url>';
+    const problems=sitemapXmlProblems(bad);
+    expect(problems.some(p=>p.startsWith('unescaped-ampersand'))).toBe(true);
+    expect(problems.some(p=>p.startsWith('lastmod-format'))).toBe(true);
+    expect(problems).toContain('unsupported-element:foo');expect(problems).toContain('unclosed:urlset');
   });
 });

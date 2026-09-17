@@ -9,7 +9,7 @@ export interface SportsSitemapEntry {publicId:string;name:string;away?:string;up
 /** Per-competition tab availability for the default season (P2 sitemap tab policy). */
 export interface CompetitionSitemapSummary {slug:string;seasonId:string;upcoming:number;results:number;standings:boolean;scorers:boolean;teams:boolean;updatedAt:Date|null;}
 const origin=siteOrigin;
-const xml=(value:string)=>value.replace(/[<>&"']/g,char=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&apos;'}[char]!));
+export const xml=(value:string)=>value.replace(/[<>&"']/g,char=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&apos;'}[char]!));
 
 export function sitemapBatches(counts:SitemapCounts){
   return sitemapKinds.flatMap(kind=>Array.from({length:Math.ceil(counts[kind]/sitemapBatchSize)},(_,page)=>`${kind}-${page}.xml`));
@@ -46,5 +46,35 @@ export function validateSitemapUrls(urls:readonly string[]):SitemapUrlProblem[]{
     const order=keys.filter(key=>!isNonSemanticParam(key)).map(key=>semanticOrder.indexOf(key));
     if(order.some((value,index)=>value<0||(index>0&&value<=order[index-1])))problems.push({url,reason:'param-order'});
   }
+  return problems;
+}
+
+/** Minimal well-formedness check for our own sitemap output (tests + QA): balanced elements, escaped text/attributes, declared namespaces. */
+export function sitemapXmlProblems(document:string):string[]{
+  const problems:string[]=[];
+  if(!document.startsWith('<?xml version="1.0" encoding="UTF-8"?>'))problems.push('missing-xml-declaration');
+  if(!/xmlns="http:\/\/www\.sitemaps\.org\/schemas\/sitemap\/0\.9"/.test(document))problems.push('missing-sitemap-namespace');
+  if(/<xhtml:link/.test(document)&&!/xmlns:xhtml="http:\/\/www\.w3\.org\/1999\/xhtml"/.test(document))problems.push('missing-xhtml-namespace');
+  const body=document.replace(/^<\?xml[^>]*\?>/,'');
+  const stack:string[]=[];let index=0;
+  const tag=/<(\/)?([A-Za-z:][\w:.-]*)((?:\s+[\w:.-]+="[^"<]*")*)\s*(\/)?>/y;
+  while(index<body.length){
+    const lt=body.indexOf('<',index);
+    const text=body.slice(index,lt<0?body.length:lt);
+    if(/&(?!(amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);)/.test(text))problems.push(`unescaped-ampersand:${text.slice(0,60)}`);
+    if(text.includes('>'))problems.push(`raw-gt:${text.slice(0,60)}`);
+    if(lt<0)break;
+    tag.lastIndex=lt;const match=tag.exec(body);
+    if(!match){problems.push(`malformed-tag:${body.slice(lt,lt+60)}`);break;}
+    const [,closing,name,attributes,selfClosing]=match;
+    if(/&(?!(amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);)/.test(attributes))problems.push(`unescaped-ampersand-attribute:${name}`);
+    if(closing){if(stack.pop()!==name)problems.push(`unbalanced:${name}`);}
+    else if(!selfClosing)stack.push(name);
+    index=tag.lastIndex;
+  }
+  if(stack.length)problems.push(`unclosed:${stack.join(',')}`);
+  const allowed=new Set(['urlset','url','loc','lastmod','changefreq','priority','xhtml:link','sitemapindex','sitemap']);
+  for(const name of new Set([...body.matchAll(/<([A-Za-z:][\w:.-]*)/g)].map(m=>m[1])))if(!allowed.has(name))problems.push(`unsupported-element:${name}`);
+  for(const [,value] of body.matchAll(/<lastmod>([^<]*)<\/lastmod>/g))if(!/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2}))?$/.test(value))problems.push(`lastmod-format:${value}`);
   return problems;
 }

@@ -12,7 +12,7 @@
  */
 import {writeFile,mkdir} from 'node:fs/promises';
 import {FOOTBALL_COMPETITION_TARGETS} from '../src/config/footballCompetitions';
-import {validateSitemapUrls} from '../src/sports/sitemap';
+import {sitemapXmlProblems,validateSitemapUrls} from '../src/sports/sitemap';
 import {competitionPath} from '../src/sports/policy';
 import {helpKinds,helpPath} from '../src/localization/help-routes';
 import {legalKinds,legalPath} from '../src/localization/legal-routes';
@@ -123,15 +123,18 @@ const summary:Record<string,unknown>={base:base.origin,production,budget,started
 const robots=await get('/robots.txt');
 summary.robots={status:robots.response.status,allowsRoot:/Allow: \/\s/.test(robots.body),disallows:robotsDisallow.filter(rule=>robots.body.includes(`Disallow: ${rule}`)).length,blocksQueries:/Disallow: \/\*\?|Disallow: \*\?/.test(robots.body),sitemaps:(robots.body.match(/^Sitemap: .*/gm)??[]).length,globalDisallow:/Disallow: \/\s*$/m.test(robots.body)};
 const primary=await get('/sitemap.xml');
-const primaryUrls=[...primary.body.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m=>m[1]);
+// <loc> text is XML-escaped; decode entities before URL validation and check the whole document is well-formed.
+const unxml=(v:string)=>v.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&apos;/g,"'");
+const primaryUrls=[...primary.body.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m=>unxml(m[1]));
+const primaryXmlProblems=sitemapXmlProblems(primary.body);
 const primaryProblems=validateSitemapUrls(primaryUrls);
 const index=await get('/sports-sitemaps.xml');
 const batches=[...index.body.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m=>m[1]);
 const sampleBatches=[batches[0],batches.find(b=>/teams-0/.test(b)),batches.find(b=>/players-0/.test(b)),batches[batches.length-1]].filter((b):b is string=>!!b);
 const batchStats:Array<{batch:string;status:number;ms:number;urls:number;problems:number;bytes:number}>=[];
-for(const batch of sampleBatches){const r=await get(new URL(batch).pathname);const urls=[...r.body.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m=>m[1]);batchStats.push({batch:new URL(batch).pathname,status:r.response.status,ms:r.ms,urls:urls.length,problems:validateSitemapUrls(urls).length,bytes:Buffer.byteLength(r.body)});}
-summary.sitemaps={primary:{status:primary.response.status,ms:primary.ms,urls:primaryUrls.length,problems:primaryProblems.slice(0,10),competitionUrls:primaryUrls.filter(u=>u.includes('?competition=')).length,entityUrls:primaryUrls.filter(u=>/\/(match|jogo|partido|team|time|equipo|player|jogador|jugador)\//.test(u)).length,withLastmod:(primary.body.match(/<lastmod>/g)??[]).length},
-  index:{status:index.response.status,ms:index.ms,files:batches.length,byKind:{matches:batches.filter(b=>/matches-/.test(b)).length,teams:batches.filter(b=>/teams-/.test(b)).length,players:batches.filter(b=>/players-/.test(b)).length}},batches:batchStats};
+for(const batch of sampleBatches){const r=await get(new URL(batch).pathname);const urls=[...r.body.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m=>unxml(m[1]));batchStats.push({batch:new URL(batch).pathname,status:r.response.status,ms:r.ms,urls:urls.length,problems:validateSitemapUrls(urls).length+sitemapXmlProblems(r.body).length,bytes:Buffer.byteLength(r.body)});}
+summary.sitemaps={primary:{status:primary.response.status,ms:primary.ms,contentType:primary.response.headers.get('content-type'),urls:primaryUrls.length,problems:primaryProblems.slice(0,10),xmlProblems:primaryXmlProblems.slice(0,10),competitionUrls:primaryUrls.filter(u=>u.includes('?competition=')).length,entityUrls:primaryUrls.filter(u=>/\/(match|jogo|partido|team|time|equipo|player|jogador|jugador)\//.test(u)).length,withLastmod:(primary.body.match(/<lastmod>/g)??[]).length},
+  index:{status:index.response.status,ms:index.ms,contentType:index.response.headers.get('content-type'),xmlProblems:sitemapXmlProblems(index.body).slice(0,10),files:batches.length,byKind:{matches:batches.filter(b=>/matches-/.test(b)).length,teams:batches.filter(b=>/teams-/.test(b)).length,players:batches.filter(b=>/players-/.test(b)).length}},batches:batchStats};
 
 // 2. representative page checks
 const checks:Check[]=[];
@@ -207,5 +210,5 @@ await mkdir('output',{recursive:true});
 const stamp=(production?"production":preview?"preview":"local")+(focusEntities?"-entities":"");
 await writeFile(`output/p2-seo-qa-${stamp}.json`,JSON.stringify({summary,failures,results},null,2));
 const robotsOk=preview?/^Disallow: \/\s*$/m.test(robots.body):(robots.response.status===200&&!(summary.robots as {globalDisallow:boolean}).globalDisallow);
-console.log(JSON.stringify({status:failures.length||primaryProblems.length||!robotsOk?'FAIL':'PASS',...summary,failures:failures.slice(0,40)},null,1));
-if(failures.length||primaryProblems.length||!robotsOk)process.exitCode=1;
+console.log(JSON.stringify({status:failures.length||primaryProblems.length||primaryXmlProblems.length||!robotsOk?'FAIL':'PASS',...summary,failures:failures.slice(0,40)},null,1));
+if(failures.length||primaryProblems.length||primaryXmlProblems.length||!robotsOk)process.exitCode=1;
