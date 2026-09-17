@@ -171,7 +171,9 @@ describe('P2 migration 024',()=>{
     const {readFileSync}=await import('node:fs');
     const sql=readFileSync('db/migrations/024_p2_sitemap_player_indexes.sql','utf8');
     expect(sql.startsWith('BEGIN;')).toBe(true);expect(sql.trim().endsWith('COMMIT;')).toBe(true);
-    expect(sql.match(/CREATE INDEX IF NOT EXISTS/g)).toHaveLength(2);
+    expect(sql.match(/CREATE INDEX IF NOT EXISTS/g)).toHaveLength(1);expect(sql).toContain('fixture_lineups_player_entity_idx');
+    // The 15M-row statistics table is never indexed non-concurrently inside the runner's transaction.
+    expect(sql).not.toMatch(/^\s*CREATE INDEX[^\n]*fixture_player_statistics/m);
     expect(sql).not.toMatch(/ALTER TABLE|DROP|INSERT|UPDATE|DELETE|CREATE TABLE/);
   });
 });
