@@ -34,7 +34,7 @@ describe('B — mobile fixture favorite has its own grid cell beside the match i
     expect(mobile).not.toContain('position:absolute');
     // the desktop rule that positions the star in the left gutter is untouched
     expect(product).toContain('.sports-board .favorite-toggle-row { position:absolute; left:0; top:50%; transform:translateY(-50%); }');
-    expect(product).toContain('.sports-board .fixture-row { position:relative; padding-left:42px; }');
+    expect(product).toContain('.sports-board .fixture-row { position:relative; padding-left:46px; }');
     // later layers never re-position the row star on mobile
     for(const css of [warm,premium])for(const b of blocks(css,'@media(max-width:767px)'))expect(b).not.toContain('.favorite-toggle-row');
   });

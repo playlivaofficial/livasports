@@ -146,7 +146,7 @@
 .favorite-toggle-compact svg { width:18px; height:18px; }
 .sports-match-row-wrap { position:relative; display:grid; grid-template-columns:minmax(0,1fr) 44px; align-items:center; min-width:0; }
 .sports-match-row-wrap .sports-match-row { min-width:0; }
-.sports-board .fixture-row { position:relative; padding-left:42px; }
+.sports-board .fixture-row { position:relative; padding-left:46px; } /* 44px star hit-box + 2px, so the target never overlaps the kickoff column */
 .sports-board .favorite-toggle-row { position:absolute; left:0; top:50%; transform:translateY(-50%); }
 .sports-hub-context,.competition-header,.sports-team-card,.profile-hero,.match-competition,.match-team { min-width:0; }
 .sports-team-card { display:flex; align-items:center; gap:.35rem; min-width:0; }
