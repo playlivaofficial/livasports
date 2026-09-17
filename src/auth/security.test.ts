@@ -17,7 +17,8 @@ describe('callback, cookie and owner isolation',()=>{
     expect(safeAuthPath('https://evil.test','en')).toBe('/en');
     expect(safeAuthPath('//evil.test','br')).toBe('/br');
     expect(safeAuthPath('/\\evil.test','mx')).toBe('/mx');
-    expect(safeAuthPath('/en/sign-in','en','home')).toBe('/en/sign-in');
+    expect(safeAuthPath('/en/my-matches','en')).toBe('/en/my-matches');
+    expect(safeAuthPath('/br/meus-jogos','br')).toBe('/br/meus-jogos');
     expect(authCallbackUrl('br','https://evil.test/callback')).toBe('/br/conta');
     expect(authCallbackUrl('en','/en/account')).toBe('/en/account');
     expect(safeAuthPath('/api/auth/callback/google','en')).toBe('/en');

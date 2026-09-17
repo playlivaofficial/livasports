@@ -1,5 +1,7 @@
 import {redirect} from 'next/navigation';
+import Link from 'next/link';
 import {authCopy,authPath} from '@/localization/auth-copy';
+import {favoritesCopy,favoritesPath} from '@/localization/favorites-copy';
 import {languageAlternates,type InterfaceLocale} from '@/localization/interface';
 import {authConfigured,emailAuthConfigured,googleAuthConfigured} from './database';
 import {auth} from './config';
@@ -8,6 +10,7 @@ import {userProviders} from './session';
 import {AuthShell} from './AuthShell';
 import {SignInForm} from './SignInForm';
 import {authCallbackUrl} from './redirect';
+import {favoritesRepository} from '@/favorites/database';
 
 export function authPageMetadata(locale:InterfaceLocale,kind:'signin'|'account'){
   const text=authCopy[locale];
@@ -33,6 +36,9 @@ export async function AccountPage({locale}:{locale:InterfaceLocale}){
   const text=authCopy[locale];
   const user=session.user;
   const methods=await userProviders(user.id);
+  const fav=favoritesCopy[locale];
+  let counts={teams:0,competitions:0,fixtures:0};
+  try{counts=await favoritesRepository().counts(user.id);}catch{}
   const initial=(user.name||user.email||'?').slice(0,1).toUpperCase();
   return <AuthShell locale={locale} title={text.accountTitle}>
     <section className="auth-account">
@@ -49,6 +55,7 @@ export async function AccountPage({locale}:{locale:InterfaceLocale}){
         <button type="submit">{text.saveName}</button>
       </form>
       <div><p>{text.methods}</p><ul className="auth-methods-list">{methods.map(method=><li key={method}>{method==='google'?text.googleMethod:text.emailMethod}</li>)}</ul></div>
+      <div className="auth-favorites"><h2>{fav.accountTitle}</h2><ul><li>{fav.accountTeams}: {counts.teams}</li><li>{fav.accountCompetitions}: {counts.competitions}</li><li>{fav.accountMatches}: {counts.fixtures}</li></ul><Link href={favoritesPath(locale)}>{fav.accountLink}</Link></div>
       <p className="auth-reserved">{text.reserved}</p>
       <form action={signOutUser}><input type="hidden" name="locale" value={locale}/><button className="auth-signout" type="submit">{text.signOut}</button></form>
     </section>

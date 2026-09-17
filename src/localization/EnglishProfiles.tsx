@@ -16,6 +16,7 @@ import {englishCountry as localizedCountry,englishPosition as localizedPosition}
 import {countryCodeFromName} from '@/profiles/localization';
 import {countryMarkFromIso} from '@/sports/country-mark';
 import {CountryMarkIcon} from '@/components/sports/CountryMarkIcon';
+import {FavoriteButton} from '@/favorites/FavoriteButton';
 
 import type { PlayerMatchLog, PlayerProfileView, ProfileFixture, ProfileModule, ProfileStatistic, TeamProfileView } from '@/profiles/types';
 
@@ -48,10 +49,10 @@ async function MatchRow({ locale, row, teamId }: { locale: SiteLocale; row: Prof
   const finished = row.status === FixtureStatus.FINISHED;
   const score = finished && row.homeScore !== null && row.awayScore !== null ? `${row.homeScore}–${row.awayScore}` : dictionary.statuses[row.status];
   const opponent = teamId ? (row.home.id === teamId ? row.away : row.home) : null;
-  return <Link href={matchPath(locale,row.publicId,row.home.name,row.away.name)} className="profile-match-row">
+  return <div className="profile-match-row-wrap"><Link href={matchPath(locale,row.publicId,row.home.name,row.away.name)} className="profile-match-row">
     <time dateTime={row.kickoff}>{date}</time><span className="profile-match-competition">{row.competition}</span>
     <strong>{opponent ? opponent.name : `${row.home.name} × ${row.away.name}`}</strong><b className={finished?'is-finished':undefined}>{score}</b>
-  </Link>;
+  </Link><FavoriteButton locale={locale} kind="fixture" id={row.publicId} className="favorite-toggle-compact"/></div>;
 }
 function appearanceDetails(locale: SiteLocale, row: PlayerMatchLog): string[] {
   const text=copy[locale]; const parts:string[]=[];
@@ -81,7 +82,7 @@ function TeamHeader({ locale, profile }: { locale: SiteLocale; profile: TeamProf
   const text=copy[locale]; const country=localizedCountry(locale,profile.country); const mark=countryMarkFromIso(countryCodeFromName(profile.country),profile.country); const facts=[[profile.foundedYear?`${text.founded} ${profile.foundedYear}`:null,null],
     [profile.venue?`${text.venue}: ${profile.venue}${profile.venueCity?` · ${profile.venueCity}`:''}`:null,null],[profile.coach?`${text.coach}: ${profile.coach}`:null,null]].filter(item=>item[0]);
   return <header className="profile-hero"><TeamMark initials={initials(profile.name)} imageUrl={profile.imageUrl} size={104}/><div><span>{profile.country?<><CountryMarkIcon mark={mark} className="profile-country-mark"/> {country}</>:null}</span><h1>{profile.name}</h1>
-    <div className="profile-hero-facts">{facts.map(([value],i)=><small key={`${value}:${i}`}>{value}</small>)}</div></div></header>;
+    <div className="profile-hero-facts">{facts.map(([value],i)=><small key={`${value}:${i}`}>{value}</small>)}</div></div><FavoriteButton locale={locale} kind="team" id={profile.publicId}/></header>;
 }
 function Squad({locale,profile}:{locale:SiteLocale;profile:TeamProfileView}){return profile.squad.data.length?<SquadBrowser locale={locale} contexts={profile.squad.data}/>:<State locale={locale} module={profile.squad}/>;}
 

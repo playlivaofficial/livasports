@@ -17,6 +17,7 @@ import {SectionNav as MatchSectionNav} from '@/components/sports/SectionNav';
 import { PregameOdds } from '@/components/match/PregameOdds';
 import { LiveRefreshBoundary } from '@/components/match/LiveRefreshBoundary';
 import { SponsoredSlot } from '@/components/commercial/SponsoredSlot';
+import { FavoriteButton } from '@/favorites/FavoriteButton';
 import { matchPath as brMatchPath } from '@/match-center/routes';
 
 
@@ -131,10 +132,10 @@ export async function EnglishMatchCenter({ locale, match, replay = false, commer
       {replay?<p className="replay-label">{text.replay}</p>:null}
 
       {!replay&&match.liveSnapshotStale?<p className="stale-live-label">{text.liveStale}</p>:null}
-      <header className="match-hero" data-status={displayStatus}><div className="match-competition"><Link href={competitionPath(locale,match.header.competitionSlug,{season:match.header.seasonId??undefined})}>{match.header.competition}</Link><b>{statusLabel(locale,displayStatus)}</b></div>
-        <div className="match-scoreboard"><div className="match-team"><Link href={teamPath(locale,match.header.home.publicId,match.header.home.name)}><TeamIdentity name={match.header.home.name} shortName={match.header.home.shortName} imageUrl={match.header.home.imageUrl} size={80}/></Link></div>
+      <header className="match-hero" data-status={displayStatus}><div className="match-competition"><Link href={competitionPath(locale,match.header.competitionSlug,{season:match.header.seasonId??undefined})}>{match.header.competition}</Link><FavoriteButton locale={locale} kind="competition" id={match.header.competitionSlug} className="favorite-toggle-compact"/><FavoriteButton locale={locale} kind="fixture" id={match.header.publicId}/><b>{statusLabel(locale,displayStatus)}</b></div>
+        <div className="match-scoreboard"><div className="match-team"><Link href={teamPath(locale,match.header.home.publicId,match.header.home.name)}><TeamIdentity name={match.header.home.name} shortName={match.header.home.shortName} imageUrl={match.header.home.imageUrl} size={80}/></Link><FavoriteButton locale={locale} kind="team" id={match.header.home.publicId} className="favorite-toggle-compact"/></div>
           <div className={`match-score${scheduled?' is-scheduled':''}`}><strong>{scheduled?kickoffTime:<>{match.header.homeScore??'—'} <span>–</span> {match.header.awayScore??'—'}</>}</strong><time dateTime={match.header.kickoff}>{kickoff}</time><small>{timeZone.replaceAll('_',' ')}</small></div>
-          <div className="match-team is-away"><Link href={teamPath(locale,match.header.away.publicId,match.header.away.name)}><TeamIdentity name={match.header.away.name} shortName={match.header.away.shortName} imageUrl={match.header.away.imageUrl} size={80}/></Link></div></div>
+          <div className="match-team is-away"><Link href={teamPath(locale,match.header.away.publicId,match.header.away.name)}><TeamIdentity name={match.header.away.name} shortName={match.header.away.shortName} imageUrl={match.header.away.imageUrl} size={80}/></Link><FavoriteButton locale={locale} kind="team" id={match.header.away.publicId} className="favorite-toggle-compact"/></div></div>
         <MatchClientActions canonicalUrl={`https://livasports.com${canonical}`} shareText={`${match.header.home.name} x ${match.header.away.name}`} labels={{share:text.share,copied:text.copied}}/>
       </header>
 

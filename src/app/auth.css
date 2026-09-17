@@ -16,5 +16,9 @@
 .auth-identity strong,.auth-identity span { display:block; overflow-wrap:anywhere; }
 .auth-methods-list { margin:0; padding-left:1.1rem; color:var(--color-text-secondary); font-size:.85rem; }
 .auth-reserved { color:var(--color-text-muted); font-size:.78rem; }
+.auth-favorites { display:grid; gap:.35rem; padding:.75rem 0 0; border-top:1px solid var(--color-border); }
+.auth-favorites h2 { margin:0; font-size:.95rem; }
+.auth-favorites ul { margin:0; padding-left:1.1rem; color:var(--color-text-secondary); font-size:.85rem; }
+.auth-favorites a { min-height:40px; display:inline-flex; align-items:center; color:var(--color-accent); }
 html[data-theme=dark] .auth-page { color:var(--color-text); }
 .auth-page, .auth-identity, .auth-identity strong, .auth-identity span { overflow-wrap:anywhere; min-width:0; }

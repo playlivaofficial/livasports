@@ -17,7 +17,7 @@ export const authCopy={
     unavailable:'O acesso à conta está temporariamente indisponível.',accountTitle:'Conta',signOut:'Sair',
     signedInAs:'Conectado como',methods:'Formas de acesso',displayName:'Nome de exibição',saveName:'Salvar nome',
     noName:'Sem nome de exibição',session:'Sessão neste navegador',headerSignIn:'Entrar',headerAccount:'Conta',
-    googleMethod:'Google',emailMethod:'E-mail',reserved:'Favoritos e avisos chegam em uma próxima etapa.',
+    googleMethod:'Google',emailMethod:'E-mail',reserved:'Avisos de partida chegam em uma próxima etapa.',
     nameSaved:'Nome atualizado.',nameInvalid:'Informe um nome com até 80 caracteres.',
   },
   mx:{
@@ -27,7 +27,7 @@ export const authCopy={
     unavailable:'El acceso a la cuenta no está disponible temporalmente.',accountTitle:'Cuenta',signOut:'Cerrar sesión',
     signedInAs:'Conectado como',methods:'Formas de acceso',displayName:'Nombre visible',saveName:'Guardar nombre',
     noName:'Sin nombre visible',session:'Sesión en este navegador',headerSignIn:'Entrar',headerAccount:'Cuenta',
-    googleMethod:'Google',emailMethod:'Correo',reserved:'Favoritos y avisos llegarán en una próxima etapa.',
+    googleMethod:'Google',emailMethod:'Correo',reserved:'Los avisos de partidos llegarán en una próxima etapa.',
     nameSaved:'Nombre actualizado.',nameInvalid:'Indica un nombre de hasta 80 caracteres.',
   },
   en:{
@@ -37,7 +37,7 @@ export const authCopy={
     unavailable:'Account access is temporarily unavailable.',accountTitle:'Account',signOut:'Sign out',
     signedInAs:'Signed in as',methods:'Sign-in methods',displayName:'Display name',saveName:'Save name',
     noName:'No display name',session:'Session on this browser',headerSignIn:'Sign in',headerAccount:'Account',
-    googleMethod:'Google',emailMethod:'Email',reserved:'Favorites and alerts come in a later step.',
+    googleMethod:'Google',emailMethod:'Email',reserved:'Match alerts come in a later step.',
     nameSaved:'Name updated.',nameInvalid:'Enter a name of up to 80 characters.',
   },
 } satisfies Record<SlipUiLocale,{[key:string]:string}>;

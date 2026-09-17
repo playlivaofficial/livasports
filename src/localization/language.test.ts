@@ -51,6 +51,10 @@ describe('context preservation and safe language POST',()=>{
     const routes={signin:{br:'/br/entrar',mx:'/mx/iniciar-sesion',en:'/en/sign-in'},account:{br:'/br/conta',mx:'/mx/cuenta',en:'/en/account'}};
     for(const from of ['br','mx','en'] as const)for(const to of ['br','mx','en'] as const)expect(translatedPath(routes[kind][from],to)).toBe(routes[kind][to]);
   });
+  it('preserves My Matches semantic routes',()=>{
+    const routes={br:'/br/meus-jogos',mx:'/mx/mis-partidos',en:'/en/my-matches'};
+    for(const from of ['br','mx','en'] as const)for(const to of ['br','mx','en'] as const)expect(translatedPath(routes[from],to)).toBe(routes[to]);
+  });
   it.each([['jogo','partido','match'],['time','equipo','team'],['jogador','jugador','player']])('preserves %s public identity, filters and section',(br,mx,en)=>{
     const segments={br,mx,en},suffix='/same-entity-0123456789abcdef?view=recent#statistics';
     for(const from of ['br','mx','en'] as const)for(const to of ['br','mx','en'] as const)expect(translatedPath(`/${from}/${segments[from]}${suffix}`,to)).toBe(`/${to}/${segments[to]}${suffix}`);

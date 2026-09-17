@@ -24,6 +24,7 @@ import {BoardRefresh} from '@/sports/BoardRefresh';
 import {CompetitionNav} from './CompetitionNav';
 import {competitionMark} from '@/sports/country-mark';
 import {CountryMarkIcon} from './CountryMarkIcon';
+import {FavoriteButton} from '@/favorites/FavoriteButton';
 
 const copy={
   br:{all:'Todos',live:'Ao vivo',upcoming:'Próximos',results:'Resultados',today:'Hoje',calendar:'Data dos jogos',go:'Ver',previous:'Dia anterior',next:'Dia seguinte',period:'Próximos 7 dias',competitions:'Competições',allCompetitions:'Todas as competições',empty:'Nenhum jogo neste filtro.',other:'Ver próximos jogos',odds:'Odds 1 X 2',pending:'Aguardando placar',fresh:'Últimos placares salvos',delayed:'Atualizações atrasadas',unavailable:'Atualizações indisponíveis',matches:'jogos',intro:'Placares, próximos jogos e comparação de odds — monte seu bilhete em um só lugar.'},
@@ -97,7 +98,7 @@ export async function SportsBoardPage({locale,page,searchParams}:{locale:Interfa
           {data?.sportsData.state==='unavailable'?<p className="provider-notice" role="status">{text.unavailable}</p>:null}
           {!sections.length?<div className="board-empty" role="status"><p>{text.empty}</p><Link href={href({date:null,view:'all'},interfaceRoutes[locale].football)}>{text.other} →</Link></div>:null}
           <div className="fixture-list">{sections.map((section,index)=>{const nav=navItems.find(item=>item.slug===section.slug),mark=competitionMark(nav??{slug:section.slug}),hasOdds=hasPregameOddsLayout(section.fixtures,now.getTime());return <section className="competition-section" data-group={section.group} data-odds-layout={hasOdds?'pregame':'none'} key={section.slug} aria-label={section.competition}>
-            <header className="competition-header"><Link href={href({competition:section.slug,date:null,view:'all'},interfaceRoutes[locale].football)}><CountryMarkIcon mark={mark}/><h2 className="competition-title">{section.competition}</h2></Link><span className="competition-count">{section.fixtures.length} {section.fixtures.length===1?(locale==='br'?'jogo':locale==='mx'?'partido':'match'):text.matches}</span>{hasOdds?<span className="board-odds-heading">{text.odds}</span>:null}</header>
+            <header className="competition-header"><Link href={href({competition:section.slug,date:null,view:'all'},interfaceRoutes[locale].football)}><CountryMarkIcon mark={mark}/><h2 className="competition-title">{section.competition}</h2></Link><FavoriteButton locale={locale} kind="competition" id={section.slug} className="favorite-toggle-compact"/><span className="competition-count">{section.fixtures.length} {section.fixtures.length===1?(locale==='br'?'jogo':locale==='mx'?'partido':'match'):text.matches}</span>{hasOdds?<span className="board-odds-heading">{text.odds}</span>:null}</header>
             {section.fixtures.map(f=>{const live=f.status==='LIVE'||f.status==='HALFTIME',pending=f.status==='SCHEDULED'&&Date.parse(f.kickoff)<=now.getTime(),showOdds=f.status==='SCHEDULED'&&!pending;
               return <article key={f.id} className={`fixture-row${live?' is-live':''}${showOdds?' has-odds':' has-no-odds'}`} aria-label={`${f.homeTeam} – ${f.awayTeam}`} data-kickoff={f.kickoff} data-status={f.status}>
                 <Link className="fixture-main-link" href={f.publicId?matchPath(locale,f.publicId,f.homeTeam,f.awayTeam):href({competition:section.slug})}>
@@ -105,6 +106,7 @@ export async function SportsBoardPage({locale,page,searchParams}:{locale:Interfa
                     {(f.status!=='SCHEDULED'||pending)?<span className={`status-badge ${live?'is-live':''}`}>{pending?text.pending:dictionary.statuses[f.status]}</span>:null}</div>
                   <div className="team-stack"><TeamIdentity name={f.homeTeam} imageUrl={f.homeTeamImageUrl}><RedCardCount locale={locale} count={redCards[f.id]?.home}/></TeamIdentity><TeamIdentity name={f.awayTeam} imageUrl={f.awayTeamImageUrl}><RedCardCount locale={locale} count={redCards[f.id]?.away}/></TeamIdentity></div><ScoreDisplay fixture={f}/>
                 </Link>
+                {f.publicId?<FavoriteButton locale={locale} kind="fixture" id={f.publicId} className="favorite-toggle-row"/>:null}
                 {showOdds?<OddsComparison locale={locale} commercialLocale={commercial??'br'} fixture={f}/>:null}
               </article>;
             })}

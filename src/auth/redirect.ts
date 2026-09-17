@@ -1,9 +1,11 @@
 import {interfaceRoutes,isInterfaceLocale,pathLocale,type InterfaceLocale} from '@/localization/interface';
 import {authRoutes} from '@/localization/auth-copy';
+import {favoritesRoutes} from '@/localization/favorites-copy';
 
 const allowed=new Set<string>([
   ...Object.values(interfaceRoutes).flatMap(r=>Object.values(r)),
   ...Object.values(authRoutes).flatMap(r=>[r.signin,r.account]),
+  ...Object.values(favoritesRoutes).flatMap(r=>[r.myMatches]),
 ]);
 
 export function safeAuthPath(value:unknown,locale:InterfaceLocale,fallback:'home'|'signin'|'account'='home'):string {
