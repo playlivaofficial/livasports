@@ -27,13 +27,15 @@ const budget=Number(args.find(a=>a.startsWith('--budget='))?.slice(9)??240);
 const production=base.hostname==='livasports.com';
 // Preview deployments are globally noindex + Disallow: / by design; index expectations are skipped there.
 const preview=args.includes('--preview');
+// --focus=entities: skip the 102-hub matrix and spend the budget on teams, players and invalid entities.
+const focusEntities=args.includes('--focus=entities');
 const origin='https://livasports.com';
 const locales=['br','mx','en'] as const;
 type Locale=typeof locales[number];
 const userAgents={html:'Mozilla/5.0 (Windows NT 10.0; Win64; x64) LivaSportsSeoQA/1.0',bot:'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html) LivaSportsSeoQA/1.0',social:'facebookexternalhit/1.1 LivaSportsSeoQA/1.0'};
 
 interface Check {id:string;path:string;agent?:keyof typeof userAgents;expect:Expectation;}
-interface Expectation {status?:number|number[];canonical?:string|null;index?:boolean;alternates?:number;jsonLd?:string[];h1?:boolean;location?:string;xml?:boolean;noUserData?:boolean;}
+interface Expectation {status?:number|number[];canonical?:string|null;canonicalOneOf?:string[];index?:boolean;alternates?:number;jsonLd?:string[];h1?:boolean;location?:string;xml?:boolean;noUserData?:boolean;}
 interface Result {id:string;path:string;status:number;ms:number;ok:boolean;reasons:string[];canonical?:string|null;robots?:string|null;alternates?:number;providerRequests?:number;}
 
 let requests=0;const results:Result[]=[];
@@ -78,9 +80,13 @@ function evaluate(check:Check,status:number,body:string,headers:Headers):string[
     else if(h.canonical.length!==1)reasons.push(`CANONICAL_COUNT_${h.canonical.length}`);
     else if(h.canonical[0]!==origin+e.canonical)reasons.push(`CANONICAL_${h.canonical[0]}`);
   }
+  if(e.canonicalOneOf&&!e.canonicalOneOf.some(c=>h.canonical[0]===origin+c))reasons.push(`CANONICAL_${h.canonical[0]}`);
   if(h.canonical.some(c=>c&&!c.startsWith(origin)))reasons.push('CANONICAL_HOST');
+  // Policy: a noindex response (empty tab, out-of-range page) carries no hreflang cluster.
+  const noindexed=h.robots.some(r=>/noindex/.test(r??''));
   if(e.index!==undefined&&!preview){const noindex=h.robots.some(r=>/noindex/.test(r??''));if(e.index===noindex)reasons.push(noindex?'UNEXPECTED_NOINDEX':'MISSING_NOINDEX');}
-  if(e.alternates!==undefined){
+  if(e.alternates!==undefined&&noindexed&&e.index===undefined){if(h.alternates.length)reasons.push('ALTERNATES_ON_NOINDEX');}
+  else if(e.alternates!==undefined){
     if(h.alternates.length!==e.alternates)reasons.push(`ALTERNATES_${h.alternates.length}`);
     if(e.alternates>0){
       const langs=h.alternates.map(a=>a.lang);for(const lang of ['pt-BR','es-MX','en','x-default'])if(!langs.includes(lang))reasons.push(`HREFLANG_MISSING_${lang}`);
@@ -141,7 +147,7 @@ for(const locale of locales){
   checks.push({id:'my-matches',path:favoritesRoutes[locale].myMatches,expect:{index:false,noUserData:true}});
   for(const kind of helpKinds)checks.push({id:`help-${kind}`,path:helpPath(locale,kind),expect:{canonical:helpPath(locale,kind),index:true,alternates:4,jsonLd:['BreadcrumbList'],h1:true}});
   checks.push({id:'legal',path:legalPath(locale,legalKinds[0]),expect:{canonical:legalPath(locale,legalKinds[0]),index:true,alternates:4}});
-  for(const c of enabled)checks.push({id:'competition',path:competitionPath(locale,c.slug),expect:{canonical:competitionPath(locale,c.slug),alternates:4,jsonLd:['BreadcrumbList'],h1:true}});
+  if(!focusEntities)for(const c of enabled)checks.push({id:'competition',path:competitionPath(locale,c.slug),expect:{canonical:competitionPath(locale,c.slug),alternates:4,jsonLd:['BreadcrumbList'],h1:true}});
 }
 checks.push({id:'root-redirect',path:'/',expect:{status:307}});
 checks.push({id:'owner',path:'/owner/preview',expect:{status:[200,401,403,404],index:false}});
@@ -150,17 +156,24 @@ const bodies=await pool(checks);
 
 // 3. discovered follow-ups: tabs, seasons, pagination, entities, invalid entities, bot/social parity (sampled within budget)
 const discovered:Check[]=[];
-const hubBodies=checks.map((c,i)=>({c,body:bodies[i]})).filter(x=>x.c.id==='competition'&&x.body);
-const sampleHubs=hubBodies.filter((_,i)=>i%Math.max(1,Math.floor(hubBodies.length/9))===0).slice(0,9);
+let hubBodies=checks.map((c,i)=>({c,body:bodies[i]})).filter(x=>x.c.id==='competition'&&x.body);
+if(focusEntities){
+  // Team anchors live on the teams tab; fetch one per locale for three competitions and treat them as hubs.
+  const teamTabs:Check[]=locales.flatMap(locale=>enabled.slice(0,3).map(c=>({id:'tab-teams',path:competitionPath(locale,c.slug,{tab:'teams'}),expect:{alternates:4,jsonLd:['BreadcrumbList']}})));
+  const teamBodies=await pool(teamTabs);
+  hubBodies=teamTabs.map((c,i)=>({c,body:teamBodies[i]})).filter(x=>x.body);
+}
+const sampleHubs=focusEntities?hubBodies:hubBodies.filter((_,i)=>i%Math.max(1,Math.floor(hubBodies.length/9))===0).slice(0,9);
 const entitySeen=new Set<string>();
 for(const {c,body} of sampleHubs){
   const locale=c.path.split('/')[1] as Locale,slug=new URL(c.path,origin).searchParams.get('competition')!;
-  for(const tab of ['results','standings'] as const)discovered.push({id:`tab-${tab}`,path:competitionPath(locale,slug,{tab}),expect:{alternates:4,jsonLd:['BreadcrumbList']}});
+  if(!focusEntities)for(const tab of ['results','standings'] as const)discovered.push({id:`tab-${tab}`,path:competitionPath(locale,slug,{tab}),expect:{alternates:4,jsonLd:['BreadcrumbList']}});
   const season=[...body.matchAll(/<option[^>]+value=["']([a-f0-9-]{36})["']/gi)].map(m=>m[1]);
-  if(season[1])discovered.push({id:'historical-season',path:competitionPath(locale,slug,{season:season[1]}),expect:{canonical:competitionPath(locale,slug,{season:season[1]}),alternates:4}});
-  if(season[0])discovered.push({id:'explicit-default-season',path:competitionPath(locale,slug,{season:season[0]}),expect:{}});
-  discovered.push({id:'page-out-of-range',path:competitionPath(locale,slug,{tab:'results',page:999}),expect:{index:false}});
-  discovered.push({id:'tracking-params',path:competitionPath(locale,slug)+'&utm_source=qa&fbclid=x',expect:{canonical:competitionPath(locale,slug)}});
+  // The second <select> option is historical unless the first (current) season is verified empty and the hub falls back to it.
+  if(season[1]&&!focusEntities)discovered.push({id:'historical-season',path:competitionPath(locale,slug,{season:season[1]}),expect:{canonicalOneOf:[competitionPath(locale,slug,{season:season[1]}),competitionPath(locale,slug)],alternates:4}});
+  if(season[0]&&!focusEntities)discovered.push({id:'explicit-default-season',path:competitionPath(locale,slug,{season:season[0]}),expect:{}});
+  if(!focusEntities)discovered.push({id:'page-out-of-range',path:competitionPath(locale,slug,{tab:'results',page:999}),expect:{index:false}});
+  if(!focusEntities)discovered.push({id:'tracking-params',path:competitionPath(locale,slug)+'&utm_source=qa&fbclid=x',expect:{canonical:competitionPath(locale,slug)}});
   const entity=/href="(\/(?:br|mx|en)\/(?:jogo|partido|match)\/[a-z0-9-]+-[a-f0-9]{16})"/i.exec(body)?.[1];
   const team=/href="(\/(?:br|mx|en)\/(?:time|equipo|team)\/[a-z0-9-]+-[a-f0-9]{16})"/i.exec(body)?.[1];
   if(entity&&!entitySeen.has(entity)){entitySeen.add(entity);discovered.push({id:'match',path:entity,expect:{canonical:entity,alternates:4,jsonLd:['SportsEvent','BreadcrumbList'],h1:true,noUserData:true}});discovered.push({id:'match-bot',path:entity,agent:'bot',expect:{canonical:entity,alternates:4}});discovered.push({id:'match-social',path:entity,agent:'social',expect:{canonical:entity}});
@@ -173,10 +186,12 @@ for(const locale of locales){
   discovered.push({id:'invalid-team',path:`/${locale}/${segments[1]}/nothing-here-ffffffffffffffff`,expect:{status:404}});
   discovered.push({id:'invalid-player',path:`/${locale}/${segments[2]}/malformed`,expect:{status:404}});
 }
-// a player page reached through the first team page
-const teamBody=await (async()=>{const t=discovered.find(d=>d.id==='team');return t?run(t):'';})();
-const player=/href="(\/(?:br|mx|en)\/(?:jogador|jugador|player)\/[a-z0-9-]+-[a-f0-9]{16})"/i.exec(teamBody)?.[1];
-if(player)discovered.push({id:'player',path:player,expect:{canonical:player,alternates:4,jsonLd:['Person','BreadcrumbList'],h1:true}});
+// player pages reached through the discovered team pages (one per team page)
+const teamChecks=discovered.filter(d=>d.id==='team');
+const teamBodies=await pool(teamChecks);
+const playersSeen=new Set<string>();
+for(const body of teamBodies){const player=/href="(\/(?:br|mx|en)\/(?:jogador|jugador|player)\/[a-z0-9-]+-[a-f0-9]{16})"/i.exec(body)?.[1];
+  if(player&&!playersSeen.has(player)){playersSeen.add(player);discovered.push({id:'player',path:player,expect:{canonical:player,alternates:4,jsonLd:['Person','BreadcrumbList'],h1:true}});discovered.push({id:'player-panel-params',path:player+'?utm_source=qa',expect:{canonical:player}});}}
 const remaining=discovered.filter(d=>d.id!=='team').slice(0,Math.max(0,budget-requests-2));
 await pool(remaining);
 
@@ -189,7 +204,7 @@ const byId=Object.fromEntries([...new Set(results.map(r=>r.id))].map(id=>[id,{to
 const timing=(id:string)=>{const rows=results.filter(r=>r.id===id&&r.status>0).map(r=>r.ms).sort((a,b)=>a-b);return rows.length?{n:rows.length,min:rows[0],p50:rows[Math.floor(rows.length/2)],max:rows[rows.length-1]}:null;};
 Object.assign(summary,{requests,checks:results.length,failed:failures.length,byId,timing:{home:timing('home'),football:timing('football'),competition:timing('competition'),match:timing('match'),team:timing('team'),player:timing('player'),help:timing('help-comparison')},finishedAt:new Date().toISOString()});
 await mkdir('output',{recursive:true});
-const stamp=production?'production':preview?'preview':'local';
+const stamp=(production?"production":preview?"preview":"local")+(focusEntities?"-entities":"");
 await writeFile(`output/p2-seo-qa-${stamp}.json`,JSON.stringify({summary,failures,results},null,2));
 const robotsOk=preview?/^Disallow: \/\s*$/m.test(robots.body):(robots.response.status===200&&!(summary.robots as {globalDisallow:boolean}).globalDisallow);
 console.log(JSON.stringify({status:failures.length||primaryProblems.length||!robotsOk?'FAIL':'PASS',...summary,failures:failures.slice(0,40)},null,1));

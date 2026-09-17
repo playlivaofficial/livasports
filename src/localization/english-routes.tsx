@@ -24,6 +24,8 @@ const matchData=cache((id:string)=>loadMatchCenter(id,'br'));
 const teamData=cache((id:string)=>loadTeamProfile(id,'br'));
 const playerData=cache((id:string)=>loadPlayerProfile(id,'br'));
 function jsonLd(value:object){return <JsonLd data={value}/>;}
+// Same breadcrumb hierarchy as the pt-BR/es-MX profile routes: home → profile.
+const profileBreadcrumbs=(name:string,path:string)=>({'@context':'https://schema.org','@type':'BreadcrumbList',itemListElement:[{'@type':'ListItem',position:1,name:'LivaSports',item:'https://livasports.com/en'},{'@type':'ListItem',position:2,name,item:`https://livasports.com${path}`}]});
 export async function englishMatchMetadata(params:Promise<{match:string}>):Promise<Metadata>{
   await connection();const parsed=parseMatchParam((await params).match);
   const result=parsed?await matchData(parsed.publicId):null;
@@ -58,9 +60,9 @@ export async function EnglishProfileRoute({params,entity,searchParams}:{params:P
   if(entity==='team'){
     const result=await teamData(parsed.publicId);if(result.kind==='not-found')notFound();const p=result.profile,path=teamPath('en',p.publicId,p.name);
     if(parsed.slug!==slugifyProfileName(p.name))permanentRedirect(path);
-    return <>{jsonLd({'@context':'https://schema.org','@type':'SportsTeam',name:p.name,url:`https://livasports.com${path}`,logo:p.imageUrl??undefined})}<EnglishTeamProfilePage locale="en" profile={englishSportsData(p)} history={<TeamHistoryPanel locale="en" profile={englishSportsData(p)} query={await searchParams??{}}/>}/></>;
+    return <>{jsonLd([{'@context':'https://schema.org','@type':'SportsTeam',name:p.name,url:`https://livasports.com${path}`,logo:p.imageUrl??undefined},profileBreadcrumbs(p.name,path)])}<EnglishTeamProfilePage locale="en" profile={englishSportsData(p)} history={<TeamHistoryPanel locale="en" profile={englishSportsData(p)} query={await searchParams??{}}/>}/></>;
   }
   const result=await playerData(parsed.publicId);if(result.kind==='not-found')notFound();const p=result.profile,path=playerPath('en',p.publicId,p.name);
   if(parsed.slug!==slugifyProfileName(p.name))permanentRedirect(path);
-  return <>{jsonLd({'@context':'https://schema.org','@type':'Person',name:p.name,url:`https://livasports.com${path}`,image:p.imageUrl??undefined,birthDate:p.dateOfBirth??undefined,nationality:p.nationality??undefined})}<EnglishPlayerProfilePage locale="en" profile={englishSportsData(p)}/></>;
+  return <>{jsonLd([{'@context':'https://schema.org','@type':'Person',name:p.name,url:`https://livasports.com${path}`,image:p.imageUrl??undefined,birthDate:p.dateOfBirth??undefined,nationality:p.nationality??undefined},profileBreadcrumbs(p.name,path)])}<EnglishPlayerProfilePage locale="en" profile={englishSportsData(p)}/></>;
 }
