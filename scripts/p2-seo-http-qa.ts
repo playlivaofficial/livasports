@@ -25,6 +25,8 @@ const args=process.argv.slice(2);
 const base=new URL(args.find(a=>!a.startsWith('--'))??'http://localhost:3300');
 const budget=Number(args.find(a=>a.startsWith('--budget='))?.slice(9)??240);
 const production=base.hostname==='livasports.com';
+// Preview deployments are globally noindex + Disallow: / by design; index expectations are skipped there.
+const preview=args.includes('--preview');
 const origin='https://livasports.com';
 const locales=['br','mx','en'] as const;
 type Locale=typeof locales[number];
@@ -76,7 +78,7 @@ function evaluate(check:Check,status:number,body:string,headers:Headers):string[
     else if(h.canonical[0]!==origin+e.canonical)reasons.push(`CANONICAL_${h.canonical[0]}`);
   }
   if(h.canonical.some(c=>c&&!c.startsWith(origin)))reasons.push('CANONICAL_HOST');
-  if(e.index!==undefined){const noindex=h.robots.some(r=>/noindex/.test(r??''));if(e.index===noindex)reasons.push(noindex?'UNEXPECTED_NOINDEX':'MISSING_NOINDEX');}
+  if(e.index!==undefined&&!preview){const noindex=h.robots.some(r=>/noindex/.test(r??''));if(e.index===noindex)reasons.push(noindex?'UNEXPECTED_NOINDEX':'MISSING_NOINDEX');}
   if(e.alternates!==undefined){
     if(h.alternates.length!==e.alternates)reasons.push(`ALTERNATES_${h.alternates.length}`);
     if(e.alternates>0){
@@ -91,6 +93,7 @@ function evaluate(check:Check,status:number,body:string,headers:Headers):string[
   if(e.h1&&!h.h1)reasons.push('MISSING_H1');
   if(e.noUserData&&/@[a-z0-9-]+\.(com|net|org|br|mx)|magic-link|callbackUrl=|token=/i.test(head(body).og.map(o=>o[1]).join(' ')+(h.title??'')+h.canonical.join(' ')))reasons.push('USER_DATA_IN_METADATA');
   if(e.index!==false&&status===200&&!h.og.some(o=>o[0]==='og:image'))reasons.push('MISSING_OG_IMAGE');
+  if(status===200&&!preview&&h.robots.some(r=>/noindex/.test(r??''))&&e.index===undefined&&check.id==='competition')reasons.push('UNEXPECTED_NOINDEX');
   return reasons;
 }
 
@@ -184,7 +187,8 @@ const byId=Object.fromEntries([...new Set(results.map(r=>r.id))].map(id=>[id,{to
 const timing=(id:string)=>{const rows=results.filter(r=>r.id===id&&r.status>0).map(r=>r.ms).sort((a,b)=>a-b);return rows.length?{n:rows.length,min:rows[0],p50:rows[Math.floor(rows.length/2)],max:rows[rows.length-1]}:null;};
 Object.assign(summary,{requests,checks:results.length,failed:failures.length,byId,timing:{home:timing('home'),football:timing('football'),competition:timing('competition'),match:timing('match'),team:timing('team'),player:timing('player'),help:timing('help-comparison')},finishedAt:new Date().toISOString()});
 await mkdir('output',{recursive:true});
-const stamp=production?'production':'local';
+const stamp=production?'production':preview?'preview':'local';
 await writeFile(`output/p2-seo-qa-${stamp}.json`,JSON.stringify({summary,failures,results},null,2));
-console.log(JSON.stringify({status:failures.length||primaryProblems.length||robots.response.status!==200?'FAIL':'PASS',...summary,failures:failures.slice(0,40)},null,1));
-if(failures.length||primaryProblems.length)process.exitCode=1;
+const robotsOk=preview?/^Disallow: \/\s*$/m.test(robots.body):(robots.response.status===200&&!(summary.robots as {globalDisallow:boolean}).globalDisallow);
+console.log(JSON.stringify({status:failures.length||primaryProblems.length||!robotsOk?'FAIL':'PASS',...summary,failures:failures.slice(0,40)},null,1));
+if(failures.length||primaryProblems.length||!robotsOk)process.exitCode=1;
