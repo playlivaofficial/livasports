@@ -259,7 +259,10 @@
   .sports-board .team-mark,.sports-board .team-logo { width: 19px; height: 19px; }
   .sports-board .sponsor-mobile_inline { width: calc(100% + 1.2rem); margin: .25rem -.6rem .4rem; border-radius: 0; }
   .sponsor-mobile_inline,.sponsor-profile_mobile_inline { width: 100%; }
-  :is(.sponsor-mobile_inline,.sponsor-profile_mobile_inline) :is(.sponsor-embed-box,a,img) { width: 100% !important; max-width: none !important; }
+  /* Creatives keep their approved pixel size (never upscaled); the slot stays full-bleed and centres them. */
+  :is(.sponsor-mobile_inline,.sponsor-profile_mobile_inline) { display: grid; justify-items: center; }
+  :is(.sponsor-mobile_inline,.sponsor-profile_mobile_inline) a { width: 100%; display: grid; justify-items: center; }
+  :is(.sponsor-mobile_inline,.sponsor-profile_mobile_inline) :is(.sponsor-embed-box,img) { max-width: 100%; }
   .sponsor-mobile_inline .commercial-label,.sponsor-mobile_inline p { padding-inline: .6rem; }
   .sponsor-mobile_inline .commercial-label { padding-block: 2px; }
   .slip-trigger { min-height: 46px; }

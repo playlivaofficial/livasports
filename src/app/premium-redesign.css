@@ -592,9 +592,9 @@ button.listing-odds-select[aria-pressed="true"] { border-color: var(--color-acce
     border-left: 0;
     border-radius: 0;
   }
+  .sponsor-mobile_inline a { width: 100%; }
   .sponsor-mobile_inline .sponsor-embed-box,
-  .sponsor-mobile_inline a,
-  .sponsor-mobile_inline img { width: 100% !important; max-width: none !important; }
+  .sponsor-mobile_inline img { max-width: 100%; }
   .sponsor-mobile_inline .commercial-label,
   .sponsor-mobile_inline p { padding-inline: .65rem; }
 }

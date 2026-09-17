@@ -130,8 +130,11 @@
 .sports-legal-page li { padding-block:6px; }
 .sports-site-footer a:focus-visible,.sports-legal-page a:focus-visible { outline:2px solid #9af0d1; outline-offset:4px; }
 .event-team { color:var(--color-text-muted); font-size:.76rem; overflow-wrap:anywhere; }
-.my-matches-header-link { display:inline-flex; align-items:center; gap:.28rem; min-height:40px; padding:0 .5rem; border:1px solid rgba(255,255,255,.12); border-radius:.45rem; color:#d5ece6; font-size:.72rem; font-weight:700; }
-.my-matches-header-link:hover,.my-matches-header-link:focus-visible { color:#fff; border-color:rgba(255,255,255,.28); }
+/* Header navigation entry to My Matches. The app header keeps a dark background in BOTH themes (--header-bg), so the foreground is a header-scoped light token, never the page text colour. */
+.app-header { --header-fg:#f2faf6; --header-fg-muted:#d5ece6; }
+.my-matches-header-link { display:inline-flex; align-items:center; gap:.28rem; min-height:40px; padding:0 .5rem; border:1px solid rgba(255,255,255,.18); border-radius:.45rem; color:var(--header-fg-muted,#d5ece6); font-size:.72rem; font-weight:700; }
+.my-matches-header-link>span[aria-hidden] { color:var(--header-fg,#f2faf6); font-size:1.05rem; line-height:1; }
+.my-matches-header-link:hover,.my-matches-header-link:focus-visible,.my-matches-header-link:active,.my-matches-header-link:visited { color:var(--header-fg,#f2faf6); border-color:rgba(255,255,255,.34); }
 .my-matches-header-link:focus-visible { outline:2px solid #9af0d1; outline-offset:2px; }
 .favorite-toggle { display:inline-grid; place-items:center; width:44px; height:44px; min-width:44px; min-height:44px; padding:0; border:0; border-radius:.5rem; background:transparent; color:#8aa0ad; cursor:pointer; }
 .favorite-toggle svg { width:22px; height:22px; }
@@ -159,10 +162,20 @@
 .my-matches-empty a { display:inline-flex; min-height:44px; align-items:center; color:#6de2b8; }
 html[data-theme=light] .favorite-toggle { color:#5b6b74; }
 html[data-theme=light] .favorite-toggle.is-on { color:#b8860b; }
-html[data-theme=light] .my-matches-header-link { color:#17323a; border-color:#d5ddd8; }
+@media(max-width:767px){
+  /* Match information row: kickoff | teams + score | favorite. Odds row below spans the full width. */
+  .sports-board .fixture-row,.sports-board .fixture-row.has-no-odds { grid-template-columns:minmax(0,1fr) 44px; grid-template-rows:auto auto; padding-left:8px; column-gap:4px; }
+  .sports-board .fixture-row .fixture-main-link { grid-column:1; grid-row:1; }
+  .sports-board .favorite-toggle-row { position:static; transform:none; grid-column:2; grid-row:1; justify-self:end; align-self:center; }
+  .sports-board .fixture-row .odds-slot { grid-column:1 / -1; grid-row:2; }
+  .sports-board .listing-odds, .sports-board .listing-odds-books, .sports-board .odds-empty { max-width:none; margin-left:0; }
+}
 @media(max-width:620px){
   .my-matches-header-text { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); }
   .my-matches-header-link { min-width:44px; justify-content:center; padding:0; }
-  .sports-board .fixture-row { padding-left:38px; }
+}
+@media(max-width:359px){
+  /* 320px phones: the header actions need the full row; keep the brand mark, drop the wordmark (the link keeps its aria-label). */
+  .app-header .brand>span:not(.brand-mark) { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); }
 }
 

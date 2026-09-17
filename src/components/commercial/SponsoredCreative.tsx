@@ -5,13 +5,16 @@ import {privacyOptOut,qaBrowser} from '@/affiliate/client';
 import {emitProductEvent} from '@/components/match/events';
 import {AffiliateAnchor,commercialCopy} from './AffiliateLink';
 
+/** Fit a fixed-size creative into its slot without upscaling. Exported for tests. */
+export function creativeFit(slotWidth:number,creativeWidth:number){const scale=Math.min(1,slotWidth/creativeWidth);return {scale,offset:Math.max(0,Math.round((slotWidth-creativeWidth*scale)/2))};}
 function PublisherEmbed({offer,onFailure}:{offer:PublicOffer;onFailure:()=>void}){
   const c=offer.creative!,box=useRef<HTMLDivElement>(null),frame=useRef<HTMLIFrameElement>(null),clicked=useRef(false);
-  const [load,setLoad]=useState(false),[ready,setReady]=useState(false),[scale,setScale]=useState(1);
+  const [load,setLoad]=useState(false),[ready,setReady]=useState(false),[fit,setFit]=useState({scale:1,offset:0});
   useEffect(()=>{
     const el=box.current;if(!el)return;
     const denied=()=>privacyOptOut()||offer.embedPermission==='consent'&&!/(?:^|;\s*)livasports_analytics_consent=granted(?:;|$)/.test(document.cookie);
-    const size=new ResizeObserver(()=>{const width=el.getBoundingClientRect().width;if(width>0)setScale(width/c.width);});size.observe(el);
+    // Never enlarge the approved creative beyond its native pixel size: a wider slot centres it, a narrower slot scales it down.
+    const size=new ResizeObserver(()=>{const width=el.getBoundingClientRect().width;if(width>0)setFit(creativeFit(width,c.width));});size.observe(el);
     const near=new IntersectionObserver(entries=>{if(denied()){onFailure();return;}if(entries.some(e=>e.isIntersecting)&&document.visibilityState==='visible')setLoad(true);},{rootMargin:'160px'});near.observe(el);
     const visibility=()=>{if(denied())onFailure();};document.addEventListener('visibilitychange',visibility);window.addEventListener('livasports:privacy-change',visibility);
     const message=(event:MessageEvent)=>{
@@ -42,7 +45,7 @@ function PublisherEmbed({offer,onFailure}:{offer:PublicOffer;onFailure:()=>void}
   return <div ref={box} className="sponsor-embed-box" data-ready={ready} style={{width:c.width,maxWidth:'100%',aspectRatio:`${c.width}/${c.height}`}}>
     {load?<iframe ref={frame} title={`${c.imageAlt} · Publicidade · 18+`} width={c.width} height={c.height} loading="lazy" {...(offer.qaPreview?{}:{credentialless:''})}
       sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox" referrerPolicy="no-referrer" allow="camera 'none'; microphone 'none'; geolocation 'none'; payment 'none'; fullscreen 'none'"
-      src={`/api/commercial/creative?offer=${offer.token}`} style={{transform:`scale(${scale})`,background:'transparent'}}/>:null}
+      src={`/api/commercial/creative?offer=${offer.token}`} style={{transform:`translateX(${fit.offset}px) scale(${fit.scale})`,background:'transparent'}}/>:null}
   </div>;
 }
 
