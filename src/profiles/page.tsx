@@ -38,7 +38,8 @@ export async function profileMetadata(paramPromise: Promise<{ profile: string }>
   const mx = entity === 'team' ? teamPath('mx', profile.publicId, profile.name) : playerPath('mx', profile.publicId, profile.name);
   return { title: `${profile.name}: ${metadataCopy[locale][entity]}`, description,
     robots: profile.indexable ? { index: true, follow: true } : { index: false, follow: true },
-    alternates: { canonical, languages: languageAlternates(br,mx,(entity==='team'?interfaceTeamPath:interfacePlayerPath)('en',profile.publicId,profile.name)) },
+    // P2 policy: a noindex profile keeps its canonical but no hreflang cluster.
+    alternates: profile.indexable ? { canonical, languages: languageAlternates(br,mx,(entity==='team'?interfaceTeamPath:interfacePlayerPath)('en',profile.publicId,profile.name)) } : { canonical },
     openGraph: { type: 'website', siteName: 'LivaSports', title: profile.name, description, url: canonical,
       locale: localeTag[locale].replace('-', '_'), images: openGraphImages(profile.imageUrl ? { url: profile.imageUrl, alt: profile.name } : null) },
     other: { 'content-language': localeTag[locale] } };

@@ -5,7 +5,7 @@ vi.mock('@/sports/sitemap-runtime',()=>({loadCompetitionSitemapSummaries:vi.fn(a
 vi.mock('@/match-center/runtime',()=>({
   loadMatchCenter:async()=>({kind:'found',match:{header:{publicId:'0123456789abcdef',home:{name:'Home'},away:{name:'Away'},competition:'Copa do Brasil'}}})}));
 vi.mock('@/profiles/runtime',()=>({
-  loadTeamProfile:async()=>({kind:'found',profile:{publicId:'1123456789abcdef',name:'Team',indexable:true,imageUrl:null}}),
+  loadTeamProfile:vi.fn(async()=>({kind:'found',profile:{publicId:'1123456789abcdef',name:'Team',indexable:true,imageUrl:null}})),
   loadPlayerProfile:async()=>({kind:'found',profile:{publicId:'2123456789abcdef',name:'Player',indexable:true,imageUrl:null}})}));
 import sitemap from '@/app/sitemap';
 import {englishMatchMetadata,englishProfileMetadata} from './english-routes';
@@ -33,4 +33,10 @@ it.each(['team','player'] as const)('English %s metadata has complete reciprocal
   const metadata=await englishProfileMetadata(Promise.resolve({profile:'sample-1123456789abcdef'}),entity);
   expect(metadata.description).toContain('Football profiles');expect(metadata.alternates?.languages?.['x-default']).toBe(metadata.alternates?.canonical);
   expect(Object.keys(metadata.alternates?.languages??{})).toHaveLength(4);
+});
+it('a thin (noindex) profile keeps its canonical but emits no hreflang cluster',async()=>{
+  const {loadTeamProfile}=await import('@/profiles/runtime');
+  vi.mocked(loadTeamProfile).mockResolvedValueOnce({kind:'found',profile:{publicId:'1123456789abcdef',name:'Team',indexable:false,imageUrl:null}} as never);
+  const metadata=await englishProfileMetadata(Promise.resolve({profile:'team-1123456789abcdef'}),'team');
+  expect(metadata.robots).toEqual({index:false,follow:true});expect(metadata.alternates?.canonical).toBe('/en/team/team-1123456789abcdef');expect(metadata.alternates?.languages).toBeUndefined();
 });
