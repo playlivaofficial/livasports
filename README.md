@@ -2,7 +2,7 @@
 
 This repository contains the M2 read-only sports-data delivery experience, the M1 Next.js/TypeScript foundation, and the preserved M0/M0.5 provider-validation harnesses. The production path uses LivaSports-owned canonical models, Sportmonks for sports data, and OddsPapi for supported pregame odds. M2 does not contain a Bet Slip, accounts, live odds, player props, or the full Match Center.
 
-Architecture details are in `docs/M1_ARCHITECTURE.md` and `docs/M2_DATA_DELIVERY.md`.
+Architecture details are in `docs/M1_ARCHITECTURE.md` and `docs/M2_DATA_DELIVERY.md`. Search discovery (canonicals, hreflang, sitemaps, robots, structured data) follows `docs/P2_SEO_POLICY.md`; owner steps for Search Console/Bing are in `docs/P2_SEARCH_CONSOLE.md`.
 
 ## Application development
 
