@@ -52,7 +52,7 @@ export async function englishProfileMetadata(params:Promise<{profile:string}>,en
   const paths=(['br','mx','en'] as const).map(locale=>route(locale,p.publicId,p.name));
   const title=`${p.name}: ${entity==='team'?'matches, squad and statistics':'statistics, matches and profile'}`;
   const description=`${title}. Football profiles on LivaSports.`;
-  return {title,description,robots:{index:p.indexable,follow:true},alternates:{canonical:paths[2],languages:languageAlternates(paths[0],paths[1],paths[2])},
+  return {title,description,robots:{index:p.indexable,follow:true},alternates:p.indexable?{canonical:paths[2],languages:languageAlternates(paths[0],paths[1],paths[2])}:{canonical:paths[2]},
     openGraph:{type:'website',siteName:'LivaSports',title,description,url:paths[2],locale:'en',images:openGraphImages(p.imageUrl?{url:p.imageUrl,alt:p.name}:null)},other:{'content-language':'en'}};
 }
 export async function EnglishProfileRoute({params,entity,searchParams}:{params:Promise<{profile:string}>;entity:'team'|'player';searchParams?:Promise<Record<string,string|string[]|undefined>>}){
