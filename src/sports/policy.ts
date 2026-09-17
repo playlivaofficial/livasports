@@ -15,6 +15,12 @@ export function competitionPath(locale:InterfaceLocale,slug:string,options:{tab?
   if(options.page&&options.page>1)query.set('p',String(options.page));
   return `${interfaceRoutes[locale].football}?${query}`;
 }
+/** Season a hub resolves without ?season: the first ordered season, unless the source verified it empty and an older season has fixtures. */
+export function resolveDefaultSeason<T extends {fixtures:number;verifiedEmpty?:boolean}>(seasons:readonly T[]):T|null{
+  const first=seasons[0]??null;
+  if(first&&first.fixtures===0&&first.verifiedEmpty===true)return seasons.find(s=>s.fixtures>0)??first;
+  return first;
+}
 export function competitionName(locale:InterfaceLocale,slug:string){const target=FOOTBALL_COMPETITION_TARGETS.find(t=>t.slug===slug);return target?(locale==='en'?englishCompetition(target.canonicalName):target.displayNames[locale]):null;}
 export function numericStatistic(value:unknown):number|null{
   const raw=value&&typeof value==='object'?(value as Record<string,unknown>).total:undefined;

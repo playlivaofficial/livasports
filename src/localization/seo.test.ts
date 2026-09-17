@@ -1,21 +1,28 @@
 import {expect,it,vi} from 'vitest';
 vi.mock('server-only',()=>({}));
 vi.mock('next/server',()=>({connection:async()=>undefined}));
-vi.mock('@/match-center/runtime',()=>({loadSitemapMatches:async()=>[{publicId:'0123456789abcdef',home:'Home',away:'Away',updatedAt:new Date('2026-09-01')}],
+vi.mock('@/sports/sitemap-runtime',()=>({loadCompetitionSitemapSummaries:vi.fn(async()=>null)}));
+vi.mock('@/match-center/runtime',()=>({
   loadMatchCenter:async()=>({kind:'found',match:{header:{publicId:'0123456789abcdef',home:{name:'Home'},away:{name:'Away'},competition:'Copa do Brasil'}}})}));
-vi.mock('@/profiles/runtime',()=>({loadSitemapTeams:async()=>[{publicId:'1123456789abcdef',name:'Team',updatedAt:new Date('2026-09-01')}],
-  loadSitemapPlayers:async()=>[{publicId:'2123456789abcdef',name:'Player',updatedAt:new Date('2026-09-01')}],
+vi.mock('@/profiles/runtime',()=>({
   loadTeamProfile:async()=>({kind:'found',profile:{publicId:'1123456789abcdef',name:'Team',indexable:true,imageUrl:null}}),
   loadPlayerProfile:async()=>({kind:'found',profile:{publicId:'2123456789abcdef',name:'Player',indexable:true,imageUrl:null}})}));
 import sitemap from '@/app/sitemap';
 import {englishMatchMetadata,englishProfileMetadata} from './english-routes';
-it('includes every index and entity in all three locales with reciprocal absolute alternates',async()=>{
-  const rows=await sitemap();expect(rows).toHaveLength(135);expect(new Set(rows.map(row=>row.url)).size).toBe(135);
-  expect(rows.filter(row=>row.url.includes('?competition='))).toHaveLength(102);
+import {FOOTBALL_COMPETITION_TARGETS} from '@/config/footballCompetitions';
+it('lists every hub, document and competition entry in all three locales with reciprocal absolute alternates',async()=>{
+  const rows=await sitemap();
+  const competitions=FOOTBALL_COMPETITION_TARGETS.filter(c=>c.enabled).length;
+  // 4 hubs + 4 legal + 3 help + competitions, each in three locales; entities live only in /sports-sitemaps.xml.
+  expect(rows).toHaveLength((4+4+3+competitions)*3);expect(new Set(rows.map(row=>row.url)).size).toBe(rows.length);
+  expect(rows.filter(row=>row.url.includes('?competition='))).toHaveLength(competitions*3);
+  expect(rows.some(row=>/\/(match|jogo|partido|team|time|equipo|player|jogador|jugador)\//.test(row.url))).toBe(false);
   for(const row of rows){const alts=row.alternates?.languages;expect(Object.keys(alts??{})).toEqual(['pt-BR','es-MX','en','x-default']);expect(alts?.['x-default']).toBe(alts?.en);
+    expect(Object.values(alts??{})).toContain(row.url);
     for(const url of Object.values(alts??{}))expect(rows.some(item=>item.url===url)).toBe(true);
   }
-  expect(rows.find(row=>row.url.includes('/en/team/'))?.lastModified).toEqual(new Date('2026-09-01'));
+  expect(rows.find(row=>row.url==='https://livasports.com/br')?.lastModified).toBeUndefined();
+  expect(rows.find(row=>row.url==='https://livasports.com/en/how-odds-comparison-works')?.lastModified).toBeInstanceOf(Date);
 });
 it('English match metadata describes stored sports data in English',async()=>{
   const metadata=await englishMatchMetadata(Promise.resolve({match:'home-x-away-0123456789abcdef'}));

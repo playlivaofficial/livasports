@@ -2,13 +2,13 @@ import {requestTimeZone} from '@/localization/time-zone-server';
 import Link from './SportsLink';
 import type {Metadata} from 'next';
 import {SiteHeader} from '@/components/sports/SiteHeader';
-import {interfaceDictionary,languageAlternates,matchPath,type InterfaceLocale} from '@/localization/interface';
+import {interfaceDictionary,matchPath,type InterfaceLocale} from '@/localization/interface';
 import {competitionName,competitionPath,sportStage,pendingParticipant} from './policy';
 import type {PendingSportsFixture} from './types';
 const copy={br:{title:'Equipes a definir',detail:'Este jogo consta no calendário oficial. Os participantes e o horário ainda aguardam confirmação.',back:'Ver competição'},mx:{title:'Equipos por definir',detail:'Este partido figura en el calendario oficial. Los participantes y la hora aún esperan confirmación.',back:'Ver competición'},en:{title:'Teams to be confirmed',detail:'This fixture is in the official schedule. Participants and kickoff time are awaiting confirmation.',back:'View competition'}};
 export const pendingPath=(locale:InterfaceLocale,id:string)=>matchPath(locale,id,'fixture','pending');
 export function pendingMetadata(locale:InterfaceLocale,row:PendingSportsFixture):Metadata{
-  return {title:`${competitionName(locale,row.competitionSlug)} · ${copy[locale].title}`,robots:{index:false,follow:true},alternates:{canonical:pendingPath(locale,row.publicId),languages:languageAlternates(pendingPath('br',row.publicId),pendingPath('mx',row.publicId),pendingPath('en',row.publicId))}};
+  return {title:`${competitionName(locale,row.competitionSlug)} · ${copy[locale].title}`,robots:{index:false,follow:true},alternates:{canonical:pendingPath(locale,row.publicId)}};
 }
 export async function PendingMatch({locale,row}:{locale:InterfaceLocale;row:PendingSportsFixture}){
   const timeZone=await requestTimeZone(locale);

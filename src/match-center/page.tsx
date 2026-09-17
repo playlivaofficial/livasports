@@ -5,6 +5,7 @@ import {PendingMatch,pendingMetadata} from '@/sports/PendingMatch';
 import { connection } from 'next/server';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { MatchCenter } from '@/components/match/MatchCenter';
+import {JsonLd} from '@/seo/json-ld';
 import type { SiteLocale } from '@/config/i18n';
 import { loadMatchCenter } from './runtime';
 import { matchPath, parseMatchParam, slugifyMatch } from './routes';
@@ -50,5 +51,5 @@ export async function MatchRoutePage({ params, locale }: { params: Promise<{ mat
   const correctSlug = slugifyMatch(result.match.header.home.name, result.match.header.away.name);
   if (parsed.slug !== correctSlug) permanentRedirect(matchPath(locale, parsed.publicId, result.match.header.home.name, result.match.header.away.name));
   const jsonLd=sportsMatchSchema(locale,result.match.header);
-  return <><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g,'\\u003c') }}/><MatchCenter locale={locale} commercialLocale={commercialLocale(requestCommercialGeo(await headers()))??locale} match={result.match}/></>;
+  return <><JsonLd data={jsonLd}/><MatchCenter locale={locale} commercialLocale={commercialLocale(requestCommercialGeo(await headers()))??locale} match={result.match}/></>;
 }

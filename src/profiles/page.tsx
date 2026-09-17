@@ -7,6 +7,12 @@ import type { SiteLocale } from '@/config/i18n';
 import { loadPlayerProfile, loadTeamProfile } from './runtime';
 import { parseProfileParam, playerPath, slugifyProfileName, teamPath } from './routes';
 import {TeamHistoryPanel} from '@/sports/TeamHistoryPanel';
+import {JsonLd} from '@/seo/json-ld';
+import {cache} from 'react';
+
+// Metadata and the page body share one request-scoped read per profile.
+const teamData=cache((id:string,locale:SiteLocale)=>loadTeamProfile(id,locale));
+const playerData=cache((id:string,locale:SiteLocale)=>loadPlayerProfile(id,locale));
 
 const localeTag = { br: 'pt-BR', mx: 'es-MX' } as const;
 const metadataCopy = {
@@ -20,7 +26,7 @@ export async function profileMetadata(paramPromise: Promise<{ profile: string }>
   const { profile: param } = await paramPromise;
   const parsed = parseProfileParam(param);
   if (!parsed) return { title: metadataCopy[locale].notFound, robots: { index: false, follow: false } };
-  const result = entity === 'team' ? await loadTeamProfile(parsed.publicId, locale) : await loadPlayerProfile(parsed.publicId, locale);
+  const result = entity === 'team' ? await teamData(parsed.publicId, locale) : await playerData(parsed.publicId, locale);
   if (result.kind === 'not-found') return { title: metadataCopy[locale].notFound, robots: { index: false, follow: false } };
   const profile = result.profile;
   const description = entity === 'team'
@@ -43,7 +49,7 @@ export async function ProfileRoutePage({ params, locale, entity,searchParams }: 
   const parsed = parseProfileParam(param);
   if (!parsed) notFound();
   if (entity === 'team') {
-    const result = await loadTeamProfile(parsed.publicId, locale);
+    const result = await teamData(parsed.publicId, locale);
     if (result.kind === 'not-found') notFound();
     if (parsed.slug !== slugifyProfileName(result.profile.name)) permanentRedirect(teamPath(locale, result.profile.publicId, result.profile.name));
     const canonical = `https://livasports.com${teamPath(locale,result.profile.publicId,result.profile.name)}`;
@@ -53,9 +59,9 @@ export async function ProfileRoutePage({ params, locale, entity,searchParams }: 
     { '@context':'https://schema.org','@type':'BreadcrumbList',itemListElement:[
       {'@type':'ListItem',position:1,name:'LivaSports',item:`https://livasports.com/${locale}`},
       {'@type':'ListItem',position:2,name:result.profile.name,item:canonical}]}];
-    return <><script type="application/ld+json" dangerouslySetInnerHTML={{__html:JSON.stringify(jsonLd).replace(/</g,'\\u003c')}}/><TeamProfilePage locale={locale} profile={result.profile} history={<TeamHistoryPanel profile={result.profile} locale={locale} query={await searchParams??{}}/>}/></>;
+    return <><JsonLd data={jsonLd}/><TeamProfilePage locale={locale} profile={result.profile} history={<TeamHistoryPanel profile={result.profile} locale={locale} query={await searchParams??{}}/>}/></>;
   }
-  const result = await loadPlayerProfile(parsed.publicId, locale);
+  const result = await playerData(parsed.publicId, locale);
   if (result.kind === 'not-found') notFound();
   if (parsed.slug !== slugifyProfileName(result.profile.name)) permanentRedirect(playerPath(locale, result.profile.publicId, result.profile.name));
   const canonical = `https://livasports.com${playerPath(locale,result.profile.publicId,result.profile.name)}`;
@@ -65,5 +71,5 @@ export async function ProfileRoutePage({ params, locale, entity,searchParams }: 
   { '@context':'https://schema.org','@type':'BreadcrumbList',itemListElement:[
     {'@type':'ListItem',position:1,name:'LivaSports',item:`https://livasports.com/${locale}`},
     {'@type':'ListItem',position:2,name:result.profile.name,item:canonical}]}];
-  return <><script type="application/ld+json" dangerouslySetInnerHTML={{__html:JSON.stringify(jsonLd).replace(/</g,'\\u003c')}}/><PlayerProfilePage locale={locale} profile={result.profile}/></>;
+  return <><JsonLd data={jsonLd}/><PlayerProfilePage locale={locale} profile={result.profile}/></>;
 }

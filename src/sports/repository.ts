@@ -5,7 +5,7 @@ import type {QueryExecutor} from '@/database/client';
 import type {InterfaceLocale} from '@/localization/interface';
 import {interfaceDictionary} from '@/localization/interface';
 import {localDateKey} from '@/delivery/time';
-import {competitionName,numericStatistic,sportsPageSize} from './policy';
+import {competitionName,numericStatistic,resolveDefaultSeason,sportsPageSize} from './policy';
 import {rankSportsSearch} from './search-rank';
 import {targetBySlug} from '@/config/footballCompetitions';
 import {deliveryWindow} from '@/delivery/time';
@@ -71,7 +71,9 @@ export class SportsRepository {
     const preferredRow=preferred?seasonRows.find(s=>String(s.id)===preferred.id):undefined;
     const verifiedEmpty=preferred?.fixtures===0&&preferredRow?.verified_empty===true;
     const season=verifiedEmpty?(seasons.find(s=>s.fixtures>0)??preferred):preferred;
-    const base:CompetitionHub={id:String(row.id),slug,name:competitionName(locale,slug)??slug,country:string(row.country),countryCode:string(row.country_code),region:string(row.region)??targetBySlug(slug)?.region??'OTHER',type:String(row.competition_type),coverage:String(row.coverage_status),seasons,season,seasonFallback:verifiedEmpty&&preferred&&season?.id!==preferred.id?preferred:null,upcoming:[],results:[],standings:[],scorers:[],teams:[],availability:{},pending:[],pendingTotal:0,counts:{upcoming:0,results:0},page,pageSize:sportsPageSize,providerRequests:0};
+    // The season a request without ?season resolves to; P2 canonical URLs omit the parameter when they match it.
+    const defaultSeasonId=resolveDefaultSeason(seasons.map((s,i)=>({...s,verifiedEmpty:seasonRows[i]?.verified_empty===true})))?.id??null;
+    const base:CompetitionHub={id:String(row.id),slug,name:competitionName(locale,slug)??slug,country:string(row.country),countryCode:string(row.country_code),region:string(row.region)??targetBySlug(slug)?.region??'OTHER',type:String(row.competition_type),coverage:String(row.coverage_status),seasons,season,defaultSeasonId,seasonFallback:verifiedEmpty&&preferred&&season?.id!==preferred.id?preferred:null,upcoming:[],results:[],standings:[],scorers:[],teams:[],availability:{},pending:[],pendingTotal:0,counts:{upcoming:0,results:0},page,pageSize:sportsPageSize,providerRequests:0};
     if(!season)return base;
     const values=[row.id,season.id];
     const [counts,upcoming,results,standingRows,scorerRows,teamRows,coverageRows,pendingRows,unlinkedRows]=await Promise.all([
