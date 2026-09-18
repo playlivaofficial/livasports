@@ -116,6 +116,8 @@ export async function ingestClientBatch(request:Request,body:unknown,db?:Databas
       if(result.rowCount){summary.accepted++;inserted.push(e);}else summary.duplicates++;
     }
     if(inserted.length)await upsertSessions(client,inserted,traffic,geo,userId);
+    // A session that proves to be owner/QA/bot traffic takes every earlier row of that session with it (bounded by the session index).
+    if(inserted.length&&traffic!=='HUMAN')await client.query(`UPDATE analytics_events SET traffic_class=$2 WHERE session_id=ANY($1::text[]) AND traffic_class='HUMAN'`,[[...new Set(inserted.map(e=>e.sessionId))],traffic]);
     await quality(client,{accepted:summary.accepted,duplicates:summary.duplicates,rejected:summary.rejected,unknown_events:summary.unknown,missing_session:summary.missingSession,oversized:summary.oversized},lag);
     return ok(summary);
   }catch{return ok({...summary,status:503});}

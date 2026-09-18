@@ -66,9 +66,11 @@ describe('P4 ingestion boundary (§15, §17, §26, §33)',()=>{
     expect(classifyTraffic(new Headers({'user-agent':'Mozilla/5.0 (compatible; bingbot/2.0)'}))).toBe('BOT');
     expect(classifyTraffic(new Headers({}))).toBe('BOT');
     expect(classifyTraffic(new Headers({'user-agent':'Mozilla/5.0 (iPhone)'}))).toBe('HUMAN');
-    const {db,events}=database();const batch={v:1,batch:[event(1)]};
+    const {db,events,query}=database();const batch={v:1,batch:[event(1)]};
     await ingestClientBatch(post(batch,{'x-livasports-qa':'1'}),batch,db);expect(events[0][7]).toBe('QA');
-    await ingestClientBatch(post({...batch,batch:[event(2)]},{'user-agent':'Googlebot'}),{...batch,batch:[event(2)]},db);expect(events[1][7]).toBe('BOT');
+    const marked={v:1,batch:[event(3)],qa:true};await ingestClientBatch(post(marked),marked,db);expect(events[1][7]).toBe('QA');
+    const reclass=query.mock.calls.filter(([sql])=>String(sql).includes("SET traffic_class=$2 WHERE session_id=ANY"));expect(reclass.length).toBe(2);expect((reclass[0][1] as unknown[])[1]).toBe('QA');
+    await ingestClientBatch(post({...batch,batch:[event(4)]},{'user-agent':'Googlebot'}),{...batch,batch:[event(4)]},db);expect(events[2][7]).toBe('BOT');
   });
   it('links events to the authenticated user server-side (never from the client) and keeps anonymous history intact (§36)',async()=>{
     const {db,events,query}=database();

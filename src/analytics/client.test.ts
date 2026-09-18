@@ -70,7 +70,10 @@ describe('P4 client: identity, sessions, attribution, dedupe and the slip funnel
     expect(all.find(e=>e.eventName==='bookmaker_comparison_viewed'&&e.bookmaker==='betsson')).toMatchObject({comparisonState:'REAL_COMPLETE',slipLegCount:2});
     expect(all.find(e=>e.eventName==='affiliate_cta_clicked')).toMatchObject({bookmaker:'betsson',placement:'slip-comparison',slipLegCount:2});
     expect(new Set(all.map(e=>e.eventId)).size).toBe(all.length);expect(new Set(all.map(e=>e.sessionId)).size).toBe(1);
-    expect(b.sent.every(s=>s.body.v===1&&s.body.batch.length<=25)).toBe(true);
+    expect(b.sent.every(s=>s.body.v===1&&s.body.batch.length<=25&&!('qa' in s.body))).toBe(true);
+    // a controlled QA session self-marks every batch
+    b.store.set('ls_qa','1');mod.track('search_used',{},{dedupeKey:'qa-mark'});await vi.advanceTimersByTimeAsync(2000);
+    expect((b.sent.at(-1)!.body as {qa?:boolean}).qa).toBe(true);
   });
   it('never throws into product code when storage or fetch are unavailable',async()=>{
     const b=browser('https://livasports.com/en');

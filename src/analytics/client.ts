@@ -39,10 +39,12 @@ function context(){
   const page=classifyPage(location.pathname,location.search);const session=currentSession();
   return {page,session,base:{locale:page.locale??'en',pageType:page.pageType,canonicalPath:(location.pathname+(location.search||'')).slice(0,240),referrerClass:session.referrerClass,utm:session.utm}};
 }
+/** Controlled QA sessions self-mark (automation, or the operator setting localStorage ls_qa=1); the server classifies them QA and excludes them from human reporting. */
+const qaSession=()=>{try{return navigator.webdriver===true||localStorage.getItem('ls_qa')==='1';}catch{return false;}};
 function flush(sync=false){
   if(state.timer){clearTimeout(state.timer);state.timer=null;}
   if(!state.queue.length)return;
-  const batch=state.queue.splice(0,MAX_BATCH_EVENTS);const body=JSON.stringify({v:EVENT_VERSION,batch});
+  const batch=state.queue.splice(0,MAX_BATCH_EVENTS);const body=JSON.stringify({v:EVENT_VERSION,batch,...(qaSession()?{qa:true}:{})});
   try{
     if(sync&&typeof navigator.sendBeacon==='function'&&navigator.sendBeacon('/api/events',new Blob([body],{type:'application/json'})))return;
     void fetch('/api/events',{method:'POST',keepalive:true,headers:{'content-type':'application/json'},body,credentials:'same-origin'}).catch(()=>undefined);
