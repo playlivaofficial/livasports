@@ -43,6 +43,22 @@ audit of the pre-P3 system, what P3 added, and the release evidence.
 * CLI: `odds cli reliability-health`, `odds cli evaluate-reliability`.
 * Tests: classification A–H, recovery, catalog, incidents/alerts, owner security, governor, scheduler integration.
 
-## 3. Release evidence
+## 3. Release evidence (2026-09-18, times UTC)
 
-Filled in by the release: see the P3 final report in the conversation and the sections below.
+| Item | Value |
+| --- | --- |
+| Feature branch | `claude/p3-odds-reliability-control-plane` |
+| Commits | `cfca016` (engine + control plane), `df4cecf` (owner UI fixes) |
+| Production deployments | `dpl_74B8xMudw6v9Lcjb29ro1h5GzNDu` (11:46:36Z), `dpl_7W38U5SMeEzXDqRXN6uM8LoY9FCQ` (11:59:13Z), apex `livasports.com` |
+| Migration 025 | applied from process memory with the runner's semantics: 893 ms, four empty tables, 0 invalid indexes, `schema_migrations` row 025 recorded once |
+| Gates | vitest 1019/1019 (126 files), typecheck, lint, production build, secret scan 0 leaks, node tests 17/17 |
+| Owner security (production, no session) | `/owner/health` and `/owner/health/<competition>` render only the login gate with `<meta name="robots" content="noindex, nofollow, nocache">`; `/api/owner/health` 401 with `X-Robots-Tag: noindex, nofollow`; cross-origin POST 403; `robots.txt` disallows `/owner/`; sitemap contains 0 owner URLs; no secret names in HTML/JSON |
+| Owner dashboard QA | local `next start` against the production database with a throwaway local owner key (the production owner secrets are Vercel *sensitive* values and were never read): summary cards, incidents table, competition table with filters/sort, catalog rows, recovery log, competition detail (fixtures, quote freshness/ages, feeds, requests, decisions, incidents); Re-check health POST 200; mobile 375 px without horizontal scroll |
+| providerRequests during dashboard rendering | 0 (page and API read the database only; ledger unchanged) |
+| providerRequests during public navigation | 0 — ledger non-scheduled/jobless counts unchanged across 14 public pages, a match page and `/api/slip/compare` |
+| My Slip regression | A: 3 legs, both bookmakers COMPLETE 3 REAL, totals equal the price products; B: 5 legs, Betano COMPLETE 5 REAL, Betsson ESTIMATED_COMPLETE 3 REAL + 2 disclosed PROXY; `providerRequests: 0` |
+| Internal health | `GET /api/internal/odds-health` (cron secret held in memory) → `version p3.1`, `reliability` document present |
+| First production evaluations | 11:50:07Z tick: rollups written for 34 competitions, incident opened `la-liga-2 / TARGET_MISSING / CRITICAL` (channel DASHBOARD — `OWNER_ALERT_EMAIL` not set), catalog rows persisted (29 MAPPED, 1 AMBIGUOUS: provider 27466 `liga-mx-clausura`, 0 future fixtures); 11:55:04Z tick: incident updated, no duplicate |
+| Budget at release | used 1,059 / 4,000 routine; rolling day 207 / 210; headroom 3; pressure RESERVE_ONLY; projected 190/day → 3,713 at period end (no overrun) |
+
+Tick observation after the release is recorded in the P3 final report.
