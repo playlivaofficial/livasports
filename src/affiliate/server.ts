@@ -5,6 +5,7 @@ import type {OfferToken} from './types';
 import {after} from 'next/server';
 import {boundedJson} from '@/slip/server';
 import {parseResolutionRequest} from '@/slip/types';
+import {recordServerEvent} from '@/analytics/server';
 import {analyticsAllowed,campaignDestination,geoAllowed,isOddsCtaPlacement,isSlipPlacement,parseContext,trafficClass} from './policy';
 import {requestCommercialGeo,commercialLocale} from '@/odds/commercial-geo';
 import {signingKey,verifyOffer} from './tokens';
@@ -92,7 +93,10 @@ export async function outboundRequest(request:Request,bookmaker:string,placement
     const offer=await resolveOffer(token.context,s.deps,Date.now(),token.campaignId);if(!offer)return decline(request,token.context);
     const destination=campaignDestination(offer.campaign,offer.context,Date.now());if(!destination)return response(404);
     const traffic=trafficClass(request,true,qaRequest(request,token)||url.searchParams.get('qa')==='1');
-    if(analyticsAllowed(request)&&traffic!=='UNKNOWN')deferred(s,()=>s.click(offer,token.viewId,traffic,s.key!));
+    // One deferred task: the click ledger (commercial source of truth) followed by the P4 server-authoritative funnel event. Both honour DNT/GPC.
+    if(analyticsAllowed(request)&&traffic!=='UNKNOWN')deferred(s,async()=>{await s.click(offer,token.viewId,traffic,s.key!);
+      await recordServerEvent({name:'outbound_redirect_completed',headers:request.headers,locale:token.context.locale,canonicalPath:token.context.pagePath,bookmaker:bookmaker as 'betsson'|'betano.bet.br',placement,campaignId:offer.campaign.id,
+        market:token.context.market,slipLegCount:token.context.selections?.length,trafficClass:traffic==='QA_TEST'?'QA':'HUMAN'});});
     console.info(`[LivaSports M8] ${JSON.stringify({event:'redirect-issued',placement,locale:token.context.locale,bookmaker,traffic,providerRequests:0})}`);
     return new Response(null,{status:303,headers:{...commercialHeaders,Location:qaRequest(request,token)&&bookmaker!=='betsson'?qaDestination(request):destination}});
   }catch{console.warn('[LivaSports M8] {"event":"redirect-config-failed","providerRequests":0}');configurationFailure(provided);return response(503);}

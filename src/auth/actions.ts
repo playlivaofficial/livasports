@@ -10,6 +10,7 @@ import {AuthRepository,sanitizeName} from './repository';
 import {authDatabase} from './database';
 import {authPath} from '@/localization/auth-copy';
 import {isInterfaceLocale,type InterfaceLocale} from '@/localization/interface';
+import {recordServerEvent} from '@/analytics/server';
 
 function localeFrom(value:unknown):InterfaceLocale {
   return isInterfaceLocale(value)?value:'en';
@@ -38,6 +39,8 @@ export async function startGoogleSignIn(formData:FormData):Promise<void> {
 
 export async function signOutUser(formData:FormData):Promise<void> {
   const locale=localeFrom(formData.get('locale'));
+  const session=await auth();
+  await recordServerEvent({name:'sign_out_completed',headers:await headers(),locale,userId:session?.user?.id??null,canonicalPath:authPath(locale,'account')});
   await signOut({redirectTo:authPath(locale,'signin')});
 }
 

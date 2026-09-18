@@ -5,6 +5,7 @@ import {createSlipStore,EMPTY_SLIP,type StorageNotice} from './state';
 import {canonicalSelection,selectionKey,type CanonicalSelection} from './types';
 import {emitSlipEvent} from './events';
 import type {SlipPriceContext} from './events';
+import {track} from '@/analytics/client';
 
 export const slipStore=createSlipStore(()=>window.localStorage);
 const serverSnapshot={slip:EMPTY_SLIP,notice:null as StorageNotice,ready:false};
@@ -16,12 +17,14 @@ export function addSlipSelection(value:CanonicalSelection,locale:SiteLocale,expi
   const selection=canonicalSelection(value);
   if(!selection||!Number.isFinite(Date.parse(expiresAt))||Date.now()>=Date.parse(expiresAt)){feedback({result:'EXPIRED'});return;}
   const result=slipStore.dispatch({type:'add',selection,addedAt:new Date().toISOString()});
-  if(result.result==='ADDED')emitSlipEvent('slip_selection_add',locale,selection,bookmaker);
-  if(result.result==='REPLACED')emitSlipEvent('slip_selection_replace',locale,selection,bookmaker);
-  if(result.result==='REMOVED')emitSlipEvent('slip_selection_remove',locale,selection);
+  const analytics={legCount:result.slip.selections.length,priceKind:priceContext?.priceKind};
+  if(result.result==='ADDED')emitSlipEvent('slip_selection_add',locale,selection,bookmaker,analytics);
+  if(result.result==='REPLACED')emitSlipEvent('slip_selection_replace',locale,selection,bookmaker,analytics);
+  if(result.result==='REMOVED')emitSlipEvent('slip_selection_remove',locale,selection,undefined,analytics);
   feedback({result:result.result,selection,expiresAt,bookmaker,priceContext,expectedKey:selectionKey(selection)});
 }
 export function setSlipStake(stake:string){
   const result=slipStore.dispatch({type:'setStake',stake});
   if(result.result==='INVALID_STAKE')feedback({result:'INVALID_STAKE'});
+  else track('stake_changed',{slipLegCount:result.slip.selections.length},{dedupeKey:`stake:${Date.now()>>14}`});
 }

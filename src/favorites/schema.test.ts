@@ -6,7 +6,7 @@ const files=readdirSync('db/migrations').filter(file=>/^\d+_/.test(file)).sort()
 
 describe('migration 023 user favorites schema',()=>{
   it('is the additive successor of 022 and never edits earlier files',()=>{
-    expect(files.at(-1)).toBe('025_p3_odds_reliability.sql');expect(files).toContain('024_p2_sitemap_player_indexes.sql');expect(files).toContain('023_p1_2_user_favorites.sql');
+    expect(files.at(-1)).toBe('026_p4_product_analytics.sql');expect(files).toContain('025_p3_odds_reliability.sql');expect(files).toContain('024_p2_sitemap_player_indexes.sql');expect(files).toContain('023_p1_2_user_favorites.sql');
     expect(files).toContain('022_p1_1_user_auth.sql');
     expect(sql.startsWith('BEGIN;')).toBe(true);
     expect(sql.trim().endsWith('COMMIT;'));

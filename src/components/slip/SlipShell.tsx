@@ -32,16 +32,16 @@ function SlipDrawer({locale,uiLocale,selections,stake,slipId,pending,onPending,o
   },[]);
   function remove(s:SavedSelection,index:number){
     const result=slipStore.dispatch({type:'remove',key:selectionKey(s)});
-    if(result.result==='REMOVED')emitSlipEvent('slip_selection_remove',locale,s);
+    if(result.result==='REMOVED')emitSlipEvent('slip_selection_remove',locale,s,undefined,{legCount:result.slip.selections.length});
     requestAnimationFrame(()=>{const buttons=panel.current?.querySelectorAll<HTMLButtonElement>('.slip-remove');(buttons?.[Math.min(index,(buttons?.length??1)-1)]??closeRef.current)?.focus();});
   }
-  function clear(){slipStore.dispatch({type:'clear'});setConfirmClear(false);onPending(null);emitSlipEvent('slip_clear',locale);closeRef.current?.focus();}
+  function clear(){slipStore.dispatch({type:'clear'});setConfirmClear(false);onPending(null);emitSlipEvent('slip_clear',locale,undefined,undefined,{legCount:0});closeRef.current?.focus();}
   function commitStake(){const parsed=parseStake(stakeValue);if(!parsed){feedback({result:'INVALID_STAKE'});setStakeDraft(null);return;}setSlipStake(parsed);setStakeDraft(null);}
   function replace(){
     if(!pending?.selection||!pending.expiresAt||Date.now()>=Date.parse(pending.expiresAt)){feedback({result:'EXPIRED'});onPending(null);return;}
     const result=slipStore.dispatch({type:'replace',selection:pending.selection,expectedKey:pending.expectedKey??'',addedAt:new Date().toISOString()});
     if(result.result==='REPLACE_REQUIRED'){const previous=result.slip.selections.find(s=>s.fixturePublicId===pending.selection!.fixturePublicId&&s.market===pending.selection!.market);onPending({...pending,expectedKey:previous?selectionKey(previous):undefined});return;}
-    if(result.result==='REPLACED'||result.result==='ADDED')emitSlipEvent('slip_selection_replace',locale,pending.selection,pending.bookmaker);
+    if(result.result==='REPLACED'||result.result==='ADDED')emitSlipEvent('slip_selection_replace',locale,pending.selection,pending.bookmaker,{legCount:result.slip.selections.length,priceKind:pending.priceContext?.priceKind});
     feedback({result:result.result});onPending(null);closeRef.current?.focus();
   }
   const currentCount=resolved.filter(v=>v.price!==null).length;
@@ -103,7 +103,7 @@ export function SlipShell(){
   const message=notice&&notice in text.notices?text.notices[notice as keyof typeof text.notices]:null;
   return <div className="guest-slip" lang={uiLocale==='br'?'pt-BR':uiLocale==='mx'?'es-MX':'en'}>
     <div className="slip-entry"><span className="slip-feedback sr-only" role="status" aria-live="polite">{message}</span>
-      <button type="button" className="slip-trigger" ref={trigger} aria-expanded={open} aria-controls="guest-slip-drawer" disabled={!ready} onClick={()=>{if(open)close();else{setNotice(null);setOpen(true);emitSlipEvent('slip_open',locale);}}}>
+      <button type="button" className="slip-trigger" ref={trigger} aria-expanded={open} aria-controls="guest-slip-drawer" disabled={!ready} onClick={()=>{if(open)close();else{setNotice(null);setOpen(true);emitSlipEvent('slip_open',locale,undefined,undefined,{legCount:slipStore.getSnapshot().slip.selections.length});}}}>
         <TicketIcon/><span className="slip-trigger-text"><span>{text.title}</span>{message&&!open?<small aria-hidden="true">{message}</small>:null}</span><span className="slip-count">{slip.selections.length}</span><span aria-hidden="true">{open?'⌄':'↑'}</span>
       </button></div>
     <div id="guest-slip-drawer">{open?<SlipDrawer locale={locale} uiLocale={uiLocale} selections={slip.selections} stake={slip.stake} slipId={slip.slipId} pending={pending} onPending={setPending} onClose={close} storageNotice={storageNotice} message={message}/>:null}</div>

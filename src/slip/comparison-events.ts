@@ -8,5 +8,6 @@ export function emitComparisonEvent(eventName:ComparisonEventName,locale:SiteLoc
   const marketsSummary=Object.fromEntries(['MATCH_WINNER','TOTAL_GOALS','BTTS'].map(m=>[m,selections.filter(s=>s.market===m).length]));
   const props={eventName,locale,placement:'slip-comparison',selectionCount:selections.length,marketsSummary,
     ...(bookmaker?{bookmaker:bookmaker.bookmakerId,availableCount:bookmaker.availableSelectionCount,complete:bookmaker.complete}:{})};
-  emitProductEvent(props,`m7:${eventName}:${locale}:${selections.length}:${JSON.stringify(marketsSummary)}:${bookmaker?.bookmakerId??'all'}:${bookmaker?.availableSelectionCount??''}`);
+  const comparisonState=bookmaker?bookmaker.availabilityState==='COMPLETE'?'REAL_COMPLETE':bookmaker.availabilityState==='ESTIMATED_COMPLETE'?'ESTIMATED_COMPLETE':'INCOMPLETE':undefined;
+  emitProductEvent(props,`m7:${eventName}:${locale}:${selections.length}:${JSON.stringify(marketsSummary)}:${bookmaker?.bookmakerId??'all'}:${bookmaker?.availableSelectionCount??''}`,{legCount:selections.length,comparisonState});
 }

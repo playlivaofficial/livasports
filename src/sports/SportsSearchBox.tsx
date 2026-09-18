@@ -9,6 +9,7 @@ import {moveSearchActive,SEARCH_SUGGESTION_LIMIT} from '@/sports/search-rank';
 import type {SportsSearchResult} from '@/sports/types';
 import {TeamMark} from '@/components/sports/TeamMark';
 import {CountryMarkIcon} from '@/components/sports/CountryMarkIcon';
+import {track} from '@/analytics/client';
 
 const DEBOUNCE_MS=200;
 
@@ -36,6 +37,7 @@ export function SportsSearchBox({locale,query}:{locale:InterfaceLocale;query:str
         const body=await response.json() as {suggestions?:SportsSearchResult[];providerRequests?:number};
         if(!response.ok||body.providerRequests!==0||!Array.isArray(body.suggestions)||body.suggestions.length>SEARCH_SUGGESTION_LIMIT)throw new Error('SEARCH_UNAVAILABLE');
         setResult({q,rows:body.suggestions,failed:false});setActive(0);
+        track('search_used',{},{dedupeKey:q.toLowerCase().slice(0,40),props:{results:body.suggestions.length}});
       }catch(error){
         if((error as {name?:string}).name==='AbortError')return;
         setResult({q,rows:[],failed:true});

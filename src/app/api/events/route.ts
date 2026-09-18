@@ -4,6 +4,7 @@ import {parseComparisonEvent,recordComparisonEvent,comparisonEvents} from '@/sli
 import {boundedJson} from '@/slip/server';
 import {embedClickRequest,impressionRequest} from '@/affiliate/server';
 import {ownerPreview} from '@/owner/session';
+import {ingestClientBatch} from '@/analytics/server';
 
 const names = new Set(['match_open','match_tab_view','odds_module_view','odds_market_view','odds_bookmaker_click','odds_unavailable_view','affiliate_outbound_click','match_share']);
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -13,8 +14,10 @@ export async function POST(request: Request): Promise<Response> {
   if(origin){try{if(new URL(origin).host!==new URL(request.url).host)return new Response(null,{status:403});}
     catch{return new Response(null,{status:403});}}
   let body:Record<string,unknown>|null;
-  try{body=await boundedJson(request,8192) as Record<string,unknown>|null;}
+  try{body=await boundedJson(request,65536) as Record<string,unknown>|null;}
   catch(error){return new Response(null,{status:error instanceof Error&&error.message==='BODY_TOO_LARGE'?413:400});}
+  // P4 first-party analytics batches share this boundary; the legacy single-event contracts below are unchanged.
+  if(body&&Array.isArray(body.batch)){const summary=await ingestClientBatch(request,body);return new Response(null,{status:summary.status,headers:{'Cache-Control':'private, no-store'}});}
   if(body?.eventName==='affiliate_impression')return impressionRequest(request,body);
   if(body?.eventName==='affiliate_embed_click')return embedClickRequest(request,body);
   // Affiliate QA remains attributable in its dedicated tables. Existing product

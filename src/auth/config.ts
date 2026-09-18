@@ -42,6 +42,17 @@ function buildAuthConfig():NextAuthConfig {
     cookies:{sessionToken:{name:userSessionCookieName(secure),options:userSessionCookieOptions(secure)}},
     pages:{signIn:'/en/sign-in',error:'/en/sign-in'},
     providers,
+    events:{
+      // P4: server-authoritative sign-in outcome. First-party analytics cookies ride on the auth callback request.
+      async signIn({user,account}){
+        try{
+          const {headers}=await import('next/headers');const h=await headers();
+          const {recordServerEvent}=await import('@/analytics/server');
+          const ref=h.get('referer')??'';let locale:'br'|'mx'|'en'='en';try{const seg=new URL(ref).pathname.split('/')[1];if(seg==='br'||seg==='mx'||seg==='en')locale=seg;}catch{/* default locale */}
+          await recordServerEvent({name:'sign_in_completed',headers:h,locale,userId:user.id??null,canonicalPath:'/api/auth/callback',props:{method:account?.provider??'unknown'}});
+        }catch{/* analytics never affects authentication */}
+      },
+    },
     callbacks:{
       async signIn({account,profile}){
         if(account?.provider==='google')return googleSignInAllowed(profile);

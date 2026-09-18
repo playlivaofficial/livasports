@@ -4,6 +4,7 @@ import {usePathname} from 'next/navigation';
 import type {CommercialContext,PublicOffer} from '@/affiliate/types';
 import {privacyOptOut,qaBrowser,useCommercialOffer} from '@/affiliate/client';
 import {emitProductEvent} from '@/components/match/events';
+import {track} from '@/analytics/client';
 import {translatedPath} from '@/localization/interface';
 
 export const commercialCopy={
@@ -19,14 +20,14 @@ export function AffiliateAnchor({offer,locale,className,children,onActivate}:{of
     const cancel=()=>{if(timer)clearTimeout(timer);timer=null;};
     const attempt=()=>{cancel();if(!seen&&visible&&document.visibilityState==='visible')timer=setTimeout(()=>{
       if(!link.getClientRects().length||getComputedStyle(link).visibility!=='visible'||document.visibilityState!=='visible'||[...link.querySelectorAll('img')].some(img=>!img.complete||!img.naturalWidth))return;
-      seen=true;emitProductEvent({eventName:'affiliate_impression',offer:offer.token,...(qaBrowser()?{qa:true}:{})},'m8:view:'+offer.token.slice(-43));observer.disconnect();
+      seen=true;emitProductEvent({eventName:'affiliate_impression',offer:offer.token,...(qaBrowser()?{qa:true}:{})},'m8:view:'+offer.token.slice(-43),{bookmaker:offer.bookmaker,placementId:offer.placement});observer.disconnect();
     },1000);};
     const observer=new IntersectionObserver(entries=>{visible=entries.some(e=>e.isIntersecting&&e.intersectionRatio>=.5);attempt();},{threshold:[0,.5]});
     observer.observe(link);link.addEventListener('load',attempt,true);document.addEventListener('visibilitychange',attempt);return()=>{cancel();observer.disconnect();link.removeEventListener('load',attempt,true);document.removeEventListener('visibilitychange',attempt);};
   },[offer,expired]);
   if(expired)return null;
   return <a ref={ref} className={className} href={offer.href} target="_blank" rel="sponsored nofollow noopener noreferrer" aria-label={`${text.cta} · ${offer.bookmaker==='betsson'?'Betsson':'Betano BR'}`}
-    onClick={event=>{if(!event.isTrusted||qaBrowser())event.currentTarget.href=offer.href+'&qa=1';onActivate?.();}}
+    onClick={event=>{if(!event.isTrusted||qaBrowser())event.currentTarget.href=offer.href+'&qa=1';track('affiliate_cta_clicked',{bookmaker:offer.bookmaker,placement:offer.placement},{dedupeKey:`anchor:${offer.token.slice(-16)}`});onActivate?.();}}
     onAuxClick={event=>{if(!event.isTrusted||qaBrowser())event.currentTarget.href=offer.href+'&qa=1';}}>{children??<>{text.cta} <span aria-hidden="true">↗</span></>}</a>;
 }
 export function AffiliateLink({context,className,onActivate,compact=false,onAvailability,uiLocale,children}:{context:Omit<CommercialContext,'pagePath'>;className?:string;onActivate?:()=>void;compact?:boolean;onAvailability?:(bookmaker:string,available:boolean)=>void;uiLocale?:CommercialCopyLocale;children?:ReactNode}){

@@ -4,6 +4,7 @@ import {favoritesRepository} from './database';
 import {parseGuestFavorites} from './guest';
 import {type FavoriteKind,publicFavoriteId} from './identity';
 import {privateCacheHeaders,sameOrigin} from './origin';
+import {recordServerEvent} from '@/analytics/server';
 
 const kinds=new Set<FavoriteKind>(['team','competition','fixture']);
 const json=(body:unknown,status=200)=>Response.json(body,{status,headers:privateCacheHeaders});
@@ -31,6 +32,9 @@ export async function mutateFavorite(request:Request):Promise<Response> {
   try{
     const result=await favoritesRepository().setFavorite(user.id,kind as FavoriteKind,id,record.favorited);
     if(!result.ok)return json({error:result.error,providerRequests:0},result.error==='LIMIT'?409:result.error==='NOT_FOUND'?404:400);
+    // P4: server-authoritative personalization outcome (kind + public id only; never the whole favorites list).
+    await recordServerEvent({name:result.favorited?'favorite_added':'favorite_removed',headers:request.headers,locale:localeOf(request),userId:user.id,canonicalPath:safePath(request.headers.get('referer')),props:{kind:String(kind)},
+      ...(kind==='fixture'?{fixturePublicId:id}:kind==='team'?{teamPublicId:id}:{competitionSlug:id})});
     return json({ok:true,kind,id,favorited:result.favorited,providerRequests:0});
   }catch{
     return json({error:'FAVORITES_UNAVAILABLE',providerRequests:0},503);
@@ -66,3 +70,6 @@ export async function favoriteFeed(request:Request):Promise<Response> {
     return json({error:'FAVORITES_UNAVAILABLE',providerRequests:0},503);
   }
 }
+
+function localeOf(request:Request):'br'|'mx'|'en'{try{const seg=new URL(request.headers.get('referer')??'').pathname.split('/')[1];return seg==='br'||seg==='mx'||seg==='en'?seg:'en';}catch{return 'en';}}
+function safePath(value:string|null):string{try{const u=new URL(value??'');return (u.pathname+u.search).slice(0,240);}catch{return '/';}}

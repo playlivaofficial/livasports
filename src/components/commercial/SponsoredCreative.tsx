@@ -26,7 +26,7 @@ function PublisherEmbed({offer,onFailure}:{offer:PublicOffer;onFailure:()=>void}
         if(offer.qaPreview&&offer.bookmaker==='betsson'){
           // Only the first-party outbound route records this QA click.
           window.open(offer.href,'_blank','noopener,noreferrer');
-        }else emitProductEvent({eventName:'affiliate_embed_click',offer:offer.token,...(qaBrowser()?{qa:true}:{})},'g1:click:'+offer.token.slice(-43));
+        }else emitProductEvent({eventName:'affiliate_embed_click',offer:offer.token,...(qaBrowser()?{qa:true}:{})},'g1:click:'+offer.token.slice(-43),{bookmaker:offer.bookmaker,placementId:offer.placement});
       }
     };
     window.addEventListener('message',message);
@@ -37,7 +37,7 @@ function PublisherEmbed({offer,onFailure}:{offer:PublicOffer;onFailure:()=>void}
     const cancel=()=>{if(timer)clearTimeout(timer);timer=null;};
     const attempt=()=>{cancel();if(!seen&&visible&&document.visibilityState==='visible')timer=setTimeout(()=>{
       if(privacyOptOut()||!el.getClientRects().length||getComputedStyle(el).visibility!=='visible'||document.visibilityState!=='visible')return;
-      seen=true;emitProductEvent({eventName:'affiliate_impression',offer:offer.token,...(qaBrowser()?{qa:true}:{})},'m8:view:'+offer.token.slice(-43));observer.disconnect();
+      seen=true;emitProductEvent({eventName:'affiliate_impression',offer:offer.token,...(qaBrowser()?{qa:true}:{})},'m8:view:'+offer.token.slice(-43),{bookmaker:offer.bookmaker,placementId:offer.placement});observer.disconnect();
     },1000);};
     const observer=new IntersectionObserver(entries=>{visible=entries.some(e=>e.isIntersecting&&e.intersectionRatio>=.5);attempt();},{threshold:[0,.5]});observer.observe(el);document.addEventListener('visibilitychange',attempt);
     return()=>{cancel();observer.disconnect();document.removeEventListener('visibilitychange',attempt);};
