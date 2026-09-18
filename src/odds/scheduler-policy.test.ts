@@ -25,7 +25,8 @@ describe('shared adaptive pregame scheduler',()=>{
     const p=planScheduler(flood,now);
     expect(p.batches.every(batch=>batch.tournamentIds.length<=4)).toBe(true);
     expect(p.batches.every(batch=>batch.tournamentIds.length===1)).toBe(true);
-    expect(p.batches).toHaveLength(1);
+    // Unproven (never successful) tournaments stay isolated and are bounded per tick so a flood cannot burst the budget.
+    expect(p.batches).toHaveLength(2);
     expect(splitProviderBatches(flood).every(batch=>batch.length===1)).toBe(true);
     expect(splitProviderBatches(flood)).toHaveLength(22);
     const mixed=[target(1,{tournamentId:'325',lastSuccessAt:null}),target(1,{tournamentId:'27464',lastSuccessAt:null}),
@@ -79,6 +80,7 @@ describe('shared adaptive pregame scheduler',()=>{
   it('uses age relative to cadence to keep an older expanded feed from starving behind newer nearby matches',()=>{
     const p=planScheduler([target(.2,{tournamentId:'390',lastSuccessAt:new Date(now.getTime()-31*60000).toISOString()}),
       target(10,{tournamentId:'242',lastSuccessAt:new Date(now.getTime()-12*3600000).toISOString()})],now);
-    expect(p.batches[0].tournamentIds).toEqual(['242']);
+    // Both feeds are proven (prior success, no failures) so they share one request; the older one still leads.
+    expect(p.batches[0].tournamentIds).toEqual(['242','390']);expect(p.maximumBillableRequests).toBe(1);
   });
 });

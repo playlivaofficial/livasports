@@ -22,6 +22,7 @@ let job:string|null=null;
 try {
   const command=process.argv[2]??'verify';
   if(command==='migrate')console.info(JSON.stringify({migrations:await runMigrations(db)}));
+  else if(command==='coverage-health'){const {readCoverageHealth}=await import('./coverage-health');console.info(JSON.stringify(await readCoverageHealth(db)));}
   else if(command==='scheduled-refresh')console.info(JSON.stringify(await runOddsScheduler(db,process.env.ODDSPAPI_API_KEY!)));
   else if(command==='discover-catalog'){
     const health=await budgetHealth(db);

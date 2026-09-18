@@ -43,50 +43,25 @@ describe('OddsPapi catalog identity', () => {
     expect(catalogNeedsExpansion(baseline, ['brasileirao-serie-a'])).toBe(false);
   });
 
-  it('does not schedule extra catalog tournaments until they are allowlisted and catalog-matched', () => {
+  it('schedules every catalog row that resolves to an enabled registry competition (P0 incident: no manual allowlist gate)', () => {
+    // A returning competition whose catalog ID differs from the historical allowlist is scheduled from the catalog row itself.
     const extra = [...baseline, {tournamentId: 326, tournamentSlug: 'brasileiro-serie-b', categorySlug: 'brazil'}];
-    expect(schedulerTournaments(extra).map(row => row.id)).toEqual(['325', '27464', '17', '384']);
-    expect(schedulerTournaments([...baseline, {tournamentId: 390, tournamentSlug: 'brasileiro-serie-b', categorySlug: 'brazil'}]).map(row => row.id)).toEqual(['325', '27464', '17', '384', '390']);
-    expect(schedulerTournaments([...baseline,
-      {tournamentId: 390, tournamentSlug: 'brasileiro-serie-b', categorySlug: 'brazil'},
-      {tournamentId: 8, tournamentSlug: 'laliga', categorySlug: 'spain'},
-    ]).map(row => row.id)).toEqual(['325', '27464', '17', '384', '390', '8']);
-    expect(schedulerTournaments([...baseline,
-      {tournamentId: 390, tournamentSlug: 'brasileiro-serie-b', categorySlug: 'brazil'},
-      {tournamentId: 8, tournamentSlug: 'laliga', categorySlug: 'spain'},
-      {tournamentId: 35, tournamentSlug: 'bundesliga', categorySlug: 'germany'},
-      {tournamentId: 23, tournamentSlug: 'serie-a', categorySlug: 'italy'},
-    ]).map(row => row.id)).toEqual(['325', '27464', '17', '384', '390', '8', '35', '23']);
-    expect(schedulerTournaments([...baseline,
-      {tournamentId: 390, tournamentSlug: 'brasileiro-serie-b', categorySlug: 'brazil'},
-      {tournamentId: 8, tournamentSlug: 'laliga', categorySlug: 'spain'},
-      {tournamentId: 35, tournamentSlug: 'bundesliga', categorySlug: 'germany'},
-      {tournamentId: 23, tournamentSlug: 'serie-a', categorySlug: 'italy'},
+    expect(schedulerTournaments(extra).map(row => row.id)).toEqual(['325', '27464', '17', '384', '326']);
+    // The Conference League has an identity rule but never had an allowlisted ID; the catalog row now suffices.
+    const uefa = [...baseline,
       {tournamentId: 679, tournamentSlug: 'uefa-europa-league', categorySlug: 'international-clubs'},
-      {tournamentId: 480, tournamentSlug: 'copa-sudamericana', categorySlug: 'international-clubs'},
-      {tournamentId: 242, tournamentSlug: 'mls', categorySlug: 'usa'},
-      {tournamentId: 34, tournamentSlug: 'ligue-1', categorySlug: 'france'},
-      {tournamentId: 238, tournamentSlug: 'liga-portugal', categorySlug: 'portugal'},
-      {tournamentId: 37, tournamentSlug: 'eredivisie', categorySlug: 'netherlands'},
-      {tournamentId: 18, tournamentSlug: 'championship', categorySlug: 'england'},
-    ]).map(row => row.id)).toEqual(['325', '27464', '17', '384', '390', '8', '35', '23', '679', '480', '242', '34', '238', '37', '18']);
-    expect(schedulerTournaments([...baseline,
-      {tournamentId: 7, tournamentSlug: 'uefa-champions-league', categorySlug: 'international-clubs'},
-      {tournamentId: 155, tournamentSlug: 'liga-profesional', categorySlug: 'argentina'},
-      {tournamentId: 182, tournamentSlug: 'ligue-2', categorySlug: 'france'},
-      {tournamentId: 53, tournamentSlug: 'serie-b', categorySlug: 'italy'},
-      {tournamentId: 52, tournamentSlug: 'super-lig', categorySlug: 'turkiye'},
-      {tournamentId: 328, tournamentSlug: 'coppa-italia', categorySlug: 'italy'},
-      {tournamentId: 21, tournamentSlug: 'efl-cup', categorySlug: 'england'},
-    ]).map(row => row.id)).toEqual(['325', '27464', '17', '384', '7', '155', '182', '53', '52', '328', '21']);
-    expect(schedulerTournaments(extra, [
-      {id: '326', slug: 'brasileiro-serie-b', category: 'brazil', canonical: 'brasileirao-serie-b'},
-    ]).map(row => row.id)).toEqual(['325', '27464', '17', '384', '326']);
-    expect(schedulerTournaments(baseline, [
-      {id: '326', slug: 'brasileiro-serie-b', category: 'brazil', canonical: 'brasileirao-serie-b'},
-    ]).map(row => row.id)).toEqual(['325', '27464', '17', '384']);
+      {tournamentId: 9999, tournamentSlug: 'uefa-europa-conference-league', categorySlug: 'international-clubs'},
+      {tournamentId: 8888, tournamentSlug: 'not-a-rule', categorySlug: 'moon'},
+    ];
+    expect(schedulerTournaments(uefa).map(row => [row.id, row.canonical])).toEqual([
+      ['325', 'brasileirao-serie-a'], ['27464', 'liga-mx'], ['17', 'premier-league'], ['384', 'copa-libertadores'],
+      ['679', 'europa-league'], ['9999', 'conference-league'],
+    ]);
+    // IDs are copied from catalog rows only: an unruled slug or a non-numeric ID is never scheduled.
+    expect(schedulerTournaments([...baseline, {tournamentId: 'abc', tournamentSlug: 'uefa-europa-conference-league', categorySlug: 'international-clubs'}]).map(row => row.id)).toEqual(['325', '27464', '17', '384']);
+    // Previously rejected IDs are eligible again (the scheduler isolates and backs them off instead of excluding them forever).
+    expect(schedulerTournaments([...baseline, {tournamentId: 19, tournamentSlug: 'fa-cup', categorySlug: 'england'}]).map(row => row.id)).toContain('19');
   });
-
   it('merges only rule-matched football tournaments into the stored catalog', () => {
     const merged = mergeCatalogTournaments(baseline, [
       {tournamentId: 326, tournamentSlug: 'brasileiro-serie-b', categorySlug: 'brazil'},
@@ -101,9 +76,8 @@ describe('OddsPapi catalog identity', () => {
       {tournamentId: 373, tournamentSlug: 'copa-do-brasil', categorySlug: 'brazil'},
       {tournamentId: 498, tournamentSlug: 'concacaf-champions-cup', categorySlug: 'international-clubs'},
     ];
-    expect(selectCanaryTournament('concacaf-champions-cup', catalog)).toEqual({
-      id: '498', slug: 'concacaf-champions-cup', category: 'international-clubs', canonical: 'concacaf-champions-cup',
-    });
+    // Resolvable enabled competitions are scheduled automatically now, so the manual canary reports them as already scheduled.
+    expect(() => selectCanaryTournament('concacaf-champions-cup', catalog)).toThrow('ODDS_TOURNAMENT_ALREADY_SCHEDULED');
     expect(() => selectCanaryTournament('copa-do-brasil', catalog)).toThrow('ODDS_TOURNAMENT_CANARY_REJECTED');
     expect(() => selectCanaryTournament('la-liga-2', catalog)).toThrow('ODDS_TOURNAMENT_UNVERIFIED');
     expect(() => selectCanaryTournament('guessed-league', catalog)).toThrow('ODDS_TOURNAMENT_UNVERIFIED');

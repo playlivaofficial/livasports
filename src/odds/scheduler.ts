@@ -1,11 +1,13 @@
 import type {DatabaseClient} from '@/database/client';
 import {M5OddsPapiAdapter} from '@/providers/oddspapi/M5OddsPapiAdapter';
 import {verifyCatalog} from '@/providers/oddspapi/m5-normalizer';
-import {schedulerTournaments,isStableOddsTournament,type CatalogTournament} from '@/providers/oddspapi/tournament-catalog';
+import {catalogNeedsExpansion,mergeCatalogTournaments,schedulerTournaments,isStableOddsTournament,type CatalogTournament} from '@/providers/oddspapi/tournament-catalog';
+import {COVERAGE_DISCOVERY_REQUEST_CAP} from '@/providers/oddspapi/request-limits';
 import {canonicalFixtures,persistSnapshot,startOddsJob} from './ingestion';
 import {budgetHealth,OddsBudgetStopped,reconcileAccountPeriod} from './budget';
 import {LIVE_ODDS_CAPABILITY} from './live-capability';
 import {readBookmakerCoverageHealth} from './bookmaker-coverage-health';
+import {readCoverageHealth} from './coverage-health';
 import {isProviderFixtureAbsent} from './canary';
 import {planScheduler,SCHEDULER_BOOKMAKERS,type RefreshTarget} from './scheduler-policy';
 import type {OddsSnapshot} from './types';
@@ -22,7 +24,7 @@ export async function schedulerPlan(db:DatabaseClient,now=new Date(),tournaments
   const [budget,fixtures,records]=await Promise.all([budgetHealth(db),canonicalFixtures(db),db.query(`SELECT b.provider_slug,
     EXISTS(SELECT 1 FROM bookmaker_geo_availability g WHERE g.bookmaker_id=b.id AND g.odds_enabled AND g.comparison_enabled
       AND g.verified_at IS NOT NULL AND g.verification_state IN ('VERIFIED_BR','VERIFIED_MX','VERIFIED_BR_MX')) AS public_eligible,
-    t.tournament_id,t.last_success_at,t.retry_after,t.last_error,
+    t.tournament_id,t.last_success_at,t.last_attempt_at,t.retry_after,t.consecutive_failures,t.last_error,
     EXISTS(SELECT 1 FROM odds_current legacy JOIN fixtures lf ON lf.id=legacy.fixture_id
       JOIN provider_entity_mappings lm ON lm.provider='ODDSPAPI' AND lm.entity_type='COMPETITION' AND lm.livasports_entity_id=lf.competition_id
       WHERE lm.provider_entity_id=t.tournament_id AND legacy.bookmaker_id=b.id AND legacy.status='ACTIVE'
@@ -37,7 +39,8 @@ export async function schedulerPlan(db:DatabaseClient,now=new Date(),tournaments
     const row=records.rows.find(r=>r.provider_slug===bookmaker&&r.tournament_id===t.id);
     return {bookmaker,tournamentId:t.id,fixtures:fixtures.filter(f=>f.competition===t.canonical),publicEligible:row?.public_eligible===true,
       hasUsefulCoverage:row?.useful_coverage===true,lastSuccessAt:row?.last_success_at?.toISOString()??null,retryAfter:row?.retry_after?.toISOString()??null,
-      lastError:typeof row?.last_error==='string'?row.last_error:null,needsCadenceRefresh:row?.needs_cadence_refresh===true};
+      lastError:typeof row?.last_error==='string'?row.last_error:null,needsCadenceRefresh:row?.needs_cadence_refresh===true,
+      lastAttemptAt:row?.last_attempt_at?.toISOString?.()??null,consecutiveFailures:Number(row?.consecutive_failures??0)};
   }));
   return planScheduler(targets,now,budget);
 }
@@ -53,7 +56,7 @@ export async function runOddsScheduler(db:DatabaseClient,key:string,trigger:'CON
   const job=await startOddsJob(db);const started=Date.now();
   const provider=new M5OddsPapiAdapter(db,key,job,6,true,started+140000);
   let state:SchedulerState='SUCCEEDED';let errorCode:string|null=null;
-  const results:Array<Record<string,unknown>>=[];let recovered=0;
+  const results:Array<Record<string,unknown>>=[];let recovered=0;let catalogExpanded=false;
   let tournaments:CatalogTournament[]=schedulerTournaments([]);
   try{
     await db.query("UPDATE odds_sync_jobs SET trigger_source=$2 WHERE id=$1",[job,trigger]);
@@ -62,6 +65,23 @@ export async function runOddsScheduler(db:DatabaseClient,key:string,trigger:'CON
     const catalog=(await db.query("SELECT markets,tournaments FROM odds_provider_catalog WHERE provider='ODDSPAPI'")).rows[0];
     if(!catalog)throw new Error('ODDS_CATALOG_UNVERIFIED');verifyCatalog(catalog.markets,catalog.tournaments);
     tournaments=schedulerTournaments(catalog.tournaments);
+    // P0 incident: a competition that is enabled, has upcoming fixtures and no catalog row must not wait for a manual
+    // discovery run. One bounded /v4/tournaments call per 24h merges new provider rows (IDs are never invented).
+    const upcoming=[...new Set((await canonicalFixtures(db)).filter(f=>f.status==='SCHEDULED'&&Date.parse(f.kickoff)>started&&Date.parse(f.kickoff)<started+14*86400000).map(f=>f.competition))];
+    if(catalogNeedsExpansion(catalog.tournaments,upcoming)){
+      const recent=await db.query("SELECT 1 FROM odds_provider_requests WHERE endpoint='/v4/tournaments' AND started_at>now()-interval '24 hours' LIMIT 1");
+      const health=await budgetHealth(db);
+      if(!recent.rowCount&&health.verified&&Number(health.safeRemaining)>=COVERAGE_DISCOVERY_REQUEST_CAP){
+        try{
+          const data=await provider.providerTournaments();
+          if(Array.isArray(data)){
+            const merged=mergeCatalogTournaments(catalog.tournaments,data);
+            await db.query("UPDATE odds_provider_catalog SET tournaments=$1::jsonb,verified_at=now() WHERE provider='ODDSPAPI'",[JSON.stringify(merged)]);
+            catalogExpanded=true;tournaments=schedulerTournaments(merged);
+          }
+        }catch(error){if(error instanceof OddsBudgetStopped)throw error;/* discovery failure never blocks the routine refresh */}
+      }
+    }
     provider.setCatalog(tournaments);
     await persistCatalogCompetitionMappings(db,tournaments);
     const pending=(await db.query('SELECT payload FROM odds_sync_snapshots WHERE applied_at IS NULL ORDER BY observed_at LIMIT 3')).rows;
@@ -91,11 +111,12 @@ export async function runOddsScheduler(db:DatabaseClient,key:string,trigger:'CON
           if(persistable.length){
             try{
               await db.query(`INSERT INTO odds_refresh_targets(bookmaker,tournament_id,last_attempt_at,retry_after,consecutive_failures,last_error)
-                SELECT $1,unnest($2::text[]),now(),now()+interval '15 minutes',1,$3
+                SELECT $1,unnest($2::text[]),now(),now()+CASE WHEN $4 THEN interval '12 hours' ELSE interval '15 minutes' END,1,$3
                 ON CONFLICT(bookmaker,tournament_id) DO UPDATE SET last_attempt_at=now(),last_error=$3,
                   consecutive_failures=LEAST(odds_refresh_targets.consecutive_failures+1,10),
-                  retry_after=now()+LEAST(360,power(2,LEAST(odds_refresh_targets.consecutive_failures,5))*15)*interval '1 minute'`,
-                [batch.bookmaker,persistable,isolatedEmpty?'ODDSPAPI_HTTP_404':(errorCode??safeSchedulerError(error))]);
+                  -- An isolated empty feed (provider lists no fixtures) waits 12h; other failures keep the bounded 15m→6h ladder.
+                  retry_after=CASE WHEN $4 THEN now()+interval '12 hours' ELSE now()+LEAST(360,power(2,LEAST(odds_refresh_targets.consecutive_failures,5))*15)*interval '1 minute' END`,
+                [batch.bookmaker,persistable,isolatedEmpty?'ODDSPAPI_HTTP_404':(errorCode??safeSchedulerError(error)),isolatedEmpty]);
             }catch{/* Retry-target CHECK failures must not replace the provider status. */}
           }
           if(error instanceof OddsBudgetStopped){state='BUDGET_STOPPED';break;}
@@ -106,7 +127,7 @@ export async function runOddsScheduler(db:DatabaseClient,key:string,trigger:'CON
     }
   }catch(error){errorCode=safeSchedulerError(error);state=error instanceof OddsBudgetStopped?'BUDGET_STOPPED':results.length?'PARTIAL':'FAILED';}
   const next=await schedulerPlan(db,new Date(),tournaments).catch(()=>null);
-  const result={jobId:job,trigger,state,requests:provider.requestCount(),recovered,feeds:results,error:errorCode,nextDueAt:next?.nextDueAt??null};
+  const result={jobId:job,trigger,state,requests:provider.requestCount(),recovered,catalogExpanded,feeds:results,error:errorCode,nextDueAt:next?.nextDueAt??null};
   await db.transaction(async tx=>{
     await tx.query("UPDATE odds_sync_jobs SET status=$2,completed_at=now(),error_code=$3,result=$4::jsonb WHERE id=$1 AND status='RUNNING'",[job,state,errorCode,JSON.stringify(result)]);
     await tx.query(`UPDATE odds_scheduler_health SET state=$1,last_error=CASE WHEN $1='SUCCEEDED' THEN NULL WHEN $2::text IS NOT NULL OR $5 THEN $2::text ELSE last_error END,
@@ -118,10 +139,10 @@ export async function runOddsScheduler(db:DatabaseClient,key:string,trigger:'CON
   return result;
 }
 export async function schedulerHealth(db:DatabaseClient,automationConfigured=false){
-  const [budget,status,lease,feeds,bookmakerHealth]=await Promise.all([budgetHealth(db),db.query('SELECT * FROM odds_scheduler_health WHERE id=true'),
+  const [budget,status,lease,feeds,bookmakerHealth,coverage]=await Promise.all([budgetHealth(db),db.query('SELECT * FROM odds_scheduler_health WHERE id=true'),
     db.query("SELECT status,heartbeat_at,lease_expires_at,provider_requests FROM odds_sync_jobs WHERE status='RUNNING' ORDER BY started_at DESC LIMIT 1"),
     db.query('SELECT bookmaker,tournament_id,last_success_at,retry_after,consecutive_failures,last_error FROM odds_refresh_targets ORDER BY bookmaker,tournament_id'),
-    readBookmakerCoverageHealth(db)]);
+    readBookmakerCoverageHealth(db),readCoverageHealth(db).catch(error=>({state:'unknown' as const,error:safeSchedulerError(error)}))]);
   const row=status.rows[0];
   const healthyAutomatic=automationConfigured&&row?.last_automatic_invocation_at&&Date.now()-row.last_automatic_invocation_at.getTime()<10*60000
     &&!['FAILED','BUDGET_STOPPED'].includes(row.state);
@@ -131,5 +152,5 @@ export async function schedulerHealth(db:DatabaseClient,automationConfigured=fal
     nextExpectedRun:automationConfigured?row?.next_due_at??null:null,
     nextPolicyDueAt:row?.next_due_at??null,fixturesConsidered:row?.fixtures_considered??0,feedsRefreshed:row?.feeds_refreshed??[],
     lastError:row?.last_error??null,activeLease:lease.rows[0]??null,feedStatus:feeds.rows,budget,providerRequests:0,
-    liveOdds:LIVE_ODDS_CAPABILITY,bookmakerHealth};
+    liveOdds:LIVE_ODDS_CAPABILITY,bookmakerHealth,coverage};
 }

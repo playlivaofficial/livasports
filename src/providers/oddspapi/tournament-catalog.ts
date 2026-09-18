@@ -98,18 +98,30 @@ export function selectCanaryTournament(
   return candidate;
 }
 
+/**
+ * Registry-driven scheduler targets (P0 odds coverage incident). Every catalog row that resolves through
+ * TOURNAMENT_IDENTITY_RULES to an enabled registry competition is scheduled; IDs are always copied from the
+ * provider catalog, never invented. The historical M5 expanded allowlist no longer gates coverage, so a
+ * returning or newly listed competition (e.g. the Conference League) is refreshed automatically before
+ * users need it. Previously rejected IDs stay eligible: the scheduler probes them in isolation and backs
+ * off for 12 hours on an empty feed, so they self-recover once the provider lists fixtures.
+ */
 export function schedulerTournaments(raw: unknown[], expanded: readonly {id:string;slug:string;category:string;canonical:string}[]=M5_EXPANDED_TOURNAMENTS): CatalogTournament[] {
   const resolved = resolveCatalogTournaments(raw);
   const byId = new Map(resolved.map(row => [row.id, row]));
   const stable = M5_TOURNAMENTS.map(row => byId.get(row.id) ?? {id: row.id, slug: row.slug, category: row.category, canonical: row.canonical});
-  const extra = expanded.flatMap(row => {
+  const enabled = new Set(FOOTBALL_COMPETITION_TARGETS.filter(target => target.enabled).map(target => target.slug));
+  const stableIds = new Set(stable.map(row => row.id));
+  // Verified expanded rows keep their exact identity check; any other resolved row must map to an enabled competition.
+  const verified = expanded.flatMap(row => {
     const found = byId.get(row.id);
     if (!found || found.slug !== row.slug || found.category !== row.category || found.canonical !== row.canonical) return [];
     return [found];
   });
-  return [...stable, ...extra];
+  const verifiedIds = new Set(verified.map(row => row.id));
+  const discovered = resolved.filter(row => !stableIds.has(row.id) && !verifiedIds.has(row.id) && enabled.has(row.canonical));
+  return [...stable, ...verified, ...discovered];
 }
-
 export function mergeCatalogTournaments(existing: unknown[], incoming: unknown[]): unknown[] {
   const allowed = new Set(TOURNAMENT_IDENTITY_RULES.map(rule => `${rule.slug}:${rule.category}`));
   for (const row of M5_TOURNAMENTS) allowed.add(`${row.slug}:${row.category}`);

@@ -32,7 +32,7 @@ describe('scheduler independent failure and durable completion',()=>{
     mocked.snapshot.mockRejectedValueOnce(new Error('private upstream error')).mockResolvedValueOnce({observedAt:new Date().toISOString()});
     const {db,query}=database();const result=await runOddsScheduler(db,'test-only');
     expect(result.state).toBe('PARTIAL');expect(result.feeds).toHaveLength(1);expect(mocked.persist).toHaveBeenCalledTimes(1);
-    expect(result.error).toBe('ODDS_REFRESH_FAILED');expect(query.mock.calls.some(([s])=>s.includes('retry_after=now()+LEAST'))).toBe(true);
+    expect(result.error).toBe('ODDS_REFRESH_FAILED');expect(query.mock.calls.some(([s])=>s.includes('ELSE now()+LEAST(360,power(2,LEAST(odds_refresh_targets.consecutive_failures,5))*15)'))).toBe(true);
   });
   it('ends as BUDGET_STOPPED, not an uncontrolled retry or a false success',async()=>{
     mocked.snapshot.mockRejectedValue(new OddsBudgetStopped('ODDS_BUDGET_UNVERIFIED_OR_EXHAUSTED'));
@@ -77,7 +77,7 @@ describe('scheduler independent failure and durable completion',()=>{
     expect(result.error).toBe('ODDSPAPI_HTTP_400');
     expect(result.feeds).toEqual([]);
   });
-  it('refreshes only the pinned known-good tournaments even if catalog has extras',async()=>{
+  it('refreshes the pinned stable batch and, in isolation, every catalog row that resolves to an enabled competition with upcoming fixtures',async()=>{
     mocked.snapshot.mockResolvedValue({observedAt:new Date().toISOString()});
     const catalog=[
       {tournamentId:325,tournamentSlug:'brasileiro-serie-a',categorySlug:'brazil'},
@@ -97,7 +97,8 @@ describe('scheduler independent failure and durable completion',()=>{
     const db={query:typed,transaction:async(w: (tx:{query:QueryExecutor['query']})=>unknown)=>w({query:typed}),close:async()=>{}} as DatabaseClient;
     const result=await runOddsScheduler(db,'test-only');
     expect(result.state).toBe('SUCCEEDED');
-    expect(mocked.snapshot.mock.calls.map(call=>call[1].sort())).toEqual([['325'],['325']]);
+    // 326 (brasileiro-serie-b) is not on the historical allowlist but resolves from the catalog: it is probed as a singleton per bookmaker.
+    expect(mocked.snapshot.mock.calls.map(call=>call[1].slice().sort())).toEqual([['325'],['325'],['326'],['326']]);
     expect(mocked.tournaments).not.toHaveBeenCalled();
     expect(query.mock.calls.some(([sql])=>sql.includes("entity_type='COMPETITION'"))).toBe(true);
   });
