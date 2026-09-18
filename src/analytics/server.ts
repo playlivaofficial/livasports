@@ -69,7 +69,9 @@ async function upsertSessions(db:QueryExecutor,events:readonly ClientEvent[],tra
       VALUES($1,$2,$3,$4,$4,$5,'NEW',$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
       ON CONFLICT(session_id) DO UPDATE SET last_seen_at=GREATEST(analytics_sessions.last_seen_at,excluded.last_seen_at),event_count=analytics_sessions.event_count+excluded.event_count,page_views=analytics_sessions.page_views+excluded.page_views,
         engaged=analytics_sessions.engaged OR excluded.engaged OR analytics_sessions.page_views+excluded.page_views>=2,first_action=COALESCE(analytics_sessions.first_action,excluded.first_action),
-        user_id=COALESCE(analytics_sessions.user_id,excluded.user_id),last_utm_campaign=COALESCE(excluded.last_utm_campaign,analytics_sessions.last_utm_campaign)
+        user_id=COALESCE(analytics_sessions.user_id,excluded.user_id),last_utm_campaign=COALESCE(excluded.last_utm_campaign,analytics_sessions.last_utm_campaign),
+        -- a session that turns out to be owner/QA/bot traffic later (e.g. owner signs in mid-session) is excluded as a whole
+        traffic_class=CASE WHEN excluded.traffic_class<>'HUMAN' THEN excluded.traffic_class ELSE analytics_sessions.traffic_class END
       WHERE analytics_sessions.anonymous_id=excluded.anonymous_id`,
       [sessionId,last.anonymousId,userId,last.occurredAt,traffic,last.locale,geo,last.canonicalPath.slice(0,240),last.pageType,last.referrerClass==='internal'?'direct':last.referrerClass,list.length,pageViews,engaged||pageViews>=2,firstAction,lastUtm.campaign??null]);
   }

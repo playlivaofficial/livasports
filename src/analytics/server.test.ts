@@ -82,6 +82,7 @@ describe('P4 ingestion boundary (§15, §17, §26, §33)',()=>{
     const link=query.mock.calls.filter(([sql])=>String(sql).includes('ON CONFLICT(session_id) DO UPDATE'));
     expect(String(link.at(-1)![0])).toContain('user_id=COALESCE(analytics_sessions.user_id,excluded.user_id)');
     expect(String(link.at(-1)![0])).toContain('WHERE analytics_sessions.anonymous_id=excluded.anonymous_id');
+    expect(String(link.at(-1)![0])).toContain("traffic_class=CASE WHEN excluded.traffic_class<>'HUMAN' THEN excluded.traffic_class ELSE analytics_sessions.traffic_class END");
     expect(events[0][6]).toBeNull();// historical guest rows are never rewritten
   });
   it('server events read first-party cookies, take a server timestamp and can never be forged through the client boundary',async()=>{
