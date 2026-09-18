@@ -131,7 +131,7 @@ export async function runOddsScheduler(db:DatabaseClient,key:string,trigger:'CON
     }
   }catch(error){errorCode=safeSchedulerError(error);state=error instanceof OddsBudgetStopped?'BUDGET_STOPPED':results.length?'PARTIAL':'FAILED';}
   const next=await schedulerPlan(db,new Date(),tournaments).catch(()=>null);
-  const result={jobId:job,trigger,state,requests:provider.requestCount(),recovered,catalogExpanded,feeds:results,error:errorCode,nextDueAt:next?.nextDueAt??null};
+  const result={jobId:job,trigger,state,requests:provider.requestCount(),recovered,catalogExpanded,feeds:results,error:errorCode,nextDueAt:next?.nextDueAt??null,pacing:next?.pacing??null};
   await db.transaction(async tx=>{
     await tx.query("UPDATE odds_sync_jobs SET status=$2,completed_at=now(),error_code=$3,result=$4::jsonb WHERE id=$1 AND status='RUNNING'",[job,state,errorCode,JSON.stringify(result)]);
     await tx.query(`UPDATE odds_scheduler_health SET state=$1,last_error=CASE WHEN $1='SUCCEEDED' THEN NULL WHEN $2::text IS NOT NULL OR $5 THEN $2::text ELSE last_error END,

@@ -1,5 +1,5 @@
 import {describe,it,expect,vi} from 'vitest';
-import {verifiedAccountPeriod,reserveOddsRequest,reconcileAccountPeriod} from './budget';
+import {verifiedAccountPeriod,reserveOddsRequest,reconcileAccountPeriod,budgetHealth,routineDailyCap} from './budget';
 import type {DatabaseClient,QueryExecutor} from '@/database/client';
 const account={subscriptions:[{is_active:true,valid_from:'2026-09-02T11:10:51Z',valid_until:'2026-10-02T11:10:51Z',request_limit:5000,request_count:65,
   sport_ids:[10,11],bookmakers:{'betano.bet.br':{has_live_odds:false,has_player_props:false},betsson:{has_live_odds:false,has_player_props:false}}}]};
@@ -37,5 +37,13 @@ describe('durable subscription request budget',()=>{
     const db:DatabaseClient={query:typed,transaction:async work=>work({query:typed}),close:async()=>{}};
     await reconcileAccountPeriod(db,verifiedAccountPeriod(account,new Date('2026-09-15')));
     const sql=(query.mock.calls as unknown as string[][]).at(-1)![0];expect(sql).toContain('GREATEST(odds_budget_baselines.externally_consumed');expect(sql).toContain('WHERE billable');
+  });
+  it('mirrors the ledger daily ceiling and exposes rolling-day headroom for scheduler pacing (P0 incident)',async()=>{
+    expect(routineDailyCap(2970,14.1)).toBe(210);expect(routineDailyCap(4000,1)).toBe(240);expect(routineDailyCap(0,10)).toBe(1);expect(routineDailyCap(500,0.2)).toBe(240);
+    const query=vi.fn(async()=>({rows:[{period_start:'2026-09-02T11:10:51Z',period_end:new Date(Date.now()+14.1*86400000),hard_limit:5000,externally_consumed:50,local_counted:980,
+      reserved:0,completed:980,failed_counted:88,unmetered_calls:6,rolling_day:209}],rowCount:1}));
+    const health=await budgetHealth({query:query as unknown as QueryExecutor['query']});
+    expect(health).toMatchObject({verified:true,used:1030,routineRemaining:2970,dailyCap:210,rollingDay:209,rollingHeadroom:1});
+    expect(String((query.mock.calls as unknown as string[][])[0][0])).toContain("purpose='SCHEDULED' AND d.started_at>now()-interval '24 hours'");
   });
 });

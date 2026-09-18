@@ -39,13 +39,23 @@ export async function budgetHealth(db:QueryExecutor){
     count(r.id) FILTER(WHERE r.outcome='RESERVED' AND r.billable)::int AS reserved,
     count(r.id) FILTER(WHERE r.completed_at IS NOT NULL AND r.billable)::int AS completed,
     count(r.id) FILTER(WHERE r.completed_at IS NOT NULL AND r.outcome<>'SUCCEEDED' AND r.billable)::int AS failed_counted,
-    count(r.id) FILTER(WHERE NOT r.billable)::int AS unmetered_calls
+    count(r.id) FILTER(WHERE NOT r.billable)::int AS unmetered_calls,
+    (SELECT count(*) FROM odds_provider_requests d WHERE d.billable AND d.purpose='SCHEDULED' AND d.started_at>now()-interval '24 hours')::int AS rolling_day
     FROM odds_budget_baselines b LEFT JOIN odds_provider_requests r ON r.started_at>=b.period_start AND r.started_at<b.period_end
     WHERE now()>=b.period_start AND now()<b.period_end GROUP BY b.period_start`)).rows[0];
   if(!row)return {verified:false,state:'BUDGET_STOPPED',reason:'NO_VERIFIED_CURRENT_PERIOD',safeRemaining:0};
   const used=Number(row.externally_consumed)+Number(row.local_counted);
+  const routineRemaining=Math.max(0,ROUTINE_LIMIT-used);
+  const remainingDays=Math.max(1,(new Date(row.period_end).getTime()-Date.now())/86400000);
+  const rollingDay=Number(row.rolling_day??0);const dailyCap=routineDailyCap(routineRemaining,remainingDays);
   return {...row,verified:true,used,internalLimit:INTERNAL_LIMIT,routineLimit:ROUTINE_LIMIT,
-    safeRemaining:Math.max(0,Math.min(INTERNAL_LIMIT,Number(row.hard_limit))-used),routineRemaining:Math.max(0,ROUTINE_LIMIT-used)};
+    safeRemaining:Math.max(0,Math.min(INTERNAL_LIMIT,Number(row.hard_limit))-used),routineRemaining,
+    // P0 incident: the scheduler paces itself against the ledger's rolling-day ceiling instead of bursting into it.
+    rollingDay,dailyCap,rollingHeadroom:Math.max(0,dailyCap-rollingDay)};
+}
+/** Same paced daily ceiling the ledger enforces per reservation (rolling 24h of SCHEDULED billable requests). */
+export function routineDailyCap(routineRemaining:number,remainingDays:number):number {
+  return Math.min(DAILY_ROUTINE_LIMIT,Math.max(1,Math.floor(Math.max(0,routineRemaining)/Math.max(1,remainingDays))));
 }
 export async function reserveOddsRequest(tx:QueryExecutor,input:{id:string;jobId:string;endpoint:string;query:Record<string,string>;routine:boolean;unmetered:boolean}){
   await tx.query("SELECT pg_advisory_xact_lock(hashtext('livasports-m5-odds-budget'))");

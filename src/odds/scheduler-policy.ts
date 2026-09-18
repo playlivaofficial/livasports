@@ -10,7 +10,12 @@ export interface RefreshTarget {
   /** P0 incident fields: a target that has succeeded before and is not failing can share a provider request. */
   lastAttemptAt?:string|null;consecutiveFailures?:number;
 }
-export interface SchedulerBudget {verified:boolean;routineRemaining?:number;period_end?:Date|string;}
+export interface SchedulerBudget {verified:boolean;routineRemaining?:number;period_end?:Date|string;
+  /** Ledger view of the rolling 24h SCHEDULED spend and its paced ceiling (P0 incident pacing). */
+  rollingDay?:number;dailyCap?:number;}
+/** Share of the rolling-day ceiling kept for urgent batches (kickoff within 12h or recovery) so routine refreshes never starve them. */
+export const URGENCY_RESERVE_FRACTION=0.2;
+export const URGENT_KICKOFF_HOURS=12;
 export type RefreshTier='FAR_FUTURE'|'WITHIN_48H'|'WITHIN_12H'|'WITHIN_2H'|'FINAL_PREGAME'|'NO_USEFUL_COVERAGE'|'GEO_GATED'|'NO_UPCOMING';
 /** Requested cadence; the forecast scales intervals to the actual feed/fixture budget. */
 export function cadenceIntervalMinutes(hours:number,activeFeeds:number):number|null {
@@ -107,7 +112,7 @@ export function planScheduler(targets:RefreshTarget[],now=new Date(),budget?:Sch
   const activeFeeds=new Set(targets.filter(t=>t.publicEligible).map(t=>t.bookmaker)).size;
   const targetsPlan=targets.map(t=>planTarget(t,activeFeeds,now,cadence.scale));
   const chunk=(ids:string[])=>{const out:string[][]=[];for(let i=0;i<ids.length;i+=MAX_TOURNAMENTS_PER_ODDSPAPI_REQUEST)out.push(ids.slice(i,i+MAX_TOURNAMENTS_PER_ODDSPAPI_REQUEST));return out;};
-  const batches=cadence.budgetAvailable?SCHEDULER_BOOKMAKERS.flatMap(bookmaker=>{
+  const planned=cadence.budgetAvailable?SCHEDULER_BOOKMAKERS.flatMap(bookmaker=>{
     const eligible=targetsPlan.filter(t=>t.bookmaker===bookmaker&&t.intervalMinutes!==null);
     // Priority: recovery (near-term feed without coverage) first, then relative lateness, then nearest kickoff.
     const due=eligible.filter(t=>t.due).sort((a,b)=>Number(b.recovery)-Number(a.recovery)||b.urgency-a.urgency||Date.parse(a.nearestKickoff!)-Date.parse(b.nearestKickoff!));
@@ -117,8 +122,27 @@ export function planScheduler(targets:RefreshTarget[],now=new Date(),budget?:Sch
     const proven=due.filter(t=>!isStableOddsTournament(t.tournamentId)&&t.proven);
     const unproven=due.filter(t=>!isStableOddsTournament(t.tournamentId)&&!t.proven).slice(0,MAX_UNPROVEN_PROBES_PER_TICK);
     const selected=[...chunk(stable.map(t=>t.tournamentId)),...chunk(proven.map(t=>t.tournamentId)),...unproven.map(t=>[t.tournamentId])];
-    return selected.map(tournamentIds=>({bookmaker,tournamentIds,fixtures:eligible.filter(t=>tournamentIds.includes(t.tournamentId)).reduce((n,t)=>n+t.fixtures,0)}));
-  }).sort((a,b)=>Number(!a.tournamentIds.every(isStableOddsTournament))-Number(!b.tournamentIds.every(isStableOddsTournament))):[];
-  return {at:now.toISOString(),cadence,targets:targetsPlan,batches,maximumBillableRequests:batches.length,
+    return selected.map(tournamentIds=>{
+      const members=eligible.filter(t=>tournamentIds.includes(t.tournamentId));
+      const nearestHours=Math.min(...members.map(t=>t.nearestKickoff?(Date.parse(t.nearestKickoff)-now.getTime())/3600000:Infinity));
+      return {bookmaker,tournamentIds,fixtures:members.reduce((n,t)=>n+t.fixtures,0),
+        urgent:members.some(t=>t.recovery)||nearestHours<=URGENT_KICKOFF_HOURS,nearestHours};
+    });
+  }).sort((a,b)=>Number(b.urgent)-Number(a.urgent)||(a.urgent&&b.urgent?a.nearestHours-b.nearestHours:0)
+    ||Number(!a.tournamentIds.every(isStableOddsTournament))-Number(!b.tournamentIds.every(isStableOddsTournament))):[];
+  // Rolling-day pacing (P0 incident): the ledger refuses requests once the rolling 24h spend reaches its ceiling, which
+  // produced burst-then-starve ticks with imminent fixtures left stale. Routine batches stop at the reserve line,
+  // urgent batches may use the reserve, and nothing beyond the live headroom is attempted.
+  const headroom=budget?.dailyCap!==undefined&&budget.rollingDay!==undefined?Math.max(0,budget.dailyCap-budget.rollingDay):null;
+  const routineHeadroom=headroom===null?null:Math.max(0,headroom-Math.ceil((budget?.dailyCap??0)*URGENCY_RESERVE_FRACTION));
+  const batches:typeof planned=[];let routineUsed=0;
+  for(const batch of planned){
+    if(headroom!==null&&batches.length>=headroom)break;
+    if(!batch.urgent){if(routineHeadroom!==null&&routineUsed>=routineHeadroom)continue;routineUsed++;}
+    batches.push(batch);
+  }
+  const pacing={rollingDay:budget?.rollingDay??null,dailyCap:budget?.dailyCap??null,headroom,routineHeadroom,
+    plannedBatches:planned.length,deferredBatches:planned.length-batches.length,urgentBatches:batches.filter(b=>b.urgent).length};
+  return {at:now.toISOString(),cadence,pacing,targets:targetsPlan,batches,maximumBillableRequests:batches.length,
     nextDueAt:targetsPlan.map(t=>t.nextDueAt).filter((s):s is string=>s!==null).sort()[0]??null};
 }

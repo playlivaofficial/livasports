@@ -36,10 +36,12 @@ describe('shared adaptive pregame scheduler',()=>{
   });
   it('keeps the stable four in their own batch and never mixes a candidate into that request',()=>{
     const p=planScheduler([target(1,{tournamentId:'325'}),target(1,{tournamentId:'17'}),target(0.5,{tournamentId:'326',lastSuccessAt:null})],now);
-    expect(p.batches).toEqual([
+    // Order follows imminence (the 0.5h unproven probe leads the 1h stable pair); membership is what must never mix.
+    expect(p.batches).toHaveLength(2);
+    expect(p.batches).toEqual(expect.arrayContaining([
       expect.objectContaining({tournamentIds:['325','17']}),
       expect.objectContaining({tournamentIds:['326']}),
-    ]);
+    ]));
     const idleStable=planScheduler([
       target(1,{tournamentId:'325',lastSuccessAt:now.toISOString()}),
       target(1,{tournamentId:'17',lastSuccessAt:now.toISOString()}),
@@ -82,5 +84,37 @@ describe('shared adaptive pregame scheduler',()=>{
       target(10,{tournamentId:'242',lastSuccessAt:new Date(now.getTime()-12*3600000).toISOString()})],now);
     // Both feeds are proven (prior success, no failures) so they share one request; the older one still leads.
     expect(p.batches[0].tournamentIds).toEqual(['242','390']);expect(p.maximumBillableRequests).toBe(1);
+  });
+  describe('rolling-day pacing (P0 incident: burst-then-starve ticks left same-day fixtures stale)',()=>{
+    const budget={verified:true,routineRemaining:2970,period_end:new Date(now.getTime()+14*86400000)};
+    const old=new Date(now.getTime()-4*3600000).toISOString();
+    // stable four far out (routine), one proven expanded feed kicking off in 6h (urgent), one recovery probe, both bookmakers.
+    const feeds=['betano.bet.br','betsson'].flatMap(bookmaker=>[
+      target(40,{bookmaker,tournamentId:'325',lastSuccessAt:old}),target(40,{bookmaker,tournamentId:'17',lastSuccessAt:old}),
+      target(6,{bookmaker,tournamentId:'35',lastSuccessAt:old}),
+      target(30,{bookmaker,tournamentId:'53',lastSuccessAt:null,hasUsefulCoverage:false})]);
+    it('plans everything and reports no pacing when the ledger view is absent',()=>{
+      const p=planScheduler(feeds,now,budget);
+      expect(p.pacing).toMatchObject({headroom:null,routineHeadroom:null,deferredBatches:0});expect(p.batches.length).toBe(6);
+    });
+    it('never attempts more requests than the live headroom and spends them on the most imminent batches first',()=>{
+      const p=planScheduler(feeds,now,{...budget,dailyCap:210,rollingDay:209});
+      expect(p.maximumBillableRequests).toBe(1);expect(p.batches[0]).toMatchObject({tournamentIds:['35'],urgent:true});
+      expect(p.pacing).toMatchObject({headroom:1,routineHeadroom:0,plannedBatches:6,deferredBatches:5,urgentBatches:1});
+    });
+    it('keeps the reserve for urgent batches: routine stable refreshes stop at the reserve line, urgent and recovery ones continue',()=>{
+      const p=planScheduler(feeds,now,{...budget,dailyCap:210,rollingDay:180});
+      expect(p.pacing).toMatchObject({headroom:30,routineHeadroom:0});
+      expect(p.batches.every(b=>b.urgent)).toBe(true);
+      expect(p.batches.map(b=>b.tournamentIds)).toEqual(expect.arrayContaining([['35'],['53']]));
+      expect(p.batches.some(b=>b.tournamentIds.includes('325'))).toBe(false);
+    });
+    it('plans routine batches again once the rolling spend is below the reserve line',()=>{
+      const p=planScheduler(feeds,now,{...budget,dailyCap:210,rollingDay:100});
+      expect(p.pacing).toMatchObject({headroom:110,routineHeadroom:68,deferredBatches:0});
+      expect(p.batches.some(b=>b.tournamentIds.includes('325'))).toBe(true);
+      // urgent batches still lead the tick so a late ledger refusal never lands on an imminent fixture.
+      expect(p.batches[0].urgent).toBe(true);
+    });
   });
 });
