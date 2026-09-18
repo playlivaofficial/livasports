@@ -66,9 +66,9 @@ export const TOURNAMENT_IDENTITY_RULES: readonly {slug: string; category: string
   {slug: 'uefa-super-cup', category: 'international-clubs', canonical: 'uefa-super-cup'},
 ];
 
-const normalizeName = (value: unknown) => String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+export const normalizeName = (value: unknown) => String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 /** Provider category for a registry competition: national competitions use the country name, continental ones the clubs category. */
-function registryCategoryMatches(target: {countryCode: string | null; countryNames: readonly string[]}, row: ObjectValue): boolean {
+export function registryCategoryMatches(target: {countryCode: string | null; countryNames: readonly string[]}, row: ObjectValue): boolean {
   if (target.countryCode === null) return String(row.categorySlug) === 'international-clubs';
   const names = new Set(target.countryNames.map(normalizeName));
   return names.has(normalizeName(row.categoryName)) || names.has(normalizeName(String(row.categorySlug).replace(/-/g, ' ')));

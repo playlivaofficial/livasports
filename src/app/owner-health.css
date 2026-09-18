@@ -1,0 +1,29 @@
+.owner-health{max-width:1400px;margin:0 auto;padding:20px 16px 60px;font:14px/1.5 system-ui;color:#edf4f8;display:grid;gap:22px}
+.owner-health h1{margin:0;font-size:24px}.owner-health h2{margin:0 0 8px;font-size:17px}.owner-health p{margin:4px 0}
+.owner-health a{color:#ffdfb0;text-decoration:underline}.owner-health code{font-size:12px;background:#13212a;padding:2px 5px;border-radius:4px}
+.owner-health-header{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
+.owner-health-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.owner-health button{cursor:pointer;border:1px solid #c99150;border-radius:6px;padding:8px 12px;background:#ffdfb0;color:#241508;font-weight:700}
+.owner-health button:disabled{opacity:.6;cursor:default}
+.owner-health-confirm{display:inline-flex;gap:8px;align-items:center;flex-wrap:wrap;background:#3b2a12;border:1px solid #c99150;padding:6px 10px;border-radius:6px}
+.owner-health-notice{padding:10px 12px;border-radius:6px;background:#13212a;border:1px solid #63747c}.owner-health-notice[role=alert]{border-color:#c25c5c;color:#ffb6b6}
+.owner-health-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.owner-health-card{background:#13212a;border:1px solid #2c3d48;border-radius:8px;padding:12px;display:grid;gap:4px;min-width:0}
+.owner-health-card span{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:#a9b8c1}.owner-health-card strong{font-size:22px}.owner-health-card small{color:#c6d2d9;overflow-wrap:anywhere}
+.owner-health-state{display:inline-block;padding:2px 8px;border-radius:999px;font-weight:700;font-size:12px;letter-spacing:.03em}
+.owner-health-state-healthy{background:#1d4d2b;color:#c8f5d3}.owner-health-state-idle{background:#2c3d48;color:#c6d2d9}
+.owner-health-state-degraded,.owner-health-state-warning,.owner-health-state-unknown,.owner-health-state-upstream_unavailable{background:#5a4210;color:#ffe2a8}
+.owner-health-state-critical,.owner-health-state-unmapped{background:#6b1f1f;color:#ffd0d0}
+.owner-health-card.owner-health-state-critical,.owner-health-card.owner-health-state-unmapped{border-color:#c25c5c}.owner-health-card.owner-health-state-degraded{border-color:#c99150}.owner-health-card.owner-health-state-healthy{border-color:#3d8b57}
+.owner-health-global p{padding:8px 12px;border-radius:6px;background:#2a1414;border:1px solid #c25c5c}
+.owner-health-filters{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:10px}.owner-health-filters label{display:inline-flex;gap:6px;align-items:center}
+.owner-health select,.owner-health input{background:#13212a;color:#fff;border:1px solid #63747c;border-radius:6px;padding:6px 8px;min-width:0}
+.owner-health-scroll{overflow-x:auto;max-width:100%}
+.owner-health-table{border-collapse:collapse;width:100%;font-size:13px}.owner-health-table th,.owner-health-table td{text-align:left;padding:6px 8px;border-bottom:1px solid #2c3d48;vertical-align:top;white-space:nowrap}
+.owner-health-table th{color:#a9b8c1;font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.03em}
+.owner-health-evidence{white-space:normal!important;max-width:420px;color:#c6d2d9}
+.owner-health-issues,.owner-health-notes,.owner-health-quotes{margin:0;padding-left:18px}.owner-health-quotes{padding-left:0;list-style:none;white-space:normal}.owner-health-notes{color:#a9b8c1}
+.owner-health-fresh-current{color:#c8f5d3}.owner-health-fresh-aging{color:#ffe2a8}.owner-health-fresh-stale{color:#ffb86b}.owner-health-fresh-expired,.owner-health-fresh-closed{color:#ffb6b6}
+.owner-health-footer{color:#a9b8c1;font-size:12px}
+.owner-health-login h1{font-size:24px}
+@media (max-width:640px){.owner-health{padding:14px 16px 40px}.owner-health-card strong{font-size:18px}}

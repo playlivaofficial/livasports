@@ -9,8 +9,26 @@ import {LIVE_ODDS_CAPABILITY} from './live-capability';
 import {readBookmakerCoverageHealth} from './bookmaker-coverage-health';
 import {readCoverageHealth} from './coverage-health';
 import {isProviderFixtureAbsent} from './canary';
-import {planScheduler,SCHEDULER_BOOKMAKERS,type RefreshTarget} from './scheduler-policy';
+import {planScheduler,SCHEDULER_BOOKMAKERS,SCHEDULER_TICK_MINUTES,type RefreshTarget} from './scheduler-policy';
+import {evaluateReliability,logRecoveryAction} from './reliability/incidents';
+import {persistCatalogRows} from './reliability/catalog';
+import {HEALTH_CONTRACT_VERSION,type IssueClassification,type Severity} from './reliability/model';
+import {readReliabilityHealth} from './reliability/read';
 import type {OddsSnapshot} from './types';
+
+export interface IntegrityFinding {bookmaker:string;tournamentIds:string[];classification:IssueClassification;severity:Severity;reason:string;returnedFixtures:number;matchedFixtures:number;quotes:number;currentWrites:number;closed:number;}
+/** P3 §14: flag a "successful" refresh whose outcome is suspicious. Provider truth is never rolled back automatically. */
+export function integrityCheck(input:{bookmaker:string;tournamentIds:readonly string[];returnedFixtures:number;matchedFixtures:number;quotes:number;currentWrites:number;closed:number;rejected?:unknown}):IntegrityFinding|null{
+  const base={bookmaker:input.bookmaker,tournamentIds:[...input.tournamentIds],returnedFixtures:input.returnedFixtures,matchedFixtures:input.matchedFixtures,quotes:input.quotes,currentWrites:input.currentWrites,closed:input.closed};
+  const rejected=Array.isArray(input.rejected)?input.rejected.length:0;
+  if(input.returnedFixtures>0&&input.matchedFixtures===0)return {...base,classification:'MAPPING_FAILED',severity:'CRITICAL',reason:`Provider returned ${input.returnedFixtures} fixture(s) but none mapped to a LivaSports fixture`};
+  if(input.matchedFixtures>0&&input.quotes===0)return {...base,classification:'NORMALIZATION_REJECTED',severity:'CRITICAL',reason:`${input.matchedFixtures} matched fixture(s) produced zero normalized quotes${rejected?` (${rejected} rejected)`:''}`};
+  if(input.closed>=10&&input.closed>input.currentWrites*3)return {...base,classification:'PROVIDER_NOT_OFFERED',severity:'WARNING',reason:`Feed closed ${input.closed} quotes while writing ${input.currentWrites} (mass close)`};
+  return null;
+}
+async function catalogRowsStale(db:DatabaseClient){
+  try{const r=await db.query("SELECT max(last_seen_at) AS at FROM odds_catalog_rows");return !r.rows[0]?.at||Date.now()-new Date(r.rows[0].at).getTime()>6*3600000;}catch{return false;}
+}
 
 export type SchedulerState='READY'|'RUNNING'|'SUCCEEDED'|'PARTIAL'|'FAILED'|'BUDGET_STOPPED';
 export function safeSchedulerError(error:unknown):string {
@@ -56,7 +74,7 @@ export async function runOddsScheduler(db:DatabaseClient,key:string,trigger:'CON
   const job=await startOddsJob(db);const started=Date.now();
   const provider=new M5OddsPapiAdapter(db,key,job,6,true,started+140000);
   let state:SchedulerState='SUCCEEDED';let errorCode:string|null=null;
-  const results:Array<Record<string,unknown>>=[];let recovered=0;let catalogExpanded=false;
+  const results:Array<Record<string,unknown>>=[];let recovered=0;let catalogExpanded=false;const integrity:IntegrityFinding[]=[];
   let tournaments:CatalogTournament[]=schedulerTournaments([]);
   try{
     await db.query("UPDATE odds_sync_jobs SET trigger_source=$2 WHERE id=$1",[job,trigger]);
@@ -78,6 +96,7 @@ export async function runOddsScheduler(db:DatabaseClient,key:string,trigger:'CON
             const merged=mergeCatalogTournaments(catalog.tournaments,data);
             await db.query("UPDATE odds_provider_catalog SET tournaments=$1::jsonb,verified_at=now() WHERE provider='ODDSPAPI'",[JSON.stringify(merged)]);
             catalogExpanded=true;tournaments=schedulerTournaments(merged);
+            await logRecoveryAction(db,{trigger:'SCHEDULER',action:'CATALOG_EXPANSION',reason:'Enabled competition with fixtures inside 14 days had no catalog row',requestCost:1,outcome:'SUCCEEDED',detail:{storedRows:merged.length,scheduled:tournaments.length}});
           }
         }catch(error){if(error instanceof OddsBudgetStopped)throw error;/* discovery failure never blocks the routine refresh */}
       }
@@ -104,9 +123,18 @@ export async function runOddsScheduler(db:DatabaseClient,key:string,trigger:'CON
           const saved=await persistSnapshot(db,job,snapshot);
           results.push({bookmaker:batch.bookmaker,tournamentIds:ids,returnedFixtures:saved.returnedFixtures,matchedFixtures:saved.matchedFixtures,
             quotes:saved.quotes,historyChanges:saved.history_changes,currentWrites:saved.current_writes,closed:saved.closed,observedAt:snapshot.observedAt,cadence:current.cadence});
+          // P3 §14 post-refresh integrity: a successful response that yields nothing usable is suspicious, never silent.
+          const check=integrityCheck({bookmaker:batch.bookmaker,tournamentIds:ids,returnedFixtures:saved.returnedFixtures,matchedFixtures:saved.matchedFixtures,quotes:saved.quotes,currentWrites:saved.current_writes,closed:saved.closed??0,rejected:saved.rejected});
+          if(check){integrity.push(check);await logRecoveryAction(db,{trigger:'INTEGRITY',action:'POST_REFRESH_CHECK',bookmaker:batch.bookmaker,tournamentId:ids.join(','),competition:tournaments.find(t=>t.id===ids[0])?.canonical??null,reason:check.reason,requestCost:0,outcome:check.classification,detail:{...check}});}
+          // P3 §22: urgent/recovery batches are self-healing actions and stay explainable.
+          if(batch.urgent)await logRecoveryAction(db,{trigger:'SCHEDULER',action:'URGENT_REFRESH',bookmaker:batch.bookmaker,tournamentId:ids.join(','),competition:tournaments.find(t=>t.id===ids[0])?.canonical??null,
+            reason:`Urgent batch (nearest kickoff ${Math.round(batch.nearestHours*10)/10}h)`,requestCost:1,outcome:'SUCCEEDED',budgetRemainingAfter:current.pacing.headroom===null?null:Math.max(0,current.pacing.headroom-1),detail:{quotes:saved.quotes,matchedFixtures:saved.matchedFixtures}});
         }catch(error){
           // A ledger stop is not a feed failure: leave target retry state untouched so proven feeds keep sharing requests.
-          if(error instanceof OddsBudgetStopped){errorCode=error.code;state='BUDGET_STOPPED';break;}
+          if(error instanceof OddsBudgetStopped){errorCode=error.code;state='BUDGET_STOPPED';
+            await logRecoveryAction(db,{trigger:'SCHEDULER',action:'BUDGET_STOP',bookmaker:batch.bookmaker,tournamentId:ids.join(','),reason:error.code,outcome:'DEFERRED',nextRetryAt:new Date(Date.now()+SCHEDULER_TICK_MINUTES*60000).toISOString(),budgetRemainingAfter:0});break;}
+          if(batch.urgent)await logRecoveryAction(db,{trigger:'SCHEDULER',action:'URGENT_REFRESH',bookmaker:batch.bookmaker,tournamentId:ids.join(','),competition:tournaments.find(t=>t.id===ids[0])?.canonical??null,
+            reason:`Urgent batch (nearest kickoff ${Math.round(batch.nearestHours*10)/10}h)`,requestCost:1,outcome:safeSchedulerError(error)});
           const isolatedEmpty=isProviderFixtureAbsent(error)&&ids.length===1&&!isStableOddsTournament(ids[0]);
           if(!isolatedEmpty)errorCode=safeSchedulerError(error);
           // The 12h empty-feed backoff applies only to feeds that never succeeded; a previously priced feed keeps the short ladder.
@@ -131,7 +159,15 @@ export async function runOddsScheduler(db:DatabaseClient,key:string,trigger:'CON
     }
   }catch(error){errorCode=safeSchedulerError(error);state=error instanceof OddsBudgetStopped?'BUDGET_STOPPED':results.length?'PARTIAL':'FAILED';}
   const next=await schedulerPlan(db,new Date(),tournaments).catch(()=>null);
-  const result={jobId:job,trigger,state,requests:provider.requestCount(),recovered,catalogExpanded,feeds:results,error:errorCode,nextDueAt:next?.nextDueAt??null,pacing:next?.pacing??null};
+  // P3 reliability evaluation after every tick: rollups, deduplicated incidents, owner alerts. Never breaks the refresh path.
+  let reliability:Record<string,unknown>|null=null;
+  try{
+    if(catalogExpanded||await catalogRowsStale(db))await persistCatalogRows(db,(await db.query("SELECT tournaments FROM odds_provider_catalog WHERE provider='ODDSPAPI'")).rows[0]?.tournaments??[]);
+    const evaluation=await evaluateReliability(db,{automationEnabled:trigger==='AUTOMATIC'?true:undefined,source:'scheduler',
+      extraIssues:integrity.map(i=>({competition:tournaments.find(t=>t.id===i.tournamentIds[0])?.canonical??'*',issue:{classification:i.classification,severity:i.severity,evidence:i.reason,affectedFixtures:i.returnedFixtures,bookmaker:i.bookmaker}}))});
+    reliability={overall:evaluation.health.overall,opened:evaluation.opened,resolved:evaluation.resolved,alerts:evaluation.alerts,counts:evaluation.health.counts};
+  }catch(error){reliability={error:safeSchedulerError(error)};}
+  const result={jobId:job,trigger,state,requests:provider.requestCount(),recovered,catalogExpanded,feeds:results,error:errorCode,nextDueAt:next?.nextDueAt??null,pacing:next?.pacing??null,integrity,reliability:reliability as Record<string,unknown>|null};
   await db.transaction(async tx=>{
     await tx.query("UPDATE odds_sync_jobs SET status=$2,completed_at=now(),error_code=$3,result=$4::jsonb WHERE id=$1 AND status='RUNNING'",[job,state,errorCode,JSON.stringify(result)]);
     await tx.query(`UPDATE odds_scheduler_health SET state=$1,last_error=CASE WHEN $1='SUCCEEDED' THEN NULL WHEN $2::text IS NOT NULL OR $5 THEN $2::text ELSE last_error END,
@@ -143,15 +179,16 @@ export async function runOddsScheduler(db:DatabaseClient,key:string,trigger:'CON
   return result;
 }
 export async function schedulerHealth(db:DatabaseClient,automationConfigured=false){
-  const [budget,status,lease,feeds,bookmakerHealth,coverage,catalog]=await Promise.all([budgetHealth(db),db.query('SELECT * FROM odds_scheduler_health WHERE id=true'),
+  const [budget,status,lease,feeds,bookmakerHealth,coverage,catalog,reliability]=await Promise.all([budgetHealth(db),db.query('SELECT * FROM odds_scheduler_health WHERE id=true'),
     db.query("SELECT status,heartbeat_at,lease_expires_at,provider_requests FROM odds_sync_jobs WHERE status='RUNNING' ORDER BY started_at DESC LIMIT 1"),
     db.query('SELECT bookmaker,tournament_id,last_success_at,retry_after,consecutive_failures,last_error FROM odds_refresh_targets ORDER BY bookmaker,tournament_id'),
     readBookmakerCoverageHealth(db),readCoverageHealth(db).catch(error=>({state:'unknown' as const,error:safeSchedulerError(error)})),
-    db.query("SELECT tournaments FROM odds_provider_catalog WHERE provider='ODDSPAPI'").catch(()=>({rows:[]}))]);
+    db.query("SELECT tournaments FROM odds_provider_catalog WHERE provider='ODDSPAPI'").catch(()=>({rows:[]})),
+    readReliabilityHealth(db,new Date(),{automationEnabled:automationConfigured}).catch(error=>({error:safeSchedulerError(error)}))]);
   const row=status.rows[0];
   const healthyAutomatic=automationConfigured&&row?.last_automatic_invocation_at&&Date.now()-row.last_automatic_invocation_at.getTime()<10*60000
     &&!['FAILED','BUDGET_STOPPED'].includes(row.state);
-  return {automationEnabled:automationConfigured,automationOperational:Boolean(healthyAutomatic),infrastructure:automationConfigured?'CONFIGURED_EXTERNAL_SCHEDULER':'NONE',
+  return {version:HEALTH_CONTRACT_VERSION,automationEnabled:automationConfigured,automationOperational:Boolean(healthyAutomatic),infrastructure:automationConfigured?'CONFIGURED_EXTERNAL_SCHEDULER':'NONE',
     state:row?.state??'READY',lastDiscoveryAt:row?.last_discovery_at??null,lastSuccessfulRefreshAt:row?.last_refresh_at??null,
     lastSuccessfulAutomatedRefreshAt:row?.last_automatic_refresh_at??null,lastAutomaticInvocationAt:row?.last_automatic_invocation_at??null,
     nextExpectedRun:automationConfigured?row?.next_due_at??null:null,
@@ -159,5 +196,5 @@ export async function schedulerHealth(db:DatabaseClient,automationConfigured=fal
     lastError:row?.last_error??null,activeLease:lease.rows[0]??null,feedStatus:feeds.rows,budget,providerRequests:0,
     liveOdds:LIVE_ODDS_CAPABILITY,bookmakerHealth,coverage,
     scheduledTournaments:schedulerTournaments((catalog.rows[0]?.tournaments as unknown[])??[]).map(t=>({id:t.id,canonical:t.canonical})),
-    unmatchedCatalogRows:unmatchedCatalogRows((catalog.rows[0]?.tournaments as unknown[])??[])};
+    unmatchedCatalogRows:unmatchedCatalogRows((catalog.rows[0]?.tournaments as unknown[])??[]),reliability};
 }

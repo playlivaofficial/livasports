@@ -1,5 +1,5 @@
 import {describe,it,expect,vi} from 'vitest';
-import {verifiedAccountPeriod,reserveOddsRequest,reconcileAccountPeriod,budgetHealth,routineDailyCap} from './budget';
+import {verifiedAccountPeriod,reserveOddsRequest,reconcileAccountPeriod,budgetHealth,budgetGovernor,routineDailyCap} from './budget';
 import type {DatabaseClient,QueryExecutor} from '@/database/client';
 const account={subscriptions:[{is_active:true,valid_from:'2026-09-02T11:10:51Z',valid_until:'2026-10-02T11:10:51Z',request_limit:5000,request_count:65,
   sport_ids:[10,11],bookmakers:{'betano.bet.br':{has_live_odds:false,has_player_props:false},betsson:{has_live_odds:false,has_player_props:false}}}]};
@@ -45,5 +45,13 @@ describe('durable subscription request budget',()=>{
     const health=await budgetHealth({query:query as unknown as QueryExecutor['query']});
     expect(health).toMatchObject({verified:true,used:1030,routineRemaining:2970,dailyCap:210,rollingDay:209,rollingHeadroom:1});
     expect(String((query.mock.calls as unknown as string[][])[0][0])).toContain("purpose='SCHEDULED' AND d.started_at>now()-interval '24 hours'");
+  });
+  it('P3 budget governor derives reserves, projections and pressure from the verified period only (§8)',()=>{
+    const g=budgetGovernor({used:1030,routineRemaining:2970,remainingDays:14.1,rollingDay:209,dailyCap:210,rollingThreeDays:600,hardLimit:5000});
+    expect(g).toMatchObject({periodAllowance:4500,routineAllowance:4000,remaining:3470,headroom:1,urgentReserve:42,recoveryReserve:21,discoveryReserve:2,routineCeiling:168,routineHeadroom:0,projectedDailyRequests:200,pressure:'RESERVE_ONLY'});
+    expect(g.projectedEndOfPeriodUsage).toBe(Math.round(1030+200*14.1));expect(g.projectedOverrun).toBe(false);
+    expect(budgetGovernor({used:1030,routineRemaining:2970,remainingDays:14.1,rollingDay:100,dailyCap:210,rollingThreeDays:300,hardLimit:5000}).pressure).toBe('NORMAL');
+    expect(budgetGovernor({used:1030,routineRemaining:2970,remainingDays:14.1,rollingDay:150,dailyCap:210,rollingThreeDays:300,hardLimit:5000}).pressure).toBe('PACED');
+    expect(budgetGovernor({used:4000,routineRemaining:0,remainingDays:3,rollingDay:0,dailyCap:1,rollingThreeDays:900,hardLimit:5000})).toMatchObject({pressure:'EXHAUSTED',projectedOverrun:true});
   });
 });

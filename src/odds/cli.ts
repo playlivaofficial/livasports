@@ -23,6 +23,8 @@ try {
   const command=process.argv[2]??'verify';
   if(command==='migrate')console.info(JSON.stringify({migrations:await runMigrations(db)}));
   else if(command==='coverage-health'){const {readCoverageHealth}=await import('./coverage-health');console.info(JSON.stringify(await readCoverageHealth(db)));}
+  else if(command==='reliability-health'){const {readReliabilityHealth}=await import('./reliability/read');console.info(JSON.stringify(await readReliabilityHealth(db)));}
+  else if(command==='evaluate-reliability'){const {evaluateReliability}=await import('./reliability/incidents');const r=await evaluateReliability(db,{source:'cli'});console.info(JSON.stringify({overall:r.health.overall,opened:r.opened,updated:r.updated,resolved:r.resolved,alerts:r.alerts,counts:r.health.counts}));}
   else if(command==='scheduled-refresh')console.info(JSON.stringify(await runOddsScheduler(db,process.env.ODDSPAPI_API_KEY!)));
   else if(command==='discover-catalog'){
     const health=await budgetHealth(db);

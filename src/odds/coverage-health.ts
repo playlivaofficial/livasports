@@ -13,6 +13,8 @@ export const COVERAGE_WINDOW_HOURS:Record<CoverageWindow,number>={'24h':24,'3d':
 export interface CoverageWindowCounts {
   fixtures:number;anyOdds:number;matchWinner:number;totalGoals25:number;btts:number;
   betanoReal:number;betssonReal:number;bothReal:number;proxyOnly:number;neither:number;staleOnly:number;
+  /** P3: fixtures whose only stored quotes were explicitly CLOSED by the provider feed (provider truth, not a refresh gap). */
+  closedOnly:number;
 }
 export interface CompetitionCoverageInput {
   competition:string;tournamentId:string|null;nearestKickoff:string|null;
@@ -38,7 +40,7 @@ export function reportWindow(c:CoverageWindowCounts):CoverageWindowReport{
   return {...c,anyOddsPct:pct(c.anyOdds,c.fixtures),matchWinnerPct:pct(c.matchWinner,c.fixtures),totalGoals25Pct:pct(c.totalGoals25,c.fixtures),bttsPct:pct(c.btts,c.fixtures),
     betanoRealPct:pct(c.betanoReal,c.fixtures),betssonRealPct:pct(c.betssonReal,c.fixtures),proxyPct:pct(c.proxyOnly,c.anyOdds),neitherPct:pct(c.neither,c.fixtures),stalePct:pct(c.staleOnly,c.fixtures)};
 }
-export const emptyCounts=():CoverageWindowCounts=>({fixtures:0,anyOdds:0,matchWinner:0,totalGoals25:0,btts:0,betanoReal:0,betssonReal:0,bothReal:0,proxyOnly:0,neither:0,staleOnly:0});
+export const emptyCounts=():CoverageWindowCounts=>({fixtures:0,anyOdds:0,matchWinner:0,totalGoals25:0,btts:0,betanoReal:0,betssonReal:0,bothReal:0,proxyOnly:0,neither:0,staleOnly:0,closedOnly:0});
 /** Longest acceptable gap since the last successful refresh for a competition with fixtures inside 7 days. */
 export const REFRESH_OVERDUE_MINUTES=12*60;
 
@@ -83,6 +85,10 @@ const rank=(s:CoverageState)=>s==='critical'?3:s==='warning'?2:s==='healthy'?1:0
 const CURRENT=`o.status='ACTIVE' AND o.phase='PREGAME' AND o.scope='FULL_TIME_REGULATION' AND o.freshness_ttl_minutes IS NOT NULL AND o.freshness_ttl_minutes>0
   AND o.observed_at+(o.freshness_ttl_minutes*interval '1 minute')>now() AND o.provider_kickoff IS NOT NULL AND abs(extract(epoch from (f.kickoff-o.provider_kickoff)))<=600`;
 export async function readCoverageHealth(db:QueryExecutor,now=new Date()):Promise<CoverageHealth>{
+  return assessCoverage(await readCoverageInputs(db),now);
+}
+/** Raw per-competition inputs (one bounded query); shared by the P0 coverage contract and the P3 reliability engine. */
+export async function readCoverageInputs(db:QueryExecutor):Promise<CompetitionCoverageInput[]>{
   const rows=(await db.query(`WITH fx AS (
       SELECT f.id,f.kickoff,c.slug,c.id AS competition_id FROM fixtures f JOIN competitions c ON c.id=f.competition_id
       WHERE c.enabled AND f.status='SCHEDULED' AND f.kickoff>now() AND f.kickoff<=now()+interval '14 days' AND NOT EXISTS(SELECT 1 FROM sports_pending_fixtures p WHERE p.id=f.id)),
@@ -95,7 +101,8 @@ export async function readCoverageHealth(db:QueryExecutor,now=new Date()):Promis
       EXISTS(SELECT 1 FROM cur WHERE cur.fixture_id=fx.id AND market='BTTS') AS btts,
       EXISTS(SELECT 1 FROM cur WHERE cur.fixture_id=fx.id AND book='betano.bet.br') AS betano,
       EXISTS(SELECT 1 FROM cur WHERE cur.fixture_id=fx.id AND book='betsson') AS betsson,
-      EXISTS(SELECT 1 FROM odds_current o WHERE o.fixture_id=fx.id) AS any_row
+      EXISTS(SELECT 1 FROM odds_current o WHERE o.fixture_id=fx.id) AS any_row,
+      EXISTS(SELECT 1 FROM odds_current o WHERE o.fixture_id=fx.id) AND NOT EXISTS(SELECT 1 FROM odds_current o WHERE o.fixture_id=fx.id AND o.status<>'CLOSED') AS closed_row
       FROM fx)
     SELECT c.slug AS competition,
       (SELECT m.provider_entity_id FROM provider_entity_mappings m WHERE m.provider='ODDSPAPI' AND m.entity_type='COMPETITION' AND m.livasports_entity_id=c.id LIMIT 1) AS tournament_id,
@@ -112,7 +119,8 @@ export async function readCoverageHealth(db:QueryExecutor,now=new Date()):Promis
       count(per.*) FILTER (WHERE ${w} AND betano AND betsson)::int AS "${k}_both",
       count(per.*) FILTER (WHERE ${w} AND any_odds AND NOT (betano AND betsson))::int AS "${k}_proxy",
       count(per.*) FILTER (WHERE ${w} AND NOT any_odds)::int AS "${k}_neither",
-      count(per.*) FILTER (WHERE ${w} AND NOT any_odds AND any_row)::int AS "${k}_stale"`;}).join(',')}
+      count(per.*) FILTER (WHERE ${w} AND NOT any_odds AND any_row)::int AS "${k}_stale",
+      count(per.*) FILTER (WHERE ${w} AND NOT any_odds AND closed_row)::int AS "${k}_closed"`;}).join(',')}
     FROM competitions c
     LEFT JOIN per ON per.slug=c.slug
     LEFT JOIN LATERAL (SELECT max(last_success_at) AS last_success_at,max(last_attempt_at) AS last_attempt_at,max(consecutive_failures)::int AS consecutive_failures,
@@ -125,7 +133,7 @@ export async function readCoverageHealth(db:QueryExecutor,now=new Date()):Promis
     lastSuccessAt:r.last_success_at?new Date(String(r.last_success_at)).toISOString():null,lastAttemptAt:r.last_attempt_at?new Date(String(r.last_attempt_at)).toISOString():null,
     consecutiveFailures:Number(r.consecutive_failures??0),lastError:r.last_error?String(r.last_error):null,
     windows:Object.fromEntries(COVERAGE_WINDOWS.map(k=>[k,{fixtures:Number(r[`${k}_fixtures`]),anyOdds:Number(r[`${k}_any`]),matchWinner:Number(r[`${k}_mw`]),totalGoals25:Number(r[`${k}_ou25`]),btts:Number(r[`${k}_btts`]),
-      betanoReal:Number(r[`${k}_betano`]),betssonReal:Number(r[`${k}_betsson`]),bothReal:Number(r[`${k}_both`]),proxyOnly:Number(r[`${k}_proxy`]),neither:Number(r[`${k}_neither`]),staleOnly:Number(r[`${k}_stale`])}])) as Record<CoverageWindow,CoverageWindowCounts>,
+      betanoReal:Number(r[`${k}_betano`]),betssonReal:Number(r[`${k}_betsson`]),bothReal:Number(r[`${k}_both`]),proxyOnly:Number(r[`${k}_proxy`]),neither:Number(r[`${k}_neither`]),staleOnly:Number(r[`${k}_stale`]),closedOnly:Number(r[`${k}_closed`]??0)}])) as Record<CoverageWindow,CoverageWindowCounts>,
   }));
-  return assessCoverage(inputs,now);
+  return inputs;
 }

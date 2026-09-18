@@ -6,7 +6,7 @@ const files=readdirSync('db/migrations').filter(file=>/^\d+_/.test(file)).sort()
 
 describe('migration 022 user auth schema',()=>{
   it('is the additive successor of 021 and never edits earlier files',()=>{
-    expect(files.at(-1)).toBe('024_p2_sitemap_player_indexes.sql');expect(files).toContain('023_p1_2_user_favorites.sql');
+    expect(files.at(-1)).toBe('025_p3_odds_reliability.sql');expect(files).toContain('024_p2_sitemap_player_indexes.sql');expect(files).toContain('023_p1_2_user_favorites.sql');
     expect(files).toContain('021_owner_qa_login_rate_limit.sql');
     expect(sql.startsWith('BEGIN;')).toBe(true);
     expect(sql.trim().endsWith('COMMIT;')).toBe(true);

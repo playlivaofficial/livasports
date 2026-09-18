@@ -8,8 +8,8 @@ afterEach(()=>{vi.unstubAllEnvs();vi.clearAllMocks();});
 describe('protected scheduler boundary',()=>{
   const secret='unit-test-only-not-a-real-secret-value';
   const auth={headers:{Authorization:`Bearer ${secret}`}};
-  const noWork:{jobId:string;trigger:'AUTOMATIC'|'CONTROLLED';state:'SUCCEEDED';requests:number;recovered:number;catalogExpanded:boolean;feeds:Record<string,unknown>[];error:null;nextDueAt:null;pacing:null}=
-    {jobId:'test-job',trigger:'AUTOMATIC',state:'SUCCEEDED',requests:0,recovered:0,catalogExpanded:false,feeds:[],error:null,nextDueAt:null,pacing:null};
+  const noWork:{jobId:string;trigger:'AUTOMATIC'|'CONTROLLED';state:'SUCCEEDED';requests:number;recovered:number;catalogExpanded:boolean;feeds:Record<string,unknown>[];error:null;nextDueAt:null;pacing:null;integrity:never[];reliability:null}=
+    {jobId:'test-job',trigger:'AUTOMATIC',state:'SUCCEEDED',requests:0,recovered:0,catalogExpanded:false,feeds:[],error:null,nextDueAt:null,pacing:null,integrity:[],reliability:null};
   it('rejects missing, short and incorrect secrets before database/provider work',async()=>{
     expect(authorizedScheduler(new Request('https://example.test'),secret)).toBe(false);
     const response=await schedulerResponse(new Request('https://example.test/api/internal/odds-refresh'));

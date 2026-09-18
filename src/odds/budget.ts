@@ -40,7 +40,8 @@ export async function budgetHealth(db:QueryExecutor){
     count(r.id) FILTER(WHERE r.completed_at IS NOT NULL AND r.billable)::int AS completed,
     count(r.id) FILTER(WHERE r.completed_at IS NOT NULL AND r.outcome<>'SUCCEEDED' AND r.billable)::int AS failed_counted,
     count(r.id) FILTER(WHERE NOT r.billable)::int AS unmetered_calls,
-    (SELECT count(*) FROM odds_provider_requests d WHERE d.billable AND d.purpose='SCHEDULED' AND d.started_at>now()-interval '24 hours')::int AS rolling_day
+    (SELECT count(*) FROM odds_provider_requests d WHERE d.billable AND d.purpose='SCHEDULED' AND d.started_at>now()-interval '24 hours')::int AS rolling_day,
+    (SELECT count(*) FROM odds_provider_requests d WHERE d.billable AND d.started_at>now()-interval '3 days')::int AS rolling_three_days
     FROM odds_budget_baselines b LEFT JOIN odds_provider_requests r ON r.started_at>=b.period_start AND r.started_at<b.period_end
     WHERE now()>=b.period_start AND now()<b.period_end GROUP BY b.period_start`)).rows[0];
   if(!row)return {verified:false,state:'BUDGET_STOPPED',reason:'NO_VERIFIED_CURRENT_PERIOD',safeRemaining:0};
@@ -48,10 +49,34 @@ export async function budgetHealth(db:QueryExecutor){
   const routineRemaining=Math.max(0,ROUTINE_LIMIT-used);
   const remainingDays=Math.max(1,(new Date(row.period_end).getTime()-Date.now())/86400000);
   const rollingDay=Number(row.rolling_day??0);const dailyCap=routineDailyCap(routineRemaining,remainingDays);
+  const governor=budgetGovernor({used,routineRemaining,remainingDays,rollingDay,dailyCap,rollingThreeDays:Number(row.rolling_three_days??0),hardLimit:Number(row.hard_limit)});
   return {...row,verified:true,used,internalLimit:INTERNAL_LIMIT,routineLimit:ROUTINE_LIMIT,
     safeRemaining:Math.max(0,Math.min(INTERNAL_LIMIT,Number(row.hard_limit))-used),routineRemaining,
     // P0 incident: the scheduler paces itself against the ledger's rolling-day ceiling instead of bursting into it.
-    rollingDay,dailyCap,rollingHeadroom:Math.max(0,dailyCap-rollingDay)};
+    rollingDay,dailyCap,rollingHeadroom:Math.max(0,dailyCap-rollingDay),governor};
+}
+/** Share of the daily ceiling held back for urgent/recovery work (mirrors the planner's reserve) and for catalog discovery. */
+export const URGENT_RESERVE_FRACTION=0.2;
+export const RECOVERY_RESERVE_FRACTION=0.1;
+export const DISCOVERY_RESERVE_REQUESTS=2;
+export interface BudgetGovernor {
+  periodAllowance:number;routineAllowance:number;used:number;remaining:number;routineRemaining:number;remainingDays:number;
+  rollingDay:number;dailyCap:number;headroom:number;projectedDailyRequests:number;projectedEndOfPeriodUsage:number;projectedOverrun:boolean;
+  urgentReserve:number;recoveryReserve:number;discoveryReserve:number;routineCeiling:number;routineHeadroom:number;
+  pressure:'NORMAL'|'PACED'|'RESERVE_ONLY'|'EXHAUSTED';
+}
+/** Durable, plan-derived budget governor (P3 §8). Never invents capacity: every number derives from the verified period. */
+export function budgetGovernor(input:{used:number;routineRemaining:number;remainingDays:number;rollingDay:number;dailyCap:number;rollingThreeDays:number;hardLimit:number}):BudgetGovernor{
+  const headroom=Math.max(0,input.dailyCap-input.rollingDay);
+  const urgentReserve=Math.ceil(input.dailyCap*URGENT_RESERVE_FRACTION),recoveryReserve=Math.ceil(input.dailyCap*RECOVERY_RESERVE_FRACTION);
+  const routineCeiling=Math.max(0,input.dailyCap-urgentReserve);
+  const projectedDaily=Math.round(input.rollingThreeDays/3);
+  const projectedEnd=input.used+projectedDaily*input.remainingDays;
+  const pressure:BudgetGovernor['pressure']=input.routineRemaining<=0||headroom===0?'EXHAUSTED':headroom<=urgentReserve?'RESERVE_ONLY':input.rollingDay>=routineCeiling*0.75?'PACED':'NORMAL';
+  return {periodAllowance:Math.min(INTERNAL_LIMIT,input.hardLimit),routineAllowance:ROUTINE_LIMIT,used:input.used,remaining:Math.max(0,Math.min(INTERNAL_LIMIT,input.hardLimit)-input.used),
+    routineRemaining:input.routineRemaining,remainingDays:Math.round(input.remainingDays*100)/100,rollingDay:input.rollingDay,dailyCap:input.dailyCap,headroom,
+    projectedDailyRequests:projectedDaily,projectedEndOfPeriodUsage:Math.round(projectedEnd),projectedOverrun:projectedEnd>ROUTINE_LIMIT,
+    urgentReserve,recoveryReserve,discoveryReserve:DISCOVERY_RESERVE_REQUESTS,routineCeiling,routineHeadroom:Math.max(0,headroom-urgentReserve),pressure};
 }
 /** Same paced daily ceiling the ledger enforces per reservation (rolling 24h of SCHEDULED billable requests). */
 export function routineDailyCap(routineRemaining:number,remainingDays:number):number {

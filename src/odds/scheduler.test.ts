@@ -18,7 +18,7 @@ vi.mock('./ingestion',()=>({startOddsJob:mocked.start,persistSnapshot:mocked.per
   {id:'test-only',competition:'brasileirao-serie-a',status:'SCHEDULED',kickoff:new Date(Date.now()+3600000).toISOString()},
   {id:'test-b',competition:'brasileirao-serie-b',status:'SCHEDULED',kickoff:new Date(Date.now()+7200000).toISOString()},
 ]}));
-import {runOddsScheduler,safeSchedulerError} from './scheduler';
+import {integrityCheck,runOddsScheduler,safeSchedulerError} from './scheduler';
 function database(){const query=vi.fn(async(sql:string)=>{
   if(sql.includes('odds_provider_catalog'))return {rows:[{markets:[],tournaments:[]}],rowCount:1};
   if(sql.includes('FROM bookmakers b'))return {rows:['betano.bet.br','betsson'].map(provider_slug=>({provider_slug,tournament_id:'325',public_eligible:true,useful_coverage:true,last_success_at:null})),rowCount:2};
@@ -185,5 +185,31 @@ describe('scheduler independent failure and durable completion',()=>{
     await runOddsScheduler(db,'test-only');
     const retry=query.mock.calls.find(call=>String(call[0]).includes('unnest($2::text[])'));
     expect(retry).toBeTruthy();expect((retry as unknown as [string,unknown[]])[1][3]).toBe(false);
+  });
+  describe('P3 reliability integration',()=>{
+    it('post-refresh integrity flags suspicious outcomes and stays silent on normal ones (§14)',()=>{
+      const base={bookmaker:'betsson',tournamentIds:['35'],returnedFixtures:9,matchedFixtures:9,quotes:63,currentWrites:63,closed:0};
+      expect(integrityCheck(base)).toBeNull();
+      expect(integrityCheck({...base,matchedFixtures:0,quotes:0,currentWrites:0})).toMatchObject({classification:'MAPPING_FAILED',severity:'CRITICAL'});
+      expect(integrityCheck({...base,quotes:0,currentWrites:0,rejected:[{},{}]})).toMatchObject({classification:'NORMALIZATION_REJECTED',severity:'CRITICAL'});
+      expect(integrityCheck({...base,closed:40,currentWrites:3})).toMatchObject({classification:'PROVIDER_NOT_OFFERED',severity:'WARNING'});
+      expect(integrityCheck({...base,returnedFixtures:0,matchedFixtures:0,quotes:0,currentWrites:0})).toBeNull();
+    });
+    it('an urgent batch is logged as a recovery action with its cost and the tick ends with a reliability evaluation (§22)',async()=>{
+      mocked.snapshot.mockResolvedValue({observedAt:new Date().toISOString()});
+      const {db,query}=database();const result=await runOddsScheduler(db,'test-only');
+      expect(result.state).toBe('SUCCEEDED');
+      const actions=(query.mock.calls as unknown as [string,unknown[]][]).filter(([sql])=>String(sql).includes('INSERT INTO odds_recovery_actions')).map(c=>c[1]);
+      expect(actions.some(a=>a[1]==='URGENT_REFRESH'&&a[6]===1&&a[7]==='SUCCEEDED')).toBe(true);
+      expect(result.reliability).toMatchObject({overall:expect.any(String),opened:0,resolved:0});
+      expect(query.mock.calls.some(([sql])=>String(sql).includes('DELETE FROM odds_health_rollups'))).toBe(true);
+    });
+    it('a ledger stop is logged as a deferred recovery action with the next tick as retry, never as a target failure',async()=>{
+      mocked.snapshot.mockRejectedValue(new OddsBudgetStopped('ODDS_BUDGET_UNVERIFIED_OR_EXHAUSTED'));
+      const {db,query}=database();await runOddsScheduler(db,'test-only');
+      const stop=(query.mock.calls as unknown as [string,unknown[]][]).map(c=>c[1]).find(a=>Array.isArray(a)&&a[1]==='BUDGET_STOP');
+      expect(stop).toBeTruthy();expect(stop![7]).toBe('DEFERRED');expect(stop![8]).toBeTruthy();
+      expect(query.mock.calls.some(([sql])=>String(sql).includes('INSERT INTO odds_refresh_targets'))).toBe(false);
+    });
   });
 });
