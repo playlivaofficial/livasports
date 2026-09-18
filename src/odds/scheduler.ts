@@ -1,7 +1,7 @@
 import type {DatabaseClient} from '@/database/client';
 import {M5OddsPapiAdapter} from '@/providers/oddspapi/M5OddsPapiAdapter';
 import {verifyCatalog} from '@/providers/oddspapi/m5-normalizer';
-import {catalogNeedsExpansion,mergeCatalogTournaments,schedulerTournaments,isStableOddsTournament,type CatalogTournament} from '@/providers/oddspapi/tournament-catalog';
+import {catalogNeedsExpansion,mergeCatalogTournaments,schedulerTournaments,isStableOddsTournament,unmatchedCatalogRows,type CatalogTournament} from '@/providers/oddspapi/tournament-catalog';
 import {COVERAGE_DISCOVERY_REQUEST_CAP} from '@/providers/oddspapi/request-limits';
 import {canonicalFixtures,persistSnapshot,startOddsJob} from './ingestion';
 import {budgetHealth,OddsBudgetStopped,reconcileAccountPeriod} from './budget';
@@ -105,8 +105,13 @@ export async function runOddsScheduler(db:DatabaseClient,key:string,trigger:'CON
           results.push({bookmaker:batch.bookmaker,tournamentIds:ids,returnedFixtures:saved.returnedFixtures,matchedFixtures:saved.matchedFixtures,
             quotes:saved.quotes,historyChanges:saved.history_changes,currentWrites:saved.current_writes,closed:saved.closed,observedAt:snapshot.observedAt,cadence:current.cadence});
         }catch(error){
+          // A ledger stop is not a feed failure: leave target retry state untouched so proven feeds keep sharing requests.
+          if(error instanceof OddsBudgetStopped){errorCode=error.code;state='BUDGET_STOPPED';break;}
           const isolatedEmpty=isProviderFixtureAbsent(error)&&ids.length===1&&!isStableOddsTournament(ids[0]);
           if(!isolatedEmpty)errorCode=safeSchedulerError(error);
+          // The 12h empty-feed backoff applies only to feeds that never succeeded; a previously priced feed keeps the short ladder.
+          const neverSucceeded=!current.targets.some(t=>t.bookmaker===batch.bookmaker&&ids.includes(t.tournamentId)&&t.proven);
+          const longBackoff=isolatedEmpty&&neverSucceeded;
           const persistable=ids.filter(id=>tournaments.some(tournament=>tournament.id===id));
           if(persistable.length){
             try{
@@ -116,10 +121,9 @@ export async function runOddsScheduler(db:DatabaseClient,key:string,trigger:'CON
                   consecutive_failures=LEAST(odds_refresh_targets.consecutive_failures+1,10),
                   -- An isolated empty feed (provider lists no fixtures) waits 12h; other failures keep the bounded 15m→6h ladder.
                   retry_after=CASE WHEN $4 THEN now()+interval '12 hours' ELSE now()+LEAST(360,power(2,LEAST(odds_refresh_targets.consecutive_failures,5))*15)*interval '1 minute' END`,
-                [batch.bookmaker,persistable,isolatedEmpty?'ODDSPAPI_HTTP_404':(errorCode??safeSchedulerError(error)),isolatedEmpty]);
+                [batch.bookmaker,persistable,isolatedEmpty?'ODDSPAPI_HTTP_404':(errorCode??safeSchedulerError(error)),longBackoff]);
             }catch{/* Retry-target CHECK failures must not replace the provider status. */}
           }
-          if(error instanceof OddsBudgetStopped){state='BUDGET_STOPPED';break;}
           if(!isolatedEmpty)state=results.length?'PARTIAL':'FAILED';
         }
       }
@@ -139,10 +143,11 @@ export async function runOddsScheduler(db:DatabaseClient,key:string,trigger:'CON
   return result;
 }
 export async function schedulerHealth(db:DatabaseClient,automationConfigured=false){
-  const [budget,status,lease,feeds,bookmakerHealth,coverage]=await Promise.all([budgetHealth(db),db.query('SELECT * FROM odds_scheduler_health WHERE id=true'),
+  const [budget,status,lease,feeds,bookmakerHealth,coverage,catalog]=await Promise.all([budgetHealth(db),db.query('SELECT * FROM odds_scheduler_health WHERE id=true'),
     db.query("SELECT status,heartbeat_at,lease_expires_at,provider_requests FROM odds_sync_jobs WHERE status='RUNNING' ORDER BY started_at DESC LIMIT 1"),
     db.query('SELECT bookmaker,tournament_id,last_success_at,retry_after,consecutive_failures,last_error FROM odds_refresh_targets ORDER BY bookmaker,tournament_id'),
-    readBookmakerCoverageHealth(db),readCoverageHealth(db).catch(error=>({state:'unknown' as const,error:safeSchedulerError(error)}))]);
+    readBookmakerCoverageHealth(db),readCoverageHealth(db).catch(error=>({state:'unknown' as const,error:safeSchedulerError(error)})),
+    db.query("SELECT tournaments FROM odds_provider_catalog WHERE provider='ODDSPAPI'").catch(()=>({rows:[]}))]);
   const row=status.rows[0];
   const healthyAutomatic=automationConfigured&&row?.last_automatic_invocation_at&&Date.now()-row.last_automatic_invocation_at.getTime()<10*60000
     &&!['FAILED','BUDGET_STOPPED'].includes(row.state);
@@ -152,5 +157,7 @@ export async function schedulerHealth(db:DatabaseClient,automationConfigured=fal
     nextExpectedRun:automationConfigured?row?.next_due_at??null:null,
     nextPolicyDueAt:row?.next_due_at??null,fixturesConsidered:row?.fixtures_considered??0,feedsRefreshed:row?.feeds_refreshed??[],
     lastError:row?.last_error??null,activeLease:lease.rows[0]??null,feedStatus:feeds.rows,budget,providerRequests:0,
-    liveOdds:LIVE_ODDS_CAPABILITY,bookmakerHealth,coverage};
+    liveOdds:LIVE_ODDS_CAPABILITY,bookmakerHealth,coverage,
+    scheduledTournaments:schedulerTournaments((catalog.rows[0]?.tournaments as unknown[])??[]).map(t=>({id:t.id,canonical:t.canonical})),
+    unmatchedCatalogRows:unmatchedCatalogRows((catalog.rows[0]?.tournaments as unknown[])??[])};
 }

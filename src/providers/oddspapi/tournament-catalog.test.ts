@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {catalogNeedsExpansion,mergeCatalogTournaments,resolveCatalogTournaments,schedulerTournaments,selectCanaryTournament} from './tournament-catalog';
+import {catalogNeedsExpansion,mergeCatalogTournaments,resolveCatalogTournaments,schedulerTournaments,selectCanaryTournament, unmatchedCatalogRows} from './tournament-catalog';
 
 const baseline = [
   {tournamentId: 325, tournamentSlug: 'brasileiro-serie-a', categorySlug: 'brazil'},
@@ -62,15 +62,34 @@ describe('OddsPapi catalog identity', () => {
     // Previously rejected IDs are eligible again (the scheduler isolates and backs them off instead of excluding them forever).
     expect(schedulerTournaments([...baseline, {tournamentId: 19, tournamentSlug: 'fa-cup', categorySlug: 'england'}]).map(row => row.id)).toContain('19');
   });
-  it('merges only rule-matched football tournaments into the stored catalog', () => {
+  it('keeps every well-formed provider row in the stored catalog and surfaces unmatched rows for mapping gaps (P0 incident)', () => {
     const merged = mergeCatalogTournaments(baseline, [
       {tournamentId: 326, tournamentSlug: 'brasileiro-serie-b', categorySlug: 'brazil'},
-      {tournamentId: 999, tournamentSlug: 'nba', categorySlug: 'usa'},
+      {tournamentId: 999, tournamentSlug: 'nba', categorySlug: 'usa', categoryName: 'USA', tournamentName: 'NBA'},
+      {tournamentId: 'x', tournamentSlug: 'broken', categorySlug: 'spain'},
     ]);
-    expect(merged).toHaveLength(5);
-    expect(merged.some(row => (row as {tournamentId: number}).tournamentId === 999)).toBe(false);
+    expect(merged).toHaveLength(6);
+    expect(merged.some(row => (row as {tournamentId: unknown}).tournamentId === 'x')).toBe(false);
+    // Never scheduled unless a rule or a registry lookup name resolves it; unmatched rows in registry categories are reported.
+    expect(schedulerTournaments(merged).map(row => row.id)).not.toContain('999');
+    expect(unmatchedCatalogRows(merged).map(row => row.id)).toContain('999');
   });
 
+  it('resolves an enabled competition without a slug rule from a unique reviewed lookup name in the matching category, copying the provider ID', () => {
+    const rows = [...baseline,
+      {tournamentId: 4242, tournamentSlug: 'laliga2', categorySlug: 'spain', categoryName: 'Spain', tournamentName: 'LaLiga 2'},
+      {tournamentId: 4343, tournamentSlug: 'uefa-conference-league', categorySlug: 'international-clubs', categoryName: 'International Clubs', tournamentName: 'UEFA Conference League'},
+      {tournamentId: 4444, tournamentSlug: 'segunda', categorySlug: 'argentina', categoryName: 'Argentina', tournamentName: 'Segunda Division'},
+    ];
+    const resolved = resolveCatalogTournaments(rows);
+    expect(resolved.find(row => row.canonical === 'la-liga-2')).toMatchObject({id: '4242', slug: 'laliga2', category: 'spain'});
+    expect(resolved.find(row => row.canonical === 'conference-league')).toMatchObject({id: '4343'});
+    // wrong category never matches; two candidates in one category never resolve
+    expect(resolved.some(row => row.id === '4444')).toBe(false);
+    const twins = [...rows, {tournamentId: 4545, tournamentSlug: 'laliga-2-b', categorySlug: 'spain', categoryName: 'Spain', tournamentName: 'La Liga 2'}];
+    expect(resolveCatalogTournaments(twins).some(row => row.canonical === 'la-liga-2')).toBe(false);
+    expect(unmatchedCatalogRows(twins).map(row => row.id)).toEqual(expect.arrayContaining(['4242', '4545']));
+  });
   it('selects a catalog-verified singleton canary and rejects unknown, stable, rejected, or already-scheduled IDs', () => {
     const catalog = [...baseline,
       {tournamentId: 373, tournamentSlug: 'copa-do-brasil', categorySlug: 'brazil'},

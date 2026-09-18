@@ -36,8 +36,10 @@ describe('scheduler independent failure and durable completion',()=>{
   });
   it('ends as BUDGET_STOPPED, not an uncontrolled retry or a false success',async()=>{
     mocked.snapshot.mockRejectedValue(new OddsBudgetStopped('ODDS_BUDGET_UNVERIFIED_OR_EXHAUSTED'));
-    const result=await runOddsScheduler(database().db,'test-only');expect(result.state).toBe('BUDGET_STOPPED');
+    const {db,query}=database();const result=await runOddsScheduler(db,'test-only');expect(result.state).toBe('BUDGET_STOPPED');
     expect(mocked.snapshot).toHaveBeenCalledTimes(1);expect(mocked.persist).not.toHaveBeenCalled();
+    // P0 incident: a ledger stop never demotes a feed — no retry/failure row is written for the targets in the batch.
+    expect(query.mock.calls.some(([sql])=>String(sql).includes('INSERT INTO odds_refresh_targets'))).toBe(false);
   });
   it('never calls a provider when another lease owns the batch',async()=>{
     mocked.start.mockRejectedValueOnce(new Error('ODDS_WORKER_ALREADY_RUNNING'));
@@ -161,7 +163,27 @@ describe('scheduler independent failure and durable completion',()=>{
     expect(query.mock.calls.some(call=>{
       const sql=String(call[0]);
       const params=(call as unknown as [string, unknown[]])[1];
-      return sql.includes('unnest($2::text[])')&&Array.isArray(params?.[1])&&(params[1] as string[]).includes('326')&&params[2]==='ODDSPAPI_HTTP_404';
+      return sql.includes('unnest($2::text[])')&&Array.isArray(params?.[1])&&(params[1] as string[]).includes('326')&&params[2]==='ODDSPAPI_HTTP_404'&&params[3]===true;
     })).toBe(true);
+  });
+  it('applies the short retry ladder, not the 12h backoff, when a previously priced feed reports FIXTURE_NOT_FOUND',async()=>{
+    mocked.expanded.push({id:'326',slug:'brasileiro-serie-b',category:'brazil',canonical:'brasileirao-serie-b'});
+    mocked.snapshot.mockImplementation(async(_bookmaker:string,ids:string[])=>{
+      if(ids.includes('326'))throw new Error(JSON.stringify({status:404,body:{error:{code:'FIXTURE_NOT_FOUND',message:'No fixtures found'}}}));
+      return {observedAt:new Date().toISOString()};
+    });
+    const catalog=[{tournamentId:325,tournamentSlug:'brasileiro-serie-a',categorySlug:'brazil'},{tournamentId:326,tournamentSlug:'brasileiro-serie-b',categorySlug:'brazil'}];
+    const query=vi.fn(async(sql:string)=>{
+      if(sql.includes('odds_provider_catalog'))return {rows:[{markets:[],tournaments:catalog}],rowCount:1};
+      if(sql.includes('FROM bookmakers b'))return {rows:['betano.bet.br','betsson'].flatMap(provider_slug=>['325','326'].map(tournament_id=>({
+        provider_slug,tournament_id,public_eligible:true,useful_coverage:tournament_id==='325',last_success_at:new Date(Date.now()-3*3600000),consecutive_failures:0,last_error:null})))};
+      if(sql.includes('reconciliation_at>'))return {rows:[{}],rowCount:1};
+      return {rows:[],rowCount:0};
+    });
+    const typed=query as unknown as QueryExecutor['query'];
+    const db={query:typed,transaction:async(w: (tx:{query:QueryExecutor['query']})=>unknown)=>w({query:typed}),close:async()=>{}} as DatabaseClient;
+    await runOddsScheduler(db,'test-only');
+    const retry=query.mock.calls.find(call=>String(call[0]).includes('unnest($2::text[])'));
+    expect(retry).toBeTruthy();expect((retry as unknown as [string,unknown[]])[1][3]).toBe(false);
   });
 });

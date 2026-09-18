@@ -66,6 +66,13 @@ export const TOURNAMENT_IDENTITY_RULES: readonly {slug: string; category: string
   {slug: 'uefa-super-cup', category: 'international-clubs', canonical: 'uefa-super-cup'},
 ];
 
+const normalizeName = (value: unknown) => String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+/** Provider category for a registry competition: national competitions use the country name, continental ones the clubs category. */
+function registryCategoryMatches(target: {countryCode: string | null; countryNames: readonly string[]}, row: ObjectValue): boolean {
+  if (target.countryCode === null) return String(row.categorySlug) === 'international-clubs';
+  const names = new Set(target.countryNames.map(normalizeName));
+  return names.has(normalizeName(row.categoryName)) || names.has(normalizeName(String(row.categorySlug).replace(/-/g, ' ')));
+}
 export function resolveCatalogTournaments(raw: unknown[]): CatalogTournament[] {
   const rows = (Array.isArray(raw) ? raw : []).map(obj);
   const resolved: CatalogTournament[] = [];
@@ -78,7 +85,24 @@ export function resolveCatalogTournaments(raw: unknown[]): CatalogTournament[] {
   }
   const byCanonical = new Map<string, CatalogTournament>();
   for (const row of resolved) if (!byCanonical.has(row.canonical)) byCanonical.set(row.canonical, row);
+  // P0 incident fallback: an enabled registry competition without a slug rule resolves only when exactly one
+  // provider row in the matching country/clubs category carries one of the registry's reviewed lookup names.
+  // The ID is still copied from the provider row; nothing is guessed.
+  for (const target of FOOTBALL_COMPETITION_TARGETS) {
+    if (!target.enabled || byCanonical.has(target.slug)) continue;
+    const names = new Set([target.canonicalName, ...target.lookupNames].map(normalizeName));
+    const found = rows.filter(row => registryCategoryMatches(target, row) && names.has(normalizeName(row.tournamentName)) && /^[0-9]{1,10}$/.test(String(row.tournamentId ?? '')));
+    if (found.length !== 1) continue;
+    byCanonical.set(target.slug, {id: String(found[0].tournamentId), slug: String(found[0].tournamentSlug), category: String(found[0].categorySlug), canonical: target.slug});
+  }
   return [...byCanonical.values()];
+}
+/** Provider rows that no rule or lookup name resolves, limited to categories the registry cares about — the actionable list for a mapping gap. */
+export function unmatchedCatalogRows(raw: unknown[]): Array<{id: string; slug: string; category: string; name: string; futureFixtures: number | null}> {
+  const resolvedIds = new Set(resolveCatalogTournaments(raw).map(row => row.id));
+  const relevant = (row: ObjectValue) => FOOTBALL_COMPETITION_TARGETS.some(target => target.enabled && registryCategoryMatches(target, row));
+  return (Array.isArray(raw) ? raw : []).map(obj).filter(row => !resolvedIds.has(String(row.tournamentId)) && relevant(row))
+    .map(row => ({id: String(row.tournamentId ?? ''), slug: String(row.tournamentSlug ?? ''), category: String(row.categorySlug ?? ''), name: String(row.tournamentName ?? ''), futureFixtures: typeof row.futureFixtures === 'number' ? row.futureFixtures : null}));
 }
 
 export const STABLE_TOURNAMENT_IDS: ReadonlySet<string> = new Set(M5_TOURNAMENTS.map(row => row.id));
@@ -122,15 +146,13 @@ export function schedulerTournaments(raw: unknown[], expanded: readonly {id:stri
   const discovered = resolved.filter(row => !stableIds.has(row.id) && !verifiedIds.has(row.id) && enabled.has(row.canonical));
   return [...stable, ...verified, ...discovered];
 }
+/** Keep every well-formed provider row (rules apply at resolve time) so mapping gaps stay visible instead of being discarded. */
 export function mergeCatalogTournaments(existing: unknown[], incoming: unknown[]): unknown[] {
-  const allowed = new Set(TOURNAMENT_IDENTITY_RULES.map(rule => `${rule.slug}:${rule.category}`));
-  for (const row of M5_TOURNAMENTS) allowed.add(`${row.slug}:${row.category}`);
   const byId = new Map<string, unknown>();
   for (const value of [...existing, ...incoming]) {
     const row = obj(value);
     const id = String(row.tournamentId ?? '');
-    const key = `${row.tournamentSlug}:${row.categorySlug}`;
-    if (!/^[0-9]{1,10}$/.test(id) || !allowed.has(key)) continue;
+    if (!/^[0-9]{1,10}$/.test(id) || typeof row.tournamentSlug !== 'string' || typeof row.categorySlug !== 'string') continue;
     byId.set(id, value);
   }
   return [...byId.values()];
