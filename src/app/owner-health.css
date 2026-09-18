@@ -1,4 +1,8 @@
-.owner-health{max-width:1400px;margin:0 auto;padding:20px 16px 60px;font:14px/1.5 system-ui;color:#edf4f8;display:grid;gap:22px}
+.owner-health{max-width:1400px;margin:16px auto;padding:20px 16px 40px;font:14px/1.5 system-ui;color:#edf4f8;background:#0f1a21;border:1px solid #2c3d48;border-radius:10px;display:grid;gap:22px;box-sizing:border-box}
+.owner-health *{box-sizing:border-box}
+.owner-health section{max-width:100%;min-width:0;overflow-x:auto}
+.owner-health>header,.owner-health>footer{min-width:0}
+.owner-health-header{max-width:100%}
 .owner-health h1{margin:0;font-size:24px}.owner-health h2{margin:0 0 8px;font-size:17px}.owner-health p{margin:4px 0}
 .owner-health a{color:#ffdfb0;text-decoration:underline}.owner-health code{font-size:12px;background:#13212a;padding:2px 5px;border-radius:4px}
 .owner-health-header{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
@@ -10,7 +14,7 @@
 .owner-health-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
 .owner-health-card{background:#13212a;border:1px solid #2c3d48;border-radius:8px;padding:12px;display:grid;gap:4px;min-width:0}
 .owner-health-card span{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:#a9b8c1}.owner-health-card strong{font-size:22px}.owner-health-card small{color:#c6d2d9;overflow-wrap:anywhere}
-.owner-health-state{display:inline-block;padding:2px 8px;border-radius:999px;font-weight:700;font-size:12px;letter-spacing:.03em}
+.owner-health-state{display:inline-block;white-space:nowrap;padding:2px 8px;border-radius:999px;font-weight:700;font-size:12px;letter-spacing:.03em}
 .owner-health-state-healthy{background:#1d4d2b;color:#c8f5d3}.owner-health-state-idle{background:#2c3d48;color:#c6d2d9}
 .owner-health-state-degraded,.owner-health-state-warning,.owner-health-state-unknown,.owner-health-state-upstream_unavailable{background:#5a4210;color:#ffe2a8}
 .owner-health-state-critical,.owner-health-state-unmapped{background:#6b1f1f;color:#ffd0d0}
@@ -26,4 +30,4 @@
 .owner-health-fresh-current{color:#c8f5d3}.owner-health-fresh-aging{color:#ffe2a8}.owner-health-fresh-stale{color:#ffb86b}.owner-health-fresh-expired,.owner-health-fresh-closed{color:#ffb6b6}
 .owner-health-footer{color:#a9b8c1;font-size:12px}
 .owner-health-login h1{font-size:24px}
-@media (max-width:640px){.owner-health{padding:14px 16px 40px}.owner-health-card strong{font-size:18px}}
+@media (max-width:640px){.owner-health{margin:0;border-radius:0;padding:14px 16px 40px}.owner-health-card strong{font-size:18px}}

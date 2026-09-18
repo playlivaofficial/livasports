@@ -16,7 +16,9 @@ const obj=(value:unknown):Record<string,unknown>=>value&&typeof value==='object'
  */
 export function classifyCatalogRows(raw:unknown[]):CatalogRowState[]{
   const rows=(Array.isArray(raw)?raw:[]).map(obj).filter(r=>/^[0-9]{1,10}$/.test(String(r.tournamentId??''))&&typeof r.tournamentSlug==='string'&&typeof r.categorySlug==='string');
-  const resolved=new Map(resolveCatalogTournaments(rows).map(t=>[t.id,t.canonical]));
+  const resolvedRows=resolveCatalogTournaments(rows);
+  const resolved=new Map(resolvedRows.map(t=>[t.id,t.canonical]));
+  const idByCanonical=new Map(resolvedRows.map(t=>[t.canonical,t.id]));
   const registry=FOOTBALL_COMPETITION_TARGETS;
   const enabled=new Map(registry.map(t=>[t.slug,t.enabled]));
   return rows.map(r=>{
@@ -26,7 +28,7 @@ export function classifyCatalogRows(raw:unknown[]):CatalogRowState[]{
     if(mapped)return {...base,state:'MAPPED' as const,competition:mapped,reason:'Resolved through identity rule or unique registry lookup name'};
     const rule=TOURNAMENT_IDENTITY_RULES.find(x=>x.slug===slug&&x.category===category);
     if(rule&&enabled.get(rule.canonical)===false)return {...base,state:'DISABLED' as const,competition:rule.canonical,reason:'Registry competition is disabled'};
-    if(rule)return {...base,state:'AMBIGUOUS' as const,competition:rule.canonical,reason:'More than one provider row matches this identity rule'};
+    if(rule)return {...base,state:'AMBIGUOUS' as const,competition:rule.canonical,reason:idByCanonical.has(rule.canonical)?`Registry competition already resolves to provider row ${idByCanonical.get(rule.canonical)}; this row matches the same identity rule`:'More than one provider row matches this identity rule'};
     const relevant=registry.filter(t=>t.enabled&&registryCategoryMatches(t,r));
     if(!relevant.length)return {...base,state:'IGNORED_WITH_REASON' as const,competition:null,reason:'Category outside the enabled registry (no LivaSports competition in this country/scope)'};
     const name=normalizeName(r.tournamentName);

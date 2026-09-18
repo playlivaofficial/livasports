@@ -1,6 +1,7 @@
 'use client';
 import {useMemo,useState,type FormEvent} from 'react';
 import type {ReliabilityHealth,CompetitionReliability} from '@/odds/reliability/read';
+import {cardClass,stateClass} from './health-ui';
 
 type Action='recheck'|'refresh-target'|'retry-mapping'|'acknowledge';
 async function ownerHealthAction(body:Record<string,unknown>){
@@ -24,7 +25,6 @@ export function useOwnerHealthActions(){
 const pct=(v:number)=>`${v.toFixed(v%1?1:0)}%`;
 const ago=(iso:string|null)=>{if(!iso)return '—';const m=Math.round((Date.now()-Date.parse(iso))/60000);return m<60?`${m} min ago`:m<1440?`${Math.round(m/60)} h ago`:`${Math.round(m/1440)} d ago`;};
 const until=(iso:string|null)=>{if(!iso)return '—';const h=(Date.parse(iso)-Date.now())/3600000;return h<1?`${Math.max(0,Math.round(h*60))} min`:h<48?`${h.toFixed(1)} h`:`${Math.round(h/24)} d`;};
-export const stateClass=(state:string)=>`owner-health-state owner-health-state-${state.toLowerCase()}`;
 
 export function OwnerHealthLogin({configured}:{configured:boolean}){
   const [error,setError]=useState(''),[busy,setBusy]=useState(false);
@@ -59,7 +59,7 @@ export function OwnerHealthDashboard({health}:{health:ReliabilityHealth}){
       <div className="owner-health-actions"><button disabled={busy!==null} onClick={()=>void run('recheck')}>Re-check health</button><button disabled={busy!==null} onClick={()=>void run('retry-mapping')}>Retry catalog mapping</button><a href="/owner/preview">Owner preview</a></div></header>
     {message?<p className="owner-health-notice" role="status">{message}</p>:null}{error?<p className="owner-health-notice" role="alert">{error}</p>:null}
     <section className="owner-health-cards" aria-label="Summary">
-      <div className={`owner-health-card ${stateClass(health.overall)}`}><span>Overall</span><strong>{health.overall}</strong><small>{health.counts.CRITICAL+health.counts.UNMAPPED} critical · {health.counts.DEGRADED+health.counts.UNKNOWN} degraded · {health.counts.HEALTHY} healthy</small></div>
+      <div className={cardClass(health.overall)}><span>Overall</span><strong>{health.overall}</strong><small>{health.counts.CRITICAL+health.counts.UNMAPPED} critical · {health.counts.DEGRADED+health.counts.UNKNOWN} degraded · {health.counts.HEALTHY} healthy</small></div>
       <div className="owner-health-card"><span>Next 24h</span><strong>{pct(health.horizons['24h'].anyOddsPct)}</strong><small>{health.horizons['24h'].anyOdds}/{health.horizons['24h'].fixtures} fixtures priced{health.horizons['24h'].criticalCompetitions.length?` · critical: ${health.horizons['24h'].criticalCompetitions.join(', ')}`:''}</small></div>
       <div className="owner-health-card"><span>Next 3d</span><strong>{pct(health.horizons['3d'].anyOddsPct)}</strong><small>{health.horizons['3d'].anyOdds}/{health.horizons['3d'].fixtures} fixtures priced{health.horizons['3d'].criticalCompetitions.length?` · critical: ${health.horizons['3d'].criticalCompetitions.join(', ')}`:''}</small></div>
       <div className="owner-health-card"><span>Betano REAL (7d)</span><strong>{pct(health.bookmakers.betanoRealPct)}</strong><small>{health.horizons['7d'].betanoReal}/{health.horizons['7d'].fixtures} fixtures</small></div>
