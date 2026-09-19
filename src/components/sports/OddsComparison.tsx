@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { getDictionary } from '@/config/i18n';
 import type { InterfaceLocale } from '@/localization/interface';
 import type { SiteLocale } from '@/config/i18n';
@@ -52,8 +52,11 @@ export function listingBookmakerRows(fixture: FixtureView) {
 
 export function OddsComparison({ locale, fixture, emptyLabel, commercialLocale = 'br' }: { locale: InterfaceLocale; fixture: FixtureView; emptyLabel?: string; commercialLocale?: SiteLocale }) {
   const saved = useSlip();
+  const books = useMemo(() => listingBookmakerRows(fixture), [fixture]);
+  const hasPrices = books.length > 0;
   const [clock, setClock] = useState<number | null>(null);
-  useEffect(() => { const tick = () => setClock(Date.now()); tick(); const timer = window.setInterval(tick, 30000); return () => window.clearInterval(timer); }, []);
+  // Empty rows have no quote to expire; avoid a timer and hydration update per unpriced fixture.
+  useEffect(() => { if (!hasPrices) return; const tick = () => setClock(Date.now()); tick(); const timer = window.setInterval(tick, 30000); return () => window.clearInterval(timer); }, [hasPrices]);
   const uiLocale: SlipUiLocale = locale;
   const slipText = slipCopy[uiLocale];
   const labels = locale === 'en' ? {
@@ -65,7 +68,6 @@ export function OddsComparison({ locale, fixture, emptyLabel, commercialLocale =
         const unavailableLabel = fixture.oddsState === 'stale' ? labels.staleOdds
     : fixture.oddsState === 'unavailable' ? labels.oddsUnavailable
       : emptyLabel ?? (locale==='br'?'Odds indisponíveis':locale==='mx'?'Cuotas no disponibles':'Odds unavailable');
-  const books = listingBookmakerRows(fixture);
   if (!books.length) {
     return <div className="odds-slot"><span className="odds-empty" title={unavailableLabel} aria-label={unavailableLabel}>—</span></div>;
   }

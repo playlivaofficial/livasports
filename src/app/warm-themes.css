@@ -137,6 +137,7 @@
 .board-competitions h3 { font-size: .61rem; letter-spacing: .07em; }
 .sports-board .board-toolbar { padding: 4px; gap: 4px; box-shadow: none; }
 .sports-board .board-filters a { min-height: 40px; padding: 6px 9px; }
+:root .sports-board .board-filters b { color: var(--color-text-secondary); }
 :root .sports-board .board-filters a[aria-current='page'] { background: var(--selected-bg); color: var(--selected-text); }
 :root .sports-board .board-filters a[aria-current='page'] b { color: inherit; }
 :root .sports-board .board-timezone { color: var(--color-text-secondary); }

@@ -34,7 +34,8 @@ try{
   const raw=await readFile(keyFile,'utf8');const key=/^PERMANENT_OWNER_KEY=(\S+)\s*$/m.exec(raw)?.[1];if(!key)throw new Error('PRIVATE_OWNER_KEY_NOT_FOUND');
   const login=await call('/api/owner/preview',{body:{action:'login',key}});check('permanent-owner-key',login.response.status===200&&login.body?.authorized===true);
   const cookie=login.response.headers.get('set-cookie')??'';ownerCookie=cookie.split(';')[0];
-  check('owner-cookie-security',/Secure/.test(cookie)&&/HttpOnly/.test(cookie)&&/SameSite=Strict/.test(cookie)&&/Max-Age=2592000/.test(cookie));
+  const ownerMaxAge=Number(/Max-Age=(\d+)/i.exec(cookie)?.[1]);
+  check('owner-cookie-security',/; Secure(?:;|$)/i.test(cookie)&&/; HttpOnly(?:;|$)/i.test(cookie)&&/SameSite=Strict/i.test(cookie)&&ownerMaxAge>=2591990&&ownerMaxAge<=2592000,{maxAgeSeconds:ownerMaxAge});
   if(login.response.status!==200)throw new Error('OWNER_LOGIN_FAILED');
   const owner=await call('/api/owner/health');check('owner-health',owner.response.status===200&&owner.body?.providerRequests===0,{overall:owner.body?.overall,alerting:owner.body?.alerting});
   for(const path of ['/owner/health','/owner/analytics']){const r=await call(path);check(path,r.response.status===200&&/noindex/.test(r.text+r.response.headers.get('x-robots-tag')),{status:r.response.status});}
