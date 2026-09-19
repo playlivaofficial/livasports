@@ -2,6 +2,8 @@
 
 ## Morning / evening
 
+Traffic remains on hold after hardening until the documented coverage/budget P1 is closed. These checks are operational guidance, not permission to start acquisition. Successful cron execution with zero requests, or a HEALTHY aggregate badge, does not prove fresh independent bookmaker coverage.
+
 1. Read `/api/internal/health` release.commit and confirm the expected production deployment.
 2. Open `/owner/health`: recent scheduler, 24h major competitions, both bookmakers' REAL coverage, proxy/stale/neither, open incidents and remaining requests. Budget stops must stay enabled.
 3. Open `/owner/analytics` HUMAN view: acquisition → odds → slip → comparison → affiliate; sign-ins/favorites/My Matches. Compare sample counts with click ledger; OWNER/QA/BOT are not customers.
