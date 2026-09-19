@@ -10,6 +10,15 @@ export function eventMinute(minute: number | null, extraMinute: number | null): 
   return minute === null ? '—' : `${minute}${extraMinute ? `+${extraMinute}` : ''}’`;
 }
 
+const isShootout = (type:string) => type === 'Penalty Shootout Goal' || type === 'Penalty Shootout Miss';
+/** Shootout attempt numbers are not regulation minutes. Preserve source order within each phase. */
+export function orderedMatchEvents<T extends {type:string}>(events:readonly T[]):T[] {
+  return [...events.filter(event=>!isShootout(event.type)),...events.filter(event=>isShootout(event.type))];
+}
+export function eventTiming(event:{type:string;minute:number|null;extraMinute:number|null}):string {
+  return isShootout(event.type) ? (event.minute===null?'—':`#${event.minute}`) : eventMinute(event.minute,event.extraMinute);
+}
+
 export function numericOrMissing(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }

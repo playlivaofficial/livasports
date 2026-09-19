@@ -72,6 +72,7 @@
 :root :is(.sports-table thead th,.competition-header) { background: var(--band-bg); border-color: var(--band-border); color: var(--color-text-secondary); }
 :root .sports-board .competition-header { background: var(--band-bg); border-block: 1px solid var(--band-border); min-height: 36px; padding-block: 5px; }
 :root .competition-title { color: var(--color-text); font-weight: 800; letter-spacing: -.015em; }
+:root .sports-board :is(.competition-count,.board-odds-heading) { color: var(--color-text-secondary); }
 :root .sports-board .competition-section { border-color: var(--band-border); border-radius: 9px; overflow: hidden; }
 :root .sports-board .fixture-list { gap: .65rem; }
 :root :is(.sports-board .fixture-row,.sports-match-row) { border-bottom-color: var(--color-border); }

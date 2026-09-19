@@ -13,9 +13,9 @@ describe('competition navigation',()=>{
   ];
   it('keeps flags, names and counts as separate elements and links to the competition hub',()=>{
     const html=renderToStaticMarkup(<CompetitionNav locale="br" items={items} activeSlug="liga-mx" allHref="/br/futebol" allLabel="Todas" title="Competições"/>);
-    expect(html).toContain('https://flagcdn.com/br.svg');
-    expect(html).toContain('https://flagcdn.com/mx.svg');
-    expect(html).toContain('https://flagcdn.com/gb-eng.svg');
+    expect(html).toContain('https://flagcdn.com/w80/br.png');
+    expect(html).toContain('https://flagcdn.com/w80/mx.png');
+    expect(html).toContain('https://flagcdn.com/w80/gb-eng.png');
     expect(html).toContain('class="competition-nav-name">Brasileirão Série A');
     expect(html).toContain('class="competition-nav-count">1');
     expect(html).not.toContain('Brasileirão Série A1');

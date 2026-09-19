@@ -8,7 +8,7 @@ import {interfaceDictionary as getDictionary,interfaceRoutes as localeRoutes} fr
 type SiteLocale='en';
 import type { MatchCenterView, MatchEventView, MatchModule, MatchStatisticView } from '@/match-center/types';
 import {matchPath,teamPath,playerPath} from './interface';
-import { eventMinute } from '@/match-center/rules';
+import { eventTiming, orderedMatchEvents } from '@/match-center/rules';
 
 import { SiteHeader } from '@/components/sports/SiteHeader';
 import { TeamIdentity } from '@/components/sports/FixtureCard';
@@ -43,7 +43,7 @@ function displayState<T>(locale: SiteLocale, module: MatchModule<T>, pending?: s
   if (module.state === 'ERROR') return text.temporaryError;
   return text.unavailable;
 }
-function minute(event: MatchEventView): string { return eventMinute(event.minute,event.extraMinute); }
+function minute(event: MatchEventView): string { return eventTiming(event); }
 function statusLabel(locale: SiteLocale, status: FixtureStatus) { return getDictionary(locale).statuses[status]; }
 
 function ModuleState({ locale, module, pending }: { locale: SiteLocale; module: MatchModule<unknown>; pending?: string }) {
@@ -64,7 +64,7 @@ function Summary({ locale, match }: { locale: SiteLocale; match: MatchCenterView
   return <section id="summary" className="match-panel"><h2>{text.summary}</h2>
     <div className="match-facts">{facts.map(([label,value]) => <div key={label}><span>{label}</span><strong>{value}</strong></div>)}</div>
     <ScoreBreakdown locale={locale} match={match} />
-    {match.events.data.length ? <><h3>{text.timeline}</h3><ol className="event-list">{match.events.data.filter(event => !event.rescinded).map(event => <li key={event.id}>
+    {match.events.data.length ? <><h3>{text.timeline}</h3><ol className="event-list">{orderedMatchEvents(match.events.data).filter(event => !event.rescinded).map(event => <li key={event.id}>
       <time>{minute(event)}</time><span className="event-dot" aria-hidden="true"/><div><strong>{eventLabels[locale][event.type] ?? event.type}</strong>
         {[match.header.home,match.header.away].find(team=>team.id===event.teamId)?.name?<small className="event-team">{[match.header.home,match.header.away].find(team=>team.id===event.teamId)!.name}</small>:null}
         <EventPeople event={event} locale={locale}/></div>
