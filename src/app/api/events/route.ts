@@ -4,7 +4,8 @@ import {parseComparisonEvent,recordComparisonEvent,comparisonEvents} from '@/sli
 import {boundedJson} from '@/slip/server';
 import {embedClickRequest,impressionRequest} from '@/affiliate/server';
 import {ownerPreview} from '@/owner/session';
-import {ingestClientBatch} from '@/analytics/server';
+import {classifyTraffic,ingestClientBatch} from '@/analytics/server';
+import {requestLimit} from '@/security/request-limit';
 
 const names = new Set(['match_open','match_tab_view','odds_module_view','odds_market_view','odds_bookmaker_click','odds_unavailable_view','affiliate_outbound_click','match_share']);
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -13,6 +14,7 @@ export async function POST(request: Request): Promise<Response> {
   const origin=request.headers.get('origin');
   if(origin){try{if(new URL(origin).host!==new URL(request.url).host)return new Response(null,{status:403});}
     catch{return new Response(null,{status:403});}}
+  const limited=await requestLimit(request,'events');if(limited)return limited;
   let body:Record<string,unknown>|null;
   try{body=await boundedJson(request,65536) as Record<string,unknown>|null;}
   catch(error){return new Response(null,{status:error instanceof Error&&error.message==='BODY_TOO_LARGE'?413:400});}
@@ -22,7 +24,7 @@ export async function POST(request: Request): Promise<Response> {
   if(body?.eventName==='affiliate_embed_click')return embedClickRequest(request,body);
   // Affiliate QA remains attributable in its dedicated tables. Existing product
   // event tables have no traffic class, so preview must never enter that funnel.
-  if(ownerPreview(request.headers))return new Response(null,{status:204,headers:{'Cache-Control':'private, no-store'}});
+  if(ownerPreview(request.headers)||classifyTraffic(request.headers,body?.qa===true)!=='HUMAN')return new Response(null,{status:204,headers:{'Cache-Control':'private, no-store'}});
   if(body&&uuid.test(String(body.eventId??''))&&comparisonEvents.has(String(body.eventName??''))){
     const event=parseComparisonEvent(body);if(!event)return new Response(null,{status:400});
     const connection=databaseUrl();if(!connection)return new Response(null,{status:503});

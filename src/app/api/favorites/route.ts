@@ -1,11 +1,7 @@
 import {getFavorites,mutateFavorite} from '@/favorites/http';
+import {withRequestLimit} from '@/security/request-limit';
 
 export const dynamic='force-dynamic';
 
-export function GET():Promise<Response> {
-  return getFavorites();
-}
-
-export function POST(request:Request):Promise<Response> {
-  return mutateFavorite(request);
-}
+export const GET=withRequestLimit('favorites',getFavorites);
+export const POST=withRequestLimit('favorites',mutateFavorite);

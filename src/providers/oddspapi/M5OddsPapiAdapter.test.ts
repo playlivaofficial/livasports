@@ -7,6 +7,13 @@ function database(consumed=50):DatabaseClient{
 }
 afterEach(()=>{vi.restoreAllMocks();vi.useRealTimers();});
 describe('bounded OddsPapi worker transport',()=>{
+  it('can reserve one attempt for each bookmaker in a two-request targeted recovery',async()=>{
+    const fetch=vi.spyOn(globalThis,'fetch').mockResolvedValueOnce(Response.json({message:'temporary'},{status:500})).mockResolvedValueOnce(Response.json([]));
+    const p=new M5OddsPapiAdapter(database(),'test-only','job',2,false,Date.now()+140000,undefined,0);
+    await expect(p.snapshot('betano.bet.br',['325'])).rejects.toThrow('500');
+    await p.snapshot('betsson',['325']);expect(p.requestCount()).toBe(2);
+    expect(fetch.mock.calls.map(c=>new URL(String(c[0])).searchParams.get('bookmaker'))).toEqual(['betano.bet.br','betsson']);
+  });
   it('uses one singular bookmaker, batches tournaments, and never requests live/props',async()=>{
     const fetch=vi.spyOn(globalThis,'fetch').mockResolvedValue(Response.json([]));const db=database();const p=new M5OddsPapiAdapter(db,'test-secret-key','job',1);
     await p.snapshot('betano.bet.br',['325','17']);const url=new URL(String(fetch.mock.calls[0][0]));

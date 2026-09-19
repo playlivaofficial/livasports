@@ -1,7 +1,8 @@
 import type {DatabaseClient,QueryExecutor} from '@/database/client';
-import {alertDecision,alertMessage,smtpAlertTransport,type AlertTransport} from './alerts';
+import {alertDecision,alertMessage,retryAlertDelivery,smtpAlertTransport,type AlertTransport} from './alerts';
 import {alertEmailConfigured,readReliabilityHealth,type ReliabilityHealth} from './read';
 import type {HealthIssue} from './classify';
+import {pruneLaunchTelemetry} from '@/analytics/maintenance';
 
 export interface RecoveryAction {
   trigger:'SCHEDULER'|'OWNER'|'INTEGRITY';action:string;competition?:string|null;bookmaker?:string|null;tournamentId?:string|null;reason:string;
@@ -41,14 +42,21 @@ export async function evaluateReliability(db:DatabaseClient,options:{now?:Date;a
   for(const c of health.competitions)for(const issue of c.issues)desired.push({competition:c.competition,issue,health:c.health});
   for(const issue of health.global)desired.push({competition:'*',issue,health:issue.severity==='CRITICAL'?'CRITICAL':'DEGRADED'});
   for(const extra of options.extraIssues??[])if(!desired.some(d=>d.competition===extra.competition&&d.issue.classification===extra.issue.classification))desired.push({competition:extra.competition,issue:extra.issue,health:extra.issue.severity==='CRITICAL'?'CRITICAL':'DEGRADED'});
-  const open=(await db.query(`SELECT id,competition,classification,severity,state,alert_severity,last_seen_at FROM odds_incidents WHERE state<>'RESOLVED'`)).rows;
+  const open=(await db.query(`SELECT id,competition,classification,severity,state,alert_severity,alert_channel,alert_sent_at,opened_at,last_seen_at FROM odds_incidents WHERE state<>'RESOLVED'`)).rows;
   const alertTo=options.alertTo===undefined?(process.env.OWNER_ALERT_EMAIL?.trim()||null):options.alertTo;
   const emailReady=alertTo!==null&&(options.transport!==undefined||alertEmailConfigured());
   const transport=options.transport??smtpAlertTransport;
   const dashboardUrl=options.dashboardUrl??'https://livasports.com/owner/health';
   const dispatch=async(kind:'OPENED'|'ESCALATED'|'RESOLVED',incident:{id:string;competition:string;classification:string;severity:'WARNING'|'CRITICAL';affectedFixtures:number;detail:Record<string,unknown>;openedAt:string})=>{
     let channel='DASHBOARD';
-    if(emailReady){try{await transport(alertMessage(kind,incident,dashboardUrl),alertTo!);channel='EMAIL';}catch{channel='EMAIL_FAILED';}}
+    if(emailReady){
+      // Atomically lease the delivery, so overlapping owner rechecks/scheduler ticks cannot send duplicates.
+      const claim=await db.query(`UPDATE odds_incidents SET alert_sent_at=$2,alert_channel='EMAIL_PENDING' WHERE id=$1 AND
+        (alert_sent_at IS NULL OR alert_channel='DASHBOARD' OR alert_sent_at<=$2::timestamptz-interval '30 minutes'
+          OR (alert_channel='EMAIL' AND alert_severity IS DISTINCT FROM $3)) RETURNING id`,[incident.id,now.toISOString(),kind==='RESOLVED'?'RESOLVED':incident.severity]);
+      if(!claim.rowCount)return;
+      try{await transport(alertMessage(kind,incident,dashboardUrl),alertTo!);channel='EMAIL';}catch{channel='EMAIL_FAILED';}
+    }
     await db.query(`UPDATE odds_incidents SET alert_sent_at=now(),alert_severity=$2,alert_channel=$3 WHERE id=$1`,[incident.id,kind==='RESOLVED'?'RESOLVED':incident.severity,channel]);
     result.alerts.push({kind,competition:incident.competition,classification:incident.classification,channel});
   };
@@ -60,8 +68,8 @@ export async function evaluateReliability(db:DatabaseClient,options:{now?:Date;a
       await db.query(`UPDATE odds_incidents SET last_seen_at=$2,severity=CASE WHEN $3 THEN 'CRITICAL' ELSE severity END,affected_fixtures=$4,detail=detail||$5::jsonb WHERE id=$1`,
         [existing.id,now.toISOString(),escalated,d.issue.affectedFixtures,JSON.stringify(detail)]);
       result.updated++;
-      const decision=alertDecision({severity:existing.severity,alertSeverity:existing.alert_severity,state:existing.state},{severity:escalated?'CRITICAL':existing.severity,state:existing.state});
-      if(decision)await dispatch(decision,{id:String(existing.id),competition:d.competition,classification:d.issue.classification,severity:escalated?'CRITICAL':existing.severity,affectedFixtures:d.issue.affectedFixtures,detail,openedAt:now.toISOString()});
+      const decision=alertDecision({severity:existing.severity,alertSeverity:retryAlertDelivery(existing,now,emailReady)?null:existing.alert_severity,state:existing.state},{severity:escalated?'CRITICAL':existing.severity,state:existing.state});
+      if(decision)await dispatch(decision,{id:String(existing.id),competition:d.competition,classification:d.issue.classification,severity:escalated?'CRITICAL':existing.severity,affectedFixtures:d.issue.affectedFixtures,detail,openedAt:existing.opened_at?new Date(existing.opened_at).toISOString():now.toISOString()});
     }else{
       const inserted=await db.query(`INSERT INTO odds_incidents(competition,classification,severity,opened_at,last_seen_at,affected_fixtures,detail)
         VALUES($1,$2,$3,$4,$4,$5,$6::jsonb) ON CONFLICT DO NOTHING RETURNING id,opened_at`,[d.competition,d.issue.classification,d.issue.severity,now.toISOString(),d.issue.affectedFixtures,JSON.stringify(detail)]);
@@ -70,6 +78,14 @@ export async function evaluateReliability(db:DatabaseClient,options:{now?:Date;a
         if(decision)await dispatch(decision,{id:String(inserted.rows[0].id),competition:d.competition,classification:d.issue.classification,severity:d.issue.severity,affectedFixtures:d.issue.affectedFixtures,detail,openedAt:now.toISOString()});
       }
     }
+  }
+  // A failed resolution notification must also be retryable after the incident leaves the open set.
+  if(emailReady){
+    const retries=await db.query(`SELECT id,competition,classification,severity,opened_at FROM odds_incidents WHERE state='RESOLVED'
+      AND alert_severity IS NOT NULL AND alert_channel IN ('EMAIL_FAILED','EMAIL_PENDING','DASHBOARD')
+      AND alert_sent_at<=now()-interval '30 minutes' ORDER BY alert_sent_at LIMIT 5`);
+    for(const row of retries.rows)await dispatch('RESOLVED',{id:String(row.id),competition:String(row.competition),classification:String(row.classification),severity:row.severity,
+      affectedFixtures:0,detail:{resolution:'Condition cleared; retrying previously undelivered notification'},openedAt:new Date(row.opened_at).toISOString()});
   }
   for(const o of open){
     if(desired.some(d=>d.competition===o.competition&&d.issue.classification===o.classification))continue;
@@ -86,6 +102,7 @@ export async function evaluateReliability(db:DatabaseClient,options:{now?:Date;a
   await db.query(`DELETE FROM odds_health_rollups WHERE evaluated_at<now()-($1::int*interval '1 day')`,[ROLLUP_RETENTION_DAYS]);
   await db.query(`DELETE FROM odds_recovery_actions WHERE at<now()-($1::int*interval '1 day')`,[ACTION_RETENTION_DAYS]);
   await db.query(`DELETE FROM odds_incidents WHERE state='RESOLVED' AND resolved_at<now()-($1::int*interval '1 day')`,[INCIDENT_RETENTION_DAYS]);
+  try{await pruneLaunchTelemetry(db);}catch{console.warn('[LivaSports] {"event":"telemetry-retention-failed","providerRequests":0}');}
   if(result.opened||result.resolved||result.alerts.length)result.health=await readReliabilityHealth(db,now,{automationEnabled:options.automationEnabled});
   return result;
 }

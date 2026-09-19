@@ -28,6 +28,7 @@ describe('competition navigation',()=>{
     expect(html).toContain('class="competition-nav-control"');
     expect(html).toContain('>Competições</label>');
     expect(html).toContain('id="competition-nav-toggle"');
+    expect(html).toContain('class="competition-nav-toggle" aria-label="Competições" aria-controls="competition-nav-panel"');
     expect(html).toContain('id="competition-nav-panel"');
     expect(html).toContain('aria-controls="competition-nav-panel"');
     expect(html).not.toContain('checked');

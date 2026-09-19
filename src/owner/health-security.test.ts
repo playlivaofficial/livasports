@@ -22,6 +22,13 @@ beforeEach(()=>{vi.stubEnv('VERCEL','1');vi.stubEnv('OWNER_QA_SESSION_SECRET','s
 afterEach(()=>{vi.unstubAllEnvs();});
 
 describe('P3 owner control plane security (§15, §23, §31)',()=>{
+  it('requires owner auth, confirmation and fixed-schema input for alert drills',async()=>{
+    const testAlert=vi.fn(async()=>({ok:true,code:'SENT',providerRequests:0}));const body={action:'test-alert',runId:'11111111-1111-4111-8111-111111111111',phase:'OPENED',confirm:true};
+    expect((await ownerHealthAction(post(body,userHeaders()),deps({testAlert}))).status).toBe(401);
+    expect((await ownerHealthAction(post({...body,to:'injected@example.test'},ownerHeaders()),deps({testAlert}))).status).toBe(400);
+    expect((await ownerHealthAction(post({...body,confirm:false},ownerHeaders()),deps({testAlert}))).status).toBe(400);
+    expect((await ownerHealthAction(post(body,ownerHeaders()),deps({testAlert}))).status).toBe(200);expect(testAlert).toHaveBeenCalledTimes(1);
+  });
   it('blocks the public and regular authenticated users, admits the owner session, and never leaks provider calls or secrets',async()=>{
     expect((await ownerHealthStatus(get(),deps())).status).toBe(401);
     expect((await ownerHealthStatus(get(userHeaders()),deps())).status).toBe(401);

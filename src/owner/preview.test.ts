@@ -1,5 +1,6 @@
 import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
 vi.mock('server-only',()=>({}));
+vi.mock('@/security/request-limit',()=>({requestLimit:async()=>null}));
 import {accessKeyHash,authorizedOwnerKey,newOwnerSession,ownerCookie,ownerSessionSeconds,previewBinding,requestOwnerSession,signOwnerSession} from './session';
 import {ownerAction,ownerStatus} from './server';
 import type {OwnerLoginLimiter} from './rate-limit';

@@ -45,7 +45,7 @@ export function CompetitionNavRow({locale,item,active,allHref,allLabel}:{locale:
 
 export function CompetitionNav({locale,items,activeSlug,allHref,allLabel,title}:{locale:InterfaceLocale;items:readonly CompetitionNavItem[];activeSlug?:string;allHref:string;allLabel:string;title:string}){
   return <nav className="board-competitions competition-nav" aria-label={title}>
-    <input id="competition-nav-toggle" type="checkbox" className="competition-nav-toggle"/>
+    <input id="competition-nav-toggle" type="checkbox" className="competition-nav-toggle" aria-label={title} aria-controls="competition-nav-panel"/>
     <label htmlFor="competition-nav-toggle" className="competition-nav-control" aria-controls="competition-nav-panel">{title}</label>
     <div id="competition-nav-panel" className="competition-nav-panel">
       <h2>{title}</h2>

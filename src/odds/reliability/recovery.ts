@@ -29,7 +29,11 @@ export async function runTargetedRefresh(db:DatabaseClient,key:string,competitio
   const target=tournaments.find(t=>t.canonical===competition);
   if(!target){await logRecoveryAction(db,{trigger:options.trigger,action:'TARGETED_REFRESH',competition,reason:options.reason,outcome:'REJECTED_TARGET_MISSING'});return fail('TARGET_MISSING');}
   const cost=SCHEDULER_BOOKMAKERS.length;
-  const recent=await db.query(`SELECT max(last_attempt_at) AS at FROM odds_refresh_targets WHERE tournament_id=$1`,[target.id]);
+  // Failed upstream requests must respect the same cooldown as successful snapshots.
+  const recent=await db.query(`SELECT greatest(
+    (SELECT max(last_attempt_at) FROM odds_refresh_targets WHERE tournament_id=$1),
+    (SELECT max(at) FROM odds_recovery_actions WHERE tournament_id=$1 AND action='TARGETED_REFRESH' AND request_cost>0)
+  ) AS at`,[target.id]);
   const last=recent.rows[0]?.at?new Date(recent.rows[0].at).getTime():0;
   if(now.getTime()-last<TARGETED_REFRESH_MIN_INTERVAL_MINUTES*60000){
     await logRecoveryAction(db,{trigger:options.trigger,action:'TARGETED_REFRESH',competition,tournamentId:target.id,reason:options.reason,outcome:'REJECTED_MIN_INTERVAL',nextRetryAt:new Date(last+TARGETED_REFRESH_MIN_INTERVAL_MINUTES*60000).toISOString()});
@@ -44,7 +48,8 @@ export async function runTargetedRefresh(db:DatabaseClient,key:string,competitio
   let job:string;
   try{job=await startOddsJob(db);}catch{await logRecoveryAction(db,{trigger:options.trigger,action:'TARGETED_REFRESH',competition,tournamentId:target.id,reason:options.reason,outcome:'REJECTED_CONCURRENT'});return fail('CONCURRENT_REFRESH',target.id,cost);}
   await db.query("UPDATE odds_sync_jobs SET trigger_source='CONTROLLED' WHERE id=$1",[job]);
-  const provider=new M5OddsPapiAdapter(db,key,job,cost,true,Date.now()+90000,tournaments);
+  // The advertised two-request drill gives each independent bookmaker one attempt. A retry must not consume its peer's slot.
+  const provider=new M5OddsPapiAdapter(db,key,job,cost,true,Date.now()+90000,tournaments,0);
   const feeds:TargetedRefreshResult['feeds']=[];let ok=true;
   try{
     for(const bookmaker of SCHEDULER_BOOKMAKERS){

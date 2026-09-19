@@ -1,5 +1,6 @@
 import {describe,expect,it,vi} from 'vitest';
 vi.mock('server-only',()=>({}));
+vi.mock('@/security/request-limit',()=>({requestLimit:async()=>null}));
 vi.mock('@/database/client',()=>({databaseUrl:()=>'postgres://local',PostgresDatabaseClient:class{query=vi.fn();close=vi.fn();}}));
 vi.mock('@/sports/repository',()=>({SportsRepository:class{
   search=vi.fn(async(query:string)=>query==='bra'?[

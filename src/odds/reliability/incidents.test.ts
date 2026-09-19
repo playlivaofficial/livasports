@@ -1,7 +1,7 @@
 import {describe,it,expect,vi,beforeEach} from 'vitest';
 import type {DatabaseClient,QueryExecutor} from '@/database/client';
 import type {ReliabilityHealth} from './read';
-import {alertDecision,alertMessage} from './alerts';
+import {alertDecision,alertMessage,retryAlertDelivery} from './alerts';
 
 const mocked=vi.hoisted(()=>({health:null as unknown as ReliabilityHealth,emailConfigured:false}));
 vi.mock('./read',()=>({readReliabilityHealth:vi.fn(async()=>mocked.health),alertEmailConfigured:()=>mocked.emailConfigured}));
@@ -20,6 +20,7 @@ function database(openIncidents:Array<Record<string,unknown>>){
   const query=vi.fn(async(sql:string)=>{
     if(sql.includes('FROM odds_incidents WHERE state<>'))return {rows:openIncidents,rowCount:openIncidents.length};
     if(sql.includes('INSERT INTO odds_incidents'))return {rows:[{id:'11111111-1111-4111-8111-111111111111',opened_at:now}],rowCount:1};
+    if(sql.includes("alert_channel='EMAIL_PENDING'"))return {rows:[{id:'claimed'}],rowCount:1};
     return {rows:[],rowCount:0};
   });
   const typed=query as unknown as QueryExecutor['query'];
@@ -27,6 +28,13 @@ function database(openIncidents:Array<Record<string,unknown>>){
 }
 describe('P3 incidents, deduplication and alerting (§19–§21)',()=>{
   beforeEach(()=>{mocked.emailConfigured=false;});
+  it('retries undelivered alerts after configuration/recovery, without per-tick email storms',()=>{
+    expect(retryAlertDelivery({alert_channel:'DASHBOARD',alert_sent_at:now},now,true)).toBe(true);
+    expect(retryAlertDelivery({alert_channel:'EMAIL_FAILED',alert_sent_at:now},now,true)).toBe(false);
+    expect(retryAlertDelivery({alert_channel:'EMAIL_FAILED',alert_sent_at:new Date(now.getTime()-31*60_000)},now,true)).toBe(true);
+    expect(retryAlertDelivery({alert_channel:'EMAIL'},now,true)).toBe(false);
+    expect(retryAlertDelivery({alert_channel:'DASHBOARD'},now,false)).toBe(false);
+  });
   it('opens one CRITICAL incident per competition+classification, writes a rollup, and e-mails the owner once when configured',async()=>{
     mocked.health=health([competition({health:'CRITICAL',primary:'REFRESH_NOT_EXECUTED',issues:[{classification:'REFRESH_NOT_EXECUTED',severity:'CRITICAL',evidence:'expired',affectedFixtures:1}]})]);
     const transport=vi.fn(async()=>undefined);const {db,query}=database([]);

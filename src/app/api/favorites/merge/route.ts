@@ -1,7 +1,6 @@
 import {mergeFavorites} from '@/favorites/http';
+import {withRequestLimit} from '@/security/request-limit';
 
 export const dynamic='force-dynamic';
 
-export function POST(request:Request):Promise<Response> {
-  return mergeFavorites(request);
-}
+export const POST=withRequestLimit('favorites',mergeFavorites);

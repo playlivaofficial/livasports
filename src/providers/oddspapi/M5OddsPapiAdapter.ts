@@ -11,7 +11,8 @@ export class M5OddsPapiAdapter implements OddsProvider {
   private used=0;
   constructor(private readonly database:DatabaseClient,private readonly key:string,private readonly jobId:string,private readonly runCap=4,
     private readonly routine=false,private readonly deadline=Date.now()+140000,
-    private catalogTournaments:readonly CatalogTournament[]=M5_TOURNAMENTS.map(row=>({id:row.id,slug:row.slug,category:row.category,canonical:row.canonical}))){
+    private catalogTournaments:readonly CatalogTournament[]=M5_TOURNAMENTS.map(row=>({id:row.id,slug:row.slug,category:row.category,canonical:row.canonical})),
+    private readonly maxRetries:0|1=1){
     if(!key||!Number.isInteger(runCap)||runCap<1||runCap>6)throw new Error('INVALID_ODDS_WORKER_CONFIG');
   }
   requestCount(){return this.used;}
@@ -46,7 +47,7 @@ export class M5OddsPapiAdapter implements OddsProvider {
       return {data:body,observedAt};
     }catch(error){
       if(status===null)await this.database.query("UPDATE odds_provider_requests SET completed_at=now(),outcome='NETWORK_ERROR' WHERE id=$1",[id]);
-      if(kind==='odds'&&(status===429||status===null||(status>=500&&status<600))&&this.used<this.runCap&&attempt<1&&Date.now()+45000<this.deadline){
+      if(kind==='odds'&&(status===429||status===null||(status>=500&&status<600))&&this.used<this.runCap&&attempt<this.maxRetries&&Date.now()+45000<this.deadline){
         await new Promise(resolve=>setTimeout(resolve,Math.min(10000,(status===429?2500:1000)*2**attempt)));return this.request(bookmaker,tournamentIds,attempt+1,kind);
       }
       if(status===null)throw new Error('ODDSPAPI_NETWORK_ERROR: saved prices preserved; request counted');

@@ -19,7 +19,7 @@ export async function MyMatchesPage({locale}:{locale:InterfaceLocale}){
   const user=await currentUser();
   let initial:MyMatchRow[]|null=null;
   if(user?.id){
-    try{initial=await favoritesRepository().feedForUser(user.id,locale);}catch{initial=[];}
+    try{initial=await favoritesRepository().feedForUser(user.id,locale);}catch{initial=null;}
   }
   return <div lang={languageTags[locale]} className={`app-shell sports-shell${locale==='en'?' english-sports':''}`}>
     <SiteHeader locale={locale} activePage="football" contentId="my-matches-content"/>

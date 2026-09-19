@@ -19,6 +19,8 @@ export const authCopy={
     noName:'Sem nome de exibição',session:'Sessão neste navegador',headerSignIn:'Entrar',headerAccount:'Conta',
     googleMethod:'Google',emailMethod:'E-mail',reserved:'Avisos de partida chegam em uma próxima etapa.',
     nameSaved:'Nome atualizado.',nameInvalid:'Informe um nome com até 80 caracteres.',
+    linkInvalid:'Este link expirou ou já foi usado. Solicite um novo link de acesso.',
+    signInFailed:'Não foi possível entrar. Tente novamente usando a forma de acesso da sua conta.',
   },
   mx:{
     signInTitle:'Iniciar sesión',signInLead:'Sigue el fútbol con una cuenta LivaSports. No necesitas entrar para ver partidos, cuotas o el cupón de visitante.',
@@ -29,6 +31,8 @@ export const authCopy={
     noName:'Sin nombre visible',session:'Sesión en este navegador',headerSignIn:'Entrar',headerAccount:'Cuenta',
     googleMethod:'Google',emailMethod:'Correo',reserved:'Los avisos de partidos llegarán en una próxima etapa.',
     nameSaved:'Nombre actualizado.',nameInvalid:'Indica un nombre de hasta 80 caracteres.',
+    linkInvalid:'Este enlace caducó o ya se utilizó. Solicita un nuevo enlace de acceso.',
+    signInFailed:'No se pudo iniciar sesión. Intenta de nuevo con el método de acceso de tu cuenta.',
   },
   en:{
     signInTitle:'Sign in',signInLead:'Follow football with a LivaSports account. You do not need to sign in to browse matches, odds or the guest slip.',
@@ -39,6 +43,8 @@ export const authCopy={
     noName:'No display name',session:'Session on this browser',headerSignIn:'Sign in',headerAccount:'Account',
     googleMethod:'Google',emailMethod:'Email',reserved:'Match alerts come in a later step.',
     nameSaved:'Name updated.',nameInvalid:'Enter a name of up to 80 characters.',
+    linkInvalid:'This link expired or has already been used. Request a new sign-in link.',
+    signInFailed:'Sign-in could not be completed. Try again using your account’s sign-in method.',
   },
 } satisfies Record<SlipUiLocale,{[key:string]:string}>;
 

@@ -17,7 +17,7 @@ export function alertMessage(kind:'OPENED'|'ESCALATED'|'RESOLVED',incident:Pick<
 /** Existing SMTP transport (the same one the magic-link sign-in uses); nothing new is provisioned. */
 export const smtpAlertTransport:AlertTransport=async(message,to)=>{
   const nodemailer=(await import('nodemailer')).default;
-  const transport=nodemailer.createTransport({host:process.env.AUTH_SMTP_HOST!,port:Number(process.env.AUTH_SMTP_PORT||'587'),auth:{user:process.env.AUTH_SMTP_USER!,pass:process.env.AUTH_SMTP_PASSWORD!}});
+  const transport=nodemailer.createTransport({host:process.env.AUTH_SMTP_HOST!,port:Number(process.env.AUTH_SMTP_PORT||'587'),auth:{user:process.env.AUTH_SMTP_USER!,pass:process.env.AUTH_SMTP_PASSWORD!},connectionTimeout:10_000,greetingTimeout:10_000,socketTimeout:15_000});
   await transport.sendMail({to,from:process.env.AUTH_EMAIL_FROM!,subject:message.subject,text:message.text});
 };
 
@@ -28,4 +28,12 @@ export function alertDecision(previous:{severity:'WARNING'|'CRITICAL';alertSever
   if(!previous||!previous.alertSeverity)return 'OPENED';
   if(previous.alertSeverity!=='CRITICAL')return 'ESCALATED';
   return null;
+}
+
+/** A dashboard-only or failed send is not delivery. Retry failures slowly, including across deployments. */
+export function retryAlertDelivery(previous:{alert_channel?:string|null;alert_sent_at?:Date|string|null},now:Date,emailReady:boolean):boolean{
+  if(!emailReady)return false;
+  if(previous.alert_channel==='DASHBOARD')return true;
+  if(previous.alert_channel!=='EMAIL_FAILED'&&previous.alert_channel!=='EMAIL_PENDING')return false;
+  return !previous.alert_sent_at||now.getTime()-new Date(previous.alert_sent_at).getTime()>=30*60_000;
 }

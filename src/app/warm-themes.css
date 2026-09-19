@@ -138,9 +138,19 @@
 .sports-board .board-toolbar { padding: 4px; gap: 4px; box-shadow: none; }
 .sports-board .board-filters a { min-height: 40px; padding: 6px 9px; }
 :root .sports-board .board-filters a[aria-current='page'] { background: var(--selected-bg); color: var(--selected-text); }
+:root .sports-board .board-filters a[aria-current='page'] b { color: inherit; }
+:root .sports-board .board-timezone { color: var(--color-text-secondary); }
 .sports-board .board-days a { min-height: 40px; padding-block: 10px; }
 .board-timezone { margin: 4px 2px 6px; font-size: .58rem; }
 .sports-board .fixture-row { padding-block: 5px; }
+/* Keep all real fixtures in the DOM/accessibility tree while skipping off-screen paint work. */
+@supports (content-visibility:auto) {
+  .sports-board .fixture-row { content-visibility: auto; contain-intrinsic-block-size: auto 68px; }
+  @media(max-width:767px) {
+    .sports-board .fixture-row { contain-intrinsic-block-size: auto 112px; }
+    .sports-board .fixture-row.has-no-odds { contain-intrinsic-block-size: auto 58px; }
+  }
+}
 .sports-board .team-name { font-weight: 650; }
 
 /* Equal prices with a quiet outcome label and unmistakable selected state. */
@@ -224,6 +234,7 @@
   .header-inner { padding-top: 0; gap: 0 .35rem; }
   .brand { min-height: 48px; font-size: 1rem; }
   .sports-header-actions { gap: .3rem; }
+  .auth-header-link { min-height: 44px; }
   .time-zone-picker { display: none; }
   .main-nav { min-height: 40px; }
   .nav-link { min-height: 40px; font-size: .72rem; padding-block: .4rem; }
@@ -272,4 +283,11 @@
   .slip-heading h2 { font-size: 1rem; }
   .slip-bookmaker { padding: .7rem; }
   :root .match-actions .match-share { color: transparent; font-size: 0; }
+}
+
+/* Authenticated names plus the locale control must not compress the brand into adjacent controls. */
+@media(max-width:620px) {
+  .app-header .brand { min-width: 30px; }
+  .app-header .brand-mark { flex: 0 0 30px; }
+  .app-header .brand>span:not(.brand-mark) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 }

@@ -50,7 +50,10 @@ export async function schedulerPlan(db:DatabaseClient,now=new Date(),tournaments
     EXISTS(SELECT 1 FROM odds_current o JOIN fixtures f ON f.id=o.fixture_id
       JOIN provider_entity_mappings m ON m.entity_type='COMPETITION' AND m.provider='ODDSPAPI' AND m.livasports_entity_id=f.competition_id
       WHERE m.provider_entity_id=t.tournament_id AND o.bookmaker_id=b.id AND o.status='ACTIVE' AND o.phase='PREGAME'
-        AND f.status='SCHEDULED' AND f.kickoff>now()) AS useful_coverage
+        AND o.scope='FULL_TIME_REGULATION' AND o.freshness_ttl_minutes>0
+        AND o.observed_at+(o.freshness_ttl_minutes*interval '1 minute')>now()
+        AND o.provider_kickoff IS NOT NULL AND abs(extract(epoch FROM (f.kickoff-o.provider_kickoff)))<=600
+        AND f.status='SCHEDULED' AND f.kickoff>now() AND f.kickoff<=now()+interval '7 days') AS useful_coverage
     FROM bookmakers b LEFT JOIN odds_refresh_targets t ON t.bookmaker=b.provider_slug WHERE b.provider_slug IN ('betano.bet.br','betsson')`)]);
   const catalog=tournaments.length?tournaments:schedulerTournaments([]);
   const targets:RefreshTarget[]=SCHEDULER_BOOKMAKERS.flatMap(bookmaker=>catalog.map(t=>{

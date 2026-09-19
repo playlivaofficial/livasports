@@ -1,7 +1,6 @@
 import {favoriteFeed} from '@/favorites/http';
+import {withRequestLimit} from '@/security/request-limit';
 
 export const dynamic='force-dynamic';
 
-export function POST(request:Request):Promise<Response> {
-  return favoriteFeed(request);
-}
+export const POST=withRequestLimit('favorites',favoriteFeed);

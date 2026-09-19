@@ -26,6 +26,7 @@ export async function SignInPage({locale,searchParams}:{locale:InterfaceLocale;s
   const callbackUrl=authCallbackUrl(locale,typeof query.callbackUrl==='string'?query.callbackUrl:authPath(locale,'account'));
   const text=authCopy[locale];
   return <AuthShell locale={locale} title={text.signInTitle} lead={text.signInLead}>
+    {typeof query.error==='string'?<p className="auth-check" role="alert">{query.error==='Verification'?text.linkInvalid:text.signInFailed}</p>:null}
     <SignInForm locale={locale} google={authConfigured()&&googleAuthConfigured()} email={authConfigured()&&emailAuthConfigured()} callbackUrl={callbackUrl}/>
   </AuthShell>;
 }

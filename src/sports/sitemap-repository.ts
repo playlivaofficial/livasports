@@ -10,11 +10,13 @@ const eligibleTeams=`SELECT t.* FROM teams t WHERE NOT t.provider_placeholder AN
   t.id IN (SELECT f.home_team_id FROM fixtures f JOIN competitions c ON c.id=f.competition_id WHERE c.enabled
     UNION SELECT f.away_team_id FROM fixtures f JOIN competitions c ON c.id=f.competition_id WHERE c.enabled)
   OR t.id IN (SELECT sm.team_id FROM team_squad_memberships sm JOIN seasons s ON s.id=sm.season_id JOIN competitions c ON c.id=s.competition_id WHERE c.enabled))`;
-const eligiblePlayers=`SELECT p.* FROM players p WHERE p.id IN (
-  SELECT sm.player_id FROM team_squad_memberships sm JOIN seasons s ON s.id=sm.season_id JOIN competitions c ON c.id=s.competition_id
-  WHERE c.enabled AND c.coverage_status IN ('SUPPORTED','SUPPORTED_BUT_NO_CURRENT_FIXTURES'))
-  AND p.id IN (SELECT player_id FROM player_season_statistics UNION SELECT player_entity_id FROM fixture_lineups WHERE player_entity_id IS NOT NULL
-    UNION SELECT player_id FROM fixture_player_statistics)`;
+export const sitemapPlayerEligibilitySql=`SELECT p.* FROM players p WHERE EXISTS (
+  SELECT 1 FROM team_squad_memberships sm JOIN seasons s ON s.id=sm.season_id JOIN competitions c ON c.id=s.competition_id
+  WHERE sm.player_id=p.id AND c.enabled AND c.coverage_status IN ('SUPPORTED','SUPPORTED_BUT_NO_CURRENT_FIXTURES'))
+  AND (EXISTS(SELECT 1 FROM player_season_statistics ps WHERE ps.player_id=p.id)
+    OR EXISTS(SELECT 1 FROM fixture_lineups fl WHERE fl.player_entity_id=p.id)
+    OR EXISTS(SELECT 1 FROM fixture_player_statistics fps WHERE fps.player_id=p.id))`;
+const eligiblePlayers=sitemapPlayerEligibilitySql;
 const eligible:Record<SitemapKind,string>={matches:eligibleFixtures,teams:eligibleTeams,players:eligiblePlayers};
 
 export class SportsSitemapRepository {
@@ -36,12 +38,11 @@ export class SportsSitemapRepository {
         UNION ALL SELECT sm.team_id,sm.observed_at FROM team_squad_memberships sm JOIN page p ON p.id=sm.team_id),
         latest AS (SELECT id,max(stamp) AS stamp FROM changes GROUP BY id)
         SELECT p.public_id,p.name,GREATEST(p.updated_at,l.stamp) AS updated_at FROM page p LEFT JOIN latest l ON l.id=p.id ORDER BY p.id`
-      :`${prefix}, changes AS (
-        SELECT ps.player_id AS id,ps.observed_at AS stamp FROM player_season_statistics ps JOIN page p ON p.id=ps.player_id
-        UNION ALL SELECT fl.player_entity_id,fl.observed_at FROM fixture_lineups fl JOIN page p ON p.id=fl.player_entity_id
-        UNION ALL SELECT fps.player_id,fps.observed_at FROM fixture_player_statistics fps JOIN page p ON p.id=fps.player_id),
-        latest AS (SELECT id,max(stamp) AS stamp FROM changes GROUP BY id)
-        SELECT p.public_id,p.display_name AS name,GREATEST(p.updated_at,l.stamp) AS updated_at FROM page p LEFT JOIN latest l ON l.id=p.id ORDER BY p.id`;
+      :`${prefix} SELECT p.public_id,p.display_name AS name,GREATEST(p.updated_at,
+        (SELECT max(ps.observed_at) FROM player_season_statistics ps WHERE ps.player_id=p.id),
+        (SELECT max(fl.observed_at) FROM fixture_lineups fl WHERE fl.player_entity_id=p.id),
+        (SELECT max(fps.observed_at) FROM fixture_player_statistics fps WHERE fps.player_id=p.id)) AS updated_at
+        FROM page p ORDER BY p.id`;
     const result=await this.db.query(query,[limit,offset]);
     return result.rows.map(row=>({publicId:String(row.public_id),name:String(row.name),...(row.away?{away:String(row.away)}:{}),updatedAt:new Date(String(row.updated_at))}));
   }

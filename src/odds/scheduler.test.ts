@@ -18,7 +18,7 @@ vi.mock('./ingestion',()=>({startOddsJob:mocked.start,persistSnapshot:mocked.per
   {id:'test-only',competition:'brasileirao-serie-a',status:'SCHEDULED',kickoff:new Date(Date.now()+3600000).toISOString()},
   {id:'test-b',competition:'brasileirao-serie-b',status:'SCHEDULED',kickoff:new Date(Date.now()+7200000).toISOString()},
 ]}));
-import {integrityCheck,runOddsScheduler,safeSchedulerError} from './scheduler';
+import {integrityCheck,runOddsScheduler,safeSchedulerError,schedulerPlan} from './scheduler';
 function database(){const query=vi.fn(async(sql:string)=>{
   if(sql.includes('odds_provider_catalog'))return {rows:[{markets:[],tournaments:[]}],rowCount:1};
   if(sql.includes('FROM bookmakers b'))return {rows:['betano.bet.br','betsson'].map(provider_slug=>({provider_slug,tournament_id:'325',public_eligible:true,useful_coverage:true,last_success_at:null})),rowCount:2};
@@ -28,6 +28,15 @@ function database(){const query=vi.fn(async(sql:string)=>{
 }
 beforeEach(()=>{vi.clearAllMocks();mocked.expanded.length=0;mocked.start.mockResolvedValue('test-job');mocked.persist.mockResolvedValue({returnedFixtures:1,matchedFixtures:1,quotes:3,history_changes:0,current_writes:3,closed:0});mocked.tournaments.mockResolvedValue([]);});
 describe('scheduler independent failure and durable completion',()=>{
+  it('counts only currently usable pregame quotes as useful recovery coverage',async()=>{
+    const {db,query}=database();await schedulerPlan(db);
+    const sql=query.mock.calls.find(([sql])=>sql.includes('AS useful_coverage'))?.[0]??'';
+    expect(sql).toContain("o.scope='FULL_TIME_REGULATION'");
+    expect(sql).toContain('o.freshness_ttl_minutes>0');
+    expect(sql).toContain("o.observed_at+(o.freshness_ttl_minutes*interval '1 minute')>now()");
+    expect(sql).toContain('abs(extract(epoch FROM (f.kickoff-o.provider_kickoff)))<=600');
+    expect(sql).toContain("f.kickoff<=now()+interval '7 days'");
+  });
   it('preserves the successful second feed when the first fails; records PARTIAL with a sanitized code',async()=>{
     mocked.snapshot.mockRejectedValueOnce(new Error('private upstream error')).mockResolvedValueOnce({observedAt:new Date().toISOString()});
     const {db,query}=database();const result=await runOddsScheduler(db,'test-only');

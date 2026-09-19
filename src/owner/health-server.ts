@@ -9,9 +9,10 @@ import {acknowledgeIncident,evaluateReliability,logRecoveryAction} from '@/odds/
 import {ownerActionRecentlyRan,runTargetedRefresh} from '@/odds/reliability/recovery';
 import {persistCatalogRows} from '@/odds/reliability/catalog';
 import {freshnessState} from '@/odds/reliability/model';
+import {sendOwnerAlertTest} from './alert-test';
 
 const reply=(body:unknown,status=200)=>Response.json(body,{status,headers:ownerHeaders});
-export const OWNER_HEALTH_ACTIONS=['recheck','refresh-target','retry-mapping','acknowledge'] as const;
+export const OWNER_HEALTH_ACTIONS=['recheck','refresh-target','retry-mapping','acknowledge','test-alert'] as const;
 export type OwnerHealthAction=typeof OWNER_HEALTH_ACTIONS[number];
 export interface OwnerHealthDependencies {
   database:()=>DatabaseClient;
@@ -22,6 +23,7 @@ export interface OwnerHealthDependencies {
   retryMapping:(db:DatabaseClient)=>Promise<Record<string,unknown>>;
   acknowledge:(db:DatabaseClient,id:string)=>Promise<boolean>;
   providerKey:()=>string|null;
+  testAlert?:typeof sendOwnerAlertTest;
 }
 export const productionOwnerHealthDependencies:OwnerHealthDependencies={
   database:()=>{const url=databaseUrl();if(!url)throw new Error('ODDS_DATABASE_UNAVAILABLE');return new PostgresDatabaseClient(url);},
@@ -55,11 +57,16 @@ export async function ownerHealthAction(request:Request,deps:OwnerHealthDependen
   if(!ownerConfigured())return reply({error:'OWNER_QA_NOT_CONFIGURED'},503);
   if(!requestOwnerSession(request.headers))return reply({error:'UNAUTHORIZED'},401);
   let body:Record<string,unknown>;try{body=await boundedJson(request,1024) as Record<string,unknown>;}catch{return reply({error:'INVALID_REQUEST'},400);}
-  if(!body||Array.isArray(body)||Object.keys(body).some(k=>!['action','competition','incidentId','confirm'].includes(k)))return reply({error:'INVALID_REQUEST'},400);
+  if(!body||Array.isArray(body)||Object.keys(body).some(k=>!['action','competition','incidentId','confirm','runId','phase'].includes(k)))return reply({error:'INVALID_REQUEST'},400);
   const action=body.action as OwnerHealthAction;
   if(!OWNER_HEALTH_ACTIONS.includes(action))return reply({error:'INVALID_REQUEST'},400);
   const db=deps.database();
   try{
+    if(action==='test-alert'){
+      if(body.confirm!==true||typeof body.runId!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(body.runId)||!['OPENED','RESOLVED'].includes(String(body.phase)))return reply({error:'INVALID_REQUEST'},400);
+      const result=await (deps.testAlert??sendOwnerAlertTest)(db,body.runId,body.phase as 'OPENED'|'RESOLVED');
+      return reply({action,...result},result.ok?200:result.code==='RATE_LIMITED'?429:409);
+    }
     if(action==='recheck')return reply({action,...await deps.evaluate(db,'owner')});
     if(action==='acknowledge'){
       const id=typeof body.incidentId==='string'&&/^[0-9a-f-]{36}$/.test(body.incidentId)?body.incidentId:null;

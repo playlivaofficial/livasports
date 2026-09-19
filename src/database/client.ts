@@ -14,9 +14,10 @@ export interface DatabaseQueryMetric { event: 'db-query'; operation: string; dur
 export class PostgresDatabaseClient implements DatabaseClient {
   private readonly pool: Pool;
 
-  constructor(connectionString: string, private readonly onQuery: (metric: DatabaseQueryMetric) => void = () => undefined) {
+  constructor(connectionString: string, private readonly onQuery: (metric: DatabaseQueryMetric) => void = () => undefined, options:{statementTimeoutMs?:number}={}) {
     if (!connectionString.trim()) throw new Error('DATABASE_URL is required');
-    this.pool = new Pool({ connectionString, max: 5, idleTimeoutMillis: 10_000, connectionTimeoutMillis: 10_000 });
+    this.pool = new Pool({ connectionString, max: 5, idleTimeoutMillis: 10_000, connectionTimeoutMillis: 10_000,
+      ...(options.statementTimeoutMs?{statement_timeout:options.statementTimeoutMs}:{}), });
   }
 
   async query<Row extends QueryResultRow = QueryResultRow>(text: string, values?: readonly unknown[]): Promise<QueryResult<Row>> {

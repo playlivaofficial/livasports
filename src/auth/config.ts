@@ -6,7 +6,8 @@ import nodemailer from 'nodemailer';
 import {pathLocale} from '@/localization/interface';
 import {createAuthAdapter} from './adapter';
 import {authConfigured,authDatabase,emailAuthConfigured,googleAuthConfigured} from './database';
-import {canonicalAuthUrl,googleSignInAllowed,MAGIC_LINK_TTL_SECONDS,SESSION_TTL_SECONDS,userSessionCookieName,userSessionCookieOptions} from './identity';
+import {canonicalAuthUrl,googleSignInAllowed,normalizeEmail,MAGIC_LINK_TTL_SECONDS,SESSION_TTL_SECONDS,userSessionCookieName,userSessionCookieOptions} from './identity';
+import {emailLoginAllowed} from './rate-limit';
 import {safeAuthPath} from './redirect';
 
 // P1.1 does not auto-link Google to an existing magic-link user by email.
@@ -24,12 +25,13 @@ function buildAuthConfig():NextAuthConfig {
     }));
   }
   if(emailAuthConfigured()){
-    const server={host:process.env.AUTH_SMTP_HOST!,port:Number(process.env.AUTH_SMTP_PORT||'587'),auth:{user:process.env.AUTH_SMTP_USER!,pass:process.env.AUTH_SMTP_PASSWORD!}};
+    const server={host:process.env.AUTH_SMTP_HOST!,port:Number(process.env.AUTH_SMTP_PORT||'587'),auth:{user:process.env.AUTH_SMTP_USER!,pass:process.env.AUTH_SMTP_PASSWORD!},connectionTimeout:10_000,greetingTimeout:10_000,socketTimeout:15_000};
     providers.push(Nodemailer({
       id:'nodemailer',
       server,
       from:process.env.AUTH_EMAIL_FROM!,
       maxAge:MAGIC_LINK_TTL_SECONDS,
+      normalizeIdentifier(value){const email=normalizeEmail(value);if(!email)throw new Error('INVALID_EMAIL');return email;},
       sendVerificationRequest:async({identifier,url,provider})=>{
         const transport=nodemailer.createTransport(provider.server);
         await transport.sendMail({to:identifier,from:provider.from,subject:'LivaSports',text:`LivaSports\n${url}\n`});
@@ -38,6 +40,8 @@ function buildAuthConfig():NextAuthConfig {
   }
   return {
     secret,trustHost:true,adapter:createAuthAdapter(authDatabase()),
+    // Auth.js errors can carry SMTP details or token-bearing URLs. Log only a bounded error type.
+    logger:{error(error){console.error({event:'auth-error',code:('type' in error&&typeof error.type==='string'&&/^[A-Za-z]{1,50}$/.test(error.type))?error.type:'AuthError'});}},
     session:{strategy:'database',maxAge:SESSION_TTL_SECONDS,updateAge:24*60*60},
     cookies:{sessionToken:{name:userSessionCookieName(secure),options:userSessionCookieOptions(secure)}},
     pages:{signIn:'/en/sign-in',error:'/en/sign-in'},
@@ -47,15 +51,21 @@ function buildAuthConfig():NextAuthConfig {
       async signIn({user,account}){
         try{
           const {headers}=await import('next/headers');const h=await headers();
-          const {recordServerEvent}=await import('@/analytics/server');
+          const {deferServerEvent}=await import('@/analytics/server');
           const ref=h.get('referer')??'';let locale:'br'|'mx'|'en'='en';try{const seg=new URL(ref).pathname.split('/')[1];if(seg==='br'||seg==='mx'||seg==='en')locale=seg;}catch{/* default locale */}
-          await recordServerEvent({name:'sign_in_completed',headers:h,locale,userId:user.id??null,canonicalPath:'/api/auth/callback',props:{method:account?.provider??'unknown'}});
+          await deferServerEvent({name:'sign_in_completed',headers:h,locale,userId:user.id??null,canonicalPath:'/api/auth/callback',props:{method:account?.provider??'unknown'}});
         }catch{/* analytics never affects authentication */}
       },
     },
     callbacks:{
-      async signIn({account,profile}){
+      async signIn({account,profile,email,user}){
         if(account?.provider==='google')return googleSignInAllowed(profile);
+        if(account?.provider==='nodemailer'&&email?.verificationRequest){
+          const normalized=normalizeEmail(user.email);if(!normalized)return false;
+          const {headers}=await import('next/headers');
+          const request=new Request('https://livasports.com/api/auth',{headers:await headers()});
+          try{return (await emailLoginAllowed(request,normalized)).allowed;}catch{return false;}
+        }
         return true;
       },
       async session({session,user}){

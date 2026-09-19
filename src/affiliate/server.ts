@@ -94,8 +94,10 @@ export async function outboundRequest(request:Request,bookmaker:string,placement
     const destination=campaignDestination(offer.campaign,offer.context,Date.now());if(!destination)return response(404);
     const traffic=trafficClass(request,true,qaRequest(request,token)||url.searchParams.get('qa')==='1');
     // One deferred task: the click ledger (commercial source of truth) followed by the P4 server-authoritative funnel event. Both honour DNT/GPC.
-    if(analyticsAllowed(request)&&traffic!=='UNKNOWN')deferred(s,async()=>{await s.click(offer,token.viewId,traffic,s.key!);
-      await recordServerEvent({name:'outbound_redirect_completed',headers:request.headers,locale:token.context.locale,canonicalPath:token.context.pagePath,bookmaker:bookmaker as 'betsson'|'betano.bet.br',placement,campaignId:offer.campaign.id,
+    if(analyticsAllowed(request)&&traffic!=='UNKNOWN')deferred(s,async()=>{const clickId=await s.click(offer,token.viewId,traffic,s.key!);
+      // A replay rejected by the click ledger is not a second funnel outcome. The shared UUID makes reconciliation exact.
+      if(typeof clickId!=='string'||!uuid.test(clickId))return;
+      await recordServerEvent({name:'outbound_redirect_completed',eventId:clickId,headers:request.headers,locale:token.context.locale,canonicalPath:token.context.pagePath,bookmaker:bookmaker as 'betsson'|'betano.bet.br',placement,campaignId:offer.campaign.id,
         market:token.context.market,slipLegCount:token.context.selections?.length,trafficClass:traffic==='QA_TEST'?'QA':'HUMAN'});});
     console.info(`[LivaSports M8] ${JSON.stringify({event:'redirect-issued',placement,locale:token.context.locale,bookmaker,traffic,providerRequests:0})}`);
     return new Response(null,{status:303,headers:{...commercialHeaders,Location:qaRequest(request,token)&&bookmaker!=='betsson'?qaDestination(request):destination}});

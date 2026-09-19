@@ -6,9 +6,10 @@ export const DISPLAY_NAME_MAX=80;
 
 export function normalizeEmail(value:unknown):string|null {
   if(typeof value!=='string')return null;
-  const email=value.trim().toLowerCase();
+  const email=value.normalize('NFKC').trim().toLowerCase();
   if(!email||email.length>254||email.includes('\n')||email.includes('\r'))return null;
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return null;
+  if(/[<>,;"\\]/.test(email))return null; // A single mailbox only, never an SMTP address list/display name.
   return email;
 }
 

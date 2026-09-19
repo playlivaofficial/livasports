@@ -95,11 +95,13 @@ export async function ingestClientBatch(request:Request,body:unknown,db?:Databas
     events.push(parsed);
   }
   if(!events.length){const client=db??open();if(client){try{await quality(client,{rejected:summary.rejected,unknown_events:summary.unknown,missing_session:summary.missingSession,oversized:summary.oversized});}finally{if(!db)await client.close();}}return ok({...summary,status:summary.rejected?400:204});}
+  // One request is one browser identity. Mixed identities used to bypass the first-visitor counter.
+  if(events.some(e=>e.anonymousId!==events[0].anonymousId||e.sessionId!==events[0].sessionId))return ok({...summary,status:400,rejected:summary.rejected+events.length});
   const client=db??open();if(!client)return ok({...summary,status:503});
   try{
     const anonymous=events[0].anonymousId;
     const rate=await client.query(`SELECT count(*)::int AS n FROM analytics_events WHERE anonymous_id=$1 AND received_at>now()-interval '1 minute'`,[anonymous]);
-    if(Number(rate.rows[0]?.n??0)>240){await quality(client,{rejected:events.length});return ok({...summary,status:429,rejected:summary.rejected+events.length});}
+    if(Number(rate.rows[0]?.n??0)+events.length>240){await quality(client,{rejected:events.length});return ok({...summary,status:429,rejected:summary.rejected+events.length});}
     // The auth module is loaded lazily so analytics never pulls the auth runtime into unrelated request paths.
     const user=traffic==='HUMAN'||traffic==='QA'?await import('@/auth/session').then(m=>m.currentUser()).catch(()=>null):null;const userId=user?.id??null;
     const geo=requestCommercialGeo(request.headers);
@@ -117,16 +119,18 @@ export async function ingestClientBatch(request:Request,body:unknown,db?:Databas
     }
     if(inserted.length)await upsertSessions(client,inserted,traffic,geo,userId);
     // A session that proves to be owner/QA/bot traffic takes every earlier row of that session with it (bounded by the session index).
-    if(inserted.length&&traffic!=='HUMAN')await client.query(`UPDATE analytics_events SET traffic_class=$2 WHERE session_id=ANY($1::text[]) AND traffic_class='HUMAN'`,[[...new Set(inserted.map(e=>e.sessionId))],traffic]);
+    if(inserted.length&&traffic!=='HUMAN')await client.query(`UPDATE analytics_events SET traffic_class=$2 WHERE session_id=ANY($1::text[]) AND anonymous_id=$3 AND traffic_class='HUMAN'`,[[...new Set(inserted.map(e=>e.sessionId))],traffic,anonymous]);
     await quality(client,{accepted:summary.accepted,duplicates:summary.duplicates,rejected:summary.rejected,unknown_events:summary.unknown,missing_session:summary.missingSession,oversized:summary.oversized},lag);
     return ok(summary);
   }catch{return ok({...summary,status:503});}
   finally{if(!db)await client.close();}
 }
-function open():DatabaseClient|null{const url=databaseUrl();return url?new PostgresDatabaseClient(url):null;}
+function open():DatabaseClient|null{const url=databaseUrl();return url?new PostgresDatabaseClient(url,undefined,{statementTimeoutMs:3_000}):null;}
 
 export interface ServerEventInput extends EventEntities {
   name:ServerEventName;headers:Headers;locale:Locale;userId?:string|null;canonicalPath?:string;trafficClass?:TrafficClass;props?:Record<string,string|number|boolean|null>;
+  /** Internal stable UUID for authoritative outcomes already deduplicated by a ledger. Never accepted from a client event. */
+  eventId?:string;
   competitionId?:string|null;fixtureId?:string|null;teamId?:string|null;
 }
 /** Server-authoritative events (affiliate redirect, sign-in/out, favorites). Attribution comes from the first-party cookies; never throws. */
@@ -140,18 +144,29 @@ export async function recordServerEvent(input:ServerEventInput,db?:DatabaseClien
     const path=(input.canonicalPath??'/').slice(0,240);const page=classifyPage(path);const utm=parseUtm(path.includes('?')?path.slice(path.indexOf('?')):'');
     const ref=classifyReferrer(input.headers.get('referer'),'livasports.com',utm.medium,utm.source);
     const geo=requestCommercialGeo(input.headers);
-    const eventId=crypto.randomUUID();
-    await client.query(`INSERT INTO analytics_events(event_id,event_name,event_version,source,occurred_at,session_id,anonymous_id,user_id,traffic_class,locale,geo,page_type,canonical_path,referrer_class,
+    const eventId=input.eventId??crypto.randomUUID();
+    const inserted=await client.query(`INSERT INTO analytics_events(event_id,event_name,event_version,source,occurred_at,session_id,anonymous_id,user_id,traffic_class,locale,geo,page_type,canonical_path,referrer_class,
         utm_source,utm_medium,utm_campaign,competition_id,fixture_id,team_id,bookmaker,market,slip_leg_count,comparison_state,campaign_id,placement,props)
       VALUES($1,$2,$3,'server',now(),$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25::jsonb) ON CONFLICT(event_id) DO NOTHING`,
       [eventId,input.name,EVENT_VERSION,sessionId,anonymousId,input.userId??null,traffic,input.locale,geo,page.pageType,path,ref.referrerClass==='internal'?'direct':ref.referrerClass,utm.source??null,utm.medium??null,utm.campaign??null,
-        input.competitionId??null,input.fixtureId??null,input.teamId??null,input.bookmaker??null,input.market??null,input.slipLegCount??null,input.comparisonState??null,input.campaignId??null,input.placement??null,JSON.stringify(input.props??{})]);
+          input.competitionId??null,input.fixtureId??null,input.teamId??null,input.bookmaker??null,input.market??null,input.slipLegCount??null,input.comparisonState??null,input.campaignId??null,input.placement??null,JSON.stringify(input.props??{})]);
+    if(inserted.rowCount===0)return true;
     // link the session to the authenticated user from now on (never rewrites another visitor's session)
     if(input.userId&&ids.sessionId)await client.query(`UPDATE analytics_sessions SET user_id=COALESCE(user_id,$2),last_seen_at=now(),event_count=event_count+1,engaged=true WHERE session_id=$1 AND anonymous_id=$3`,[sessionId,input.userId,anonymousId]);
-    else if(ids.sessionId)await client.query(`UPDATE analytics_sessions SET last_seen_at=now(),event_count=event_count+1,engaged=true WHERE session_id=$1`,[sessionId]);
+    else if(ids.sessionId)await client.query(`UPDATE analytics_sessions SET last_seen_at=now(),event_count=event_count+1,engaged=true WHERE session_id=$1 AND anonymous_id=$2`,[sessionId,anonymousId]);
+    if(ids.sessionId&&traffic!=='HUMAN'){
+      await client.query("UPDATE analytics_sessions SET traffic_class=$3 WHERE session_id=$1 AND anonymous_id=$2 AND traffic_class='HUMAN'",[sessionId,anonymousId,traffic]);
+      await client.query("UPDATE analytics_events SET traffic_class=$3 WHERE session_id=$1 AND anonymous_id=$2 AND traffic_class='HUMAN'",[sessionId,anonymousId,traffic]);
+    }
     await quality(client,{server_events:1});
     return true;
   }catch{return false;}
   finally{if(!db)await client.close();}
 }
 const cryptoId=()=>crypto.randomUUID().replace(/-/g,'').slice(0,24);
+
+/** Await only registration with Next's response lifecycle, not analytics I/O. Failed telemetry never delays a user mutation. */
+export async function deferServerEvent(input:ServerEventInput):Promise<void>{
+  try{const {after}=await import('next/server');after(async()=>{await recordServerEvent(input);});}
+  catch{console.warn('[LivaSports] {"event":"analytics-defer-unavailable","providerRequests":0}');}
+}

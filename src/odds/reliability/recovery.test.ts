@@ -59,4 +59,12 @@ describe('P3 targeted refresh safety (§24, §29)',()=>{
     const {db}=database(null);
     expect(await ownerActionRecentlyRan(db,'TARGETED_REFRESH')).toBe('2026-09-18T11:58:00.000Z');
   });
+  it('includes unsuccessful paid attempts in the durable target cooldown',async()=>{
+    const {db,query}=database(new Date('2026-09-18T11:59:00Z'));
+    const result=await runTargetedRefresh(db,'key','bundesliga',{trigger:'OWNER',reason:'test',now:new Date('2026-09-18T12:00:00Z')});
+    expect(result.code).toBe('MIN_INTERVAL');
+    const sql=String(query.mock.calls.find(([value])=>String(value).includes('greatest('))?.[0]);
+    expect(sql).toContain('odds_recovery_actions');expect(sql).toContain('request_cost>0');
+    expect(mocked.snapshot).not.toHaveBeenCalled();
+  });
 });

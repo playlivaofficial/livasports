@@ -56,8 +56,9 @@ describe('player profile read model', () => {
       return { rows:[] };
     } };
     await new PostgresProfileRepository(database as never).sitemapPlayers();
-    expect(statement).toContain('p.id IN (\n  SELECT sm.player_id FROM team_squad_memberships');
-    expect(statement).toContain('AND p.id IN (SELECT player_id FROM player_season_statistics');
+    expect(statement).toContain('SELECT 1 FROM team_squad_memberships');
+    expect(statement).toContain('sm.player_id=p.id AND c.enabled');
+    expect(statement).toContain('AND (EXISTS(SELECT 1 FROM player_season_statistics ps WHERE ps.player_id=p.id)');
     expect(statement).toContain('fixture_player_statistics');
     expect(statement).not.toContain('HAVING count(DISTINCT fl.fixture_id)>0');
   });

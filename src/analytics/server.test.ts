@@ -30,6 +30,11 @@ beforeEach(()=>{mocked.user=null;vi.stubEnv('OWNER_QA_SESSION_SECRET','s'.repeat
 afterEach(()=>{vi.unstubAllEnvs();});
 
 describe('P4 ingestion boundary (§15, §17, §26, §33)',()=>{
+  it('deduplicates authoritative outcomes using the commercial ledger UUID',async()=>{
+    const {db,events,query}=database();const input={name:'outbound_redirect_completed' as const,eventId:uuid(42),headers:new Headers({'x-livasports-qa':'1'}),locale:'br' as const};
+    await recordServerEvent(input,db);const queries=query.mock.calls.length;await recordServerEvent(input,db);
+    expect(events).toHaveLength(1);expect(events[0][0]).toBe(uuid(42));expect(query.mock.calls.length-queries).toBe(1);
+  });
   it('accepts a valid batch once, resolves entities, writes the session and counts a replay as duplicates',async()=>{
     const {db,events,sessions,query}=database();
     const batch={v:1,batch:[event(1,{eventName:'session_started',session:{landingPath:'/br/jogo/x-0123456789abcdef',landingPageType:'match',referrerHost:'www.google.com',visitorKind:'NEW'}}),event(2,{eventName:'match_viewed',fixturePublicId:'0123456789abcdef'})]};
@@ -58,6 +63,20 @@ describe('P4 ingestion boundary (§15, §17, §26, §33)',()=>{
     for(let i=0;i<241;i++)events.push([]);
     expect((await ingestClientBatch(post(batch),batch,db)).status).toBe(429);
   });
+  it('rejects mixed identities before opening the database',async()=>{
+    const {db,query}=database();
+    const batch={v:1,batch:[event(1),event(2,{anonymousId:'different_'+'b'.repeat(20)})]};
+    expect((await ingestClientBatch(post(batch),batch,db)).status).toBe(400);
+    expect(query).not.toHaveBeenCalled();
+  });
+  it('server QA outcomes reclassify only their own session and earlier events',async()=>{
+    const {db,query}=database();
+    const headers=new Headers({cookie:'ls_aid=anon_'+'a'.repeat(20)+'; ls_sid=sess_'+'s'.repeat(20),'user-agent':'Mozilla/5.0','x-livasports-qa':'1'});
+    await recordServerEvent({name:'sign_in_completed',headers,locale:'en'},db);
+    const updates=query.mock.calls.filter(([sql])=>String(sql).includes('SET traffic_class=$3'));
+    expect(updates).toHaveLength(2);
+    for(const [sql,params] of updates){expect(sql).toContain('anonymous_id=$2');expect(params).toEqual(['sess_'+'s'.repeat(20),'anon_'+'a'.repeat(20),'QA']);}
+  });
   it('classifies owner, QA and crawler traffic so it never pollutes human reporting',async()=>{
     const owner={cookie:ownerCookie+'='+signOwnerSession({...newOwnerSession(),preview:false})};
     expect(classifyTraffic(new Headers({...owner,'user-agent':'Mozilla/5.0'}))).toBe('OWNER');
@@ -70,6 +89,7 @@ describe('P4 ingestion boundary (§15, §17, §26, §33)',()=>{
     await ingestClientBatch(post(batch,{'x-livasports-qa':'1'}),batch,db);expect(events[0][7]).toBe('QA');
     const marked={v:1,batch:[event(3)],qa:true};await ingestClientBatch(post(marked),marked,db);expect(events[1][7]).toBe('QA');
     const reclass=query.mock.calls.filter(([sql])=>String(sql).includes("SET traffic_class=$2 WHERE session_id=ANY"));expect(reclass.length).toBe(2);expect((reclass[0][1] as unknown[])[1]).toBe('QA');
+    for(const [sql,params] of reclass){expect(sql).toContain('anonymous_id=$3');expect((params as unknown[])[2]).toBe('anon_'+'a'.repeat(20));}
     await ingestClientBatch(post({...batch,batch:[event(4)]},{'user-agent':'Googlebot'}),{...batch,batch:[event(4)]},db);expect(events[2][7]).toBe('BOT');
   });
   it('links events to the authenticated user server-side (never from the client) and keeps anonymous history intact (§36)',async()=>{

@@ -44,4 +44,21 @@ describe('user email login rate limiting',()=>{
     expect((await emailLoginAllowed(request,'user@example.com')).allowed).toBe(false);
     expect((await emailLoginAllowed(request,'other@example.com')).allowed).toBe(true);
   });
+
+  it('limits a recipient even when request sources change',async()=>{
+    vi.stubEnv('AUTH_SECRET','u'.repeat(32));
+    const {emailLoginAllowed}=await import('./rate-limit');
+    const attempt=(i:number)=>emailLoginAllowed(new Request('https://livasports.com/api/auth/signin/nodemailer',{headers:{'x-forwarded-for':`203.0.113.${i}`}}),'same@example.com');
+    for(let i=1;i<=4;i++)expect((await attempt(i)).allowed).toBe(true);
+    expect((await attempt(5)).allowed).toBe(false);
+    expect(store.rates.every(row=>/^[a-f0-9]{64}$/.test(row.bucket_hash))).toBe(true);
+  });
+
+  it('limits a source even when recipients change',async()=>{
+    vi.stubEnv('AUTH_SECRET','u'.repeat(32));
+    const {emailLoginAllowed}=await import('./rate-limit');
+    const request=new Request('https://livasports.com/api/auth/signin/nodemailer',{headers:{'x-forwarded-for':'203.0.113.9'}});
+    for(let i=0;i<19;i++)expect((await emailLoginAllowed(request,`recipient${i}@example.com`)).allowed).toBe(true);
+    expect((await emailLoginAllowed(request,'last@example.com')).allowed).toBe(false);
+  });
 });

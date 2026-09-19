@@ -4,6 +4,13 @@ import {writeGuestFavorites} from './guest';
 import {FAVORITE_STORAGE_KEY} from './identity';
 
 describe('guest to account merge safety',()=>{
+  it('refreshes the My Matches feed after authenticated store updates and distinguishes read failures from no favorites',()=>{
+    const source=readFileSync('src/favorites/MyMatchesClient.tsx','utf8');
+    expect(source).not.toContain('if(authenticated||');
+    expect(source).toContain('favorites.authenticated!==authenticated');
+    expect(source).toContain('setRefreshedRows');expect(source).toContain('setFeedFailed(true)');
+    expect(source).toContain('!unavailable&&!rows.length');
+  });
   it('does not clear local guest favorites unless the server merge succeeds',()=>{
     const source=readFileSync('src/favorites/FavoritesSync.tsx','utf8');
     expect(source).toContain("if(!merged.ok){applyAccountFavorites(body,true);markFavoritesError('merge');return;}");
