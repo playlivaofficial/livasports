@@ -13,8 +13,9 @@
 .sports-board .listing-odds-book .bookmaker-logo { min-height:44px; height:auto; }
 .sports-board .listing-odds-book .bookmaker-logo-link { min-height:44px; }
 @media(min-width:1100px) {
-  .sports-board .fixture-row:not(.has-no-odds) { grid-template-columns:minmax(200px,1fr) minmax(430px,1.25fr); }
-  .sports-board .board-odds-heading { width:430px; }
+  /* 9 x 44px controls + six 4px inner gaps + two 8px group gaps = 436px minimum. */
+  .sports-board .fixture-row:not(.has-no-odds) { grid-template-columns:minmax(200px,1fr) minmax(450px,1.25fr); }
+  .sports-board .board-odds-heading { width:450px; }
 }
 @media(max-width:1099px) {
   .sports-board .fixture-row:not(.has-no-odds) { grid-template-columns:minmax(0,1fr); }
