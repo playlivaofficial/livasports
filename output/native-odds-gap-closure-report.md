@@ -1,8 +1,8 @@
 # LivaSports — Native Odds Backoff & Provider-Gap Closure
 
-Status: **IMPLEMENTATION AND LOCAL/DB GATES COMPLETE — RELEASE/PRODUCTION ACCEPTANCE PENDING**
+Status: **PASS — RELEASED AND PRODUCTION-ACCEPTED**
 
-Evidence timestamp: 2026-09-21 12:39 UTC. All coverage figures are point-in-time database observations over 58 upcoming eligible fixtures; they are not permanent coverage guarantees.
+Evidence timestamp: 2026-09-21 12:50 UTC. All coverage figures are point-in-time database observations over 58 upcoming eligible fixtures; they are not permanent coverage guarantees.
 
 ## A. TARGET_BACKOFF
 
@@ -49,6 +49,7 @@ Fallback measures overlap native because a fixture can have native 1X2 and fallb
 - Supplier conflicts resolve deterministically by completeness, selection count, freshness and configured priority.
 - Internal health is available per supplier/bookmaker; public provider branding remains absent.
 - Enabled suppliers: OddsPapi only. No second provider, fake quote, subscription or billing change.
+- Public response hardening strips supplier identity, source quote IDs and source observation timestamps at the browser boundary while preserving complete server-side provenance and owner-health evidence.
 
 Candidates: Sportingbet BR first-party API for Sportingbet (legal/API-key approval required); SportsGameOdds for a Betsson-only coverage trial (Sportingbet/betboo not publicly listed); Sportradar OC Core for enterprise evaluation (exact BR books not publicly proven). Details and official URLs are in `docs/NATIVE_ODDS_GAP_CLOSURE.md`.
 
@@ -56,7 +57,7 @@ Candidates: Sportingbet BR first-party API for Sportingbet (legal/API-key approv
 
 - Audit provider requests: 0.
 - Rolling 24h: 147/275 (53.5%).
-- Current UTC day: 60; projected end of day: 114.
+- Current UTC day: 60; projected end of day: 113.
 - Period usage: 1,635; conservative remaining: 3,115; routine remaining: 3,015.
 - Scheduler simulation: 113/day average, 180 peak, scale 1.95.
 - Average reserve: 58.9%; peak reserve: 34.5%.
@@ -65,14 +66,18 @@ Candidates: Sportingbet BR first-party API for Sportingbet (legal/API-key approv
 
 ## Release gates
 
-- Targeted new tests: PASS (7/7).
-- Full tests: PASS (1,216 total: 1,199 Vitest + 17 Node).
+- Targeted public-boundary tests: PASS (26/26).
+- Full tests: PASS (1,218 total: 1,201 Vitest + 17 Node).
 - Typecheck: PASS.
 - Lint: PASS.
 - Production build: PASS (Next.js 16.3.4, 51 static generations completed).
 - Secret scan: PASS (0 environment-file, credential-value, client-reference, remote or path violations).
 - Migration idempotency: PASS; second run applied zero migrations.
 - DB integrity: PASS; zero duplicate, invalid, orphan or unapplied odds rows and zero running jobs.
-- Production deployment/acceptance: pending.
-
-Final SHA, deployment ID, production health and request delta will be appended only after verified release.
+- Released code SHA: `ce4dca3284d29e48e2afec0ed467ee2114ad6a21`.
+- Production deployment: `dpl_D3SqXFqMVKZgCYWNQR3r7Bsmax4r` — `READY` and current for `livasports.com`.
+- Production health: `HEALTHY`; 0 critical, 0 degraded, 6 healthy; next 24h 5/5 and next 3d 6/6 priced.
+- Production telemetry: generic `TARGET_BACKOFF` absent; exact `HTTP_404_TARGET_NOT_FOUND` = 210; all four source identities are visible internally under `ODDSPAPI`.
+- Public acceptance: three bookmaker cards and three market comparisons returned; Betano and supplier/source identifiers were absent from public odds and slip payloads.
+- Normal public navigation/API acceptance provider requests: 0. No manual upstream request was issued for release acceptance.
+- Apex and HTTPS: PASS; `www.livasports.com` redirects to the apex.
