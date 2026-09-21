@@ -8,6 +8,7 @@ import {boundedJson} from './server';
 import {ComparisonLoader} from './comparison-loader';
 import {buildSlipComparison} from './comparison';
 import {isVisibleBookmaker} from '@/odds/registry';
+import {publicSlipResolution} from './public-response';
 
 const headers={'Cache-Control':'private, no-store','X-Robots-Tag':'noindex','Referrer-Policy':'no-referrer'};
 let db:PostgresDatabaseClient|null=null;
@@ -33,7 +34,7 @@ export async function compareSlipRequest(request:Request,service:Pick<Comparison
       complete:comparison.bookmakers.filter(b=>b.complete).length,total:comparison.bookmakers.length,
       bookmakers:comparison.bookmakers.map(b=>({id:b.bookmakerId,complete:b.complete,availability:b.availabilityState,cta:b.ctaState,
         legs:b.selectionQuotes.map(q=>q.diagnosticCode)}))})}`);
-    return Response.json(result,{headers});
+    return Response.json(publicSlipResolution(result),{headers});
   }
   catch{return Response.json({error:'COMPARISON_TEMPORARILY_UNAVAILABLE',providerRequests:0},{status:503,headers});}
 }

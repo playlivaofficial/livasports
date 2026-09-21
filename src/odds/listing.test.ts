@@ -24,7 +24,7 @@ describe('listing MATCH_WINNER read model',()=>{
     expect(attached.oddsState).toBe('complete');
     expect(attached.odds[0].outcomes.map(outcome=>outcome.prices.map(price=>price.decimalOdds))).toEqual([[2.92,2.92,2.92],[3.8,3.8,3.8],[2.25,2.25,2.25]]);
     expect(attached.odds[0].outcomes.every(outcome=>outcome.prices.every(price=>price.priceKind==='PROXY'))).toBe(true);
-    expect(attached.odds[0].outcomes.every(outcome=>outcome.prices[1].sourceBookmaker==='betano.bet.br'&&!!outcome.prices[1].sourceQuoteId)).toBe(true);
+    expect(JSON.stringify(attached)).not.toMatch(/sourceBookmaker|sourceQuoteId|betano\.bet\.br/);
   });
   it('attaches current 1X2 from the same quoteState as the match page',()=>{
     const attached=listingMatchWinnerOdds(snapshot([
@@ -84,7 +84,8 @@ describe('listing Neon attach',()=>{
     expect(brentford.odds[0].outcomes.map(outcome=>outcome.prices[0]?.decimalOdds)).toEqual([4.45,4,1.72]);
     expect(brentford.odds[0].outcomes.every(outcome=>outcome.prices.length===3)).toBe(true);
     expect(brentford.odds[0].outcomes.every(outcome=>outcome.prices[1].priceKind==='PROXY')).toBe(true);
-    expect(brentford.odds[0].outcomes[0].prices[0]).toMatchObject({bookmaker:'Betsson',targetBookmaker:'betsson',sourceBookmaker:'betano.bet.br'});
+    expect(brentford.odds[0].outcomes[0].prices[0]).toMatchObject({bookmaker:'Betsson',targetBookmaker:'betsson'});
+    expect(JSON.stringify(brentford)).not.toMatch(/sourceBookmaker|sourceQuoteId|betano\.bet\.br/);
     expect(empty.odds).toEqual([]);
     expect(empty.oddsState).toBe('none');
     expect(attached.paidOddsRequests).toBe(0);

@@ -17,6 +17,7 @@ import { LiveRefreshBoundary } from './LiveRefreshBoundary';
 import {PregameOdds} from './PregameOdds';
 import {SponsoredSlot} from '@/components/commercial/SponsoredSlot';
 import {FavoriteButton} from '@/favorites/FavoriteButton';
+import {publicOddsComparisons} from '@/odds/public-response';
 
 const copy = {
   br: {
@@ -130,7 +131,7 @@ function Standings({ locale, match }: { locale: SiteLocale; match: MatchCenterVi
 }
 
 function Odds({ locale, commercialLocale, match }: { locale: SiteLocale; commercialLocale: SiteLocale; match: MatchCenterView }) {
-  return <PregameOdds key={`${match.header.id}:${locale}:${commercialLocale}`} uiLocale={locale} fixturePublicId={match.header.publicId} initial={match.oddsComparisons??[]} context={{fixtureId:match.header.id,competitionId:match.header.competitionId,locale:commercialLocale}}/>;
+  return <PregameOdds key={`${match.header.id}:${locale}:${commercialLocale}`} uiLocale={locale} fixturePublicId={match.header.publicId} initial={publicOddsComparisons(match.oddsComparisons??[])} context={{fixtureId:match.header.id,competitionId:match.header.competitionId,locale:commercialLocale}}/>;
 }
 
 function PlayerPerformances({locale,match}:{locale:SiteLocale;match:MatchCenterView}){

@@ -21,7 +21,7 @@ const MATCH_WINNER_CELLS = [
 
 const BOOK_ORDER=VISIBLE_BOOKMAKERS.map(b=>b.displayName);
 
-type ListingPrice = { decimalOdds: number; expiresAt?: string; observedAt: string; priceKind: 'REAL' | 'PROXY'; targetBookmaker: string; sourceBookmaker: string; sourceBookmakerName: string; sourceQuoteId?: string; sourceObservedAt: string };
+type ListingPrice = { decimalOdds: number; expiresAt?: string; observedAt: string; priceKind: 'REAL' | 'PROXY'; targetBookmaker: string };
 
 function bookFreshPrice(fixture: FixtureView, bookmaker: BookmakerDisplayName, outcome: OutcomeCode): ListingPrice | null {
   const prices = fixture.odds
@@ -31,10 +31,8 @@ function bookFreshPrice(fixture: FixtureView, bookmaker: BookmakerDisplayName, o
   if (!prices.length) return null;
   const best = prices.reduce((a, b) => a.decimalOdds >= b.decimalOdds ? a : b);
   const targetBookmaker = BOOKMAKER_REGISTRY.find(b=>b.displayName===bookmaker)!.canonicalId;
-  return { decimalOdds: best.decimalOdds, ...(best.expiresAt ? { expiresAt: best.expiresAt } : {}), observedAt: best.sourceObservedAt ?? best.providerUpdatedAt,
-    priceKind: best.priceKind ?? 'REAL', targetBookmaker: best.targetBookmaker ?? targetBookmaker,
-    sourceBookmaker: best.sourceBookmaker ?? targetBookmaker, sourceBookmakerName: best.sourceBookmakerName ?? bookmaker,
-    ...(best.sourceQuoteId ? {sourceQuoteId:best.sourceQuoteId} : {}), sourceObservedAt: best.sourceObservedAt ?? best.providerUpdatedAt };
+  return { decimalOdds: best.decimalOdds, ...(best.expiresAt ? { expiresAt: best.expiresAt } : {}), observedAt: best.providerUpdatedAt,
+    priceKind: best.priceKind ?? 'REAL', targetBookmaker: best.targetBookmaker ?? targetBookmaker };
 }
 
 export function listingBookmakerRows(fixture: FixtureView) {
@@ -89,7 +87,7 @@ export function OddsComparison({ locale, fixture, emptyLabel, commercialLocale =
                 return <button type="button" key={cell.outcome} className={`listing-odds-cell listing-odds-select${pressed ? ' is-selected' : ''}`} aria-pressed={pressed} disabled={!saved.ready}
                   data-target-bookmaker={cell.price.targetBookmaker}
                   aria-label={`${pressed ? slipText.selected : slipText.add}: ${book.label}, ${slipText.markets.MATCH_WINNER}, ${selectionLabel(intent, uiLocale, { publicId: fixture.publicId!, home: fixture.homeTeam, away: fixture.awayTeam, competition: fixture.competition, kickoff: fixture.kickoff, status: fixture.status })}, ${priceLabel}, ${approximateLabel}`}
-                  onClick={event => { event.preventDefault(); event.stopPropagation(); const price=cell.price!;addSlipSelection(intent,commercialLocale,price.expiresAt!,price.targetBookmaker,{targetBookmaker:price.targetBookmaker,priceKind:price.priceKind,sourceBookmaker:price.sourceBookmaker,...(price.sourceQuoteId?{sourceQuoteId:price.sourceQuoteId}:{}),sourceObservedAt:price.sourceObservedAt}); }}>
+                  onClick={event => { event.preventDefault(); event.stopPropagation(); const price=cell.price!;addSlipSelection(intent,commercialLocale,price.expiresAt!,price.targetBookmaker,{targetBookmaker:price.targetBookmaker,priceKind:price.priceKind}); }}>
                   {pressed ? <span className="listing-odds-check" aria-hidden="true">✓</span> : null}
                   <span className="listing-odds-label">{cell.label}</span>
                   <ApproximatePrice className="listing-odds-price" value={priceLabel} label={approximateLabel}/>

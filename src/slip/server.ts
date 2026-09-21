@@ -4,6 +4,7 @@ import {readPublicOddsFixtures} from '@/odds/read-repository';
 import {SlipLoader} from './loader';
 import {parseResolutionRequest} from './types';
 import {requestCommercialGeo} from '@/odds/commercial-geo';
+import {publicSlipResolution} from './public-response';
 
 const headers={'Cache-Control':'private, no-store','X-Robots-Tag':'noindex'};
 let db:PostgresDatabaseClient|null=null;
@@ -29,6 +30,6 @@ export async function resolveSlipRequest(request:Request,service:Pick<SlipLoader
   if(!input)return response({error:'INVALID_SLIP',providerRequests:0},400);
   try{const result=await service.resolve(input.selections,input.locale,requestCommercialGeo(request.headers));
     console.info(`[LivaSports M6] ${JSON.stringify({event:'slip-resolve',count:input.selections.length,locale:input.locale,providerRequests:0})}`);
-    return response(result);
+    return response(publicSlipResolution(result));
   }catch{return response({error:'SLIP_TEMPORARILY_UNAVAILABLE',providerRequests:0},503);}
 }
