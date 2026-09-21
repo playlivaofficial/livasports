@@ -11,26 +11,27 @@ describe('exact selection comparison',()=>{
     const observed=now-60*60000,kickoff=new Date(now+47.5*3600000).toISOString();
     const quote={...q,providerKickoff:kickoff,observedAt:new Date(observed).toISOString(),lastSuccessfulRefreshAt:new Date(observed).toISOString(),freshnessTtlMinutes:365};
     const snap={quotes:[quote],kickoff,fixtureStatus:'SCHEDULED'};
-    expect(buildComparison(snap,'MATCH_WINNER',now).eligiblePrices).toBe(2);
+    expect(buildComparison(snap,'MATCH_WINNER',now).eligiblePrices).toBe(3);
     expect(quoteState(quote,snap,observed+365*60000-1)).toBe('ACTIVE');
     expect(quoteState(quote,snap,observed+365*60000)).toBe('STALE');
     expect(quoteState(quote,snap,Date.parse(kickoff))).toBe('CLOSED');
   });
   it('preserves precision and never marks one bookmaker best',()=>{
     const c=buildComparison(snapshot,'MATCH_WINNER',now);
-    expect(c.rows.map(row=>row.cells[0].decimalOdds)).toEqual(['2.12345678','2.12345678']);
-    expect(c.rows[0].cells[0]).toMatchObject({priceKind:'REAL',targetBookmaker:'betano.bet.br',sourceBookmaker:'betano.bet.br',sourceQuoteId:'quote-test',best:false});
-    expect(c.rows[1].cells[0]).toMatchObject({priceKind:'PROXY',targetBookmaker:'betsson',sourceBookmaker:'betano.bet.br',sourceQuoteId:'quote-test',best:false});
+    expect(c.rows.map(row=>row.cells[0].decimalOdds)).toEqual(['2.12345678','2.12345678','2.12345678']);
+    expect(c.rows.some(row=>row.bookmaker==='betano.bet.br')).toBe(false);
+    expect(c.rows[0].cells[0]).toMatchObject({priceKind:'PROXY',targetBookmaker:'betsson',sourceBookmaker:'betano.bet.br',sourceQuoteId:'quote-test',best:false});
     expect(c.rows.every(row=>row.cells[1].decimalOdds===null)).toBe(true);
   });
   it('compares exact outcomes only, with ties across genuinely eligible books',()=>{
-    const c=buildComparison({...snapshot,quotes:[q,{...q,quoteId:'quote-betsson',bookmaker:'betsson',bookmakerName:'Betsson'}]},'MATCH_WINNER',now);
-    expect(c.rows.every(r=>r.cells[0].best)).toBe(true);
+    const c=buildComparison({...snapshot,quotes:[q,{...q,quoteId:'quote-betsson',bookmaker:'betsson',bookmakerName:'Betsson'},{...q,quoteId:'quote-sportingbet',bookmaker:'sportingbet.bet.br',bookmakerName:'Sportingbet BR'}]},'MATCH_WINNER',now);
+    expect(c.rows.slice(0,2).every(r=>r.cells[0].best)).toBe(true);
+    expect(c.rows[2].cells[0].best).toBe(false);
     expect(c.rows.every(r=>!r.cells[1].best)).toBe(true);
   });
   it.each(['SUSPENDED','STALE','WITHDRAWN','CLOSED'] as const)('does not compare %s prices',status=>{
     const c=buildComparison({...snapshot,quotes:[q,{...q,bookmaker:'betsson',status}]},'MATCH_WINNER',now);
-    expect(c.rows.every(row=>!row.cells[0].best)).toBe(true);expect(c.eligiblePrices).toBe(2);
+    expect(c.rows.every(row=>!row.cells[0].best)).toBe(true);expect(c.eligiblePrices).toBe(3);
     expect(c.rows[1].cells[0]).toMatchObject({priceKind:'PROXY',sourceBookmaker:'betano.bet.br'});
   });
   it('excludes GEO-unverified or Mexico-ineligible prices',()=>{
@@ -57,8 +58,8 @@ describe('exact selection comparison',()=>{
   it('only attaches an approved destination action while the quote is eligible and fresh',()=>{
     const actions={'betano.bet.br':'/go/betano.bet.br?placement=match-odds'};
     expect(buildComparison(snapshot,'MATCH_WINNER',now).rows[0].action).toBeNull();
-    expect(buildComparison(snapshot,'MATCH_WINNER',now,actions).rows[0].action).toBe(actions['betano.bet.br']);
-    expect(buildComparison(snapshot,'MATCH_WINNER',now,{...actions,betsson:'/go/betsson?placement=match-odds'}).rows[1].action).toContain('/go/betsson');
+    expect(buildComparison(snapshot,'MATCH_WINNER',now,actions).rows.every(row=>row.action===null)).toBe(true);
+    expect(buildComparison(snapshot,'MATCH_WINNER',now,{...actions,betsson:'/go/betsson?placement=match-odds'}).rows[0].action).toContain('/go/betsson');
     expect(buildComparison(snapshot,'MATCH_WINNER',now+nearTtl,actions).rows[0].action).toBeNull();
     expect(buildComparison(snapshot,'MATCH_WINNER',Date.parse(q.providerKickoff),actions).rows[0].action).toBeNull();
   });
@@ -78,8 +79,8 @@ describe('exact selection comparison',()=>{
     const betsson={...q,quoteId:'betsson-away',bookmaker:'betsson',bookmakerName:'Betsson',outcome:'AWAY' as const,decimalOdds:'2.25'};
     const quotes=[betsson];const before=structuredClone(quotes);
     const c=buildComparison({...snapshot,quotes},'MATCH_WINNER',now);
-    expect(c.rows[0].cells[2]).toMatchObject({decimalOdds:'2.25',priceKind:'PROXY',targetBookmaker:'betano.bet.br',sourceBookmaker:'betsson',sourceQuoteId:'betsson-away'});
-    expect(c.rows[1].cells[2]).toMatchObject({decimalOdds:'2.25',priceKind:'REAL',targetBookmaker:'betsson',sourceBookmaker:'betsson'});
+    expect(c.rows[1].cells[2]).toMatchObject({decimalOdds:'2.25',priceKind:'PROXY',targetBookmaker:'sportingbet.bet.br',sourceBookmaker:'betsson',sourceQuoteId:'betsson-away'});
+    expect(c.rows[0].cells[2]).toMatchObject({decimalOdds:'2.25',priceKind:'REAL',targetBookmaker:'betsson',sourceBookmaker:'betsson'});
     expect(quotes).toEqual(before);
   });
   it('fills only exact current missing selections and rejects an invalid source',()=>{
@@ -89,9 +90,9 @@ describe('exact selection comparison',()=>{
       {...q,quoteId:'betsson-away',bookmaker:'betsson',bookmakerName:'Betsson',outcome:'AWAY' as const,decimalOdds:'2.25'},
     ];
     const c=buildComparison({...snapshot,quotes},'MATCH_WINNER',now);
-    expect(c.rows.map(row=>row.cells.map(cell=>cell.decimalOdds))).toEqual([['2.92','3.80','2.25'],['2.92','3.80','2.25']]);
-    expect(c.rows[0].cells.map(cell=>cell.priceKind)).toEqual(['REAL','REAL','PROXY']);
-    expect(c.rows[1].cells.map(cell=>cell.priceKind)).toEqual(['PROXY','PROXY','REAL']);
+    expect(c.rows.map(row=>row.cells.map(cell=>cell.decimalOdds))).toEqual(Array.from({length:3},()=>['2.92','3.80','2.25']));
+    expect(c.rows[0].cells.map(cell=>cell.priceKind)).toEqual(['PROXY','PROXY','REAL']);
+    expect(c.rows.slice(1).every(row=>row.cells.every(cell=>cell.priceKind==='PROXY'))).toBe(true);
     const invalid=buildComparison({...snapshot,quotes:[{...q,status:'SUSPENDED'}]},'MATCH_WINNER',now);
     expect(invalid.eligiblePrices).toBe(0);expect(invalid.rows.every(row=>row.cells.every(cell=>cell.decimalOdds===null))).toBe(true);
   });

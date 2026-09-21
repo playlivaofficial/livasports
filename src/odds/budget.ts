@@ -1,9 +1,12 @@
 import type {DatabaseClient,QueryExecutor} from '@/database/client';
+import {SOURCE_BOOKMAKER_IDS} from './registry';
+import {NORMAL_STOP_FRACTION,CONTROLLED_STOP_FRACTION,quotaPressure} from './quota-policy';
 
-export const INTERNAL_LIMIT=4500;
-export const ROUTINE_LIMIT=4000;
+// 250 calls remain untouched for reconciliation lag/out-of-band usage; 100 more for controlled recovery/catalog work.
+export const INTERNAL_LIMIT=4750;
+export const ROUTINE_LIMIT=4650;
 /** Burst ceiling only. Each reservation also checks remaining quota / actual subscription days. */
-export const DAILY_ROUTINE_LIMIT=240;
+export const DAILY_ROUTINE_LIMIT=ROUTINE_LIMIT;
 export class OddsBudgetStopped extends Error {constructor(public readonly code:string){super(code);this.name='OddsBudgetStopped';}}
 export interface AccountPeriod {start:string;end:string;limit:number;used:number;}
 /** Only documented, bounded subscription windows are accepted. Never derive a calendar-month reset. */
@@ -14,7 +17,7 @@ export function verifiedAccountPeriod(value:unknown,now=new Date()):AccountPerio
   const s=active[0];const start=Date.parse(s.valid_from??'');const end=Date.parse(s.valid_until??'');
   if(!Number.isFinite(start)||!Number.isFinite(end)||start>now.getTime()||end<=now.getTime()||end<=start||end-start>32*86400000||
     !Number.isInteger(s.request_count)||s.request_count!<0||s.request_limit!==5000||!s.sport_ids?.includes(10)||
-    ['betano.bet.br','betsson'].some(book=>s.bookmakers?.[book]?.has_live_odds!==false||s.bookmakers?.[book]?.has_player_props!==false))
+    SOURCE_BOOKMAKER_IDS.some(book=>s.bookmakers?.[book]?.has_live_odds!==false||s.bookmakers?.[book]?.has_player_props!==false))
     throw new OddsBudgetStopped('ACCOUNT_PERIOD_OR_SCOPE_UNVERIFIED');
   return {start:new Date(start).toISOString(),end:new Date(end).toISOString(),limit:s.request_limit,used:s.request_count!};
 }
@@ -40,7 +43,8 @@ export async function budgetHealth(db:QueryExecutor){
     count(r.id) FILTER(WHERE r.completed_at IS NOT NULL AND r.billable)::int AS completed,
     count(r.id) FILTER(WHERE r.completed_at IS NOT NULL AND r.outcome<>'SUCCEEDED' AND r.billable)::int AS failed_counted,
     count(r.id) FILTER(WHERE NOT r.billable)::int AS unmetered_calls,
-    (SELECT count(*) FROM odds_provider_requests d WHERE d.billable AND d.purpose='SCHEDULED' AND d.started_at>now()-interval '24 hours')::int AS rolling_day,
+    (SELECT count(*) FROM odds_provider_requests d WHERE d.billable AND d.started_at>now()-interval '24 hours')::int AS rolling_day,
+    (SELECT count(*) FROM odds_provider_requests d WHERE d.billable AND d.started_at>=date_trunc('day',now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC')::int AS today_utc,
     (SELECT count(*) FROM odds_provider_requests d WHERE d.billable AND d.started_at>now()-interval '3 days')::int AS rolling_three_days
     FROM odds_budget_baselines b LEFT JOIN odds_provider_requests r ON r.started_at>=b.period_start AND r.started_at<b.period_end
     WHERE now()>=b.period_start AND now()<b.period_end GROUP BY b.period_start`)).rows[0];
@@ -50,10 +54,15 @@ export async function budgetHealth(db:QueryExecutor){
   const remainingDays=Math.max(1,(new Date(row.period_end).getTime()-Date.now())/86400000);
   const rollingDay=Number(row.rolling_day??0);const dailyCap=routineDailyCap(routineRemaining,remainingDays);
   const governor=budgetGovernor({used,routineRemaining,remainingDays,rollingDay,dailyCap,rollingThreeDays:Number(row.rolling_three_days??0),hardLimit:Number(row.hard_limit)});
+  governor.requestsTodayUtc=Number(row.today_utc??0);
+  governor.projectedEndOfDayUsage=Math.ceil(governor.requestsTodayUtc/Math.max(1,(Date.now()-Date.parse(new Date().toISOString().slice(0,10)+'T00:00:00Z'))/3600000)*24);
   return {...row,verified:true,used,internalLimit:INTERNAL_LIMIT,routineLimit:ROUTINE_LIMIT,
     safeRemaining:Math.max(0,Math.min(INTERNAL_LIMIT,Number(row.hard_limit))-used),routineRemaining,
     // P0 incident: the scheduler paces itself against the ledger's rolling-day ceiling instead of bursting into it.
-    rollingDay,dailyCap,rollingHeadroom:Math.max(0,dailyCap-rollingDay),governor};
+    rollingDay,dailyCap,rollingHeadroom:Math.max(0,Math.floor(dailyCap*CONTROLLED_STOP_FRACTION)-rollingDay),governor,
+    requestsTodayUtc:Number(row.today_utc??0),estimatedRequestsRemaining:Math.max(0,dailyCap-rollingDay),
+    quota:quotaPressure(rollingDay,dailyCap),
+    projectedEndOfDayUsage:Math.ceil(Number(row.today_utc??0)/Math.max(1,(Date.now()-Date.parse(new Date().toISOString().slice(0,10)+'T00:00:00Z'))/3600000)*24)};
 }
 /** Share of the daily ceiling held back for urgent/recovery work (mirrors the planner's reserve) and for catalog discovery. */
 export const URGENT_RESERVE_FRACTION=0.2;
@@ -64,6 +73,8 @@ export interface BudgetGovernor {
   rollingDay:number;dailyCap:number;headroom:number;projectedDailyRequests:number;projectedEndOfPeriodUsage:number;projectedOverrun:boolean;
   urgentReserve:number;recoveryReserve:number;discoveryReserve:number;routineCeiling:number;routineHeadroom:number;
   pressure:'NORMAL'|'PACED'|'RESERVE_ONLY'|'EXHAUSTED';
+  utilizationPct:number;quotaState:ReturnType<typeof quotaPressure>['state'];normalStop:number;controlledStop:number;
+  requestsTodayUtc?:number;projectedEndOfDayUsage?:number;
 }
 /** Durable, plan-derived budget governor (P3 §8). Never invents capacity: every number derives from the verified period. */
 export function budgetGovernor(input:{used:number;routineRemaining:number;remainingDays:number;rollingDay:number;dailyCap:number;rollingThreeDays:number;hardLimit:number}):BudgetGovernor{
@@ -72,11 +83,13 @@ export function budgetGovernor(input:{used:number;routineRemaining:number;remain
   const routineCeiling=Math.max(0,input.dailyCap-urgentReserve);
   const projectedDaily=Math.round(input.rollingThreeDays/3);
   const projectedEnd=input.used+projectedDaily*input.remainingDays;
-  const pressure:BudgetGovernor['pressure']=input.routineRemaining<=0||headroom===0?'EXHAUSTED':headroom<=urgentReserve?'RESERVE_ONLY':input.rollingDay>=routineCeiling*0.75?'PACED':'NORMAL';
+  const pressure:BudgetGovernor['pressure']=input.routineRemaining<=0||headroom===0?'EXHAUSTED':headroom<=urgentReserve?'RESERVE_ONLY':quotaPressure(input.rollingDay,input.dailyCap).state!=='NORMAL'?'PACED':'NORMAL';
   return {periodAllowance:Math.min(INTERNAL_LIMIT,input.hardLimit),routineAllowance:ROUTINE_LIMIT,used:input.used,remaining:Math.max(0,Math.min(INTERNAL_LIMIT,input.hardLimit)-input.used),
     routineRemaining:input.routineRemaining,remainingDays:Math.round(input.remainingDays*100)/100,rollingDay:input.rollingDay,dailyCap:input.dailyCap,headroom,
     projectedDailyRequests:projectedDaily,projectedEndOfPeriodUsage:Math.round(projectedEnd),projectedOverrun:projectedEnd>ROUTINE_LIMIT,
-    urgentReserve,recoveryReserve,discoveryReserve:DISCOVERY_RESERVE_REQUESTS,routineCeiling,routineHeadroom:Math.max(0,headroom-urgentReserve),pressure};
+    urgentReserve,recoveryReserve,discoveryReserve:DISCOVERY_RESERVE_REQUESTS,routineCeiling,routineHeadroom:Math.max(0,headroom-urgentReserve),pressure,
+    utilizationPct:quotaPressure(input.rollingDay,input.dailyCap).utilizationPct,quotaState:quotaPressure(input.rollingDay,input.dailyCap).state,
+    normalStop:Math.floor(input.dailyCap*NORMAL_STOP_FRACTION),controlledStop:Math.floor(input.dailyCap*CONTROLLED_STOP_FRACTION)};
 }
 /** Same paced daily ceiling the ledger enforces per reservation (rolling 24h of SCHEDULED billable requests). */
 export function routineDailyCap(routineRemaining:number,remainingDays:number):number {
@@ -85,14 +98,30 @@ export function routineDailyCap(routineRemaining:number,remainingDays:number):nu
 export async function reserveOddsRequest(tx:QueryExecutor,input:{id:string;jobId:string;endpoint:string;query:Record<string,string>;routine:boolean;unmetered:boolean}){
   await tx.query("SELECT pg_advisory_xact_lock(hashtext('livasports-m5-odds-budget'))");
   if(!input.unmetered){
+    const circuit=await tx.query(`WITH failures AS (
+      SELECT max(started_at) AS latest,count(*) AS n FROM odds_provider_requests
+      WHERE (http_status=429 OR http_status>=500 OR outcome='NETWORK_ERROR')
+        AND started_at>now()-interval '6 hours'
+        AND started_at>COALESCE((SELECT max(started_at) FROM odds_provider_requests WHERE billable AND outcome='SUCCEEDED'),'-infinity'::timestamptz)
+    ) SELECT EXISTS(SELECT 1 FROM odds_provider_requests WHERE http_status IN (401,403) AND started_at>now()-interval '6 hours')
+      OR EXISTS(SELECT 1 FROM failures WHERE latest+LEAST(360,15*power(2,LEAST(n-1,5)))*interval '1 minute'>now()) AS blocked`);
+    if(circuit.rows[0]?.blocked===true)throw new OddsBudgetStopped('ODDS_UPSTREAM_COOLDOWN');
+    if(input.endpoint==='/v4/odds-by-tournaments'){
+      const repeated=await tx.query(`SELECT EXISTS(SELECT 1 FROM odds_provider_requests WHERE endpoint=$1 AND safe_query->>'bookmaker'=$2
+        AND string_to_array(safe_query->>'tournamentIds',',') && string_to_array($3,',')
+        AND ((outcome='SUCCEEDED' AND started_at>now()-interval '5 minutes') OR
+          (http_status>=400 AND http_status<429 AND started_at>now()-interval '6 hours'))) AS blocked`,
+        [input.endpoint,input.query.bookmaker,input.query.tournamentIds]);
+      if(repeated.rows[0]?.blocked===true)throw new OddsBudgetStopped('ODDS_DUPLICATE_OR_FAILED_TARGET_COOLDOWN');
+    }
     const budget=await tx.query(`SELECT b.hard_limit,b.externally_consumed+(SELECT count(*) FROM odds_provider_requests r
       WHERE r.billable AND r.started_at>=b.period_start AND r.started_at<b.period_end) AS consumed,
-      (SELECT count(*) FROM odds_provider_requests r WHERE r.billable AND r.purpose='SCHEDULED' AND r.started_at>now()-interval '24 hours') AS rolling_day,
+      (SELECT count(*) FROM odds_provider_requests r WHERE r.billable AND r.started_at>now()-interval '24 hours') AS rolling_day,
       GREATEST(1,EXTRACT(EPOCH FROM (b.period_end-now()))/86400) AS remaining_days
       FROM odds_budget_baselines b WHERE now()>=period_start AND now()<period_end FOR UPDATE`);
     if(budget.rows.length!==1||Number(budget.rows[0].consumed)>=Math.min(input.routine?ROUTINE_LIMIT:INTERNAL_LIMIT,Number(budget.rows[0].hard_limit))||
-      (input.routine&&Number(budget.rows[0].rolling_day)>=Math.min(DAILY_ROUTINE_LIMIT,
-        Math.max(1,Math.floor((ROUTINE_LIMIT-Number(budget.rows[0].consumed))/Math.max(1,Number(budget.rows[0].remaining_days??1)))))))
+      (Number(budget.rows[0].rolling_day??0)>=Math.floor((input.routine?NORMAL_STOP_FRACTION:CONTROLLED_STOP_FRACTION)*routineDailyCap(
+        ROUTINE_LIMIT-Number(budget.rows[0].consumed),Number(budget.rows[0].remaining_days??1)))))
       throw new OddsBudgetStopped('ODDS_BUDGET_UNVERIFIED_OR_EXHAUSTED');
   }else{
     // Unmetered account is the ONLY permitted probe after expiry/exhaustion; bounded across restarts.

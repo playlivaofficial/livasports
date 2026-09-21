@@ -1,5 +1,6 @@
 import type { NormalizedOddsQuote, OddsMarket, OddsOutcome, OddsSnapshot, ProviderOddsFixture } from '@/odds/types';
 import { canonicalBookmakerSlug } from '@/odds/bookmaker';
+import {bookmakerConfig} from '@/odds/registry';
 
 type ObjectValue = Record<string,unknown>;
 const obj=(value:unknown):ObjectValue=>value&&typeof value==='object'&&!Array.isArray(value)?value as ObjectValue:{};
@@ -103,7 +104,7 @@ export function verifyCatalog(markets:unknown[],tournaments:unknown[]):void {
 }
 export function normalizeM5Snapshot(data:unknown,bookmaker:string,observedAt:string,tournamentIds:readonly string[],
   catalog:readonly {id:string;slug:string;category:string;canonical:string}[]=M5_TOURNAMENTS):OddsSnapshot {
-  if(!['betano.bet.br','betsson'].includes(canonicalBookmakerSlug(bookmaker)??bookmaker)||!isoUtc(observedAt)||!Array.isArray(data))throw new Error('Invalid pregame snapshot envelope');
+  if(!canonicalBookmakerSlug(bookmaker)||!isoUtc(observedAt)||!Array.isArray(data))throw new Error('Invalid pregame snapshot envelope');
   const result:OddsSnapshot={bookmaker:canonicalBookmakerSlug(bookmaker)??bookmaker,observedAt,fixtures:[],quotes:[],rejected:{},tournamentIds:[...tournamentIds]};
   const reject=(key:string)=>{result.rejected[key]=(result.rejected[key]??0)+1;};
   const seen=new Set<string>();
@@ -136,8 +137,10 @@ export function normalizeM5Snapshot(data:unknown,bookmaker:string,observedAt:str
         const stampInvalid=!updated||Date.parse(updated)>Date.parse(observedAt)+60000;
         // Listed decimals on a collected, active market stay current. OddsPapi currently marks every
         // Betsson fixture bookmakerIsActive=false and suspended=true while still returning independent prices.
+        const strictNewFeed=bookmakerConfig(result.bookmaker)?.providerFlagPolicy==='STRICT';
+        const suspended=market.marketActive!==true||(strictNewFeed&&(book.bookmakerIsActive!==true||book.suspended===true||price.active!==true));
         const status:NormalizedOddsQuote['status']=fixture.status!=='PREGAME'||Date.parse(kickoff)<=Date.parse(observedAt)?'CLOSED':
-          market.marketActive!==true?'SUSPENDED':stampInvalid?'STALE':'ACTIVE';
+          suspended?'SUSPENDED':stampInvalid?'STALE':'ACTIVE';
         if(stampInvalid)reject('MISSING_OR_FUTURE_TIMESTAMP');
         result.quotes.push({providerFixtureId:fixture.providerId,bookmaker:result.bookmaker,market:rule.market,outcome:outcome.code,line:rule.line,
           decimalOdds:String(n),status,scope:'FULL_TIME_REGULATION',phase:'PREGAME',providerUpdatedAt:updated,observedAt,sourceDomain:domain});

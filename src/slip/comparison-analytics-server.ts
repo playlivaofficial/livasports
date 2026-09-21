@@ -1,5 +1,6 @@
 import 'server-only';
 import type {QueryExecutor} from '@/database/client';
+import {isVisibleBookmaker} from '@/odds/registry';
 export const comparisonEvents=new Set(['slip_comparison_view','slip_bookmaker_complete','slip_bookmaker_partial','slip_best_price_view','slip_bookmaker_click']);
 export function parseComparisonEvent(body:Record<string,unknown>){
   if(!comparisonEvents.has(String(body.eventName))||(body.locale!=='br'&&body.locale!=='mx')||body.placement!=='slip-comparison'||
@@ -13,7 +14,7 @@ export function parseComparisonEvent(body:Record<string,unknown>){
   const aggregate=body.eventName==='slip_comparison_view';
   if(aggregate){if(['bookmaker','availableCount','complete'].some(k=>body[k]!==undefined))return null;}
   else{
-    if(!['betsson','betano.bet.br'].includes(String(body.bookmaker))||!Number.isInteger(body.availableCount)||Number(body.availableCount)<0||Number(body.availableCount)>Number(body.selectionCount)||typeof body.complete!=='boolean')return null;
+    if(!isVisibleBookmaker(String(body.bookmaker))||!Number.isInteger(body.availableCount)||Number(body.availableCount)<0||Number(body.availableCount)>Number(body.selectionCount)||typeof body.complete!=='boolean')return null;
     if(body.complete!==(Number(body.selectionCount)>0&&body.availableCount===body.selectionCount))return null;
     if(body.eventName==='slip_bookmaker_partial'?body.complete:!body.complete)return null;
   }

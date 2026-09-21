@@ -6,6 +6,7 @@ import {matchPath} from '@/match-center/routes';
 import {teamPath,playerPath} from '@/profiles/routes';
 import {pageType} from './policy';
 import type {Campaign,CommercialContext,PageContext} from './types';
+import {VISIBLE_BOOKMAKERS} from '@/odds/registry';
 
 export async function readCampaigns(db:QueryExecutor,locale:'br'|'mx'):Promise<Campaign[]>{
   const {rows}=await db.query(`SELECT ac.*,al.destination_url,al.enabled AS link_enabled,al.approved_at AS link_approved,
@@ -17,7 +18,7 @@ export async function readCampaigns(db:QueryExecutor,locale:'br'|'mx'):Promise<C
     FROM affiliate_campaigns ac JOIN affiliate_links al ON al.id=ac.affiliate_link_id
     JOIN bookmakers b ON b.id=al.bookmaker_id JOIN countries c ON c.id=al.country_id
     JOIN bookmaker_geo_availability g ON g.bookmaker_id=b.id AND g.country_id=c.id
-    WHERE c.iso2=$1 AND b.provider_slug IN ('betsson','betano.bet.br') ORDER BY ac.id LIMIT 65`,[locale.toUpperCase()]);
+    WHERE c.iso2=$1 AND b.provider_slug=ANY($2::text[]) ORDER BY ac.id LIMIT 65`,[locale.toUpperCase(),VISIBLE_BOOKMAKERS.map(b=>b.canonicalId)]);
   if(rows.length>64)throw Error('CAMPAIGN_LIMIT');
   return rows.map(r=>({id:r.id,operatorCampaignId:r.operator_campaign_id,linkId:r.affiliate_link_id,bookmaker:r.provider_slug,locale,
     enabled:r.enabled&&r.link_enabled&&r.bookmaker_enabled,approved:!!r.approved_at&&!!r.link_approved&&r.campaign_verified,

@@ -31,7 +31,7 @@ describe('M7 request/security boundary',()=>{
     expect(await currentSlipDestination('betano.bet.br',f.selections,'br',read,'BR')).toBeNull();
     expect(await currentSlipDestination('betsson',f.selections,'mx',read,'BR')).toBe(f.data.destinations.betsson);
     f.data.fixtures.get(f.selections[1].fixturePublicId)!.snapshot.quotes[0].status='SUSPENDED';
-    expect(await currentSlipDestination('betsson',f.selections,'br',read,'BR')).toBe(f.data.destinations.betsson);expect(read).toHaveBeenCalledTimes(4);expect(fetch).not.toHaveBeenCalled();
+    expect(await currentSlipDestination('betsson',f.selections,'br',read,'BR')).toBe(f.data.destinations.betsson);expect(read).toHaveBeenCalledTimes(3);expect(fetch).not.toHaveBeenCalled();
   });
   it('allows current proxy coverage but refuses expired, started, unconfigured or unapproved coverage',async()=>{
     for(const scenario of ['expired','started','partial','unconfigured','unapproved']){
@@ -64,7 +64,7 @@ describe('M7 request/security boundary',()=>{
       {provider_slug:'betano.bet.br',display_name:'Betano BR',affiliate_status:'PENDING',verification_state:'VERIFIED_BR',destination:'https://betano.bet.br/?partner=test-only',active_campaigns:[]},
       {provider_slug:'betsson',display_name:'Betsson',affiliate_status:'ACTIVE',verification_state:'VERIFIED_BR',destination:'https://betsson.bet.br/?partner=test-only',active_campaigns:[{type:'HOMEPAGE',placements:['slip_bookmaker_comparison'],domains:['betsson.bet.br']}]}]});
     const r=await readSlipComparison({query},comparisonFixture(2).selections.map(s=>s.fixturePublicId),null);
-    expect(query.mock.calls[1][1]).toEqual(['BR']);
+    expect(query.mock.calls[1][1]).toEqual(['BR',['betsson','sportingbet.bet.br','betboo.bet.br','betano.bet.br']]);
     expect(r.destinations).toEqual({});
     expect(r.bookmakers).toEqual([
       {bookmakerId:'betano.bet.br',displayName:'Betano BR',geoEligibility:{locale:'br',eligible:true},affiliateEligibility:{approved:false,destinationConfigured:false}},

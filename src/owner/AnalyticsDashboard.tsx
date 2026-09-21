@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import type {AnalyticsReport,RankedRow,ReportFilters} from '@/analytics/reporting';
 import {PAGE_TYPES,REFERRER_CLASSES} from '@/analytics/taxonomy';
+import {BOOKMAKER_REGISTRY} from '@/odds/registry';
 
 const pct=(v:number)=>`${v.toFixed(v%1?1:0)}%`;
 const ago=(iso:string|null)=>{if(!iso)return 'never';const m=Math.round((Date.now()-Date.parse(iso))/60000);return m<1?'just now':m<60?`${m} min ago`:m<1440?`${Math.round(m/60)} h ago`:`${Math.round(m/1440)} d ago`;};
@@ -23,7 +24,7 @@ export function AnalyticsDashboard({report}:{report:AnalyticsReport}){
       <input type="hidden" name="window" value={f.window}/>
       <label>Locale <select name="locale" defaultValue={f.locale??''}><option value="">all</option><option value="br">PT-BR</option><option value="mx">ES-MX</option><option value="en">EN</option></select></label>
       <label>GEO <select name="geo" defaultValue={f.geo??''}><option value="">all</option><option value="BR">BR</option><option value="MX">MX</option></select></label>
-      <label>Bookmaker <select name="bookmaker" defaultValue={f.bookmaker??''}><option value="">all</option><option value="betano.bet.br">Betano</option><option value="betsson">Betsson</option></select></label>
+      <label>Bookmaker <select name="bookmaker" defaultValue={f.bookmaker??''}><option value="">all</option>{BOOKMAKER_REGISTRY.map(b=><option key={b.canonicalId} value={b.canonicalId}>{b.shortLabel}{b.displayRole==='HIDDEN_INSURANCE'?' (historical / insurance)':''}</option>)}</select></label>
       <label>Competition <input name="competition" defaultValue={f.competition??''} placeholder="slug"/></label>
       <label>Landing page type <select name="pageType" defaultValue={f.pageType??''}><option value="">all</option>{PAGE_TYPES.map(p=><option key={p} value={p}>{p}</option>)}</select></label>
       <label>Source <select name="source" defaultValue={f.source??''}><option value="">all</option>{REFERRER_CLASSES.map(r=><option key={r} value={r}>{r}</option>)}</select></label>

@@ -5,6 +5,7 @@ import { inspectM5OfferFlags, M5_TOURNAMENTS, normalizeM5Snapshot } from './m5-n
 import type { CatalogTournament } from './tournament-catalog';
 import { MAX_TOURNAMENTS_PER_ODDSPAPI_REQUEST } from './request-limits';
 import {reserveOddsRequest,verifiedAccountPeriod} from '@/odds/budget';
+import {bookmakerConfig} from '@/odds/registry';
 
 type RequestKind='odds'|'account'|'tournaments';
 export class M5OddsPapiAdapter implements OddsProvider {
@@ -23,7 +24,7 @@ export class M5OddsPapiAdapter implements OddsProvider {
     const query:Record<string,string>=kind==='account'?{}:kind==='tournaments'?{sportId:'10',language:'en'}
       :{bookmaker,tournamentIds:tournamentIds.join(','),language:'en',verbosity:'3',oddsFormat:'decimal'};
     const allowed=this.allowedTournamentIds();
-    if(kind==='odds'&&(!['betano.bet.br','betsson'].includes(bookmaker)||!tournamentIds.length||tournamentIds.some(id=>!allowed.has(id))))throw new Error('OUT_OF_SCOPE_ODDS_REQUEST');
+    if(kind==='odds'&&(!bookmakerConfig(bookmaker)||!tournamentIds.length||tournamentIds.some(id=>!allowed.has(id))))throw new Error('OUT_OF_SCOPE_ODDS_REQUEST');
     if(kind==='odds'&&tournamentIds.length>MAX_TOURNAMENTS_PER_ODDSPAPI_REQUEST)throw new Error('ODDS_TOURNAMENT_BATCH_LIMIT');
     if(this.used>=this.runCap)throw new Error('ODDS_RUN_CAP_REACHED');
     if(Date.now()+35000>this.deadline)throw new Error('ODDS_RUN_DEADLINE');

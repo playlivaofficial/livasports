@@ -43,7 +43,7 @@ export async function resolveOffer(context:CommercialContext,deps:OfferDependenc
 export function publicOffer(offer:VerifiedOffer,key:string,now=Date.now(),embedPermission?:'anonymous'|'consent',qaSession?:string):PublicOffer{
   if(offer.creative?.delivery==='BETSSON_EMBED'&&!embedPermission)throw Error('EMBED_PRIVACY_PERMISSION_REQUIRED');
   const token=signOffer({v:1,viewId:randomUUID(),campaignId:offer.campaign.id,context:offer.context,expiresAt:offer.expiresAt,...(qaSession?{qaSession}:{}),...(offer.creative?.delivery==='BETSSON_EMBED'?{embedPermission}:{})},key);
-  const c=offer.creative;return {bookmaker:offer.campaign.bookmaker,placement:offer.context.placement,...(qaSession?{qaPreview:true}:{}),
+  const c=offer.creative;return {campaignId:offer.campaign.id,bookmaker:offer.campaign.bookmaker,placement:offer.context.placement,...(qaSession?{qaPreview:true}:{}),
     href:`/go/${offer.campaign.bookmaker}/${offer.context.placement}?offer=${token}`,token,expiresAt:new Date(offer.expiresAt).toISOString(),resolvedAt:new Date(now).toISOString(),
     destinationType:offer.campaign.destinationType,...(c?.delivery==='BETSSON_EMBED'?{embedPermission}:{}),creative:c?{id:c.id,placement:c.placement,locale:c.locale,imageUrl:c.imageUrl,imageAlt:c.imageAlt,width:c.width,height:c.height,...(c.delivery==='BETSSON_EMBED'?{delivery:'BETSSON_EMBED' as const}:{})}:null};
 }

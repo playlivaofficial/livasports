@@ -8,6 +8,8 @@ import {canonicalSelection,selectionKey,SLIP_SCOPE} from '@/slip/types';
 import {slipCopy,selectionLabel} from '@/slip/localization';
 import {AffiliateLink,commercialCopy} from '@/components/commercial/AffiliateLink';
 import {ApproximatePrice} from '@/components/odds/ApproximatePrice';
+import {BookmakerLogo} from '@/components/odds/BookmakerLogo';
+import type {BookmakerId} from '@/odds/registry';
 
 const copy={
   br:{title:'Compare as odds',pregame:'Pré-jogo · 90 minutos',markets:{MATCH_WINNER:'Resultado final',TOTAL_GOALS:'Gols · 2,5',BTTS:'Ambas marcam'},
@@ -65,13 +67,13 @@ export function PregameOdds({initial,context,fixturePublicId,uiLocale}:{initial:
     }}>{text.markets[key]}</button>)}</div>
     <div role="tabpanel" id="odds-market-panel" aria-labelledby={`odds-tab-${market}`}>
       {selected?.rows.length?<table className="pregame-table"><thead><tr><th scope="col">{text.house}</th>{SELECTIONS[market].map(outcome=><th scope="col" key={outcome}>{text.outcomes[outcome]}</th>)}<th scope="col">{text.action}</th></tr></thead>
-        <tbody>{selected.rows.map(row=><tr key={row.bookmaker}><th scope="row">{row.name}</th>{row.cells.map(cell=>{
+        <tbody>{selected.rows.map(row=><tr key={row.bookmaker}><th scope="row"><BookmakerLogo bookmaker={row.bookmaker} uiLocale={presentation} sources={row.cells} context={fixturePublicId?{locale:commercialLocale,placement:'match_odds_table',bookmaker:row.bookmaker as BookmakerId,fixturePublicId,market}:undefined}/></th>{row.cells.map(cell=>{
           const current=cellCurrent(cell);const best=current&&cell.best&&selected.rows.filter(r=>r.cells.some(c=>c.outcome===cell.outcome&&cellCurrent(c))).length>=2;
           const intent=canonicalSelection({fixturePublicId,market,outcome:cell.outcome,line:selected.line,scope:SLIP_SCOPE});
           const pressed=intent?saved.slip.selections.some(s=>selectionKey(s)===selectionKey(intent)):false;
           const priceLabel=current?new Intl.NumberFormat(presentation==='en'?'en-GB':presentation==='br'?'pt-BR':'es-MX',{minimumFractionDigits:2,maximumFractionDigits:2}).format(Number(cell.decimalOdds)):'—';
           const sourceTitle=cell.priceKind==='PROXY'&&cell.sourceBookmakerName?proxySource(cell.sourceBookmakerName):undefined;
-          return <td key={cell.outcome}>{current&&intent?<button type="button" className={`pregame-price slip-odds-button${best?' is-best':''}`} aria-pressed={pressed} disabled={!saved.ready}
+          return <td key={cell.outcome} data-outcome-label={text.outcomes[cell.outcome]}>{current&&intent?<button type="button" className={`pregame-price slip-odds-button${best?' is-best':''}`} aria-pressed={pressed} disabled={!saved.ready}
             data-price-kind={cell.priceKind??'UNAVAILABLE'} data-target-bookmaker={cell.targetBookmaker} data-source-bookmaker={cell.sourceBookmaker??undefined} data-source-quote={cell.sourceQuoteId??undefined} data-source-observed-at={cell.sourceObservedAt??undefined} title={sourceTitle}
             aria-label={`${pressed?slipText.selected:slipText.add}: ${slipText.markets[market]}, ${selectionLabel(intent,presentation)}, ${priceLabel}, ${approximateLabel}, ${row.name}${sourceTitle?`, ${sourceTitle}`:''}`}
             onClick={()=>addSlipSelection(intent,commercialLocale,cell.expiresAt!,row.bookmaker,{targetBookmaker:cell.targetBookmaker,priceKind:cell.priceKind!,sourceBookmaker:cell.sourceBookmaker!,...(cell.sourceQuoteId?{sourceQuoteId:cell.sourceQuoteId}:{}),sourceObservedAt:cell.sourceObservedAt!})}>{pressed?<span className="slip-selected-indicator" aria-hidden="true">✓</span>:null}<ApproximatePrice value={priceLabel} label={approximateLabel}/>{best?<span className="sr-only"> {text.best}</span>:null}</button>:

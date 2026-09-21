@@ -17,7 +17,8 @@ export function resolveSelection(selection:CanonicalSelection,read:SlipFixtureRe
   const active=candidates.filter(c=>c.cell.decimalOdds!==null&&c.cell.expiresAt!==null).sort((a,b)=>Number(b.cell.decimalOdds)-Number(a.cell.decimalOdds)||a.row.bookmaker.localeCompare(b.row.bookmaker));
   const first=active[0];
   if(first)return {...result,state:'CURRENT',reason:null,closesAt:comparison.closesAt??fixture.kickoff,price:{
-    decimalOdds:first.cell.decimalOdds!,bookmaker:first.row.bookmaker,bookmakerName:first.row.name,best:first.cell.best&&active.length>=2,expiresAt:first.cell.expiresAt!}};
+    decimalOdds:first.cell.decimalOdds!,bookmaker:first.row.bookmaker,bookmakerName:first.row.name,best:first.cell.best&&active.length>=2,expiresAt:first.cell.expiresAt!,
+    priceKind:first.cell.priceKind??undefined,sourceBookmaker:first.cell.sourceBookmaker??undefined,sourceQuoteId:first.cell.sourceQuoteId??undefined,sourceObservedAt:first.cell.sourceObservedAt??undefined}};
   if(!comparison.rows.length)return {...result,reason:snapshot.quotes.length?'NO_VERIFIED_GEO':'NO_QUOTE'};
   const state=candidates.some(c=>c.cell.state==='STALE')?'STALE':candidates.some(c=>c.cell.state==='SUSPENDED')?'SUSPENDED':
     candidates.some(c=>c.cell.state==='CLOSED')?'CLOSED':'UNAVAILABLE';

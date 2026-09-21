@@ -1,8 +1,11 @@
-export const CANONICAL_BOOKMAKERS = ['betano.bet.br', 'betsson'] as const;
+import {SOURCE_BOOKMAKER_IDS} from './registry';
+export const CANONICAL_BOOKMAKERS = SOURCE_BOOKMAKER_IDS;
 export type CanonicalBookmaker = typeof CANONICAL_BOOKMAKERS[number];
 export type BookmakerParityKey = 'betano' | 'betsson';
 
 const ALIASES: Record<string, CanonicalBookmaker> = {
+  'sportingbet.bet.br':'sportingbet.bet.br',
+  'betboo.bet.br':'betboo.bet.br',
   'betano.bet.br': 'betano.bet.br',
   betano: 'betano.bet.br',
   'betano.br': 'betano.bet.br',

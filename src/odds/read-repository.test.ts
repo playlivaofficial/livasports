@@ -35,7 +35,7 @@ describe('DB-only odds navigation',()=>{
     const match=await readOddsSnapshot({query},fixtureId,geo);
     const listing=(await readListingOddsSnapshots({query},[fixtureId],geo)).get(fixtureId)!;
     const saved=(await readPublicOddsFixtures({query},[publicId],geo)).get(publicId)!.snapshot;
-    for(const snapshot of [match,listing,saved])expect(buildComparison(snapshot,'MATCH_WINNER',now).rows.map(r=>r.cells[0].decimalOdds)).toEqual(['2.12345678','2.20']);
+    for(const snapshot of [match,listing,saved])expect(buildComparison(snapshot,'MATCH_WINNER',now).rows.map(r=>r.cells[0].decimalOdds)).toEqual(['2.20','2.12345678','2.12345678']);
     expect(match.destinations).toEqual(geo==='BR'?{betsson:betsson.destination}:{});
     expect(query).toHaveBeenCalledTimes(3);
     expect(query.mock.calls[1][0]).toContain("o.market_code='MATCH_WINNER'");
@@ -59,6 +59,6 @@ describe('DB-only odds navigation',()=>{
   });
   it.each([{geo_eligible:false},{verification_state:'GENERIC_UNVERIFIED'},{active_campaigns:[]},{destination:null}])('requires active commercial approval %j',async override=>{
     const snapshot=await readOddsSnapshot({query:vi.fn().mockResolvedValue({rows:[{...betsson,...override}]})},fixtureId,'BR');
-    expect(buildComparison(snapshot,'MATCH_WINNER',now).eligiblePrices).toBe(2);expect(snapshot.destinations).toEqual({});
+    expect(buildComparison(snapshot,'MATCH_WINNER',now).eligiblePrices).toBe(3);expect(snapshot.destinations).toEqual({});
   });
 });

@@ -38,7 +38,7 @@ export function safeSchedulerError(error:unknown):string {
   try{const e=JSON.parse(message);if(Number.isInteger(e.status))return `ODDSPAPI_HTTP_${e.status}`;}catch{/* Only allowlisted codes are persisted. */}
   return 'ODDS_REFRESH_FAILED';
 }
-export async function schedulerPlan(db:DatabaseClient,now=new Date(),tournaments:readonly CatalogTournament[]=[]){
+export async function schedulerInputs(db:DatabaseClient,tournaments:readonly CatalogTournament[]=[]){
   const [budget,fixtures,records]=await Promise.all([budgetHealth(db),canonicalFixtures(db),db.query(`SELECT b.provider_slug,
     EXISTS(SELECT 1 FROM bookmaker_geo_availability g WHERE g.bookmaker_id=b.id AND g.odds_enabled AND g.comparison_enabled
       AND g.verified_at IS NOT NULL AND g.verification_state IN ('VERIFIED_BR','VERIFIED_MX','VERIFIED_BR_MX')) AS public_eligible,
@@ -54,17 +54,19 @@ export async function schedulerPlan(db:DatabaseClient,now=new Date(),tournaments
         AND o.observed_at+(o.freshness_ttl_minutes*interval '1 minute')>now()
         AND o.provider_kickoff IS NOT NULL AND abs(extract(epoch FROM (f.kickoff-o.provider_kickoff)))<=600
         AND f.status='SCHEDULED' AND f.kickoff>now() AND f.kickoff<=now()+interval '7 days') AS useful_coverage
-    FROM bookmakers b LEFT JOIN odds_refresh_targets t ON t.bookmaker=b.provider_slug WHERE b.provider_slug IN ('betano.bet.br','betsson')`)]);
+    FROM bookmakers b LEFT JOIN odds_refresh_targets t ON t.bookmaker=b.provider_slug WHERE b.enabled AND b.provider_slug=ANY($1::text[])`,[SCHEDULER_BOOKMAKERS])]);
   const catalog=tournaments.length?tournaments:schedulerTournaments([]);
   const targets:RefreshTarget[]=SCHEDULER_BOOKMAKERS.flatMap(bookmaker=>catalog.map(t=>{
     const row=records.rows.find(r=>r.provider_slug===bookmaker&&r.tournament_id===t.id);
-    return {bookmaker,tournamentId:t.id,fixtures:fixtures.filter(f=>f.competition===t.canonical),publicEligible:row?.public_eligible===true,
+    const source=records.rows.find(r=>r.provider_slug===bookmaker);
+    return {bookmaker,tournamentId:t.id,fixtures:source?fixtures.filter(f=>f.competition===t.canonical):[],publicEligible:source?.public_eligible===true,
       hasUsefulCoverage:row?.useful_coverage===true,lastSuccessAt:row?.last_success_at?.toISOString()??null,retryAfter:row?.retry_after?.toISOString()??null,
       lastError:typeof row?.last_error==='string'?row.last_error:null,needsCadenceRefresh:row?.needs_cadence_refresh===true,
       lastAttemptAt:row?.last_attempt_at?.toISOString?.()??null,consecutiveFailures:Number(row?.consecutive_failures??0)};
   }));
-  return planScheduler(targets,now,budget);
+  return {targets,budget};
 }
+export async function schedulerPlan(db:DatabaseClient,now=new Date(),tournaments:readonly CatalogTournament[]=[]){const {targets,budget}=await schedulerInputs(db,tournaments);return planScheduler(targets,now,budget);}
 async function persistCatalogCompetitionMappings(db:DatabaseClient,tournaments:readonly CatalogTournament[]){
   if(!tournaments.length)return;
   await db.query(`INSERT INTO provider_entity_mappings(provider,entity_type,provider_entity_id,livasports_entity_id,metadata)
@@ -75,7 +77,8 @@ async function persistCatalogCompetitionMappings(db:DatabaseClient,tournaments:r
 }
 export async function runOddsScheduler(db:DatabaseClient,key:string,trigger:'CONTROLLED'|'AUTOMATIC'='CONTROLLED'){
   const job=await startOddsJob(db);const started=Date.now();
-  const provider=new M5OddsPapiAdapter(db,key,job,6,true,started+140000);
+  // Durable target backoff replaces immediate automatic retries; one failing upstream cannot consume the run.
+  const provider=new M5OddsPapiAdapter(db,key,job,6,true,started+140000,undefined,0);
   let state:SchedulerState='SUCCEEDED';let errorCode:string|null=null;
   const results:Array<Record<string,unknown>>=[];let recovered=0;let catalogExpanded=false;const integrity:IntegrityFinding[]=[];
   let tournaments:CatalogTournament[]=schedulerTournaments([]);
@@ -156,6 +159,8 @@ export async function runOddsScheduler(db:DatabaseClient,key:string,trigger:'CON
             }catch{/* Retry-target CHECK failures must not replace the provider status. */}
           }
           if(!isolatedEmpty)state=results.length?'PARTIAL':'FAILED';
+          // Account-wide outage/auth/rate-limit: stop this tick, do not fan out to other feeds.
+          if(errorCode==='ODDSPAPI_HTTP_429'||errorCode==='ODDSPAPI_HTTP_401'||errorCode==='ODDSPAPI_HTTP_403'||/^ODDSPAPI_HTTP_5\d\d$/.test(errorCode??'')||errorCode==='ODDS_RUN_CAP_REACHED'||errorCode==='ODDS_RUN_DEADLINE')break;
         }
       }
       if(state==='FAILED'&&results.length)state='PARTIAL';

@@ -105,7 +105,7 @@ export function bridgeLegacyEvent(payload:Record<string,unknown>):void{
       case 'odds_module_view':track('odds_visible',common,{dedupeKey:`${fixture}:${common.placement}`});break;
       case 'odds_bookmaker_click':case 'affiliate_outbound_click':track('affiliate_cta_clicked',common,{dedupeKey:`${fixture}:${bookmaker}:${common.market}:${Date.now()>>12}`});break;
       case 'slip_selection_add':case 'slip_selection_replace':
-        track('odds_selected',{...common,priceKind:payload.priceKind as EventEntities['priceKind'],slipLegCount:legs},{dedupeKey:`${fixture}:${common.market}:${common.outcome}:${legs}`});
+        track('odds_selected',{...common,sourceBookmaker:payload.sourceBookmaker as EventEntities['sourceBookmaker'],priceKind:payload.priceKind as EventEntities['priceKind'],slipLegCount:legs},{dedupeKey:`${fixture}:${common.market}:${common.outcome}:${legs}`});
         if(legs===1&&name==='slip_selection_add')track('slip_created',{slipLegCount:1},{dedupeKey:`created:${Date.now()>>14}`});
         if(name==='slip_selection_add')track('slip_leg_added',{...common,slipLegCount:legs},{dedupeKey:`leg:${fixture}:${common.market}:${legs}`});break;
       case 'slip_selection_remove':track('slip_leg_removed',{...common,slipLegCount:legs});break;

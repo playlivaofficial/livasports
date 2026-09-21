@@ -1,12 +1,13 @@
 import type {SelectionQuote} from './comparison-types';
 import {slipCopy,type SlipUiLocale} from './localization';
+import {bookmakerConfig} from '@/odds/registry';
 
 export const comparisonCopy={
-  br:{title:'Comparar casas',intro:'As mesmas seleções, com todas as odds de uma única casa.',jump:'Comparar casas ↓',
+  br:{title:'Comparar casas',intro:'As mesmas seleções por casa. Preços estimados identificam a fonte.',jump:'Comparar casas ↓',
     checking:'Consultando a comparação…',unavailable:'Comparação temporariamente indisponível. Tentaremos novamente.',
     empty:'Adicione seleções para comparar casas.',one:'Uma seleção: a odd combinada corresponde à sua odd individual.',
     noBookmaker:'Nenhuma casa verificada para comparação nesta região.',available:'Seleções disponíveis',combined:'Odd combinada',
-    complete:'Todas as seleções disponíveis',partial:'Indisponível para este cupom completo',none:'Nenhuma seleção com preço atual',
+    complete:'Todas as seleções disponíveis',estimatedComplete:'Completo com preços estimados',partial:'Indisponível para este cupom completo',none:'Nenhuma seleção com preço atual',
     missing:'Faltam',best:'Melhor retorno para este cupom',bestEstimated:'Melhor retorno estimado',tie:'Empate no melhor retorno para este cupom',tieEstimated:'Empate no melhor retorno estimado',
     noTotal:'Indisponível para o cupom completo.',cta:'Ver odds',destination:'Abre o site da casa. Confira as seleções e as odds lá.',
     gated:'Link da casa indisponível.',disclosure:'Podemos receber comissão pelo link. Isso não altera a comparação.',
@@ -19,11 +20,11 @@ export const comparisonCopy={
     marketUnavailableAt:(name:string)=>`Mercado indisponível na ${name}`,
     selectionUnavailableAt:(name:string)=>`Seleção indisponível na ${name}`,
     missingCount:(n:number)=>n===1?'Falta:':`Faltam ${n}:`},
-  mx:{title:'Comparar casas',intro:'Las mismas selecciones, con todas las cuotas de una sola casa.',jump:'Comparar casas ↓',
+  mx:{title:'Comparar casas',intro:'Las mismas selecciones por casa. Las cuotas estimadas indican su fuente.',jump:'Comparar casas ↓',
     checking:'Consultando la comparación…',unavailable:'Comparación temporalmente no disponible. Volveremos a intentarlo.',
     empty:'Agrega selecciones para comparar casas.',one:'Una selección: la cuota combinada corresponde a su cuota individual.',
     noBookmaker:'No hay casas verificadas para comparar en esta región.',available:'Selecciones disponibles',combined:'Cuota combinada',
-    complete:'Todas las selecciones disponibles',partial:'No disponible para este cupón completo',none:'Ninguna selección con cuota vigente',
+    complete:'Todas las selecciones disponibles',estimatedComplete:'Completo con cuotas estimadas',partial:'No disponible para este cupón completo',none:'Ninguna selección con cuota vigente',
     missing:'Faltan',best:'Mejor retorno para este cupón',bestEstimated:'Mejor retorno estimado',tie:'Empate en el mejor retorno para este cupón',tieEstimated:'Empate en el mejor retorno estimado',
     noTotal:'No disponible para el cupón completo.',cta:'Ver cuotas',destination:'Abre el sitio de la casa. Revisa las selecciones y las cuotas allí.',
     gated:'Enlace de la casa no disponible.',disclosure:'Podemos recibir una comisión por el enlace. Esto no altera la comparación.',
@@ -36,11 +37,11 @@ export const comparisonCopy={
     marketUnavailableAt:(name:string)=>`Mercado no disponible en ${name}`,
     selectionUnavailableAt:(name:string)=>`Selección no disponible en ${name}`,
     missingCount:(n:number)=>n===1?'Falta:':`Faltan ${n}:`},
-  en:{title:'Compare bookmakers',intro:'The same selections, using every price from a single bookmaker.',jump:'Compare bookmakers ↓',
+  en:{title:'Compare bookmakers',intro:'The same selections by bookmaker. Estimated prices identify their source.',jump:'Compare bookmakers ↓',
     checking:'Loading the comparison…',unavailable:'Comparison is temporarily unavailable. We will try again.',
     empty:'Add selections to compare bookmakers.',one:'One selection: combined odds match that individual price.',
     noBookmaker:'No verified bookmakers to compare in this region.',available:'Available selections',combined:'Combined odds',
-    complete:'Every selection available',partial:'Unavailable for this complete slip',none:'No selection with a current price',
+    complete:'Every selection available',estimatedComplete:'Complete with estimated prices',partial:'Unavailable for this complete slip',none:'No selection with a current price',
     missing:'Missing',best:'Best return for this slip',bestEstimated:'Best estimated return',tie:'Tied best return for this slip',tieEstimated:'Tied best estimated return',
     noTotal:'Unavailable for complete slip',cta:'View odds',destination:'Opens the bookmaker site. Check the selections and odds there.',
     gated:'Bookmaker link unavailable.',disclosure:'We may receive a commission from the link. That does not change the comparison.',
@@ -56,9 +57,7 @@ export const comparisonCopy={
 } satisfies Record<SlipUiLocale,{summary:(complete:number,total:number)=>string;missingCount:(n:number)=>string;marketUnavailableAt:(name:string)=>string;selectionUnavailableAt:(name:string)=>string;proxyBasedOn:(name:string)=>string;ctaAt:(name:string)=>string;[key:string]:unknown}>;
 
 export function bookmakerShortName(bookmakerId:string,displayName:string):string {
-  if(bookmakerId==='betano.bet.br'||/^betano/i.test(displayName))return 'Betano';
-  if(bookmakerId==='betsson'||/^betsson/i.test(displayName))return 'Betsson';
-  return displayName;
+  return bookmakerConfig(bookmakerId)?.shortLabel??displayName;
 }
 
 /** Human copy for an incomplete bookmaker leg. Never maps a missing quote to “Market closed”. */

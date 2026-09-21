@@ -5,7 +5,7 @@ const target=(hours:number,overrides:Partial<RefreshTarget>={}):RefreshTarget=>(
   publicEligible:true,hasUsefulCoverage:true,lastSuccessAt:'2026-09-30T20:00:00Z',retryAfter:null,
   fixtures:[{id:'real-shape-test-only',kickoff:new Date(now.getTime()+hours*3600000).toISOString(),status:'SCHEDULED'}],...overrides});
 describe('shared adaptive pregame scheduler',()=>{
-  it.each([[240,'FAR_FUTURE',720],[72,'FAR_FUTURE',360],[24,'WITHIN_48H',120],[6,'WITHIN_12H',60],[1,'WITHIN_2H',15],[0.1,'FINAL_PREGAME',15]])('classifies %sh conservatively',(hours,tier,minutes)=>{
+  it.each([[240,'NO_UPCOMING',null],[72,'FAR_FUTURE',360],[24,'WITHIN_48H',120],[6,'WITHIN_12H',120],[1,'WITHIN_2H',15],[0.1,'FINAL_PREGAME',15]])('classifies %sh conservatively',(hours,tier,minutes)=>{
     expect(planTarget(target(Number(hours)),1,now)).toMatchObject({tier,intervalMinutes:minutes});
   });
   it('excludes exact kickoff, past and terminal matches even if the DB status lags',()=>{
@@ -63,7 +63,7 @@ describe('shared adaptive pregame scheduler',()=>{
     expect(2*48*31).toBe(2976);
   });
   it('keeps public freshness at least one tick beyond each paid interval so scheduled quotes do not vanish between ticks',()=>{
-    for(const [hours,feeds,interval] of [[1,1,15],[1,2,30],[6,1,60],[24,1,120],[72,1,360]] as const){
+    for(const [hours,feeds,interval] of [[1,1,15],[1,2,30],[6,1,120],[24,1,120],[72,1,360],[100,4,720]] as const){
       expect(cadenceIntervalMinutes(hours,feeds)).toBe(interval);
       expect(freshnessTtlMs(hours,feeds)).toBe((interval+5)*60000);
     }
@@ -87,7 +87,7 @@ describe('shared adaptive pregame scheduler',()=>{
   });
   describe('rolling-day pacing (P0 incident: burst-then-starve ticks left same-day fixtures stale)',()=>{
     const budget={verified:true,routineRemaining:2970,period_end:new Date(now.getTime()+14*86400000)};
-    const old=new Date(now.getTime()-4*3600000).toISOString();
+    const old=new Date(now.getTime()-12*3600000).toISOString();
     // stable four far out (routine), one proven expanded feed kicking off in 6h (urgent), one recovery probe, both bookmakers.
     const feeds=['betano.bet.br','betsson'].flatMap(bookmaker=>[
       target(40,{bookmaker,tournamentId:'325',lastSuccessAt:old}),target(40,{bookmaker,tournamentId:'17',lastSuccessAt:old}),
@@ -98,20 +98,18 @@ describe('shared adaptive pregame scheduler',()=>{
       expect(p.pacing).toMatchObject({headroom:null,routineHeadroom:null,deferredBatches:0});expect(p.batches.length).toBe(6);
     });
     it('never attempts more requests than the live headroom and spends them on the most imminent batches first',()=>{
-      const p=planScheduler(feeds,now,{...budget,dailyCap:210,rollingDay:209});
+      const p=planScheduler(feeds,now,{...budget,dailyCap:210,rollingDay:167});
       expect(p.maximumBillableRequests).toBe(1);expect(p.batches[0]).toMatchObject({tournamentIds:['35'],urgent:true});
-      expect(p.pacing).toMatchObject({headroom:1,routineHeadroom:0,plannedBatches:6,deferredBatches:5,urgentBatches:1});
+      expect(p.pacing).toMatchObject({headroom:1,routineHeadroom:1,plannedBatches:6,deferredBatches:5,urgentBatches:1});
     });
-    it('keeps the reserve for urgent batches: routine stable refreshes stop at the reserve line, urgent and recovery ones continue',()=>{
+    it('preserves emergency reserve even for automatic urgent batches at 80 percent',()=>{
       const p=planScheduler(feeds,now,{...budget,dailyCap:210,rollingDay:180});
-      expect(p.pacing).toMatchObject({headroom:30,routineHeadroom:0});
-      expect(p.batches.every(b=>b.urgent)).toBe(true);
-      expect(p.batches.map(b=>b.tournamentIds)).toEqual(expect.arrayContaining([['35'],['53']]));
-      expect(p.batches.some(b=>b.tournamentIds.includes('325'))).toBe(false);
+      expect(p.pacing).toMatchObject({headroom:0,routineHeadroom:0});
+      expect(p.batches).toEqual([]);
     });
     it('plans routine batches again once the rolling spend is below the reserve line',()=>{
       const p=planScheduler(feeds,now,{...budget,dailyCap:210,rollingDay:100});
-      expect(p.pacing).toMatchObject({headroom:110,routineHeadroom:68,deferredBatches:0});
+      expect(p.pacing).toMatchObject({headroom:68,routineHeadroom:68,deferredBatches:0});
       expect(p.batches.some(b=>b.tournamentIds.includes('325'))).toBe(true);
       // urgent batches still lead the tick so a late ledger refusal never lands on an imminent fixture.
       expect(p.batches[0].urgent).toBe(true);

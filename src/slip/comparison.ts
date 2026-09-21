@@ -4,6 +4,8 @@ import type {SlipFixtureRead} from './resolution';
 import type {CanonicalSelection} from './types';
 import type {BookmakerAvailabilityState,BookmakerConfig,BookmakerSlip,ComparisonDiagnostic,SelectionQuote,SlipComparison,ComparisonState} from './comparison-types';
 import {compareDecimal,multiplyDecimalOdds,validDecimalOdds} from './decimal';
+import {BOOKMAKER_REGISTRY,isVisibleBookmaker,bookmakerConfig} from '@/odds/registry';
+import {resolveInsurance} from '@/odds/insurance';
 
 function diagnosticForState(state:SelectionQuote['state'],reason:SelectionQuote['reason']):ComparisonDiagnostic {
   if(state==='CURRENT')return 'COMPLETE';
@@ -82,7 +84,7 @@ function summarize(config:BookmakerConfig,quotes:SelectionQuote[]):BookmakerSlip
   const combined=available===quotes.length?multiplyDecimalOdds(quotes.map(q=>q.decimalOdds!)):null;
   const complete=quotes.length>0&&available===quotes.length&&combined!==null;
   const affiliate=config.affiliateEligibility.approved&&config.affiliateEligibility.destinationConfigured;
-  return {...config,requiredSelectionCount:quotes.length,availableSelectionCount:available,realSelectionCount,proxySelectionCount,
+  return {...config,priceClassification:complete?(proxySelectionCount?'ESTIMATED_COMPLETE':'REAL_COMPLETE'):'INCOMPLETE',requiredSelectionCount:quotes.length,availableSelectionCount:available,realSelectionCount,proxySelectionCount,
     missingSelections:quotes.filter(q=>q.state==='UNAVAILABLE'&&q.reason!=='INVALID_QUOTE'),
     invalidSelections:quotes.filter(q=>q.state!=='CURRENT'&&(q.state!=='UNAVAILABLE'||q.reason==='INVALID_QUOTE')),
     complete,estimated:proxySelectionCount>0,availabilityState:bookmakerAvailabilityState(quotes,complete),selectionQuotes:quotes,combinedDecimalOdds:complete?combined:null,best:false,tiedBest:false,
@@ -90,8 +92,9 @@ function summarize(config:BookmakerConfig,quotes:SelectionQuote[]):BookmakerSlip
 }
 function finish(locale:SiteLocale,count:number,bookmakers:BookmakerSlip[],generatedAt=new Date().toISOString()):SlipComparison {
   const complete=bookmakers.filter(b=>b.complete);
-  if(complete.length>=1){const highest=complete.reduce((a,b)=>compareDecimal(a.combinedDecimalOdds!,b.combinedDecimalOdds!)>=0?a:b).combinedDecimalOdds!;
-    const winners=complete.filter(b=>compareDecimal(b.combinedDecimalOdds!,highest)===0);
+  const realComplete=complete.filter(b=>!b.estimated);
+  if(realComplete.length>=1){const highest=realComplete.reduce((a,b)=>compareDecimal(a.combinedDecimalOdds!,b.combinedDecimalOdds!)>=0?a:b).combinedDecimalOdds!;
+    const winners=realComplete.filter(b=>compareDecimal(b.combinedDecimalOdds!,highest)===0);
     for(const b of winners){b.best=true;b.tiedBest=winners.length>1;}
   }
   const quotes=bookmakers.flatMap(b=>b.selectionQuotes);const states:ComparisonState[]=[];
@@ -110,14 +113,17 @@ function finish(locale:SiteLocale,count:number,bookmakers:BookmakerSlip[],genera
   return {version:1,locale,states,bookmakers,expiresAt:times.length?new Date(Math.min(...times)).toISOString():null,generatedAt};
 }
 function eligibleBookmaker(b:BookmakerConfig){
-  return b.geoEligibility.eligible&&(b.bookmakerId==='betsson'||(b.bookmakerId==='betano.bet.br'&&b.geoEligibility.locale==='br'));
+  return b.geoEligibility.eligible&&isVisibleBookmaker(b.bookmakerId);
 }
 export function buildSlipComparison(selections:CanonicalSelection[],locale:SiteLocale,fixtures:Map<string,SlipFixtureRead>,configs:BookmakerConfig[],now=Date.now()):SlipComparison {
-  const eligible=configs.filter(eligibleBookmaker);
-  const native=selections.length?eligible.map(config=>({config,quotes:selections.map(s=>selectionQuote(s,fixtures.get(s.fixturePublicId)??null,config.bookmakerId,now))})):[];
-  const withProxies=native.map(({config,quotes},targetIndex)=>({config,quotes:quotes.map((targetQuote,selectionIndex)=>{
+  const eligible=configs.filter(eligibleBookmaker).sort((a,b)=>bookmakerConfig(a.bookmakerId)!.displayOrder-bookmakerConfig(b.bookmakerId)!.displayOrder);
+  const sourceQuotes=new Map(BOOKMAKER_REGISTRY.map(book=>[book.canonicalId as string,selections.map(s=>selectionQuote(s,fixtures.get(s.fixturePublicId)??null,book.canonicalId,now))]));
+  const native=selections.length?eligible.map(config=>({config,quotes:sourceQuotes.get(config.bookmakerId)!})):[];
+  const withProxies=native.map(({config,quotes})=>({config,quotes:quotes.map((targetQuote,selectionIndex)=>{
     if(targetQuote.state==='CURRENT')return targetQuote;
-    const source=native.find((candidate,index)=>index!==targetIndex&&candidate.quotes[selectionIndex]?.state==='CURRENT'&&candidate.quotes[selectionIndex]?.priceKind==='REAL')?.quotes[selectionIndex];
+    const source=resolveInsurance(config.bookmakerId,[...sourceQuotes].map(([bookmaker,quotes])=>({bookmaker,
+      current:quotes[selectionIndex].state==='CURRENT',priceKind:quotes[selectionIndex].priceKind,
+      decimalOdds:quotes[selectionIndex].decimalOdds,value:quotes[selectionIndex]}))).candidate?.value;
     if(!source?.decimalOdds||!source.sourceBookmakerId||!source.sourceBookmakerName||!source.sourceQuoteId||!source.sourceObservedAt)return targetQuote;
     return withDiagnostic({...targetQuote,state:'CURRENT',reason:null,decimalOdds:source.decimalOdds,expiresAt:source.expiresAt,closesAt:source.closesAt,priceKind:'PROXY',sourceBookmakerId:source.sourceBookmakerId,sourceBookmakerName:source.sourceBookmakerName,sourceQuoteId:source.sourceQuoteId,sourceObservedAt:source.sourceObservedAt},'PROXY_QUOTE');
   })}));

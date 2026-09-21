@@ -1,15 +1,14 @@
 import type {QueryExecutor} from '@/database/client';
 import type {FixtureView,M2PageData,MarketOddsView} from '@/delivery/types';
 import {FixtureStatus,MarketCode,OutcomeCode} from '@/domain/enums';
-import {buildComparison} from './comparison';
+import {buildComparison,quoteState} from './comparison';
 import {readListingOddsSnapshots} from './read-repository';
 import {SELECTIONS,type OddsReadSnapshot} from './types';
 import type {CommercialGeo} from './commercial-geo';
+import {bookmakerConfig,VISIBLE_BOOKMAKERS,type BookmakerDisplayName} from './registry';
 
-function listingBookmaker(slug:string,name:string):'Betano BR'|'Betsson'|null {
-  if(slug==='betano.bet.br'||name==='Betano BR')return 'Betano BR';
-  if(slug==='betsson'||name==='Betsson')return 'Betsson';
-  return null;
+function listingBookmaker(slug:string):BookmakerDisplayName|null {
+  const book=bookmakerConfig(slug);return book?.displayRole==='VISIBLE_PRIMARY'?book.displayName:null;
 }
 
 export function listingMatchWinnerOdds(snapshot:OddsReadSnapshot,now=Date.now()):Pick<FixtureView,'odds'|'oddsState'> {
@@ -18,7 +17,7 @@ export function listingMatchWinnerOdds(snapshot:OddsReadSnapshot,now=Date.now())
     outcome:outcome as OutcomeCode,
     prices:comparison.rows.flatMap(row=>{
       const cell=row.cells.find(item=>item.outcome===outcome);
-      const bookmaker=listingBookmaker(row.bookmaker,row.name);
+      const bookmaker=listingBookmaker(row.bookmaker);
       if(!cell||cell.state!=='ACTIVE'||!cell.decimalOdds||!bookmaker)return [];
       const decimalOdds=Number(cell.decimalOdds);
       if(!Number.isFinite(decimalOdds))return [];
@@ -31,8 +30,8 @@ export function listingMatchWinnerOdds(snapshot:OddsReadSnapshot,now=Date.now())
   const odds:MarketOddsView[]=outcomes.some(outcome=>outcome.prices.length)
     ?[{market:MarketCode.MATCH_WINNER,line:null,outcomes}]:[];
   const activeBooks=new Set(outcomes.flatMap(outcome=>outcome.prices.map(price=>price.bookmaker)));
-  const stale=comparison.rows.some(row=>row.cells.some(cell=>cell.state==='STALE'));
-  const oddsState=activeBooks.size>=2?'complete':activeBooks.size===1?'partial':stale?'stale':'none';
+  const stale=snapshot.quotes.some(q=>q.geoEligible&&q.market==='MATCH_WINNER'&&quoteState(q,snapshot,now)==='STALE');
+  const oddsState=activeBooks.size>=VISIBLE_BOOKMAKERS.length?'complete':activeBooks.size>0?'partial':stale?'stale':'none';
   return {odds,oddsState};
 }
 

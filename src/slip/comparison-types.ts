@@ -28,6 +28,7 @@ export interface SelectionQuote {
   sourceObservedAt:string|null;
 }
 export interface BookmakerSlip extends BookmakerConfig {
+  priceClassification:'REAL_COMPLETE'|'ESTIMATED_COMPLETE'|'INCOMPLETE';
   requiredSelectionCount:number;
   availableSelectionCount:number;
   realSelectionCount:number;

@@ -7,6 +7,7 @@ import {parseResolutionRequest,type CanonicalSelection} from './types';
 import {boundedJson} from './server';
 import {ComparisonLoader} from './comparison-loader';
 import {buildSlipComparison} from './comparison';
+import {isVisibleBookmaker} from '@/odds/registry';
 
 const headers={'Cache-Control':'private, no-store','X-Robots-Tag':'noindex','Referrer-Policy':'no-referrer'};
 let db:PostgresDatabaseClient|null=null;
@@ -38,7 +39,7 @@ export async function compareSlipRequest(request:Request,service:Pick<Comparison
 }
 export async function currentSlipDestination(bookmaker:string,selections:CanonicalSelection[],locale:SiteLocale,
   reader:(ids:readonly string[],geo:CommercialGeo|null)=>Promise<SlipComparisonRead>=read,geo:CommercialGeo|null=null):Promise<string|null>{
-  if(!['betsson','betano.bet.br'].includes(bookmaker)||!selections.length||!parseResolutionRequest({selections,locale}))return null;
+  if(!isVisibleBookmaker(bookmaker)||!selections.length||!parseResolutionRequest({selections,locale}))return null;
   const data=await reader([...new Set(selections.map(s=>s.fixturePublicId))],geo);
   const result=buildSlipComparison(selections,locale,data.fixtures,data.bookmakers).bookmakers.find(b=>b.bookmakerId===bookmaker);
   return result?.complete&&result.ctaState==='ENABLED'?data.destinations[bookmaker]??null:null;

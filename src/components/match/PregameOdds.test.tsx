@@ -27,8 +27,9 @@ describe('restrained commercial odds rendering',()=>{
     const quotes=[source,{...source,quoteId:'quote-draw',outcome:'DRAW' as const,decimalOdds:'3.80'},{...source,quoteId:'quote-away',outcome:'AWAY' as const,decimalOdds:'2.25'}];
     const union=buildComparison({quotes,kickoff:source.providerKickoff,fixtureStatus:'SCHEDULED'},'MATCH_WINNER',now);
     const html=renderToStaticMarkup(<PregameOdds initial={[union]} fixturePublicId="aaaaaaaaaaaaaaaa" context={{fixtureId:'fixture',competitionId:'test',locale:'br'}}/>);
-    expect(html.match(/<tr/g)?.length).toBe(3);expect(html.match(/odds-approx-mark/g)?.length).toBe(6);
-    expect(html.match(/data-price-kind="REAL"/g)?.length).toBe(3);expect(html.match(/data-price-kind="PROXY"/g)?.length).toBe(3);
+    expect(html.match(/<tr/g)?.length).toBe(4);expect(html.match(/odds-approx-mark/g)?.length).toBe(9);
+    expect(html.match(/data-price-kind="REAL"/g)?.length??0).toBe(0);expect(html.match(/data-price-kind="PROXY"/g)?.length).toBe(9);
     expect(html).toContain('data-target-bookmaker="betsson"');expect(html).toContain('Fonte estimada: Betano BR');
+    expect(html).toContain('bookmaker-source-label');expect(html).toContain('Estimado');expect(html).toContain('data-outcome-label="1"');
   });
 });

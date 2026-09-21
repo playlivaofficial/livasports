@@ -1,11 +1,12 @@
 import 'server-only';
 import type {QueryExecutor} from '@/database/client';
 import {canonicalSelection} from './types';
+import {isVisibleBookmaker} from '@/odds/registry';
 export const slipEvents=new Set(['slip_open','slip_selection_add','slip_selection_replace','slip_selection_remove','slip_clear','slip_state_invalidated']);
 export function parseSlipEvent(body:Record<string,unknown>){
   if(!slipEvents.has(String(body.eventName))||(body.locale!=='br'&&body.locale!=='mx')||body.placement!=='guest-slip'||
     Object.keys(body).some(k=>!['eventId','eventName','locale','placement','selection','bookmaker'].includes(k)))return null;
-  if(body.bookmaker!==undefined&&!['betano.bet.br','betsson'].includes(String(body.bookmaker)))return null;
+  if(body.bookmaker!==undefined&&!isVisibleBookmaker(String(body.bookmaker)))return null;
   const selection=body.selection===undefined?null:canonicalSelection(body.selection,true);
   const aggregate=body.eventName==='slip_open'||body.eventName==='slip_clear';
   if(aggregate?body.selection!==undefined:!selection)return null;

@@ -40,12 +40,12 @@ describe('A — competition with upcoming fixtures but no scheduler target',()=>
 });
 
 describe('B — daily cadence must not leave a near-term competition at zero coverage',()=>{
-  it('caps the budget-scaled interval at 6h for a feed inside 72h without usable coverage, and prioritises it',()=>{
+  it('prioritises missing coverage without bypassing the P5 quota-scaled cadence',()=>{
     const starved=target({tournamentId:'679',hasUsefulCoverage:false,lastSuccessAt:hoursAhead(-7)});
     const covered=target({tournamentId:'7',hasUsefulCoverage:true,lastSuccessAt:hoursAhead(-7)});
-    // scale 8 would stretch a 120-minute cadence to 16h: the recovery cap keeps the empty feed at 6h.
-    expect(planTarget(starved,2,now,8)).toMatchObject({recovery:true,intervalMinutes:360,due:true});
-    expect(planTarget(covered,2,now,8)).toMatchObject({recovery:false,intervalMinutes:960,due:false});
+    // P5: empty coverage must not pierce the reserve by imposing an unbudgeted recovery floor.
+    expect(planTarget(starved,2,now,8)).toMatchObject({recovery:true,intervalMinutes:2880,due:false});
+    expect(planTarget(covered,2,now,8)).toMatchObject({recovery:false,intervalMinutes:2880,due:false});
     const plan=planScheduler([covered,starved,target({tournamentId:'23',hasUsefulCoverage:false,lastSuccessAt:hoursAhead(-7),fixtures:[{id:'x',kickoff:hoursAhead(400),status:'SCHEDULED'}]})],now);
     // the recovery feed leads the shared proven request even though the covered feed is also due at budget scale 1
     expect(plan.batches[0].tournamentIds[0]).toBe('679');
@@ -57,13 +57,23 @@ const quote=(over:Partial<ReadOddsQuote>={}):ReadOddsQuote=>({quoteId:'q',fixtur
   providerKickoff:hoursAhead(30),sourceDomain:'www.betano.bet.br',geoEligible:true,freshnessTtlMinutes:120,...over});
 const snapshot=(quotes:ReadOddsQuote[]):OddsReadSnapshot=>({kickoff:hoursAhead(30),fixtureStatus:'SCHEDULED',quotes});
 describe('C/D/E/G — real-first resolution with disclosed proxy fallback',()=>{
+  it('a failed/stopped refresh leaves stored REAL usable until fixed expiry, then disclosed insurance, then unavailable',()=>{
+    const own=quote({bookmaker:'sportingbet.bet.br',bookmakerName:'Sportingbet BR',freshnessTtlMinutes:30});
+    const insurance=quote({freshnessTtlMinutes:60});
+    const stored=snapshot([own,insurance]);const before=JSON.stringify(stored);
+    const price=(minutes:number)=>buildComparison(stored,'MATCH_WINNER',+now+minutes*60000).rows.find(r=>r.bookmaker==='sportingbet.bet.br')!.cells[0];
+    expect(price(29)).toMatchObject({priceKind:'REAL',sourceBookmaker:'sportingbet.bet.br',decimalOdds:'2.10'});
+    expect(price(30)).toMatchObject({priceKind:'PROXY',sourceBookmaker:'betano.bet.br',decimalOdds:'2.10'});
+    expect(price(60)).toMatchObject({decimalOdds:null});
+    expect(JSON.stringify(stored)).toBe(before);
+  });
   it('C: independent Betano and Betsson prices both reach the read model as REAL',()=>{
     const c=buildComparison(snapshot([quote(),quote({bookmaker:'betsson',bookmakerName:'Betsson',bookmakerId:'s',decimalOdds:'2.05'})]),'MATCH_WINNER',now.getTime());
-    expect(c.rows.map(r=>[r.bookmaker,r.cells[0].priceKind,r.cells[0].decimalOdds])).toEqual([['betano.bet.br','REAL','2.10'],['betsson','REAL','2.05']]);
+    expect(c.rows.map(r=>[r.bookmaker,r.cells[0].priceKind,r.cells[0].decimalOdds])).toEqual([['betsson','REAL','2.05'],['sportingbet.bet.br','PROXY','2.10'],['betboo.bet.br','PROXY','2.10']]);
   });
   it('D: one bookmaker only → the other side shows a disclosed PROXY, never blank',()=>{
     const c=buildComparison(snapshot([quote({bookmaker:'betsson',bookmakerName:'Betsson',bookmakerId:'s',decimalOdds:'2.05'})]),'MATCH_WINNER',now.getTime());
-    expect(c.rows.map(r=>[r.bookmaker,r.cells[0].priceKind,r.cells[0].decimalOdds])).toEqual([['betano.bet.br','PROXY','2.05'],['betsson','REAL','2.05']]);
+    expect(c.rows.map(r=>[r.bookmaker,r.cells[0].priceKind,r.cells[0].decimalOdds])).toEqual([['betsson','REAL','2.05'],['sportingbet.bet.br','PROXY','2.05'],['betboo.bet.br','PROXY','2.05']]);
   });
   it('E: neither bookmaker → unavailable, never invented',()=>{
     const listing=listingMatchWinnerOdds(snapshot([]),now.getTime());
@@ -72,11 +82,11 @@ describe('C/D/E/G — real-first resolution with disclosed proxy fallback',()=>{
   it('G: a REAL quote replaces a proxy immediately, and a stale REAL quote falls back to the peer proxy',()=>{
     const betsson=quote({bookmaker:'betsson',bookmakerName:'Betsson',bookmakerId:'s',decimalOdds:'2.05'});
     const before=buildComparison(snapshot([betsson]),'MATCH_WINNER',now.getTime());
-    expect(before.rows[0].bookmaker).toBe('betano.bet.br');expect(before.rows[0].cells[0]).toMatchObject({priceKind:'PROXY',decimalOdds:'2.05'});
-    const after=buildComparison(snapshot([betsson,quote({decimalOdds:'2.20'})]),'MATCH_WINNER',now.getTime());
-    expect(after.rows[0].cells[0]).toMatchObject({priceKind:'REAL',decimalOdds:'2.20'});
-    const stale=buildComparison(snapshot([betsson,quote({decimalOdds:'2.20',observedAt:hoursAhead(-5),freshnessTtlMinutes:60})]),'MATCH_WINNER',now.getTime());
-    expect(stale.rows[0].cells[0]).toMatchObject({priceKind:'PROXY',decimalOdds:'2.05'});
+    expect(before.rows[1].bookmaker).toBe('sportingbet.bet.br');expect(before.rows[1].cells[0]).toMatchObject({priceKind:'PROXY',decimalOdds:'2.05'});
+    const after=buildComparison(snapshot([betsson,quote({bookmaker:'sportingbet.bet.br',decimalOdds:'2.20'})]),'MATCH_WINNER',now.getTime());
+    expect(after.rows[1].cells[0]).toMatchObject({priceKind:'REAL',decimalOdds:'2.20'});
+    const stale=buildComparison(snapshot([betsson,quote({bookmaker:'sportingbet.bet.br',decimalOdds:'2.20',observedAt:hoursAhead(-5),freshnessTtlMinutes:60})]),'MATCH_WINNER',now.getTime());
+    expect(stale.rows[1].cells[0]).toMatchObject({priceKind:'PROXY',decimalOdds:'2.05'});
   });
 });
 
@@ -142,7 +152,7 @@ describe('J — zero-coverage competitions are detected and actionable',()=>{
 
 describe('throughput — proven feeds share requests, unproven ones stay isolated and bounded',()=>{
   it('batches proven expanded tournaments in fours and caps unproven singletons per tick',()=>{
-    const proven=['679','7','8','35','23','34'].map(id=>target({tournamentId:id,lastSuccessAt:hoursAhead(-3)}));
+    const proven=['679','7','8','35','23','34'].map(id=>target({tournamentId:id,lastSuccessAt:hoursAhead(-8)}));
     const unproven=['31415','19','329','955'].map(id=>target({tournamentId:id,lastSuccessAt:null}));
     expect(isProvenTarget(target({lastSuccessAt:hoursAhead(-3),consecutiveFailures:0}))).toBe(true);
     expect(isProvenTarget(target({lastSuccessAt:hoursAhead(-3),consecutiveFailures:2}))).toBe(false);

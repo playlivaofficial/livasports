@@ -1,10 +1,8 @@
 import { KICKOFF_TOLERANCE_MS, SELECTIONS, type OddsBookmakerRow, type OddsComparison, type OddsMarket, type OddsReadSnapshot, type ReadOddsQuote, type OddsStatus } from './types';
 import { freshnessTtlMs } from './scheduler-policy';
-
-const UNION_BOOKMAKERS = [
-  {bookmaker:'betano.bet.br',name:'Betano BR'},
-  {bookmaker:'betsson',name:'Betsson'},
-] as const;
+import {BOOKMAKER_REGISTRY,isVisibleBookmaker} from './registry';
+import {resolveInsurance} from './insurance';
+const UNION_BOOKMAKERS=BOOKMAKER_REGISTRY.map(b=>({bookmaker:b.canonicalId,name:b.displayName}));
 
 export function publicFeedCount(snapshot:OddsReadSnapshot):number {
   return new Set(snapshot.quotes.filter(q=>q.geoEligible).map(q=>q.bookmaker)).size;
@@ -51,12 +49,18 @@ export function buildComparison(snapshot:OddsReadSnapshot,market:OddsMarket,now=
     });
     return {bookmaker,name:prices[0]?.bookmakerName??name,cells,action:null};
   });
-  result.rows=nativeRows.map((row,targetIndex)=>{
-    const sourceRow=nativeRows[targetIndex===0?1:0];
+  result.rows=nativeRows.filter(row=>isVisibleBookmaker(row.bookmaker)).map(row=>{
     const cells=row.cells.map((cell,cellIndex)=>{
       if(cell.priceKind==='REAL')return cell;
-      const source=sourceRow.cells[cellIndex];
-      if(source.state!=='ACTIVE'||source.priceKind!=='REAL'||!source.decimalOdds)return cell;
+      const source=resolveInsurance(row.bookmaker,nativeRows.map(candidate=>({bookmaker:candidate.bookmaker,
+        priceKind:candidate.cells[cellIndex].priceKind,current:candidate.cells[cellIndex].state==='ACTIVE',
+        decimalOdds:candidate.cells[cellIndex].decimalOdds,value:candidate.cells[cellIndex]}))).candidate?.value;
+      if(!source?.decimalOdds){
+        if(cell.state!=='UNAVAILABLE')return cell;
+        const nativeStates=nativeRows.map(r=>r.cells[cellIndex].state);
+        const state:OddsStatus|'UNAVAILABLE'=nativeStates.includes('STALE')?'STALE':nativeStates.includes('SUSPENDED')?'SUSPENDED':nativeStates.includes('CLOSED')?'CLOSED':cell.state;
+        return {...cell,state};
+      }
       return {...cell,decimalOdds:source.decimalOdds,state:'ACTIVE' as const,expiresAt:source.expiresAt,priceKind:'PROXY' as const,
         sourceBookmaker:source.sourceBookmaker,sourceBookmakerName:source.sourceBookmakerName,sourceQuoteId:source.sourceQuoteId,sourceObservedAt:source.sourceObservedAt};
     });
@@ -64,7 +68,8 @@ export function buildComparison(snapshot:OddsReadSnapshot,market:OddsMarket,now=
   });
   for(const outcome of SELECTIONS[market]){
     const eligible=result.rows.flatMap(r=>r.cells.filter(c=>c.outcome===outcome&&c.decimalOdds!==null));
-    if(new Set(eligible.map(cell=>cell.sourceQuoteId).filter(Boolean)).size>=2){const best=Math.max(...eligible.map(c=>Number(c.decimalOdds)));eligible.forEach(c=>{c.best=Number(c.decimalOdds)===best;});}
+    const real=eligible.filter(cell=>cell.priceKind==='REAL');
+    if(new Set(real.map(cell=>cell.sourceQuoteId).filter(Boolean)).size>=2){const best=Math.max(...real.map(c=>Number(c.decimalOdds)));real.forEach(c=>{c.best=Number(c.decimalOdds)===best;});}
     result.eligiblePrices+=eligible.length;
   }
   const observed=relevant.map(q=>q.observedAt).filter(s=>Number.isFinite(Date.parse(s))).sort();

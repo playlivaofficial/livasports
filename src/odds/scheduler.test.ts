@@ -1,4 +1,5 @@
 import {describe,it,expect,vi,beforeEach} from 'vitest';
+vi.mock('server-only',()=>({}));
 import type {DatabaseClient,QueryExecutor} from '@/database/client';
 import {OddsBudgetStopped} from './budget';
 vi.mock('./budget',async importOriginal=>({...await importOriginal<typeof import('./budget')>(),
@@ -28,6 +29,12 @@ function database(){const query=vi.fn(async(sql:string)=>{
 }
 beforeEach(()=>{vi.clearAllMocks();mocked.expanded.length=0;mocked.start.mockResolvedValue('test-job');mocked.persist.mockResolvedValue({returnedFixtures:1,matchedFixtures:1,quotes:3,history_changes:0,current_writes:3,closed:0});mocked.tournaments.mockResolvedValue([]);});
 describe('scheduler independent failure and durable completion',()=>{
+  it('stops fan-out on HTTP 500 without persisting an empty snapshot or closing stored quotes',async()=>{
+    mocked.snapshot.mockRejectedValue(new Error(JSON.stringify({status:500})));
+    const {db}=database();const result=await runOddsScheduler(db,'test-only');
+    expect(result.state).toBe('FAILED');expect(result.error).toBe('ODDSPAPI_HTTP_500');
+    expect(mocked.snapshot).toHaveBeenCalledTimes(1);expect(mocked.persist).not.toHaveBeenCalled();
+  });
   it('counts only currently usable pregame quotes as useful recovery coverage',async()=>{
     const {db,query}=database();await schedulerPlan(db);
     const sql=query.mock.calls.find(([sql])=>sql.includes('AS useful_coverage'))?.[0]??'';

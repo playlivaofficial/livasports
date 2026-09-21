@@ -1,0 +1,427 @@
+{
+  "at": "2026-09-21T08:28:17.959Z",
+  "enabledCompetitions": 34,
+  "providerRequests": 0,
+  "old": {
+    "scale": 1.25,
+    "horizonDays": 7,
+    "dailyAllowance": 273,
+    "projectedRequests": 1900,
+    "projectedDailyRequests": 272,
+    "activeFeeds": 92,
+    "budgetAvailable": true
+  },
+  "new": {
+    "scale": 1.56,
+    "horizonDays": 7,
+    "dailyAllowance": 273,
+    "projectedRequests": 863,
+    "projectedDailyRequests": 124,
+    "activeFeeds": 24,
+    "normalDailyTarget": 204,
+    "reservePct": 54.6,
+    "peakDailyRequests": 196,
+    "forecast": {
+      "requests": 863,
+      "byBookmaker": {
+        "sportingbet.bet.br": 219,
+        "betboo.bet.br": 219,
+        "betano.bet.br": 213,
+        "betsson": 212
+      },
+      "byCompetition": {
+        "54": 195,
+        "155": 61.5,
+        "242": 153,
+        "329": 81,
+        "390": 202.5,
+        "27464": 170
+      },
+      "byDay": [
+        107,
+        52,
+        70,
+        90,
+        162,
+        186,
+        196
+      ],
+      "peakDailyRequests": 196
+    },
+    "budgetAvailable": true
+  },
+  "budget": {
+    "period_start": "2026-09-02T11:10:51.000Z",
+    "period_end": "2026-10-02T11:10:51.000Z",
+    "hard_limit": 5000,
+    "externally_consumed": 50,
+    "provider_reported_usage": 1485,
+    "reconciliation_at": "2026-09-20T13:50:08.352Z",
+    "local_counted": 1560,
+    "reserved": 0,
+    "completed": 1560,
+    "failed_counted": 101,
+    "unmetered_calls": 9,
+    "rolling_day": 171,
+    "today_utc": 35,
+    "rolling_three_days": 584,
+    "verified": true,
+    "used": 1610,
+    "internalLimit": 4750,
+    "routineLimit": 4650,
+    "safeRemaining": 3140,
+    "routineRemaining": 3040,
+    "rollingDay": 171,
+    "dailyCap": 273,
+    "rollingHeadroom": 74,
+    "governor": {
+      "periodAllowance": 4750,
+      "routineAllowance": 4650,
+      "used": 1610,
+      "remaining": 3140,
+      "routineRemaining": 3040,
+      "remainingDays": 11.11,
+      "rollingDay": 171,
+      "dailyCap": 273,
+      "headroom": 102,
+      "projectedDailyRequests": 195,
+      "projectedEndOfPeriodUsage": 3777,
+      "projectedOverrun": false,
+      "urgentReserve": 55,
+      "recoveryReserve": 28,
+      "discoveryReserve": 2,
+      "routineCeiling": 218,
+      "routineHeadroom": 47,
+      "pressure": "NORMAL",
+      "utilizationPct": 62.6,
+      "quotaState": "NORMAL",
+      "normalStop": 218,
+      "controlledStop": 245,
+      "requestsTodayUtc": 35,
+      "projectedEndOfDayUsage": 100
+    },
+    "requestsTodayUtc": 35,
+    "estimatedRequestsRemaining": 102,
+    "quota": {
+      "utilizationPct": 62.6,
+      "state": "NORMAL",
+      "slowdown": 1
+    },
+    "projectedEndOfDayUsage": 100
+  },
+  "traffic": [
+    {
+      "purpose": "SCHEDULED",
+      "endpoint": "/v4/account",
+      "http_status": 200,
+      "outcome": "SUCCEEDED",
+      "requests": 1
+    },
+    {
+      "purpose": "SCHEDULED",
+      "endpoint": "/v4/odds-by-tournaments",
+      "http_status": 200,
+      "outcome": "SUCCEEDED",
+      "requests": 164
+    },
+    {
+      "purpose": "SCHEDULED",
+      "endpoint": "/v4/odds-by-tournaments",
+      "http_status": 404,
+      "outcome": "HTTP_ERROR",
+      "requests": 7
+    }
+  ],
+  "byBookmaker": [
+    {
+      "bookmaker": "sportingbet.bet.br",
+      "newRequests7d": 219,
+      "oldRequests7d": 473
+    },
+    {
+      "bookmaker": "betboo.bet.br",
+      "newRequests7d": 219,
+      "oldRequests7d": 473
+    },
+    {
+      "bookmaker": "betano.bet.br",
+      "newRequests7d": 213,
+      "oldRequests7d": 487
+    },
+    {
+      "bookmaker": "betsson",
+      "newRequests7d": 212,
+      "oldRequests7d": 467
+    }
+  ],
+  "byCompetition": [
+    {
+      "competition": "argentina-primera-division",
+      "providerIds": [
+        "155"
+      ],
+      "attributedRequests7d": 61.5,
+      "oldRequests7d": 112.5
+    },
+    {
+      "competition": "brasileirao-serie-a",
+      "providerIds": [
+        "325"
+      ],
+      "attributedRequests7d": 0,
+      "oldRequests7d": 103.9999999999996
+    },
+    {
+      "competition": "brasileirao-serie-b",
+      "providerIds": [
+        "390"
+      ],
+      "attributedRequests7d": 202.5,
+      "oldRequests7d": 316.6666666666667
+    },
+    {
+      "competition": "bundesliga",
+      "providerIds": [
+        "35"
+      ],
+      "attributedRequests7d": 0,
+      "oldRequests7d": 26.916666666666657
+    },
+    {
+      "competition": "carabao-cup",
+      "providerIds": [
+        "21"
+      ],
+      "attributedRequests7d": 0,
+      "oldRequests7d": 0
+    },
+    {
+      "competition": "carioca-serie-a",
+      "providerIds": [
+        "92"
+      ],
+      "attributedRequests7d": 0,
+      "oldRequests7d": 0
+    },
+    {
+      "competition": "champions-league",
+      "providerIds": [
+        "7"
+      ],
+      "attributedRequests7d": 0,
+      "oldRequests7d": 40.5
+    },
+    {
+      "competition": "championship",
+      "providerIds": [
+        "18"
+      ],
+      "attributedRequests7d": 0,
+      "oldRequests7d": 31.666666666666664
+    },
+    {
+      "competition": "concacaf-champions-cup",
+      "providerIds": [
+        "498"
+      ],
+      "attributedRequests7d": 0,
+      "oldRequests7d": 0
+    },
+    {
+      "competition": "conference-league",
+      "providerIds": [
+        "34480"
+      ],
+      "attributedRequests7d": 0,
+      "oldRequests7d": 40.5
+    },
+    {
+      "competition": "copa-del-rey",
+      "providerIds": [
+        "329"
+      ],
+      "attributedRequests7d": 81,
+      "oldRequests7d": 152.91666666666669
+    },
+    {
+      "competition": "copa-do-brasil",
+      "providerIds": [
+        "373"
+      ],
+      "attributedRequests7d": 0,
+      "oldRequests7d": 29.5
+    },
+    {
+      "competition": "copa-do-nordeste",
+      "providerIds": [
+        "1596"
+      ],
+      "attributedRequests7d": 0,
+      "oldRequests7d": 0
+    },
+    {
+      "competition": "copa-libertadores",
+      "providerIds": [
+        "384"
+      ],
+      "attributedRequests7d": 0,
+      "oldRequests7d": 0
+    },
+    {
+      "competition": "copa-sudamericana",
+      "providerIds": [
+        "480"
+      ],
+      "attributedRequests7d": 0,
+      "oldRequests7d": 0
+    },
+    {
+      "competition": "coppa-italia",
+      "providerIds": [
+        "328"
+      ],
+      "attributedRequests7d": 0,
+      "oldRequests7d": 0
+    },
+    {
+      "competition": "eredivisie",
+      "providerIds": [
+        "37"
+      ],
+      "attributedRequests7d": 0,
+      "oldRequests7d": 26.499999999999996
+    },
+    {
+      "competition": "europa-league",
+      "providerIds": [
+        "679"
+      ],
+      "attributedRequests7d": 0,
+      "oldRequests7d": 28.333333333333332
+    },
+    {
+      "competition": "fa-cup",
+      "providerIds": [
+        "19"
+      ],
+      "attributedRequests7d": 0,
+      "oldRequests7d": 0
+    },
+    {
+      "competition": "la-liga",
+      "providerIds": [
+        "8"
+      ],
+      "attributedRequests7d": 0,
+      "oldRequests7d": 34.166666666666664
+    },
+    {
+      "competition": "la-liga-2",
+      "providerIds": [
+        "54"
+      ],
+      "attributedRequests7d": 195,
+      "oldRequests7d": 276.33333333333337
+    },
+    {
+      "competition": "liga-mx",
+      "providerIds": [
+        "27464"
+      ],
+      "attributedRequests7d": 170,
+      "oldRequests7d": 103.9999999999996
+    },
+    {
+      "competition": "liga-portugal",
+      "providerIds": [
+        "238"
+      ],
+      "attributedRequests7d": 0,
+      "oldRequests7d": 29
+    },
+    {
+      "competition": "ligue-1",
+      "providerIds": [
+        "34"
+      ],
+      "attributedRequests7d": 0,
+      "oldRequests7d": 23.5
+    },
+    {
+      "competition": "ligue-2",
+      "providerIds": [
+        "182"
+      ],
+      "attributedRequests7d": 0,
+      "oldRequests7d": 29.333333333333336
+    },
+    {
+      "competition": "mls",
+      "providerIds": [
+        "242"
+      ],
+      "attributedRequests7d": 153,
+      "oldRequests7d": 287.33333333333337
+    },
+    {
+      "competition": "paulista-a1",
+      "providerIds": [],
+      "attributedRequests7d": 0,
+      "oldRequests7d": 0
+    },
+    {
+      "competition": "premier-league",
+      "providerIds": [
+        "17"
+      ],
+      "attributedRequests7d": 0,
+      "oldRequests7d": 103.9999999999996
+    },
+    {
+      "competition": "saudi-pro-league",
+      "providerIds": [
+        "955"
+      ],
+      "attributedRequests7d": 0,
+      "oldRequests7d": 37.5
+    },
+    {
+      "competition": "saudi-pro-league-playoffs",
+      "providerIds": [],
+      "attributedRequests7d": 0,
+      "oldRequests7d": 0
+    },
+    {
+      "competition": "serie-a-italy",
+      "providerIds": [
+        "23"
+      ],
+      "attributedRequests7d": 0,
+      "oldRequests7d": 22.333333333333325
+    },
+    {
+      "competition": "serie-b-italy",
+      "providerIds": [
+        "53"
+      ],
+      "attributedRequests7d": 0,
+      "oldRequests7d": 21.749999999999996
+    },
+    {
+      "competition": "super-lig",
+      "providerIds": [
+        "52"
+      ],
+      "attributedRequests7d": 0,
+      "oldRequests7d": 20.750000000000004
+    },
+    {
+      "competition": "uefa-super-cup",
+      "providerIds": [
+        "465"
+      ],
+      "attributedRequests7d": 0,
+      "oldRequests7d": 0
+    }
+  ]
+}

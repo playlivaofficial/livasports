@@ -16,7 +16,7 @@ describe('M7 semantic localized comparison cards',()=>{
     const f=comparisonFixture();f.data.fixtures.get(f.selections[1].fixturePublicId)!.snapshot.quotes=[];
     const html=renderToStaticMarkup(<SlipComparison locale="br" stake="10" selections={f.selections.map(s=>({...s,addedAt:new Date(f.now).toISOString()}))} checking={false} value={buildSlipComparison(f.selections,'br',f.data.fixtures,f.data.bookmakers,f.now)}/>);
     expect(html).not.toContain('<details');expect(html).toContain('Real Madrid vs Barcelona');expect(html).toContain('Falta');expect(html).toContain('Indisponível para este cupom completo');
-    expect(html).toContain('Total de gols · 2,5 — Mais de 2,5');expect(html).toContain('Seleção indisponível na Betano');
+    expect(html).toContain('Total de gols · 2,5 — Mais de 2,5');expect(html).toContain('Seleção indisponível na Sportingbet');
     expect(html).not.toContain('Mercado encerrado');expect(html).not.toContain('INVALID_QUOTE');expect(html).not.toMatch(/>\s*\?\s*</);expect(html).not.toContain('NaN');
   });
   it('keeps BR-eligible prices when the interface is Spanish',()=>{
@@ -67,7 +67,7 @@ describe('M7 semantic localized comparison cards',()=>{
     f.data.fixtures.get(f.selections[1].fixturePublicId)!.snapshot.quotes=[];
     const html=renderToStaticMarkup(<SlipComparison locale="br" stake="10" selections={f.selections.map(s=>({...s,addedAt:new Date(f.now).toISOString()}))} checking={false} value={buildSlipComparison(f.selections,'br',f.data.fixtures,f.data.bookmakers,f.now)}/>);
     expect(html).toContain('Flamengo vs Palmeiras');expect(html).toContain('Real Madrid vs Barcelona');
-    expect(html).toContain('Faltam 2');expect(html).toContain('Seleção indisponível na Betano');
+    expect(html).toContain('Faltam 2');expect(html).toContain('Seleção indisponível na Sportingbet');
     expect(html).not.toContain('Mercado encerrado');expect(html.match(/data-complete="false"/g)?.length).toBe(2);
   });
   it('removes closed copy from the final card when a current proxy resolves the leg',()=>{
@@ -76,7 +76,7 @@ describe('M7 semantic localized comparison cards',()=>{
     expect(html).not.toContain('Market closed');expect(html).toContain('data-availability="ESTIMATED_COMPLETE"');expect(html).toContain('Approx. price · based on Betsson');
     const missing=comparisonFixture();missing.data.fixtures.get(missing.selections[0].fixturePublicId)!.snapshot.quotes=[];
     const incomplete=renderToStaticMarkup(<SlipComparison locale="br" uiLocale="en" stake="10" selections={missing.selections.map(s=>({...s,addedAt:new Date(missing.now).toISOString()}))} checking={false} value={buildSlipComparison(missing.selections,'br',missing.data.fixtures,missing.data.bookmakers,missing.now)}/>);
-    expect(incomplete).toContain('Selection unavailable at Betano');expect(incomplete).not.toContain('Market closed');
+    expect(incomplete).toContain('Selection unavailable at Sportingbet');expect(incomplete).not.toContain('Market closed');
   });
   it.each([
     ['br','Comparação estimada. As cotações reais na casa podem ser diferentes.','Cotação aproximada · baseada na Betsson','Retorno potencial estimado'],

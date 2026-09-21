@@ -26,7 +26,7 @@ describe('My Slip selected-leg list',()=>{
     expect(html).toContain('<span>Full-time result</span><strong>Flamengo</strong>');expect(html).toContain('<span>Total goals · 2.5</span><strong>Over 2.5</strong>');expect(html).toContain('<span>Both teams to score</span><strong>Yes</strong>');
     expect(html.match(/class="slip-remove"/g)?.length).toBe(3);
     expect(html.match(/class="slip-item"/g)?.length).toBe(3);
-    expect(html).toContain('Betano ✓');expect(html).toContain('Betsson ✓');
+    expect(html).toContain('Sportingbet ✓');expect(html).toContain('Betsson ✓');
   });
   it('drops the middle leg from the visible list when that canonical selection is removed',()=>{
     const f=comparisonFixture();const selections=saved(f).filter((_,i)=>i!==1);
@@ -43,12 +43,12 @@ describe('My Slip selected-leg list',()=>{
     expect(html.match(/class="slip-item"/g)?.length).toBe(1);
     expect(html).toContain('<span>Full-time result</span><strong>Draw</strong>');expect(html).not.toContain('<strong>Flamengo</strong>');
   });
-  it('marks the exact proxied Betano leg without a closed-market lie',()=>{
+  it('marks the exact proxied Sportingbet leg without a closed-market lie',()=>{
     const f=comparisonFixture();f.data.fixtures.get(f.selections[1].fixturePublicId)!.snapshot.quotes.pop();
     const selections=saved(f);
     const comparison=buildSlipComparison(f.selections,'br',f.data.fixtures,f.data.bookmakers,f.now);
     const html=renderToStaticMarkup(<SlipLegs uiLocale="en" selections={selections} resolvedByKey={resolved(f,selections)} comparison={comparison} checking={false} resolvedAt={new Date(f.now).toISOString()} now={f.now} onRemove={()=>{}}/>);
-    expect(html).toContain('data-bookmaker="betano.bet.br" data-available="true" data-price-kind="PROXY"');
+    expect(html).toContain('data-bookmaker="sportingbet.bet.br" data-available="true" data-price-kind="PROXY"');
     expect(html).toContain('Approx. price · based on Betsson');expect(html).not.toContain('Market closed');
     expect(html).toContain('Betsson ✓');
   });

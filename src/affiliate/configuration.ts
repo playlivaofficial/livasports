@@ -2,15 +2,16 @@ import 'server-only';
 import type {DatabaseClient} from '@/database/client';
 import {placements,type Campaign,type Placement} from './types';
 import {campaignDestination,isSponsorPlacement,validCreative} from './policy';
+import {isVisibleBookmaker,type BookmakerId} from '@/odds/registry';
 export interface CampaignConfiguration {
-  bookmaker:'betsson'|'betano.bet.br';locale:'br'|'mx';operatorCampaignId:string;destinationUrl:string;destinationType:'HOMEPAGE'|'SPORTSBOOK';
+  bookmaker:BookmakerId;locale:'br'|'mx';operatorCampaignId:string;destinationUrl:string;destinationType:'HOMEPAGE'|'SPORTSBOOK';
   enabled:boolean;validFrom:string;validUntil:string;placements:Placement[];domains:string[];approvalReference:string;
   creatives?:Array<{id:string;placement:Placement;imageUrl?:string;imageAlt:string;width:number;height:number;approvalReference:string;delivery?:'IMAGE'|'BETSSON_EMBED';embedSourceUrl?:string}>;
 }
 export function parseCampaignConfiguration(value:unknown):CampaignConfiguration|null{
   if(!value||typeof value!=='object'||Array.isArray(value))return null;const c=value as CampaignConfiguration;
   if(Object.keys(c).some(k=>!['bookmaker','locale','operatorCampaignId','destinationUrl','destinationType','enabled','validFrom','validUntil','placements','domains','approvalReference','creatives'].includes(k))||
-    !['betsson','betano.bet.br'].includes(c.bookmaker)||!['br','mx'].includes(c.locale)||typeof c.enabled!=='boolean'||
+    !isVisibleBookmaker(c.bookmaker)||!['br','mx'].includes(c.locale)||typeof c.enabled!=='boolean'||
     typeof c.operatorCampaignId!=='string'||!c.operatorCampaignId.trim()||c.operatorCampaignId.length>160||typeof c.approvalReference!=='string'||!c.approvalReference.trim()||c.approvalReference.length>500||
     !Array.isArray(c.placements)||!c.placements.length||c.placements.length>17||new Set(c.placements).size!==c.placements.length||c.placements.some(p=>!placements.includes(p))||
     !Array.isArray(c.domains)||!c.domains.length||c.domains.length>8||c.domains.some(d=>typeof d!=='string'||!d.length)||

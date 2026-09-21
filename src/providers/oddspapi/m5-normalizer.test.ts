@@ -7,6 +7,15 @@ const fixture={fixtureId:'external',sportId:10,tournamentId:325,startTime:'2026-
   participant1Name:'Home',participant2Name:'Away',bookmakerOdds:{'betano.bet.br':{bookmakerIsActive:true,suspended:false,fixturePath:'https://www.betano.bet.br/fixture',markets:{'101':market}}}};
 const normalize=(data:unknown)=>normalizeM5Snapshot(data,'betano.bet.br',at,['325']);
 describe('strict audited OddsPapi markets',()=>{
+  it.each(['sportingbet.bet.br','betboo.bet.br'])('validates independent %s flags without copying the legacy Betsson exception',bookmaker=>{
+    const book={bookmakerIsActive:true,suspended:false,fixturePath:`https://sports.${bookmaker}/fixture`,markets:{'101':structuredClone(market)}};
+    const f={...fixture,bookmakerOdds:{[bookmaker]:book}};
+    const read=()=>normalizeM5Snapshot([f],bookmaker,at,['325']).quotes[0];
+    expect(read()).toMatchObject({bookmaker,status:'ACTIVE',decimalOdds:'2.12345678'});
+    book.suspended=true;expect(read().status).toBe('SUSPENDED');book.suspended=false;
+    book.bookmakerIsActive=false;expect(read().status).toBe('SUSPENDED');book.bookmakerIsActive=true;
+    book.markets['101'].outcomes['101'].players['0'].active=false;expect(read().status).toBe('SUSPENDED');
+  });
   it('normalizes canonical IDs/scope and preserves decimals independently of provider naming',()=>{
     const q=normalize([fixture]).quotes[0];expect(q.market).toBe('MATCH_WINNER');expect(q.outcome).toBe('HOME');expect(q.decimalOdds).toBe('2.12345678');expect(q.scope).toBe('FULL_TIME_REGULATION');expect(q.sourceDomain).toBe('www.betano.bet.br');
   });

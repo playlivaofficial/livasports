@@ -10,6 +10,7 @@ export function eligibleSource(bookmaker:string,geo:CommercialGeo|null,state:unk
   if(!geo||!verifiedGeo(state,geo)||typeof domain!=='string')return false;
   const host=domain.toLowerCase().replace(/^www\./,'');
   if(bookmaker==='betano.bet.br')return geo==='BR'&&host==='betano.bet.br';
+  if(bookmaker==='sportingbet.bet.br'||bookmaker==='betboo.bet.br')return geo==='BR'&&(host===bookmaker||host===`sports.${bookmaker}`);
   // M7 owner-confirmed BR eligibility includes the generic Betsson OddsPapi feed.
   // Mexico still requires its own verification AND its jurisdiction-specific source.
   if(bookmaker==='betsson')return geo==='BR'?['betsson.bet.br','betsson.com'].includes(host):host==='betsson.mx';

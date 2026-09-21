@@ -1,4 +1,5 @@
 import {describe,it,expect,vi,beforeEach} from 'vitest';
+vi.mock('server-only',()=>({}));
 import type {DatabaseClient,QueryExecutor} from '@/database/client';
 
 const mocked=vi.hoisted(()=>({snapshot:vi.fn(),persist:vi.fn(),startJob:vi.fn(),budget:{verified:true,rollingHeadroom:10},requests:0}));
@@ -44,8 +45,8 @@ describe('P3 targeted refresh safety (§24, §29)',()=>{
   it('refreshes exactly the target for both bookmakers (cost 2), persists through the normal ingestion path and logs the action with the headroom after',async()=>{
     const {db,query}=database(null);
     const r=await runTargetedRefresh(db,'key','bundesliga',{trigger:'OWNER',reason:'owner test'});
-    expect(r).toMatchObject({ok:true,code:'OK',tournamentId:'35',requestCost:2,requests:2});
-    expect(mocked.snapshot.mock.calls.map(c=>c[1])).toEqual([['35'],['35']]);expect(mocked.persist).toHaveBeenCalledTimes(2);
+    expect(r).toMatchObject({ok:true,code:'OK',tournamentId:'35',requestCost:4,requests:4});
+    expect(mocked.snapshot.mock.calls.map(c=>c[1])).toEqual([['35'],['35'],['35'],['35']]);expect(mocked.persist).toHaveBeenCalledTimes(4);
     expect(actions(query)).toEqual(['SUCCEEDED']);
     expect(query.mock.calls.some(([sql])=>String(sql).includes("trigger_source='CONTROLLED'"))).toBe(true);
   });

@@ -7,14 +7,14 @@ import { OddsComparison } from './OddsComparison';
 import { oddsFreshnessCompact } from '@/slip/localization';
 
 function fixture(freshness: 'fresh' | 'stale' = 'fresh', oddsState: FixtureView['oddsState'] = 'partial'): FixtureView {
-  const price = (bookmaker: 'Betano BR' | 'Betsson', decimalOdds: number) => ({ bookmaker, decimalOdds, providerUpdatedAt: '2026-09-07T17:59:00.000Z', freshness });
+  const price = (bookmaker: 'Sportingbet BR' | 'Betsson', decimalOdds: number) => ({ bookmaker, decimalOdds, providerUpdatedAt: '2026-09-07T17:59:00.000Z', expiresAt:'2030-01-01T00:00:00Z', freshness });
   return { id: 'internal-fixture', competition: 'Serie A', homeTeam: 'Flamengo', awayTeam: 'Mirassol', kickoff: '2026-09-07T22:30:00.000Z',
     status: FixtureStatus.SCHEDULED, homeScore: null, awayScore: null, freshness: 'fresh', oddsState,
     odds: [
       { market: MarketCode.MATCH_WINNER, line: null, outcomes: [
-        { outcome: OutcomeCode.HOME, prices: [price('Betano BR', 1.9), price('Betsson', 1.85)] },
+        { outcome: OutcomeCode.HOME, prices: [price('Sportingbet BR', 1.9), price('Betsson', 1.85)] },
         { outcome: OutcomeCode.DRAW, prices: [price('Betsson', 3.2)] },
-        { outcome: OutcomeCode.AWAY, prices: [price('Betano BR', 4.1)] },
+        { outcome: OutcomeCode.AWAY, prices: [price('Sportingbet BR', 4.1)] },
       ] },
     ] };
 }
@@ -23,8 +23,9 @@ describe('listing MATCH_WINNER cells', () => {
   it('renders compact 1 / X / 2 from current MATCH_WINNER prices', () => {
     const html = renderToStaticMarkup(createElement(OddsComparison, { locale: 'br', fixture: fixture() }));
     expect(html).toContain('listing-odds');
-    expect(html).toContain('listing-odds-book-name');
-    expect(html).toContain('Betano');
+    expect(html).toContain('bookmaker-logo');
+    expect(html).toContain('Sportingbet');
+    expect(html).not.toContain('Betano');
     expect(html).toContain('Betsson');
     expect(html).toContain('>1<');
     expect(html).toContain('>X<');
@@ -33,9 +34,8 @@ describe('listing MATCH_WINNER cells', () => {
     expect(html).toContain('1.85');
     expect(html).toContain('3.20');
     expect(html).toContain('4.10');
-    expect(html.match(/odds-approx-mark/g)?.length).toBe(6);
-    expect(html).toContain('data-price-kind="PROXY"');
-    expect(html).toContain('Fonte estimada: Betano BR');
+    expect(html.match(/odds-approx-mark/g)?.length).toBe(4);
+    expect(html).not.toContain('data-price-kind="PROXY"');
   });
 
   it('hides stale prices and renders a freshness warning instead', () => {

@@ -16,7 +16,7 @@ describe('current reference, not a frozen bet',()=>{
   });
   it('chooses exact highest reference only when M5 has two genuinely eligible prices',()=>{
     const read={...testRead,snapshot:{...testRead.snapshot,quotes:[quote,{...quote,quoteId:'quote-betsson',bookmaker:'betsson',bookmakerName:'Test second book',decimalOdds:'2.50'}]}};
-    expect(resolveSelection(testPick,read,now).price).toMatchObject({best:true,decimalOdds:'2.50',bookmaker:'betsson'});
+    expect(resolveSelection(testPick,read,now).price).toMatchObject({best:false,decimalOdds:'2.50',bookmaker:'betsson'});
     read.snapshot.quotes[1].geoEligible=false;expect(resolveSelection(testPick,read,now).price?.best).toBe(false);
   });
   it.each(['STALE','SUSPENDED','CLOSED'] as const)('preserves %s intent but no price',status=>{

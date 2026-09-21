@@ -3,6 +3,7 @@ import {requestCommercialGeo} from '@/odds/commercial-geo';
 import {safeAffiliateDestination} from '@/odds/affiliate';
 import {embedDimensions,safeBetssonEmbed} from './embed-policy';
 import {placements,type Campaign,type CommercialContext,type Creative,type PageType,type TrafficClass} from './types';
+import {isVisibleBookmaker,bookmakerConfig} from '@/odds/registry';
 
 export function pageType(path:string):PageType|null {
   if(/^\/(br|mx)(\/(futebol|futbol|ao-vivo|en-vivo|jogos\/hoje|partidos\/hoy))?$/.test(path))return 'HOME';
@@ -18,7 +19,7 @@ export function parseContext(value:unknown):CommercialContext|null {
   if(!value||typeof value!=='object'||Array.isArray(value))return null;const v=value as Record<string,unknown>;
   if(Object.keys(v).some(k=>!['locale','pagePath','placement','bookmaker','fixturePublicId','market','selections','competitionSlug','slipId'].includes(k))||
     (v.locale!=='br'&&v.locale!=='mx')||typeof v.pagePath!=='string'||v.pagePath.length>240||
-    !placements.includes(v.placement as never)||(v.bookmaker!==undefined&&!['betsson','betano.bet.br'].includes(String(v.bookmaker))))return null;
+    !placements.includes(v.placement as never)||(v.bookmaker!==undefined&&!isVisibleBookmaker(String(v.bookmaker))))return null;
   const type=pageType(v.pagePath),placement=String(v.placement);if(!type)return null;
   const pathOk=v.pagePath.startsWith('/'+v.locale)||(placement==='match_odds_table'&&/^\/en\/match\/[a-z0-9-]+-[a-f0-9]{16}$/.test(v.pagePath));
   if(!pathOk)return null;
@@ -35,6 +36,7 @@ export function parseContext(value:unknown):CommercialContext|null {
   return v as unknown as CommercialContext;
 }
 export function campaignDestination(c:Campaign,context:CommercialContext,now:number):string|null {
+  if(!isVisibleBookmaker(c.bookmaker)||!bookmakerConfig(c.bookmaker)?.countries.some(country=>country===context.locale.toUpperCase()))return null;
   if(!c.enabled||!c.approved||!c.affiliateApproved||!c.geoEligible||c.locale!==context.locale||context.bookmaker&&c.bookmaker!==context.bookmaker||
     c.bookmaker==='betano.bet.br'&&context.locale!=='br'||!c.placements.includes(context.placement)||
     !['HOMEPAGE','SPORTSBOOK'].includes(c.destinationType)||!Number.isFinite(Date.parse(c.startsAt))||!Number.isFinite(Date.parse(c.endsAt))||

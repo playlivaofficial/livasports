@@ -69,3 +69,9 @@ output/p0-browser-*.png
 !output/g1-visual-report.md
 
 output/hotfix-screens/
+output/p5-*.log
+output/p5-*-private.ts
+!output/p5-report.md
+!output/p5-report.json
+!output/p5-quota-report.md
+!output/p5-quota-report.json

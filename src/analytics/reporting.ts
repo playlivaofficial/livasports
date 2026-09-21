@@ -6,7 +6,7 @@ import {LEG_BUCKETS,type Locale,type PageType,type ReferrerClass} from './taxono
  * Only HUMAN traffic counts by default; QA/OWNER/BOT rows are visible separately for data-quality checks.
  */
 export type ReportWindow='today'|'7d'|'30d';
-export interface ReportFilters {window:ReportWindow;locale?:Locale;geo?:'BR'|'MX';bookmaker?:'betano.bet.br'|'betsson';competition?:string;pageType?:PageType;source?:ReferrerClass;traffic?:'HUMAN'|'QA'|'OWNER'|'BOT';}
+export interface ReportFilters {window:ReportWindow;locale?:Locale;geo?:'BR'|'MX';bookmaker?:import('@/odds/registry').BookmakerId;competition?:string;pageType?:PageType;source?:ReferrerClass;traffic?:'HUMAN'|'QA'|'OWNER'|'BOT';}
 export interface FunnelStage {stage:string;sessions:number;fromPrevious:number|null;fromSession:number;}
 export interface RankedRow {key:string;label:string;views:number;slips:number;clicks:number;rate:number;sessions:number;}
 export interface AnalyticsReport {

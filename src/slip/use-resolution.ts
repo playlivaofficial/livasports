@@ -6,6 +6,7 @@ import {canonicalSelection,selectionKey,type SavedSelection,type SlipResolution,
 import {emitSlipEvent} from './events';
 import type {FullSlipResolution} from './comparison-types';
 import {guardSlipComparison} from './comparison';
+import {validComparisonResponse} from './comparison-response';
 
 // Session memory only: prices are never part of localStorage or canonical identity.
 const observations=new Map<string,{price:string;from?:string;changed:boolean;valid:boolean}>();
@@ -29,9 +30,7 @@ export function useSlipResolution(selections:SavedSelection[],locale:SiteLocale)
         const body=await response.json() as FullSlipResolution;
         if(body.locale!==input.locale||body.providerRequests!==0||!Array.isArray(body.selections)||body.selections.length!==input.selections.length||
           !Number.isFinite(Date.parse(body.resolvedAt))||body.selections.some((s,i)=>!canonicalSelection(s.selection,true)||selectionKey(s.selection)!==selectionKey(input.selections[i])))throw new Error('INVALID_RESPONSE');
-        if(body.comparison&&(body.comparison.version!==1||body.comparison.locale!==input.locale||!Array.isArray(body.comparison.bookmakers)||body.comparison.bookmakers.length>2||
-          body.comparison.bookmakers.some(b=>!['betsson','betano.bet.br'].includes(b.bookmakerId)||(b.geoEligibility.locale!=='br'&&b.geoEligibility.locale!=='mx')||
-            b.selectionQuotes.length!==input.selections.length||b.selectionQuotes.some((q,i)=>!canonicalSelection(q.selection,true)||selectionKey(q.selection)!==selectionKey(input.selections[i])))))throw new Error('INVALID_COMPARISON');
+        if(body.comparison&&!validComparisonResponse(body.comparison,input.locale,input.selections))throw new Error('INVALID_COMPARISON');
         if(stopped)return;
         body.selections=body.selections.map(value=>{
           const key=`${input.locale}:${selectionKey(value.selection)}`;const previous=observations.get(key);

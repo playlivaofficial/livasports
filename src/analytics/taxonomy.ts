@@ -2,6 +2,7 @@
  * P4 product analytics — typed, versioned event taxonomy and page/referrer classification.
  * Isomorphic: no server or browser dependencies. First-party only; no third-party trackers.
  */
+import {SOURCE_BOOKMAKER_IDS,type BookmakerId} from '@/odds/registry';
 export const EVENT_VERSION=1 as const;
 export const CLIENT_EVENTS=[
   // session / acquisition
@@ -13,7 +14,7 @@ export const CLIENT_EVENTS=[
   // slip
   'slip_created','slip_leg_added','slip_leg_removed','slip_cleared','stake_changed','slip_opened',
   // affiliate (interaction visibility; the redirect itself is server-authoritative)
-  'affiliate_cta_viewed','affiliate_cta_clicked',
+  'affiliate_cta_viewed','affiliate_cta_clicked','bookmaker_logo_viewed','bookmaker_logo_clicked',
   // auth (start only; completion is server-authoritative)
   'sign_in_started',
   // personalization views
@@ -44,7 +45,7 @@ export interface EventContext {
 }
 export interface EventEntities {
   competitionSlug?:string;fixturePublicId?:string;teamPublicId?:string;playerPublicId?:string;
-  bookmaker?:'betano.bet.br'|'betsson';market?:'MATCH_WINNER'|'TOTAL_GOALS'|'BTTS';outcome?:'HOME'|'DRAW'|'AWAY'|'OVER'|'UNDER'|'YES'|'NO';
+  bookmaker?:BookmakerId;sourceBookmaker?:BookmakerId;market?:'MATCH_WINNER'|'TOTAL_GOALS'|'BTTS';outcome?:'HOME'|'DRAW'|'AWAY'|'OVER'|'UNDER'|'YES'|'NO';
   priceKind?:'REAL'|'PROXY';slipLegCount?:number;comparisonState?:'REAL_COMPLETE'|'ESTIMATED_COMPLETE'|'INCOMPLETE';campaignId?:string;placement?:string;
 }
 /** Wire format of one client event (batched under {v:1,batch:[...]}). */
@@ -99,7 +100,7 @@ export function parseClientEvent(raw:unknown):ClientEvent|null{
   return {eventId:String(e.eventId).toLowerCase(),eventName:e.eventName,eventVersion:EVENT_VERSION,occurredAt:new Date(occurred).toISOString(),sessionId:String(e.sessionId),anonymousId:String(e.anonymousId),
     locale:e.locale as Locale,pageType:e.pageType as PageType,canonicalPath,referrerClass:e.referrerClass as ReferrerClass,utm,
     competitionSlug:entity(e.competitionSlug,SLUG),fixturePublicId:entity(e.fixturePublicId,PUBLIC_ID),teamPublicId:entity(e.teamPublicId,PUBLIC_ID),playerPublicId:entity(e.playerPublicId,PUBLIC_ID),
-    bookmaker:enumValue(e.bookmaker,['betano.bet.br','betsson'] as const),market:enumValue(e.market,['MATCH_WINNER','TOTAL_GOALS','BTTS'] as const),
+    bookmaker:enumValue(e.bookmaker,SOURCE_BOOKMAKER_IDS),sourceBookmaker:enumValue(e.sourceBookmaker,SOURCE_BOOKMAKER_IDS),market:enumValue(e.market,['MATCH_WINNER','TOTAL_GOALS','BTTS'] as const),
     outcome:enumValue(e.outcome,['HOME','DRAW','AWAY','OVER','UNDER','YES','NO'] as const),priceKind:enumValue(e.priceKind,['REAL','PROXY'] as const),slipLegCount:legs,
     comparisonState:enumValue(e.comparisonState,['REAL_COMPLETE','ESTIMATED_COMPLETE','INCOMPLETE'] as const),
     campaignId:typeof e.campaignId==='string'&&UUID_PATTERN.test(e.campaignId)?e.campaignId.toLowerCase():undefined,placement:clean(e.placement,80),props,session};

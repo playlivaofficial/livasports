@@ -2,7 +2,7 @@ import {describe,it,expect,vi} from 'vitest';
 import {verifiedAccountPeriod,reserveOddsRequest,reconcileAccountPeriod,budgetHealth,budgetGovernor,routineDailyCap} from './budget';
 import type {DatabaseClient,QueryExecutor} from '@/database/client';
 const account={subscriptions:[{is_active:true,valid_from:'2026-09-02T11:10:51Z',valid_until:'2026-10-02T11:10:51Z',request_limit:5000,request_count:65,
-  sport_ids:[10,11],bookmakers:{'betano.bet.br':{has_live_odds:false,has_player_props:false},betsson:{has_live_odds:false,has_player_props:false}}}]};
+  sport_ids:[10,11],bookmakers:{'sportingbet.bet.br':{has_live_odds:false,has_player_props:false},'betboo.bet.br':{has_live_odds:false,has_player_props:false},'betano.bet.br':{has_live_odds:false,has_player_props:false},betsson:{has_live_odds:false,has_player_props:false}}}]};
 const input={id:'request',jobId:'job',endpoint:'/v4/odds-by-tournaments',query:{bookmaker:'betsson'},routine:true,unmetered:false};
 function transaction(rows:unknown[]){const query=vi.fn(async(sql:string)=>({rows:sql.includes('FROM odds_budget_baselines')?rows:[],rowCount:sql.includes('UPDATE odds_sync_jobs')?1:0}));return {query:query as unknown as QueryExecutor['query'],mock:query};}
 describe('durable subscription request budget',()=>{
@@ -17,12 +17,12 @@ describe('durable subscription request budget',()=>{
     for(const changed of [{request_count:null},{request_count:-1},{request_limit:10000},{valid_until:'2027-01-01T00:00:00Z'},{bookmakers:{}}])
       expect(()=>verifiedAccountPeriod({subscriptions:[{...account.subscriptions[0],...changed}]},new Date('2026-09-15'))).toThrow();
   });
-  it.each([[4000,0],[200,240],[4500,0]])('stops routine calls at %s/%s without inserting a reservation',async(consumed,rolling_day)=>{
+  it.each([[4650,0],[200,4450],[4750,0]])('stops routine calls at %s/%s without inserting a reservation',async(consumed,rolling_day)=>{
     const tx=transaction([{hard_limit:5000,consumed,rolling_day}]);await expect(reserveOddsRequest(tx,input)).rejects.toMatchObject({name:'OddsBudgetStopped'});
     expect(tx.mock.mock.calls.some(([sql])=>sql.includes('INSERT INTO odds_provider_requests'))).toBe(false);
   });
   it('paces against the remaining actual subscription period before reaching the daily burst ceiling',async()=>{
-    const tx=transaction([{hard_limit:5000,consumed:3000,rolling_day:100,remaining_days:10}]);
+    const tx=transaction([{hard_limit:5000,consumed:3000,rolling_day:165,remaining_days:10}]);
     await expect(reserveOddsRequest(tx,input)).rejects.toMatchObject({name:'OddsBudgetStopped'});
     expect(tx.mock.mock.calls.some(([sql])=>sql.includes('INSERT INTO odds_provider_requests'))).toBe(false);
   });
@@ -39,16 +39,16 @@ describe('durable subscription request budget',()=>{
     const sql=(query.mock.calls as unknown as string[][]).at(-1)![0];expect(sql).toContain('GREATEST(odds_budget_baselines.externally_consumed');expect(sql).toContain('WHERE billable');
   });
   it('mirrors the ledger daily ceiling and exposes rolling-day headroom for scheduler pacing (P0 incident)',async()=>{
-    expect(routineDailyCap(2970,14.1)).toBe(210);expect(routineDailyCap(4000,1)).toBe(240);expect(routineDailyCap(0,10)).toBe(1);expect(routineDailyCap(500,0.2)).toBe(240);
+    expect(routineDailyCap(2970,14.1)).toBe(210);expect(routineDailyCap(4000,1)).toBe(4000);expect(routineDailyCap(0,10)).toBe(1);expect(routineDailyCap(500,0.2)).toBe(500);
     const query=vi.fn(async()=>({rows:[{period_start:'2026-09-02T11:10:51Z',period_end:new Date(Date.now()+14.1*86400000),hard_limit:5000,externally_consumed:50,local_counted:980,
       reserved:0,completed:980,failed_counted:88,unmetered_calls:6,rolling_day:209}],rowCount:1}));
     const health=await budgetHealth({query:query as unknown as QueryExecutor['query']});
-    expect(health).toMatchObject({verified:true,used:1030,routineRemaining:2970,dailyCap:210,rollingDay:209,rollingHeadroom:1});
-    expect(String((query.mock.calls as unknown as string[][])[0][0])).toContain("purpose='SCHEDULED' AND d.started_at>now()-interval '24 hours'");
+    expect(health).toMatchObject({verified:true,used:1030,routineRemaining:3620,dailyCap:256,rollingDay:209,rollingHeadroom:21});
+    expect(String((query.mock.calls as unknown as string[][])[0][0])).toContain("d.billable AND d.started_at>now()-interval '24 hours'");
   });
   it('P3 budget governor derives reserves, projections and pressure from the verified period only (§8)',()=>{
     const g=budgetGovernor({used:1030,routineRemaining:2970,remainingDays:14.1,rollingDay:209,dailyCap:210,rollingThreeDays:600,hardLimit:5000});
-    expect(g).toMatchObject({periodAllowance:4500,routineAllowance:4000,remaining:3470,headroom:1,urgentReserve:42,recoveryReserve:21,discoveryReserve:2,routineCeiling:168,routineHeadroom:0,projectedDailyRequests:200,pressure:'RESERVE_ONLY'});
+    expect(g).toMatchObject({periodAllowance:4750,routineAllowance:4650,remaining:3720,headroom:1,urgentReserve:42,recoveryReserve:21,discoveryReserve:2,routineCeiling:168,routineHeadroom:0,projectedDailyRequests:200,pressure:'RESERVE_ONLY'});
     expect(g.projectedEndOfPeriodUsage).toBe(Math.round(1030+200*14.1));expect(g.projectedOverrun).toBe(false);
     expect(budgetGovernor({used:1030,routineRemaining:2970,remainingDays:14.1,rollingDay:100,dailyCap:210,rollingThreeDays:300,hardLimit:5000}).pressure).toBe('NORMAL');
     expect(budgetGovernor({used:1030,routineRemaining:2970,remainingDays:14.1,rollingDay:150,dailyCap:210,rollingThreeDays:300,hardLimit:5000}).pressure).toBe('PACED');

@@ -37,7 +37,7 @@ describe('M7 bounded read/cache path',()=>{
     expect(r.providerRequests).toBe(0);
     expect(r.comparison.bookmakers.map(b=>[b.bookmakerId,b.complete,b.best,b.ctaState])).toEqual([
       ['betsson',true,false,'AFFILIATE_UNAVAILABLE'],
-      ['betano.bet.br',true,true,'AFFILIATE_UNAVAILABLE'],
+      ['sportingbet.bet.br',true,true,'AFFILIATE_UNAVAILABLE'],
     ]);
   });
   it('rejects invalid server input before reads and resolves empty slips with zero queries',async()=>{

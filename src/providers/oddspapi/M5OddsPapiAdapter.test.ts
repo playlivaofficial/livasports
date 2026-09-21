@@ -22,7 +22,7 @@ describe('bounded OddsPapi worker transport',()=>{
     await expect(p.snapshot('betsson',['325'])).rejects.toThrow('RUN_CAP');expect(fetch).toHaveBeenCalledTimes(1);
   });
   it('fails closed before network at the durable monthly safety ceiling',async()=>{
-    const fetch=vi.spyOn(globalThis,'fetch');await expect(new M5OddsPapiAdapter(database(4500),'test-key','job').snapshot('betsson',['325'])).rejects.toThrow('BUDGET');expect(fetch).not.toHaveBeenCalled();
+    const fetch=vi.spyOn(globalThis,'fetch');await expect(new M5OddsPapiAdapter(database(4750),'test-key','job').snapshot('betsson',['325'])).rejects.toThrow('BUDGET');expect(fetch).not.toHaveBeenCalled();
   });
   it('counts failed attempts and emits status/path/query/full sanitized provider error',async()=>{
     vi.spyOn(globalThis,'fetch').mockResolvedValue(Response.json({code:'BAD_REQUEST',message:'test-secret-key',detail:{apiKey:'test-secret-key'}},{status:400}));

@@ -114,7 +114,7 @@ export async function ingestClientBatch(request:Request,body:unknown,db?:Databas
         VALUES($1,$2,$3,'client',$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31::jsonb) ON CONFLICT(event_id) DO NOTHING RETURNING id`,
         [e.eventId,e.eventName,EVENT_VERSION,e.occurredAt,e.sessionId,e.anonymousId,userId,traffic,e.locale,geo,e.pageType,e.canonicalPath,e.referrerClass,
           e.utm.source??null,e.utm.medium??null,e.utm.campaign??null,e.utm.content??null,e.utm.term??null,r.competitionId,r.fixtureId,r.teamId,r.playerId,e.bookmaker??null,e.market??null,e.outcome??null,e.priceKind??null,
-          e.slipLegCount??null,e.comparisonState??null,e.campaignId??null,e.placement??null,JSON.stringify(e.props??{})]);
+          e.slipLegCount??null,e.comparisonState??null,e.campaignId??null,e.placement??null,JSON.stringify({...e.props,...(e.sourceBookmaker?{sourceBookmaker:e.sourceBookmaker}:{}),...(e.bookmaker?{displayBookmaker:e.bookmaker}:{}),...(e.priceKind?{priceClass:e.priceKind}:{})})]);
       if(result.rowCount){summary.accepted++;inserted.push(e);}else summary.duplicates++;
     }
     if(inserted.length)await upsertSessions(client,inserted,traffic,geo,userId);
