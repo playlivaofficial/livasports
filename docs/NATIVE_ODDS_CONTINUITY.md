@@ -40,3 +40,63 @@ Public order remains target-native → hidden Betano → eligible alternate nati
 - Release acceptance requires multiple **automatic production** cycles and pre-expiry rescue evidence. Deployment alone is not completion.
 
 Initial pre-release evidence (2026-09-21 11:38 UTC): Betsson 28/58 native, Sportingbet 27/58 (16 complete 1X2), betboo 32/58. Saved alias bootstrap: 720→745 aliases, unresolved future identities 47→46, in-window unresolved 0, pipeline loss 0, duplicate/orphan odds 0. Simulation: 105/day average, 176 peak, paced allowance 275, scale 1.95. This is a fixture-window forecast, not guaranteed future consumption. Production acceptance remains pending until release and time-based observation.
+
+## Production acceptance — 2026-09-21 12:06 UTC
+
+**PASS for bounded production acceptance**, not a claim of indefinite upstream availability. Implementation `9467e8202bed7d466b4839da26d763fc9536942d` deployed Ready as `dpl_Az88zpuUBpY6itk1Gg5SNnTEXg2t` to the existing LivaSports project and apex domain. The follow-up commit containing this evidence also fixes an owner-dashboard hydration warning: relative times now use the serialized health snapshot timestamp, not independent server/client clocks. Final deployed follow-up SHA/ID are recorded in the task's release result.
+
+### Same 58-fixture cohort
+
+Baseline 11:29 UTC; automatic production samples 11:55:11, 12:00:32, 12:05:07 UTC. All 58 fixture IDs remain in the intersection. Values below are fixture counts unless explicitly labeled selection-time.
+
+| Measure | Betsson before → after | Sportingbet before → after | betboo before → after |
+|---|---:|---:|---:|
+| Any fresh native | 28 → 44 | 27 → 28 | 32 → 32 |
+| Complete native 1X2 | 28 → 44 | 16 → 16 | 32 → 32 |
+| Complete native OU2.5 | 28 → 44 | 27 → 28 | 32 → 32 |
+| Complete native BTTS | 3 → 3 | 27 → 28 | 32 → 32 |
+| Sampled native selection-time | 35.96% → 55.67% | 38.42% → 38.88% | 55.17% → 55.17% |
+| Sampled fallback selection-time | 37.93% → 18.23% | 35.47% → 35.01% | 18.72% → 18.72% |
+| Stale/expired selections | 80 → 0 | 0 → 0 | 0 → 0 |
+| Backoff-delayed selections | 70 → 70 | 70 → 70 | 70 → 70 |
+| Observed native→fallback transitions | 0 → 0 | 0 → 4 | 0 → 0 |
+| Observed expiry refresh misses | 0 → 0 | 0 → 0 | 0 → 0 |
+
+Global native selection-time increased **43.19% → 49.91%**; fallback selection-time decreased **30.71% → 23.99%**. These are sampled intervals, not reconstructed historical uptime. The pre-instrumentation 41→25 Betsson decline cannot honestly receive a historical transition count. Its 16 expired fixtures recovered to 44/58 and remained there across the observed cycles. A full-day Betsson retention claim is not established by this short observation.
+
+Fixture-level “any fallback” remains 37/58, 28/58, 12/58 respectively: one fixture can have native 1X2 and fallback BTTS simultaneously. This overlapping measure is not the selection-time fallback share above.
+
+### Automatic expiry-boundary proof
+
+- 11:55: automatic catalog discovery (1 request), then Betsson and hidden Betano MLS recovery (2 requests). Job SUCCEEDED.
+- 12:00: Sportingbet and betboo each fetched tournaments **155,390** in one request per bookmaker. **2/2 rescue batches succeeded, 4/4 targets refreshed before expiry**, 36 + 63 current writes. Observed response times 12:00:29.097 and 12:00:31.412 UTC preceded original 12:05:09–12:05:16 deadlines.
+- 12:05: automatic job SUCCEEDED with **0 provider requests**.
+- At 12:06:37, **51/51 selections that were native in the first production sample and had crossed their original expiry were still fresh native**, with newly fetched expiries. No TTL was extended in place.
+- Four Sportingbet selections on one later Série B fixture switched to fallback because the provider suspended OU/BTTS; eight selections recovered. Zero pipeline loss, unknown pipeline defects, or in-window unresolved identities.
+- Across the baseline→first-production transition, 80 Betsson selections recovered. The after-only interval excludes that initial recovery and measures sustained native time instead.
+
+### Quota and precise delays
+
+**5 OddsPapi requests total in acceptance, all automatic: 4 odds + 1 catalog; 0 monitoring/manual/diagnostic provider calls.** No retries or failures during this bounded window. Rolling 24h 156/275 (56.7%); UTC today 60; period usage 1,635; conservative remaining 3,115; routine remaining 3,015; automatic ceiling 220, leaving 64 requests to that ceiling and 119 to paced allowance. Pressure NORMAL. Historical projection 190/day and end-of-day projection 120 are estimates, not quotas. Fixture-window simulation after recovery: 113/day average, 176 peak (41.1% / 64.0% of 275), scale 1.95. Existing protection thresholds and frozen TTLs unchanged.
+
+Latest decision counts: 100 NO_ELIGIBLE_FIXTURES, 20 NOT_DUE, 8 TARGET_BACKOFF; zero DEFERRED_BY_DAILY_BUDGET, DEFERRED_BY_PRIORITY, CIRCUIT_BREAKER, or PROVIDER_TRANSIENT_BACKOFF. The 210 affected public selections are TARGET_BACKOFF (70 per visible bookmaker), not daily-budget exhaustion. Retry times and individual targets are retained in owner details and the private evidence artifact.
+
+### Provider truth and tournament 329 update
+
+Cached raw Sportingbet evidence contains OU/BTTS markets 104/1010 but omits 1X2 market 101 for six inspected Série B fixtures; two were suspended. betboo supplies 101/104/1010 for those same identities. There is no capture failure to repair. Current provider-gap selections remain 376 (Betsson 110, Sportingbet 154, betboo 112); suspended/removed changed 26→22.
+
+**New evidence supersedes the old empty catalog:** automatic 11:55 catalog discovery returned Copa del Rey **329**, Spain, slug `copa-del-rey`, **20 future / 0 upcoming / 0 live fixtures**. Correct identity and request shape are confirmed; old all-bookmaker 404s did not prove permanent non-support. The empty-catalog dormancy automatically lifted, preserving existing per-bookmaker 12-hour backoff. No 329 odds request was made during acceptance. The next normal bounded probe may establish bookmaker supply; it is **not yet proven supported for prices**. Never mark permanent UNSUPPORTED from this evidence. No repeated immediate 404 polling occurs.
+
+Future identity review reduced 47→46 unresolved and increased durable aliases 720→745, without fuzzy matches or tolerance changes. Conflicting kickoff/team identities remain deliberately unresolved. No secondary provider was enabled; only the approved same-bookmaker resolver extension point is ready.
+
+### Release gates and preserved behavior
+
+- Tests: **1,209 passed** (1,192 Vitest + 17 Node); typecheck, lint, production build, secret scan PASS.
+- Remote secret scan: 15 public documents/assets, zero credential leaks. No environment or local-only evidence files tracked.
+- Migrations 031/032 applied; rerun applies none. Post-rescue DB: 34 enabled competitions, 43,397 fixtures, 2,388 teams, 47,009 mappings, 6,465 current quotes, 30,544 history rows, 511 matched fixtures; zero duplicate/invalid/orphan quotes, running jobs or unapplied snapshots.
+- Production EN/PT-BR/ES-MX, light/dark, 320/390/430/1440 rendering checked; page overflow 0, odds controls at least 44px. Match Center and existing slip retained; no selections or stake changed.
+- Exactly three visible bookmaker identities, hidden Betano, no public source-name badges. Affiliate configuration untouched.
+- Public match/search API responses and production route/profile logs show providerRequests=0. Health reads and audit scripts make no provider calls.
+- Platform CONSTRAINED / upstream LIMITED: the backoff/provider gaps are explicit, not falsely labeled all-green.
+
+Reproduce DB-only acceptance with `scripts/continuity-acceptance.ts --since=2026-09-21T11:53:00Z` using the existing secure environment/preload conventions. Raw evidence is intentionally ignored in `output/continuity-acceptance-private.json`. Do not re-run ingestion or manual odds refresh to manufacture a passing sample.

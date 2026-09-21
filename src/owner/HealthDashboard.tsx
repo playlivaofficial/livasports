@@ -1,7 +1,7 @@
 'use client';
 import {useMemo,useState,type FormEvent} from 'react';
 import type {ReliabilityHealth,CompetitionReliability} from '@/odds/reliability/read';
-import {cardClass,stateClass} from './health-ui';
+import {cardClass,stateClass,healthRelativeTime} from './health-ui';
 
 type Action='recheck'|'refresh-target'|'retry-mapping'|'acknowledge';
 async function ownerHealthAction(body:Record<string,unknown>){
@@ -23,8 +23,6 @@ export function useOwnerHealthActions(){
   return {busy,message,error,run};
 }
 const pct=(v:number)=>`${v.toFixed(v%1?1:0)}%`;
-const ago=(iso:string|null)=>{if(!iso)return '—';const m=Math.round((Date.now()-Date.parse(iso))/60000);return m<60?`${m} min ago`:m<1440?`${Math.round(m/60)} h ago`:`${Math.round(m/1440)} d ago`;};
-const until=(iso:string|null)=>{if(!iso)return '—';const h=(Date.parse(iso)-Date.now())/3600000;return h<1?`${Math.max(0,Math.round(h*60))} min`:h<48?`${h.toFixed(1)} h`:`${Math.round(h/24)} d`;};
 
 export function OwnerHealthLogin({configured}:{configured:boolean}){
   const [error,setError]=useState(''),[busy,setBusy]=useState(false);
@@ -38,6 +36,8 @@ export function OwnerHealthLogin({configured}:{configured:boolean}){
 }
 
 export function OwnerHealthDashboard({health}:{health:ReliabilityHealth}){
+  // Snapshot-relative times must be identical during SSR and hydration.
+  const {ago,until}=healthRelativeTime(health.generatedAt);
   const {busy,message,error,run}=useOwnerHealthActions();
   const [filter,setFilter]=useState<'ALL'|'UNHEALTHY'|'CRITICAL'|'DEGRADED'|'HEALTHY'|'IDLE'>('UNHEALTHY');
   const [horizon,setHorizon]=useState<'24h'|'3d'|'7d'|'14d'>('7d');
