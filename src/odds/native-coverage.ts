@@ -10,6 +10,12 @@ import {freshnessTtlMs} from './scheduler-policy';
 export interface NativeCell {fixtureId:string;competition:string;bookmaker:string;market:OddsMarket;outcome:string;window:string;kind:'REAL'|'PROXY'|'UNAVAILABLE';reason:NativeReason|null;source:string|null;}
 export interface NativeGroup {key:string;bookmaker:string;competition:string;market:string;window:string;eligible:number;native:number;complete:number;fallback:number;unavailable:number;nativePct:number;fallbackPct:number;reasons:Record<NativeReason,number>;}
 const reasons=()=>Object.fromEntries(NATIVE_REASONS.map(k=>[k,0])) as Record<NativeReason,number>;
+export function confirmedProviderGap(rows:readonly Record<string,unknown>[],fixtureId:string,outcome:string,observedAt:string|undefined){
+  // Quote expiry does not invalidate proof that the latest fetched response omitted this selection.
+  // Require exact canonical identity and the latest response timestamp; never reuse superseded evidence.
+  return Boolean(observedAt&&rows.some(d=>d.fixture_id===fixtureId&&d.outcome===outcome&&d.classification==='PROVIDER_GAP'
+    &&+new Date(String(d.observed_at))===Date.parse(observedAt)));
+}
 export function returnedQuoteLost(returned:NormalizedOddsQuote|undefined,stored:OddsReadSnapshot['quotes'][number]|undefined,fresh:boolean){
   if(!fresh||returned?.status!=='ACTIVE')return false;
   return !stored||Date.parse(stored.observedAt)<Date.parse(returned.observedAt)||
@@ -96,7 +102,7 @@ export async function readNativeCoverage(db:QueryExecutor,now=new Date(),quotaBl
             rejected:relevant.some(d=>d.classification==='MARKET_MAPPING_FAILURE'&&(!d.outcome||d.outcome===outcome)),
             unresolved:relevant.some(d=>d.classification==='IDENTITY_UNRESOLVED'),
             delayed:quotaBlocked||Boolean(target?.retry_after&&+new Date(target.retry_after)>+now),
-            providerGap:Boolean(freshEvidence&&payload)});
+            providerGap:Boolean(freshEvidence&&payload)||confirmedProviderGap(relevant,fixture.id,outcome,payload?.observedAt)});
           cells.push({fixtureId:fixture.id,competition:fixture.competition,bookmaker:book.canonicalId,market,outcome,window,kind,reason,source:cell?.sourceBookmaker??null});
         }
       }

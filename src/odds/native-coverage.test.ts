@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {nativeReason,nativeRegressions,summarizeNative,returnedQuoteLost,type NativeCell} from './native-coverage';
+import {nativeReason,nativeRegressions,summarizeNative,returnedQuoteLost,confirmedProviderGap,type NativeCell} from './native-coverage';
 import {snapshotDiagnostics} from './native-diagnostics';
 import {matchOddsFixture,matchOddsSnapshot,normalizeTeamName} from './matching';
 import type {CanonicalOddsFixture,ProviderOddsFixture,OddsSnapshot,ReadOddsQuote} from './types';
@@ -30,6 +30,15 @@ describe('durable native identity',()=>{
   });
 });
 describe('native diagnostics and rolling baselines',()=>{
+  it('retains latest confirmed provider omissions after quote freshness expires without trusting superseded or ambiguous evidence',()=>{
+    const at='2026-09-21T04:40:10.055Z';
+    const rows=[{fixture_id:'f',outcome:'YES',classification:'PROVIDER_GAP',observed_at:at}];
+    expect(confirmedProviderGap(rows,'f','YES',at)).toBe(true);
+    expect(confirmedProviderGap(rows,'f','YES','2026-09-21T10:00:00Z')).toBe(false);
+    expect(confirmedProviderGap(rows,'other','YES',at)).toBe(false);
+    expect(confirmedProviderGap(rows,'f','NO',at)).toBe(false);
+    expect(confirmedProviderGap(rows,'f','YES',undefined)).toBe(false);
+  });
   const snapshot:OddsSnapshot={bookmaker:'betboo.bet.br',observedAt:'2026-10-01T11:55:00Z',fixtures:[raw],quotes:[],tournamentIds:['42'],rejected:{}};
   it('explains every supported selection and retains identity evidence',()=>{
     const rows=snapshotDiagnostics(snapshot,[{raw,fixture:null,state:'TEAM_MISMATCH',reason:'Unresolved',candidateFixtureIds:['f']}]);
