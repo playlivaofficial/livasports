@@ -6,6 +6,7 @@ import {classifyCompetition,classifyGlobal,worstHealth,type CatalogMappingState,
 import {HEALTH_CONTRACT_VERSION,HEALTH_RANK,type HealthState} from './model';
 import {readFourSourceHealth,type FourSourceHealth} from '../four-source-health';
 import {readNativeCoverage} from '../native-coverage';
+import {readContinuity} from '../continuity';
 
 export interface IncidentRecord {
   id:string;competition:string;classification:string;severity:'WARNING'|'CRITICAL';state:'OPEN'|'ACKNOWLEDGED'|'RESOLVED';
@@ -18,6 +19,8 @@ export interface RecoveryActionRecord {
 }
 export interface CompetitionReliability extends CompetitionHealth {windows:Record<CoverageWindow,CoverageWindowReport>;feeds:FeedEvidence[];baseline:CompetitionBaseline|null;}
 export interface ReliabilityHealth {
+  continuity?:Awaited<ReturnType<typeof readContinuity>>;
+  platformHealth?:string;upstreamCoverageHealth?:string;
   nativeCoverage?:Awaited<ReturnType<typeof readNativeCoverage>>;
   nativeCoverageError?:string;
   fourSource?:FourSourceHealth;
@@ -126,7 +129,11 @@ export async function readReliabilityHealth(db:QueryExecutor,now=new Date(),opti
   if(nativeCoverage?.regressions.length)global.push({classification:'PROXY_DOMINANT',severity:'WARNING',evidence:`Rolling native coverage regression: ${nativeCoverage.regressions.map(r=>r.key).join(', ')}`,affectedFixtures:nativeCoverage.fixtures});
   if(fourSource.windows['7d'].degraded)global.push({classification:'PROXY_DOMINANT',severity:'WARNING',evidence:'Visible REAL feed coverage is degraded; hidden insurance must not mask it',affectedFixtures:fourSource.windows['7d'].fixtures});
   const overall=worstHealth([...competitions.map(c=>c.health),...global.map(g=>g.severity==='CRITICAL'?'CRITICAL' as const:'DEGRADED' as const)]);
-  return {nativeCoverage,nativeCoverageError,fourSource,version:HEALTH_CONTRACT_VERSION,generatedAt:now.toISOString(),overall:overall==='IDLE'&&competitions.length?'HEALTHY':overall,counts,horizons,
+  const continuity=await readContinuity(db);
+  const platformHealth=nativeCoverageError||nativeCoverage?.pipelineLoss||nativeCoverage?.counts.UNKNOWN_PIPELINE_DEFECT||nativeCoverage?.unresolvedInWindow||
+    nativeCoverage?.delayCounts.EXPIRY_REFRESH_MISSED||global.some(g=>g.classification==='SCHEDULER_STALLED')?'DEGRADED':
+    nativeCoverage?.counts.STALE_OR_EXPIRED||nativeCoverage?.counts.QUOTA_OR_BACKOFF_DELAY?'CONSTRAINED':'HEALTHY';
+  return {continuity,platformHealth,upstreamCoverageHealth:nativeCoverage?.counts.PROVIDER_GAP?'LIMITED':'AVAILABLE',nativeCoverage,nativeCoverageError,fourSource,version:HEALTH_CONTRACT_VERSION,generatedAt:now.toISOString(),overall:overall==='IDLE'&&competitions.length?'HEALTHY':overall,counts,horizons,
     bookmakers:{betanoRealPct:seven.betanoRealPct,betssonRealPct:seven.betssonRealPct,bothRealPct:seven.fixtures?Math.round(seven.bothReal/seven.fixtures*1000)/10:0,proxyPct:seven.proxyPct,neitherPct:seven.neitherPct,stalePct:seven.stalePct,window:'7d'},
     quoteAges,competitions,global,
     scheduler:{state:String(row?.state??'READY'),lastAutomaticInvocationAt:iso(row?.last_automatic_invocation_at),lastSuccessfulRefreshAt:iso(row?.last_refresh_at),nextDueAt:iso(row?.next_due_at),automationEnabled,lastError:row?.last_error?String(row.last_error):null,

@@ -108,6 +108,8 @@ const aliases: Record<string, Record<string,string>> = {
     'slavia prague':'slavia praha',
   },
   'argentina-primera-division': {
+    // Reviewed against the saved provider fixture and the unique same-role, same-kickoff canonical event.
+    'racing club avellaneda':'racing club',
     'deportivo riestra afbc':'deportivo riestra',
     'ca barracas central':'barracas central',
     'ca central cordoba se':'central cordoba sde',
@@ -139,6 +141,15 @@ const aliases: Record<string, Record<string,string>> = {
     'gaziantep fk':'gaziantep f k',
     'goztepe izmir':'goztepe',
     'amed sportif faaliyetler':'amed sk',
+  },
+  'conference-league': {
+    // Explicit contextual variants; never strip club suffixes globally or relax the kickoff guard.
+    'hnk hajduk split':'hajduk split',
+    'agf aarhus':'agf',
+    'fk borac banja luka':'borac banja luka',
+    'riga fc':'riga',
+    'cs universitatea craiova':'universitatea craiova',
+    'fk kauno zalgiris':'kauno zalgiris',
   },
 };
 export function normalizeTeamName(name: string): string {

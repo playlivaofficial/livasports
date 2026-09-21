@@ -71,6 +71,7 @@ output/p0-browser-*.png
 output/hotfix-screens/
 output/p5-*.log
 output/native-coverage-*.log
+output/continuity-*.log
 output/p5-*-private.ts
 !output/p5-report.md
 !output/p5-report.json

@@ -34,6 +34,8 @@ export interface OddsProvider {
   snapshot(bookmaker: string, tournamentIds: readonly string[]): Promise<OddsSnapshot>;
 }
 export interface ReadOddsQuote extends NormalizedOddsQuote {
+  /** Data supplier is independent of the canonical bookmaker identity. */
+  provider?:string;
   quoteId: string;
   freshnessTtlMinutes?: number | null;
   fixtureId: string; bookmakerId: string; bookmakerName: string;
@@ -41,7 +43,7 @@ export interface ReadOddsQuote extends NormalizedOddsQuote {
   geoEligible: boolean;
   persistedAt: string; lastSuccessfulRefreshAt: string; providerKickoff: string;
 }
-export interface OddsReadSnapshot { quotes: ReadOddsQuote[]; kickoff: string; fixtureStatus: string; }
+export interface OddsReadSnapshot { quotes: ReadOddsQuote[]; kickoff: string; fixtureStatus: string; approvedNativeProviders?:readonly string[]; }
 export interface OddsCell {
   outcome: OddsOutcome; decimalOdds: string | null; state: OddsStatus | 'UNAVAILABLE'; best: boolean; expiresAt: string | null;
   priceKind: 'REAL' | 'PROXY' | null;

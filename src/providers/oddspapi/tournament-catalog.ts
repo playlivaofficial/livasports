@@ -6,6 +6,8 @@ export interface CatalogTournament {
   slug: string;
   category: string;
   canonical: string;
+  /** Explicit provider zero, never inferred from a missing counter. */
+  catalogEmpty?: boolean;
 }
 
 type ObjectValue = Record<string, unknown>;
@@ -95,7 +97,10 @@ export function resolveCatalogTournaments(raw: unknown[]): CatalogTournament[] {
     if (found.length !== 1) continue;
     byCanonical.set(target.slug, {id: String(found[0].tournamentId), slug: String(found[0].tournamentSlug), category: String(found[0].categorySlug), canonical: target.slug});
   }
-  return [...byCanonical.values()];
+  return [...byCanonical.values()].map(t=>{
+    const row=rows.find(r=>String(r.tournamentId)===t.id);
+    return row?.futureFixtures===0&&row?.upcomingFixtures===0?{...t,catalogEmpty:true}:t;
+  });
 }
 /** Provider rows that no rule or lookup name resolves, limited to categories the registry cares about — the actionable list for a mapping gap. */
 export function unmatchedCatalogRows(raw: unknown[]): Array<{id: string; slug: string; category: string; name: string; futureFixtures: number | null}> {

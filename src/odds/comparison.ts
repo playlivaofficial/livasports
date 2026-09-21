@@ -36,8 +36,8 @@ export function buildComparison(snapshot:OddsReadSnapshot,market:OddsMarket,now=
   const nativeRows:OddsBookmakerRow[]=UNION_BOOKMAKERS.map(({bookmaker,name})=>{
     const prices=relevant.filter(q=>q.bookmaker===bookmaker);
     const cells=SELECTIONS[market].map(outcome=>{
-      const matches=prices.filter(q=>q.outcome===outcome);const q=matches[0];
-      const state=matches.length===1?quoteState(q,snapshot,now):'UNAVAILABLE';
+      const matches=prices.filter(q=>q.outcome===outcome);const selected=selectNativeQuote(matches,snapshot,now);const q=selected??matches[0];
+      const state=selected?quoteState(selected,snapshot,now):'UNAVAILABLE';
       const valid=q&&Number.isFinite(Number(q.decimalOdds))&&Number(q.decimalOdds)>1&&Number(q.decimalOdds)<=1000;
       const ttl=q?quoteFreshnessTtlMs(q,snapshot,now):0;
       const expires=q?Math.min(Date.parse(q.observedAt)+ttl,Date.parse(q.lastSuccessfulRefreshAt)+ttl,Date.parse(snapshot.kickoff),Date.parse(q.providerKickoff)):NaN;
@@ -77,4 +77,16 @@ export function buildComparison(snapshot:OddsReadSnapshot,market:OddsMarket,now=
   const expires=result.rows.flatMap(r=>r.cells.filter(c=>c.decimalOdds!==null).map(c=>c.expiresAt!)).sort();
   result.observedAt=observed.at(-1)??null;result.providerUpdatedAt=updated.at(-1)??null;result.expiresAt=expires[0]??null;
   return result;
+}
+/** Only server-approved suppliers participate. Ambiguity inside one supplier is never guessed. */
+export function selectNativeQuote(matches:readonly ReadOddsQuote[],snapshot:OddsReadSnapshot,now:number){
+  const providers=snapshot.approvedNativeProviders??['ODDSPAPI'];
+  let inactive:ReadOddsQuote|undefined;
+  for(const provider of providers){
+    const rows=matches.filter(q=>(q.provider??'ODDSPAPI')===provider);
+    if(rows.length!==1)continue;
+    const quote=rows[0];inactive??=quote;
+    if(quoteState(quote,snapshot,now)==='ACTIVE'&&Number(quote.decimalOdds)>1&&Number(quote.decimalOdds)<=1000)return quote;
+  }
+  return inactive;
 }

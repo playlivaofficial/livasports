@@ -4,6 +4,7 @@ import {alertEmailConfigured,readReliabilityHealth,type ReliabilityHealth} from 
 import type {HealthIssue} from './classify';
 import {pruneLaunchTelemetry} from '@/analytics/maintenance';
 import {persistNativeCoverageReport} from '../native-coverage';
+import {recordContinuity} from '../continuity';
 
 export interface RecoveryAction {
   trigger:'SCHEDULER'|'OWNER'|'INTEGRITY';action:string;competition?:string|null;bookmaker?:string|null;tournamentId?:string|null;reason:string;
@@ -34,6 +35,7 @@ export async function evaluateReliability(db:DatabaseClient,options:{now?:Date;a
   const now=options.now??new Date();
   const health=await readReliabilityHealth(db,now,{automationEnabled:options.automationEnabled});
   if(health.nativeCoverage)await persistNativeCoverageReport(db,health.nativeCoverage);
+  if(health.nativeCoverage)await recordContinuity(db,health.nativeCoverage.at,health.nativeCoverage.cells);
   const result:EvaluationResult={health,opened:0,updated:0,resolved:0,alerts:[]};
   // 1. Rollups (baseline for anomaly detection).
   const rollups=health.competitions.map(c=>({competition:c.competition,health:c.health,issue:c.primary,f24:c.windows['24h'].fixtures,a24:c.windows['24h'].anyOdds,f7:c.windows['7d'].fixtures,a7:c.windows['7d'].anyOdds,mw7:c.windows['7d'].matchWinner,b7:c.windows['7d'].betanoReal,s7:c.windows['7d'].betssonReal,p7:c.windows['7d'].proxyOnly}));

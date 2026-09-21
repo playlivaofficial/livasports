@@ -1,13 +1,13 @@
 import type {QueryExecutor} from '@/database/client';
 import {canonicalFixtures} from './ingestion';
 import {readListingOddsSnapshots} from './read-core';
-import {buildComparison,quoteState} from './comparison';
+import {buildComparison,quoteState,quoteFreshnessTtlMs} from './comparison';
 import {VISIBLE_BOOKMAKERS} from './registry';
 import {SELECTIONS,type OddsMarket,type OddsReadSnapshot,type OddsSnapshot,type CanonicalOddsFixture,type NormalizedOddsQuote} from './types';
 import {NATIVE_REASONS,type NativeReason} from './native-diagnostics';
 import {freshnessTtlMs} from './scheduler-policy';
 
-export interface NativeCell {fixtureId:string;competition:string;bookmaker:string;market:OddsMarket;outcome:string;window:string;kind:'REAL'|'PROXY'|'UNAVAILABLE';reason:NativeReason|null;source:string|null;}
+export interface NativeCell {fixtureId:string;competition:string;bookmaker:string;market:OddsMarket;outcome:string;window:string;kind:'REAL'|'PROXY'|'UNAVAILABLE';reason:NativeReason|null;source:string|null;nativeExpiryAt?:string|null;delayReason?:string|null;}
 export interface NativeGroup {key:string;bookmaker:string;competition:string;market:string;window:string;eligible:number;native:number;complete:number;fallback:number;unavailable:number;nativePct:number;fallbackPct:number;reasons:Record<NativeReason,number>;}
 const reasons=()=>Object.fromEntries(NATIVE_REASONS.map(k=>[k,0])) as Record<NativeReason,number>;
 export function confirmedProviderGap(rows:readonly Record<string,unknown>[],fixtureId:string,outcome:string,observedAt:string|undefined){
@@ -103,7 +103,12 @@ export async function readNativeCoverage(db:QueryExecutor,now=new Date(),quotaBl
             unresolved:relevant.some(d=>d.classification==='IDENTITY_UNRESOLVED'),
             delayed:quotaBlocked||Boolean(target?.retry_after&&+new Date(target.retry_after)>+now),
             providerGap:Boolean(freshEvidence&&payload)||confirmedProviderGap(relevant,fixture.id,outcome,payload?.observedAt)});
-          cells.push({fixtureId:fixture.id,competition:fixture.competition,bookmaker:book.canonicalId,market,outcome,window,kind,reason,source:cell?.sourceBookmaker??null});
+          const ttl=own?quoteFreshnessTtlMs(own,snap,+now):0;
+          const expiry=own?Math.min(Date.parse(own.observedAt),Date.parse(own.lastSuccessfulRefreshAt))+ttl:NaN;
+          const delayReason=quotaBlocked?'DEFERRED_BY_DAILY_BUDGET':target?.retry_after&&+new Date(target.retry_after)>+now?
+            /^ODDSPAPI_HTTP_5\d\d$/.test(String(target.last_error))?'PROVIDER_TRANSIENT_BACKOFF':'TARGET_BACKOFF':reason==='STALE_OR_EXPIRED'?'EXPIRY_REFRESH_MISSED':null;
+          cells.push({fixtureId:fixture.id,competition:fixture.competition,bookmaker:book.canonicalId,market,outcome,window,kind,reason,source:cell?.sourceBookmaker??null,
+            nativeExpiryAt:Number.isFinite(expiry)?new Date(expiry).toISOString():null,delayReason});
         }
       }
     }
@@ -111,7 +116,9 @@ export async function readNativeCoverage(db:QueryExecutor,now=new Date(),quotaBl
   const groups=summarizeNative(cells),regressions=nativeRegressions(groups,history.rows.map(r=>r.report as {groups:NativeGroup[]}));
   const counts=reasons();for(const c of cells)if(c.reason)counts[c.reason]++;
   const unresolved=diagnostics.rows.filter(d=>d.classification==='IDENTITY_UNRESOLVED'&&Date.parse(String((d.evidence as Record<string,unknown>).kickoff))>+now);
-  return {at:now.toISOString(),providerRequests:0 as const,fixtures:fixtures.length,fixtureIds:fixtures.map(f=>f.id),groups,cells,counts,
+  const delayCounts:Record<string,number>={};for(const c of cells)if(c.kind!=='REAL'&&c.delayReason)delayCounts[c.delayReason]=(delayCounts[c.delayReason]??0)+1;
+  const expiries=VISIBLE_BOOKMAKERS.map(b=>({bookmaker:b.canonicalId,...Object.fromEntries([15,30,60].map(minutes=>[String(minutes),new Set(cells.filter(c=>c.bookmaker===b.canonicalId&&c.kind==='REAL'&&Date.parse(c.nativeExpiryAt??'')<=+now+minutes*60000).map(c=>c.fixtureId)).size]))}));
+  return {at:now.toISOString(),providerRequests:0 as const,fixtures:fixtures.length,fixtureIds:fixtures.map(f=>f.id),groups,cells,counts,delayCounts,expiries,
     unresolvedIdentities:new Set(unresolved.map(d=>d.provider_fixture_id)).size,
     unresolvedInWindow:new Set(unresolved.filter(d=>Date.parse(String((d.evidence as Record<string,unknown>).kickoff))<=+now+7*86400000).map(d=>d.provider_fixture_id)).size,
     pipelineLoss:counts.INGESTION_BUG,regressions,baselineSamples:history.rows.length,
