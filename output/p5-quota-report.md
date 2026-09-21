@@ -105,5 +105,4 @@ Historical three-day-rate period-end projection: 3777. New normal forecast extra
 - Public navigation remains DB/cache-backed; no provider call was made by this audit or local route verification.
 
 ## Remaining P5 release work
-Quota check passes, but this is NOT P5 closure. Release is held per the latest instruction. Remaining P5 end-to-end work includes final full visual/affiliate/health QA, clean release diff/report, safe commit/push, existing-project deployment READY, bounded new-source ingestion/idempotency, and production acceptance. Do not label new production source coverage or deployment PASS before those steps execute.
-
+Quota check passes, but this is NOT P5 closure. Release was subsequently authorized after final gates. See output/p5-report.md for current release status. Do not label new production source coverage or deployment PASS before bounded ingestion/idempotency and production acceptance execute.
