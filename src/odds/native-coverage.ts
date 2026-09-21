@@ -14,7 +14,7 @@ export function confirmedProviderGap(rows:readonly Record<string,unknown>[],fixt
   // Quote expiry does not invalidate proof that the latest fetched response omitted this selection.
   // Require exact canonical identity and the latest response timestamp; never reuse superseded evidence.
   return Boolean(observedAt&&rows.some(d=>d.fixture_id===fixtureId&&d.outcome===outcome&&d.classification==='PROVIDER_GAP'
-    &&+new Date(String(d.observed_at))===Date.parse(observedAt)));
+    &&(d.observed_at instanceof Date?+d.observed_at:Date.parse(String(d.observed_at)))===Date.parse(observedAt)));
 }
 export function returnedQuoteLost(returned:NormalizedOddsQuote|undefined,stored:OddsReadSnapshot['quotes'][number]|undefined,fresh:boolean){
   if(!fresh||returned?.status!=='ACTIVE')return false;

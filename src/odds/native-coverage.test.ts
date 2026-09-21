@@ -34,6 +34,7 @@ describe('native diagnostics and rolling baselines',()=>{
     const at='2026-09-21T04:40:10.055Z';
     const rows=[{fixture_id:'f',outcome:'YES',classification:'PROVIDER_GAP',observed_at:at}];
     expect(confirmedProviderGap(rows,'f','YES',at)).toBe(true);
+    expect(confirmedProviderGap([{...rows[0],observed_at:new Date(at)}],'f','YES',at)).toBe(true);
     expect(confirmedProviderGap(rows,'f','YES','2026-09-21T10:00:00Z')).toBe(false);
     expect(confirmedProviderGap(rows,'other','YES',at)).toBe(false);
     expect(confirmedProviderGap(rows,'f','NO',at)).toBe(false);
