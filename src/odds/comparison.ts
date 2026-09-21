@@ -1,4 +1,4 @@
-import { KICKOFF_TOLERANCE_MS, SELECTIONS, type OddsBookmakerRow, type OddsComparison, type OddsMarket, type OddsReadSnapshot, type ReadOddsQuote, type OddsStatus } from './types';
+import { KICKOFF_TOLERANCE_MS, SELECTIONS, type OddsBookmakerRow, type OddsComparison, type OddsMarket, type OddsOutcome, type OddsReadSnapshot, type ReadOddsQuote, type OddsStatus } from './types';
 import { freshnessTtlMs } from './scheduler-policy';
 import {BOOKMAKER_REGISTRY,isVisibleBookmaker} from './registry';
 import {resolveInsurance} from './insurance';
@@ -35,9 +35,10 @@ export function buildComparison(snapshot:OddsReadSnapshot,market:OddsMarket,now=
   if(!relevant.some(q=>UNION_BOOKMAKERS.some(book=>book.bookmaker===q.bookmaker)))return result;
   const nativeRows:OddsBookmakerRow[]=UNION_BOOKMAKERS.map(({bookmaker,name})=>{
     const prices=relevant.filter(q=>q.bookmaker===bookmaker);
+    const selectedMarket=selectNativeMarketQuotes(prices,market,snapshot,now);
     const cells=SELECTIONS[market].map(outcome=>{
-      const matches=prices.filter(q=>q.outcome===outcome);const selected=selectNativeQuote(matches,snapshot,now);const q=selected??matches[0];
-      const state=selected?quoteState(selected,snapshot,now):'UNAVAILABLE';
+      const matches=prices.filter(q=>q.outcome===outcome);const selected=selectedMarket.get(outcome);const q=selectedMarket.ambiguous?undefined:selected??matches.find(row=>(row.provider??'ODDSPAPI')===selectedMarket.provider)??matches[0];
+      const state=q?quoteState(q,snapshot,now):'UNAVAILABLE';
       const valid=q&&Number.isFinite(Number(q.decimalOdds))&&Number(q.decimalOdds)>1&&Number(q.decimalOdds)<=1000;
       const ttl=q?quoteFreshnessTtlMs(q,snapshot,now):0;
       const expires=q?Math.min(Date.parse(q.observedAt)+ttl,Date.parse(q.lastSuccessfulRefreshAt)+ttl,Date.parse(snapshot.kickoff),Date.parse(q.providerKickoff)):NaN;
@@ -89,4 +90,26 @@ export function selectNativeQuote(matches:readonly ReadOddsQuote[],snapshot:Odds
     if(quoteState(quote,snapshot,now)==='ACTIVE'&&Number(quote.decimalOdds)>1&&Number(quote.decimalOdds)<=1000)return quote;
   }
   return inactive;
+}
+
+/** Select exactly one supplier snapshot for the entire market. Partial provider snapshots are never merged. */
+export function selectNativeMarketQuotes(matches:readonly ReadOddsQuote[],market:OddsMarket,snapshot:OddsReadSnapshot,now:number){
+  const providers=snapshot.approvedNativeProviders??['ODDSPAPI'];
+  const required=SELECTIONS[market];
+  const candidates=providers.flatMap((provider,priority)=>{
+    const providerRows=matches.filter(q=>(q.provider??'ODDSPAPI')===provider);
+    const snapshots=new Map<string,ReadOddsQuote[]>();
+    for(const row of providerRows){const key=row.observedAt;const rows=snapshots.get(key)??[];rows.push(row);snapshots.set(key,rows);}
+    return [...snapshots.entries()].map(([observedAt,rows])=>{
+      const active=rows.filter(q=>quoteState(q,snapshot,now)==='ACTIVE'&&Number(q.decimalOdds)>1&&Number(q.decimalOdds)<=1000);
+      const unique=new Map<string,ReadOddsQuote>();let ambiguous=false;
+      for(const outcome of required){const found=active.filter(q=>q.outcome===outcome);if(found.length>1)ambiguous=true;else if(found.length===1)unique.set(outcome,found[0]);}
+      return {provider,priority,observedAt,rows,active:ambiguous?new Map<string,ReadOddsQuote>():unique,complete:!ambiguous&&unique.size===required.length,ambiguous};
+    });
+  });
+  const ranked=candidates.filter(c=>c.active.size>0).sort((a,b)=>Number(b.complete)-Number(a.complete)||b.active.size-a.active.size||Date.parse(b.observedAt)-Date.parse(a.observedAt)||a.priority-b.priority);
+  const selected=ranked[0]??candidates.sort((a,b)=>Date.parse(b.observedAt)-Date.parse(a.observedAt)||a.priority-b.priority)[0];
+  const result=new Map<OddsOutcome,ReadOddsQuote>() as Map<OddsOutcome,ReadOddsQuote>&{provider?:string;ambiguous?:boolean};
+  if(selected){result.provider=selected.provider;result.ambiguous=selected.ambiguous;for(const [outcome,quote] of selected.active)result.set(outcome as OddsOutcome,quote);}
+  return result;
 }

@@ -6,6 +6,8 @@ import {readTeamIdentities,rememberTeamAliases} from './identity';
 import {persistNativeDiagnostics} from './native-diagnostics';
 import {freshnessTtlMs} from './scheduler-policy';
 import type { CanonicalOddsFixture, OddsSnapshot, PersistedFixtureMapping } from './types';
+import {persistNativeSourceBatch} from './native-source-persistence';
+import {APPROVED_NATIVE_SOURCE_IDS} from './source-registry';
 
 /** Close only quotes the latest snapshot actually listed. Fixtures outside the feed stay until they go stale. */
 export function snapshotAbsenceCloseScope(snapshot:OddsSnapshot,acceptedFixtureIds:readonly string[]){
@@ -95,6 +97,12 @@ export async function persistSnapshot(db:DatabaseClient,jobId:string,snapshot:Od
       const hours=(Math.min(Date.parse(m.fixture.kickoff),Date.parse(m.raw.kickoff))-Date.parse(snapshot.observedAt))/3600000;
       return [{...q,bookmaker,fixtureId:m.fixture.id,providerKickoff:m.raw.kickoff,freshnessTtlMinutes:freshnessTtlMs(hours,2,snapshot.cadenceScale??1)/60000,
         status:m.fixture.status!=='SCHEDULED'||Date.now()>=Math.min(Date.parse(m.fixture.kickoff),Date.parse(m.raw.kickoff))?'CLOSED':q.status}];});
+    const sourceWrites=await persistNativeSourceBatch(tx,{sourceProvider:'ODDSPAPI',observedAt:snapshot.observedAt,requestCount:0,quotes:quotes.map(q=>({
+      sourceProvider:'ODDSPAPI',fixture:{providerFixtureId:q.providerFixtureId,canonicalFixtureId:q.fixtureId,mappingVerified:true},
+      bookmaker:q.bookmaker,providerBookmakerId:snapshot.bookmaker,market:q.market,providerMarketId:q.market,outcome:q.outcome,line:q.line,
+      decimalOdds:q.decimalOdds,status:q.status,providerUpdatedAt:q.providerUpdatedAt,observedAt:q.observedAt,providerKickoff:q.providerKickoff,
+      freshnessTtlMinutes:q.freshnessTtlMinutes,sourceDomain:q.sourceDomain,confidence:'VERIFIED' as const,
+    }))},APPROVED_NATIVE_SOURCE_IDS);
     const sourceSql=`SELECT r.*,b.id AS bookmaker_id FROM jsonb_to_recordset($1::jsonb) AS r("fixtureId" uuid,bookmaker text,market text,outcome text,line numeric,
       "decimalOdds" numeric,status text,scope text,phase text,"providerFixtureId" text,"providerUpdatedAt" timestamptz,"observedAt" timestamptz,"sourceDomain" text,"providerKickoff" timestamptz,"freshnessTtlMinutes" numeric)
       JOIN bookmakers b ON b.provider_slug=r.bookmaker`;
@@ -128,11 +136,12 @@ export async function persistSnapshot(db:DatabaseClient,jobId:string,snapshot:Od
     await tx.query('UPDATE odds_sync_snapshots SET applied_at=COALESCE(applied_at,now()) WHERE id=$1',[key]);
     await tx.query(`INSERT INTO odds_refresh_targets(bookmaker,tournament_id,last_success_at,last_attempt_at)
       SELECT $1,unnest($2::text[]),$3,$3 ON CONFLICT(bookmaker,tournament_id) DO UPDATE SET
-      last_success_at=excluded.last_success_at,last_attempt_at=excluded.last_attempt_at,retry_after=NULL,consecutive_failures=0,last_error=NULL
+      last_success_at=excluded.last_success_at,last_attempt_at=excluded.last_attempt_at,retry_after=NULL,consecutive_failures=0,last_error=NULL,
+      failure_class=NULL,backoff_reason=NULL,next_recheck_at=NULL,failure_evidence='{}'::jsonb
       WHERE odds_refresh_targets.last_success_at IS NULL OR odds_refresh_targets.last_success_at<excluded.last_success_at`,
       [bookmaker,snapshot.tournamentIds,snapshot.observedAt]);
     await tx.query("UPDATE odds_sync_jobs SET cursor=cursor+1,heartbeat_at=now(),lease_expires_at=now()+interval '3 minutes' WHERE id=$1",[jobId]);
-    return {bookmaker,returnedFixtures:snapshot.fixtures.length,matchedFixtures:accepted.size,quotes:quotes.length,
+    return {bookmaker,returnedFixtures:snapshot.fixtures.length,matchedFixtures:accepted.size,quotes:quotes.length,sourceWrites,
       history_changes:Number(changes.rows[0]?.history_changes??0),current_writes:Number(changes.rows[0]?.current_writes??0),closed:closed.rowCount,
       matching:matches.map(m=>({providerId:m.raw.providerId,fixtureId:m.fixture?.id??null,state:m.state,reason:m.reason})),rejected:snapshot.rejected};
   });

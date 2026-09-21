@@ -16,6 +16,7 @@ import {HEALTH_CONTRACT_VERSION,type IssueClassification,type Severity} from './
 import {readReliabilityHealth} from './reliability/read';
 import type {OddsSnapshot} from './types';
 import {recoverNativeIdentities} from './native-recovery';
+import {backoffJitterMinutes,classifyBackoff} from './backoff-policy';
 
 export interface IntegrityFinding {bookmaker:string;tournamentIds:string[];classification:IssueClassification;severity:Severity;reason:string;returnedFixtures:number;matchedFixtures:number;quotes:number;currentWrites:number;closed:number;}
 /** P3 §14: flag a "successful" refresh whose outcome is suspicious. Provider truth is never rolled back automatically. */
@@ -44,6 +45,7 @@ export async function schedulerInputs(db:DatabaseClient,tournaments:readonly Cat
     EXISTS(SELECT 1 FROM bookmaker_geo_availability g WHERE g.bookmaker_id=b.id AND g.odds_enabled AND g.comparison_enabled
       AND g.verified_at IS NOT NULL AND g.verification_state IN ('VERIFIED_BR','VERIFIED_MX','VERIFIED_BR_MX')) AS public_eligible,
     t.tournament_id,t.last_success_at,t.last_attempt_at,t.retry_after,t.consecutive_failures,t.last_error,
+    t.failure_class,t.backoff_reason,t.next_recheck_at,t.failure_evidence,
     EXISTS(SELECT 1 FROM odds_current legacy JOIN fixtures lf ON lf.id=legacy.fixture_id
       JOIN provider_entity_mappings lm ON lm.provider='ODDSPAPI' AND lm.entity_type='COMPETITION' AND lm.livasports_entity_id=lf.competition_id
       WHERE lm.provider_entity_id=t.tournament_id AND legacy.bookmaker_id=b.id AND legacy.status='ACTIVE'
@@ -84,7 +86,8 @@ export async function schedulerInputs(db:DatabaseClient,tournaments:readonly Cat
       fixtures:source?fixtures.filter(f=>f.competition===t.canonical):[],publicEligible:source?.public_eligible===true,
       hasUsefulCoverage:row?.useful_coverage===true,lastSuccessAt:row?.last_success_at?.toISOString()??null,retryAfter:row?.retry_after?.toISOString()??null,
       lastError:typeof row?.last_error==='string'?row.last_error:null,needsCadenceRefresh:row?.needs_cadence_refresh===true,
-      lastAttemptAt:row?.last_attempt_at?.toISOString?.()??null,consecutiveFailures:Number(row?.consecutive_failures??0)};
+      lastAttemptAt:row?.last_attempt_at?.toISOString?.()??null,consecutiveFailures:Number(row?.consecutive_failures??0),
+      failureClass:row?.failure_class??null,backoffReason:row?.backoff_reason??null,nextRecheckAt:row?.next_recheck_at?.toISOString?.()??null};
   }));
   return {targets,budget};
 }
@@ -100,10 +103,11 @@ export function schedulerDeferral(code:string|null){
   if(code==='ACCOUNT_RECONCILIATION_COOLDOWN')return 'ACCOUNT_RECONCILIATION_COOLDOWN';
   if(code?.startsWith('ACCOUNT_')||code==='ODDS_WORKER_LEASE_LOST')return 'MANUAL_PROTECTION';
   if(code==='ODDS_RUN_CAP_REACHED'||code==='ODDS_RUN_DEADLINE')return 'DEFERRED_BY_PRIORITY';
-  if(code&&/HTTP_5\d\d$/.test(code))return 'PROVIDER_TRANSIENT_BACKOFF';
-  if(code&&/401|403/.test(code))return 'MANUAL_PROTECTION';
+  if(code&&/HTTP_5\d\d$/.test(code))return 'HTTP_5XX_TRANSIENT';
+  if(code&&/401|403/.test(code))return 'AUTH_REJECTED';
   if(code&&/BUDGET|QUOTA|429|EXHAUSTED/.test(code))return 'DEFERRED_BY_DAILY_BUDGET';
-  if(code&&/HTTP_4\d\d$/.test(code))return 'TARGET_BACKOFF';
+  if(code&&/HTTP_404$/.test(code))return 'HTTP_404_TARGET_NOT_FOUND';
+  if(code&&/HTTP_4\d\d$/.test(code))return 'TARGET_SPECIFIC_COOLDOWN';
   if(code)return 'REFRESH_FAILED';
   return 'DEFERRED_BY_PRIORITY';
 }
@@ -128,6 +132,7 @@ export async function runOddsScheduler(db:DatabaseClient,key:string,trigger:'CON
       last_automatic_invocation_at=CASE WHEN $2 THEN now() ELSE last_automatic_invocation_at END WHERE id=true`,[job,trigger==='AUTOMATIC']);
     const catalog=(await db.query("SELECT markets,tournaments FROM odds_provider_catalog WHERE provider='ODDSPAPI'")).rows[0];
     if(!catalog)throw new Error('ODDS_CATALOG_UNVERIFIED');verifyCatalog(catalog.markets,catalog.tournaments);
+    provider.setMarketCatalog(catalog.markets);
     tournaments=schedulerTournaments(catalog.tournaments);
     // P0 incident: a competition that is enabled, has upcoming fixtures and no catalog row must not wait for a manual
     // discovery run. One bounded /v4/tournaments call per 24h merges new provider rows (IDs are never invented).
@@ -199,19 +204,24 @@ export async function runOddsScheduler(db:DatabaseClient,key:string,trigger:'CON
             reason:`Urgent batch (nearest kickoff ${Math.round(batch.nearestHours*10)/10}h)`,requestCost:1,outcome:safeSchedulerError(error)});
           const isolatedEmpty=isProviderFixtureAbsent(error)&&ids.length===1&&!isStableOddsTournament(ids[0]);
           if(!isolatedEmpty)errorCode=safeSchedulerError(error);
-          // The 12h empty-feed backoff applies only to feeds that never succeeded; a previously priced feed keeps the short ladder.
+          // Hard target failures remain isolated; transient failures use a short bounded ladder and deterministic jitter.
           const neverSucceeded=!current.targets.some(t=>t.bookmaker===batch.bookmaker&&ids.includes(t.tournamentId)&&t.proven);
-          const longBackoff=isolatedEmpty&&neverSucceeded;
           const persistable=ids.filter(id=>tournaments.some(tournament=>tournament.id===id));
           if(persistable.length){
             try{
-              await db.query(`INSERT INTO odds_refresh_targets(bookmaker,tournament_id,last_attempt_at,retry_after,consecutive_failures,last_error)
-                SELECT $1,unnest($2::text[]),now(),now()+CASE WHEN $4 THEN interval '12 hours' ELSE interval '15 minutes' END,1,$3
+              const prior=Math.max(0,...current.targets.filter(t=>t.bookmaker===batch.bookmaker&&ids.includes(t.tournamentId)).map(t=>t.consecutiveFailures??0));
+              const failureCode=isolatedEmpty?'ODDSPAPI_HTTP_404':(errorCode??safeSchedulerError(error));
+              const failure=classifyBackoff({code:failureCode,neverSucceeded,isolated:ids.length===1,
+                catalogEmpty:ids.some(id=>tournaments.find(t=>t.id===id)?.catalogEmpty===true),
+                fixtures:current.targets.filter(t=>t.bookmaker===batch.bookmaker&&ids.includes(t.tournamentId)).reduce((n,t)=>n+t.fixtures,0),consecutiveFailures:prior+1});
+              const delay=failure.delayMinutes+Math.max(...persistable.map(id=>backoffJitterMinutes(batch.bookmaker,id)));
+              await db.query(`INSERT INTO odds_refresh_targets(bookmaker,tournament_id,last_attempt_at,retry_after,consecutive_failures,last_error,failure_class,backoff_reason,next_recheck_at,failure_evidence)
+                SELECT $1,unnest($2::text[]),now(),now()+$4*interval '1 minute',1,$3,$5,$6,now()+$4*interval '1 minute',$7::jsonb
                 ON CONFLICT(bookmaker,tournament_id) DO UPDATE SET last_attempt_at=now(),last_error=$3,
                   consecutive_failures=LEAST(odds_refresh_targets.consecutive_failures+1,10),
-                  -- An isolated empty feed (provider lists no fixtures) waits 12h; other failures keep the bounded 15m→6h ladder.
-                  retry_after=CASE WHEN $4 THEN now()+interval '12 hours' ELSE now()+LEAST(360,power(2,LEAST(odds_refresh_targets.consecutive_failures,5))*15)*interval '1 minute' END`,
-                [batch.bookmaker,persistable,isolatedEmpty?'ODDSPAPI_HTTP_404':(errorCode??safeSchedulerError(error)),longBackoff]);
+                  retry_after=now()+$4*interval '1 minute',failure_class=$5,backoff_reason=$6,
+                  next_recheck_at=now()+$4*interval '1 minute',failure_evidence=$7::jsonb`,
+                [batch.bookmaker,persistable,failureCode,delay,failure.failureClass,failure.subreason,JSON.stringify(failure.evidence)]);
             }catch{/* Retry-target CHECK failures must not replace the provider status. */}
           }
           if(!isolatedEmpty)state=results.length?'PARTIAL':'FAILED';

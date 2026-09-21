@@ -2,6 +2,7 @@ import {isStableOddsTournament} from '@/providers/oddspapi/tournament-catalog';
 import {MAX_TOURNAMENTS_PER_ODDSPAPI_REQUEST} from '@/providers/oddspapi/request-limits';
 import {SOURCE_BOOKMAKER_IDS} from './registry';
 import {NORMAL_FORECAST_FRACTION,NORMAL_STOP_FRACTION,quotaPressure} from './quota-policy';
+import {effectiveBackoffAt} from './backoff-policy';
 
 export const SCHEDULER_BOOKMAKERS=SOURCE_BOOKMAKER_IDS;
 export const SCHEDULER_TICK_MINUTES=5;
@@ -14,6 +15,7 @@ export interface RefreshTarget {
   nativePriority?:number;
   bookmaker:string;tournamentId:string;fixtures:Array<{id:string;kickoff:string;status:string}>;
   publicEligible:boolean;hasUsefulCoverage:boolean;lastSuccessAt:string|null;retryAfter:string|null;lastError?:string|null;needsCadenceRefresh?:boolean;
+  failureClass?:string|null;backoffReason?:string|null;nextRecheckAt?:string|null;
   /** P0 incident fields: a target that has succeeded before and is not failing can share a provider request. */
   lastAttemptAt?:string|null;consecutiveFailures?:number;
 }
@@ -62,12 +64,14 @@ export function planTarget(target:RefreshTarget,activeFeeds:number,now=new Date(
   const expiry=Date.parse(target.nativeExpiryAt??'');
   const rescue=intervalMinutes!==null&&target.publicEligible&&Number.isFinite(expiry)&&expiry>now.getTime()&&expiry-nativeSafetyMarginMinutes()*60000<=now.getTime();
   const nativeRecovery=target.publicEligible&&target.recentNative===true&&Number.isFinite(expiry)&&expiry<=now.getTime();
-  const dueAt=intervalMinutes===null?null:Math.max(nativeDue,target.retryAfter?Date.parse(target.retryAfter):0);
-  const delayReason=target.unsupported?'UNSUPPORTED':target.catalogEmpty?'CATALOG_EMPTY':target.retryAfter&&Date.parse(target.retryAfter)>now.getTime()?
-    /^ODDSPAPI_HTTP_5\d\d$/.test(target.lastError??'')?'PROVIDER_TRANSIENT_BACKOFF':target.lastError==='ODDS_UPSTREAM_COOLDOWN'?'CIRCUIT_BREAKER':'TARGET_BACKOFF':null;
+  const retryAt=effectiveBackoffAt({retryAfter:target.retryAfter,lastAttemptAt:target.lastAttemptAt,failureClass:target.failureClass,subreason:target.backoffReason,
+    recentNative:target.recentNative,nativePriority:target.nativePriority,nearKickoff:hours<=12,closeToExpiry:rescue||nativeRecovery,bookmaker:target.bookmaker,tournamentId:target.tournamentId});
+  const dueAt=intervalMinutes===null?null:Math.max(nativeDue,retryAt);
+  const delayReason=target.unsupported?'UNSUPPORTED':target.catalogEmpty?'CATALOG_EMPTY':retryAt>now.getTime()?
+    target.backoffReason??(/^ODDSPAPI_HTTP_5\d\d$/.test(target.lastError??'')?'HTTP_5XX_TRANSIENT':target.lastError==='ODDS_UPSTREAM_COOLDOWN'?'CIRCUIT_BREAKER':'UNKNOWN_BACKOFF'):null;
   return {bookmaker:target.bookmaker,tournamentId:target.tournamentId,tier,intervalMinutes,fixtures:upcoming.length,recovery,nativePriority:target.nativePriority??0,
     rescue,nativeRecovery,delayReason,recentNative:target.recentNative===true,nativeExpiryAt:target.nativeExpiryAt??null,normalDueAt:normalDue?new Date(normalDue).toISOString():null,
-    proven:isProvenTarget(target),
+    proven:isProvenTarget(target),consecutiveFailures:target.consecutiveFailures??0,backoffSubreason:delayReason,nextEligibleRefreshAt:retryAt>now.getTime()?new Date(retryAt).toISOString():null,
     nearestKickoff:upcoming.length?new Date(now.getTime()+hours*3600000).toISOString():null,
     due:dueAt!==null&&Number.isFinite(dueAt)&&dueAt<=now.getTime(),
     urgency:dueAt===null?0:(now.getTime()-dueAt)/Math.max(1,(intervalMinutes??1)*60000),

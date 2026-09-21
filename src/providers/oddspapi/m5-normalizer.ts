@@ -48,6 +48,26 @@ const rules: Record<string,{market:OddsMarket;name:string;type:string;line:numbe
   '104':{market:'BTTS',name:'Both Teams To Score',type:'bothteamsscore',line:null,outcomes:{'104':{name:'Yes',code:'YES'},'105':{name:'No',code:'NO'}}},
   '1010':{market:'TOTAL_GOALS',name:'Over Under Full Time',type:'totals',line:2.5,outcomes:{'1010':{name:'Over',code:'OVER'},'1011':{name:'Under',code:'UNDER'}}},
 };
+const canonicalSemantics:Record<OddsMarket,{name:string;type:string;line:number|null;outcomes:Record<string,OddsOutcome>}>= {
+  MATCH_WINNER:{name:'Full Time Result',type:'1x2',line:null,outcomes:{'1':'HOME','X':'DRAW','2':'AWAY'}},
+  BTTS:{name:'Both Teams To Score',type:'bothteamsscore',line:null,outcomes:{'Yes':'YES','No':'NO'}},
+  TOTAL_GOALS:{name:'Over Under Full Time',type:'totals',line:2.5,outcomes:{'Over':'OVER','Under':'UNDER'}},
+};
+/** Alternate IDs are accepted only when the provider catalog proves exact full-time semantics and outcome names. */
+export function discoverCanonicalMarketRules(markets:unknown[]){
+  const discovered:typeof rules={};
+  for(const value of markets){const market=obj(value);const id=String(market.marketId??'');
+    if(!/^\d+$/.test(id)||market.sportId!==10||market.playerProp!==false||market.period!=='fulltime')continue;
+    for(const [canonical,semantic] of Object.entries(canonicalSemantics) as [OddsMarket,typeof canonicalSemantics[OddsMarket]][]){
+      const line=semantic.line??0;if(market.marketName!==semantic.name||market.marketType!==semantic.type||Number(market.handicap??0)!==line)continue;
+      const outcomes=Array.isArray(market.outcomes)?market.outcomes.map(obj):[];const mapped:Record<string,{name:string;code:OddsOutcome}>={};
+      for(const [name,code] of Object.entries(semantic.outcomes)){const found=outcomes.filter(outcome=>outcome.outcomeName===name&&/^\d+$/.test(String(outcome.outcomeId??'')));
+        if(found.length!==1){Object.keys(mapped).forEach(key=>delete mapped[key]);break;}mapped[String(found[0].outcomeId)]={name,code};}
+      if(Object.keys(mapped).length===Object.keys(semantic.outcomes).length)discovered[id]={market:canonical,name:semantic.name,type:semantic.type,line:semantic.line,outcomes:mapped};
+    }
+  }
+  return discovered;
+}
 export function inspectM5OfferFlags(data:unknown,bookmaker:string){
   const stats={fixtures:0,withBook:0,listedQuotes:0,bookmakerIsActiveTrue:0,bookmakerIsActiveFalse:0,bookmakerIsActiveMissing:0,
     suspendedTrue:0,suspendedFalse:0,marketActiveTrue:0,marketActiveFalse:0,priceActiveTrue:0,priceActiveFalse:0,
@@ -103,9 +123,10 @@ export function verifyCatalog(markets:unknown[],tournaments:unknown[]):void {
   }
 }
 export function normalizeM5Snapshot(data:unknown,bookmaker:string,observedAt:string,tournamentIds:readonly string[],
-  catalog:readonly {id:string;slug:string;category:string;canonical:string}[]=M5_TOURNAMENTS):OddsSnapshot {
+  catalog:readonly {id:string;slug:string;category:string;canonical:string}[]=M5_TOURNAMENTS,marketCatalog:unknown[]=[]):OddsSnapshot {
   if(!canonicalBookmakerSlug(bookmaker)||!isoUtc(observedAt)||!Array.isArray(data))throw new Error('Invalid pregame snapshot envelope');
-  const result:OddsSnapshot={bookmaker:canonicalBookmakerSlug(bookmaker)??bookmaker,observedAt,fixtures:[],quotes:[],rejected:{},tournamentIds:[...tournamentIds]};
+  const activeRules={...rules,...discoverCanonicalMarketRules(marketCatalog)};
+  const result:OddsSnapshot={provider:'ODDSPAPI',bookmaker:canonicalBookmakerSlug(bookmaker)??bookmaker,observedAt,fixtures:[],quotes:[],rejected:{},tournamentIds:[...tournamentIds]};
   let context={providerFixtureId:'',tournamentId:'',market:'',outcome:'',evidence:{} as Record<string,unknown>};
   const reject=(key:string)=>{result.rejected[key]=(result.rejected[key]??0)+1;
     // Unsupported markets are accounted for in aggregate, not thousands of redundant diagnostic rows per request.
@@ -129,8 +150,8 @@ export function normalizeM5Snapshot(data:unknown,bookmaker:string,observedAt:str
     let domain:string|null=null;
     if(typeof book.fixturePath==='string'){try { domain=new URL(book.fixturePath.includes('://')?book.fixturePath:`https://${book.fixturePath}`).hostname;}catch{/* No domain evidence. */}}
     for(const [id,rawMarket] of Object.entries(obj(book.markets))){
-      context={...context,market:rules[id]?.market??id,outcome:''};
-      const rule=rules[id];if(!rule){reject('OUT_OF_SCOPE_MARKET');continue;}
+      context={...context,market:activeRules[id]?.market??id,outcome:''};
+      const rule=activeRules[id];if(!rule){reject('OUT_OF_SCOPE_MARKET');continue;}
       const market=obj(rawMarket);
       for(const [outcomeId,rawOutcome] of Object.entries(obj(market.outcomes))){
         context={...context,outcome:rule.outcomes[outcomeId]?.code??outcomeId};

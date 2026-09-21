@@ -10,7 +10,8 @@ describe('DB-only odds navigation',()=>{
     const query=vi.fn().mockResolvedValue({rows:[row]});const fetch=vi.spyOn(globalThis,'fetch');
     const result=await readOddsSnapshot({query},'f','BR');
     expect(query).toHaveBeenCalledTimes(1);    expect(query.mock.calls[0][0]).toContain('LIMIT 200');expect(query.mock.calls[0][0]).not.toContain("o.market_code='MATCH_WINNER'");
-    expect(query.mock.calls[0][0]).toContain("abs(extract(epoch from ((fm.metadata->>'canonicalKickoff')::timestamptz - f.kickoff))) <= 600 AS mapping_verified");
+    expect(query.mock.calls[0][0]).toContain("abs(extract(epoch from ((fm.metadata->>'canonicalKickoff')::timestamptz - f.kickoff))) <= 600");
+    expect(query.mock.calls[0][0]).toContain('o.source_mapping_verified OR');
     expect(query.mock.calls[0][0]).toContain("COALESCE(mr.evidence->>'providerCompetitionId', fm.metadata->>'providerCompetitionId')");
     expect(query.mock.calls[0][0]).not.toContain('o.provider_kickoff=');expect(fetch).not.toHaveBeenCalled();
     expect(result.quotes[0].decimalOdds).toBe('2.12345678');expect(result.quotes[0].geoEligible).toBe(true);expect(result.destinations).toEqual({});fetch.mockRestore();
@@ -35,6 +36,7 @@ describe('DB-only odds navigation',()=>{
     const match=await readOddsSnapshot({query},fixtureId,geo);
     const listing=(await readListingOddsSnapshots({query},[fixtureId],geo)).get(fixtureId)!;
     const saved=(await readPublicOddsFixtures({query},[publicId],geo)).get(publicId)!.snapshot;
+    expect(saved.approvedNativeProviders).toEqual(['ODDSPAPI']);
     for(const snapshot of [match,listing,saved])expect(buildComparison(snapshot,'MATCH_WINNER',now).rows.map(r=>r.cells[0].decimalOdds)).toEqual(['2.20','2.12345678','2.12345678']);
     expect(match.destinations).toEqual(geo==='BR'?{betsson:betsson.destination}:{});
     expect(query).toHaveBeenCalledTimes(3);

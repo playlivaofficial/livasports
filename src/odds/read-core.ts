@@ -7,12 +7,23 @@ import type {QueryResultRow} from 'pg';
 import type {BookmakerConfig} from '@/slip/comparison-types';
 import {commercialIso2,commercialLocale,type CommercialGeo} from './commercial-geo';
 import {SOURCE_BOOKMAKER_IDS} from './registry';
+import {APPROVED_NATIVE_SOURCE_IDS,NATIVE_SOURCE_REGISTRY} from './source-registry';
 
 export interface InternalOddsRead extends OddsReadSnapshot { destinations:Record<string,string>; }
 // All readers share verified source/mapping checks. Visitor GEO only controls destinations.
 function oddsJoin(selector:'id'|'publicIds'|'fixtureIds'|'healthIds'){
   const market=selector==='fixtureIds'?" AND o.market_code='MATCH_WINNER' AND o.line IS NULL":'';
-  return `LEFT JOIN odds_current o ON o.fixture_id=f.id AND o.scope='FULL_TIME_REGULATION' AND o.phase='PREGAME'${market}`;
+  return `LEFT JOIN LATERAL (
+    SELECT id,fixture_id,bookmaker_id,market_code,outcome_code,line,decimal_odds,provider_updated_at,status,scope,phase,
+      provider_fixture_id,source_domain,observed_at,persisted_at,last_successful_refresh_at,provider_kickoff,freshness_ttl_minutes,
+      'ODDSPAPI'::text AS source_provider,false AS source_mapping_verified
+    FROM odds_current WHERE fixture_id=f.id AND scope='FULL_TIME_REGULATION' AND phase='PREGAME'
+    UNION ALL
+    SELECT id,fixture_id,bookmaker_id,market_code,outcome_code,line,decimal_odds,provider_updated_at,status,scope,phase,
+      provider_fixture_id,source_domain,observed_at,persisted_at,last_successful_refresh_at,provider_kickoff,freshness_ttl_minutes,
+      source_provider,mapping_verified AS source_mapping_verified
+    FROM odds_native_source_current WHERE fixture_id=f.id AND source_provider<>'ODDSPAPI' AND scope='FULL_TIME_REGULATION' AND phase='PREGAME'
+  ) o ON true${market}`;
 }
 function oddsReadSql(selector:'id'|'publicIds'|'fixtureIds'|'healthIds'){
   const where=selector==='id'?'f.id=$1':selector==='publicIds'?'f.public_id=ANY($1::text[]) AND competition.enabled':'f.id=ANY($1::uuid[])';
@@ -25,9 +36,9 @@ function oddsReadSql(selector:'id'|'publicIds'|'fixtureIds'|'healthIds'){
     source_country.iso2 AS source_geo,source_geo.verification_state AS source_verification_state,
     b.enabled AND b.comparison_enabled AND source_geo.odds_enabled AND source_geo.comparison_enabled
       AND source_geo.verified_at IS NOT NULL AS display_eligible,
-    fm.livasports_entity_id=f.id AND hm.livasports_entity_id=f.home_team_id AND am.livasports_entity_id=f.away_team_id
+    (o.source_mapping_verified OR (fm.livasports_entity_id=f.id AND hm.livasports_entity_id=f.home_team_id AND am.livasports_entity_id=f.away_team_id
       AND cm.livasports_entity_id=f.competition_id AND mr.fixture_id=f.id AND mr.state IN ('EXACT','HIGH_CONFIDENCE')
-      AND abs(extract(epoch from ((fm.metadata->>'canonicalKickoff')::timestamptz - f.kickoff))) <= 600 AS mapping_verified,
+      AND abs(extract(epoch from ((fm.metadata->>'canonicalKickoff')::timestamptz - f.kickoff))) <= 600)) AS mapping_verified,
     CASE WHEN b.affiliate_status='ACTIVE' AND g.affiliate_enabled AND al.enabled AND al.approved_at IS NOT NULL
       AND al.campaign_verified AND al.approved_placement='match-odds' THEN al.destination_url END AS destination
     FROM fixtures f ${oddsJoin(selector)}
@@ -39,11 +50,11 @@ function oddsReadSql(selector:'id'|'publicIds'|'fixtureIds'|'healthIds'){
     LEFT JOIN bookmaker_geo_availability source_geo ON source_geo.bookmaker_id=b.id AND source_geo.country_id=source_country.id
     LEFT JOIN countries co ON co.iso2=$2 LEFT JOIN bookmaker_geo_availability g ON g.bookmaker_id=b.id AND g.country_id=co.id
     LEFT JOIN affiliate_links al ON al.bookmaker_id=b.id AND al.country_id=co.id
-    LEFT JOIN provider_entity_mappings fm ON fm.provider='ODDSPAPI' AND fm.entity_type='FIXTURE' AND fm.provider_entity_id=o.provider_fixture_id
-    LEFT JOIN provider_entity_mappings hm ON hm.provider='ODDSPAPI' AND hm.entity_type='TEAM' AND hm.provider_entity_id=fm.metadata->>'homeProviderId'
-    LEFT JOIN provider_entity_mappings am ON am.provider='ODDSPAPI' AND am.entity_type='TEAM' AND am.provider_entity_id=fm.metadata->>'awayProviderId'
+    LEFT JOIN provider_entity_mappings fm ON fm.provider=o.source_provider AND fm.entity_type='FIXTURE' AND fm.provider_entity_id=o.provider_fixture_id
+    LEFT JOIN provider_entity_mappings hm ON hm.provider=o.source_provider AND hm.entity_type='TEAM' AND hm.provider_entity_id=fm.metadata->>'homeProviderId'
+    LEFT JOIN provider_entity_mappings am ON am.provider=o.source_provider AND am.entity_type='TEAM' AND am.provider_entity_id=fm.metadata->>'awayProviderId'
     LEFT JOIN odds_mapping_reviews mr ON mr.provider_fixture_id=o.provider_fixture_id
-    LEFT JOIN provider_entity_mappings cm ON cm.provider='ODDSPAPI' AND cm.entity_type='COMPETITION'
+    LEFT JOIN provider_entity_mappings cm ON cm.provider=o.source_provider AND cm.entity_type='COMPETITION'
       AND cm.provider_entity_id=COALESCE(mr.evidence->>'providerCompetitionId', fm.metadata->>'providerCompetitionId')
     WHERE ${where}
     ORDER BY f.public_id,b.provider_slug,o.market_code,o.outcome_code LIMIT ${limit}`;
@@ -51,7 +62,7 @@ function oddsReadSql(selector:'id'|'publicIds'|'fixtureIds'|'healthIds'){
 function hydrateOddsSnapshot(rows:QueryResultRow[],fixtureId:string,geo:CommercialGeo|null):InternalOddsRead {
   const date=(value:unknown)=>value instanceof Date?value.toISOString():typeof value==='string'?value:'';
   const locale=commercialLocale(geo);
-  const snapshot:InternalOddsRead={kickoff:date(rows[0]?.kickoff),fixtureStatus:String(rows[0]?.fixture_status??'UNKNOWN'),quotes:[],destinations:{}};
+  const snapshot:InternalOddsRead={kickoff:date(rows[0]?.kickoff),fixtureStatus:String(rows[0]?.fixture_status??'UNKNOWN'),quotes:[],destinations:{},approvedNativeProviders:APPROVED_NATIVE_SOURCE_IDS};
   for(const row of rows){if(!row.bookmaker_id)continue;
     // A BR feed remains BR content wherever it is read; this grants no commercial eligibility.
     const sourceEligible=eligibleSource(row.provider_slug,row.source_geo,row.source_verification_state,row.source_domain);
@@ -60,7 +71,9 @@ function hydrateOddsSnapshot(rows:QueryResultRow[],fixtureId:string,geo:Commerci
       market:row.market_code,outcome:row.outcome_code,line:row.line===null?null:Number(row.line),decimalOdds:String(row.decimal_odds),status:row.status,scope:row.scope,phase:row.phase,
       providerUpdatedAt:row.provider_updated_at?date(row.provider_updated_at):null,observedAt:date(row.observed_at),persistedAt:date(row.persisted_at),lastSuccessfulRefreshAt:date(row.last_successful_refresh_at),
       sourceDomain:row.source_domain,providerKickoff:date(row.provider_kickoff),freshnessTtlMinutes:row.freshness_ttl_minutes==null?null:Number(row.freshness_ttl_minutes),geoEligible:Boolean(row.display_eligible&&sourceEligible&&row.mapping_verified)};
-    snapshot.quotes.push({...quote,provider:'ODDSPAPI'});
+    const sourceProvider=String(row.source_provider??'ODDSPAPI');
+    const providerPriority=NATIVE_SOURCE_REGISTRY.find(source=>source.id===sourceProvider)?.priority??Number.MAX_SAFE_INTEGER;
+    snapshot.quotes.push({...quote,provider:sourceProvider,providerPriority});
     const destination=quote.geoEligible&&commercialEligible&&locale?availableDestination(quote.bookmaker,locale,row.destination,row.active_campaigns,'match_odds_table')?.url:null;
     if(destination)snapshot.destinations[quote.bookmaker]=destination;
   }
@@ -102,7 +115,7 @@ export async function readPublicOddsFixtures(db:QueryExecutor,publicIds:readonly
     const internal=hydrateOddsSnapshot(rows,String(rows[0].canonical_fixture_id),geo);
     return [id,{fixture:{publicId:id,home:String(rows[0].home_name),away:String(rows[0].away_name),competition:String(rows[0].competition_name),kickoff:internal.kickoff,status:internal.fixtureStatus},
       // Destinations are intentionally excluded: M6 resolves intent, not commercial actions.
-      snapshot:{kickoff:internal.kickoff,fixtureStatus:internal.fixtureStatus,quotes:internal.quotes}}];
+      snapshot:{kickoff:internal.kickoff,fixtureStatus:internal.fixtureStatus,quotes:internal.quotes,approvedNativeProviders:internal.approvedNativeProviders}}];
   }));
 }
 

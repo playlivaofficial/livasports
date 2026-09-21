@@ -7,7 +7,8 @@ import {SELECTIONS,type OddsMarket,type OddsReadSnapshot,type OddsSnapshot,type 
 import {NATIVE_REASONS,type NativeReason} from './native-diagnostics';
 import {freshnessTtlMs} from './scheduler-policy';
 
-export interface NativeCell {fixtureId:string;competition:string;bookmaker:string;market:OddsMarket;outcome:string;window:string;kind:'REAL'|'PROXY'|'UNAVAILABLE';reason:NativeReason|null;source:string|null;nativeExpiryAt?:string|null;delayReason?:string|null;}
+export interface NativeCell {fixtureId:string;competition:string;bookmaker:string;market:OddsMarket;outcome:string;window:string;kind:'REAL'|'PROXY'|'UNAVAILABLE';reason:NativeReason|null;source:string|null;nativeExpiryAt?:string|null;delayReason?:string|null;nextEligibleRefreshAt?:string|null;
+  nativeSourceProvider?:string|null;fallbackSource?:string|null;secondaryProviderEligible?:boolean;}
 export interface NativeGroup {key:string;bookmaker:string;competition:string;market:string;window:string;eligible:number;native:number;complete:number;fallback:number;unavailable:number;nativePct:number;fallbackPct:number;reasons:Record<NativeReason,number>;}
 const reasons=()=>Object.fromEntries(NATIVE_REASONS.map(k=>[k,0])) as Record<NativeReason,number>;
 export function confirmedProviderGap(rows:readonly Record<string,unknown>[],fixtureId:string,outcome:string,observedAt:string|undefined){
@@ -65,7 +66,7 @@ export function nativeRegressions(current:readonly NativeGroup[],history:readonl
 }
 export async function readNativeCoverage(db:QueryExecutor,now=new Date(),quotaBlocked=false){
   const fixtures=(await canonicalFixtures(db)).filter(f=>f.status==='SCHEDULED'&&Date.parse(f.kickoff)>+now&&Date.parse(f.kickoff)<=+now+7*86400000);
-  const [reads,saved,targets,mappings,diagnostics,history]=await Promise.all([
+  const [reads,saved,targets,mappings,diagnostics,history,sourceHealth]=await Promise.all([
     readListingOddsSnapshots(db,fixtures.map(f=>f.id),null,true),
     db.query(`SELECT DISTINCT ON(s.bookmaker,t.id) s.bookmaker,t.id,s.observed_at,s.payload FROM odds_sync_snapshots s
       CROSS JOIN LATERAL jsonb_array_elements_text(s.payload->'tournamentIds') t(id)
@@ -75,6 +76,10 @@ export async function readNativeCoverage(db:QueryExecutor,now=new Date(),quotaBl
     db.query(`SELECT DISTINCT ON(bookmaker,provider_fixture_id,market,outcome) bookmaker,provider_fixture_id,fixture_id,market,outcome,classification,evidence,observed_at
       FROM odds_native_diagnostics WHERE observed_at>$1::timestamptz-interval '7 days' ORDER BY bookmaker,provider_fixture_id,market,outcome,observed_at DESC`,[now.toISOString()]),
     db.query("SELECT report FROM odds_native_rollups WHERE bucket BETWEEN $1::timestamptz-interval '7 days' AND $1::timestamptz-interval '1 hour' ORDER BY bucket DESC LIMIT 672",[now.toISOString()]),
+    db.query(`SELECT s.source_provider,b.provider_slug AS bookmaker,count(*)::int AS selections,count(DISTINCT s.fixture_id)::int AS fixtures,
+      count(*) FILTER(WHERE s.status='ACTIVE' AND s.observed_at+s.freshness_ttl_minutes*interval '1 minute'>$1)::int AS fresh_selections,
+      max(s.observed_at) AS last_observed_at FROM odds_native_source_current s JOIN bookmakers b ON b.id=s.bookmaker_id
+      GROUP BY s.source_provider,b.provider_slug ORDER BY s.source_provider,b.provider_slug`,[now.toISOString()]),
   ]);
   const cells:NativeCell[]=[];
   for(const fixture of fixtures){
@@ -98,17 +103,21 @@ export async function readNativeCoverage(db:QueryExecutor,now=new Date(),quotaBl
           const returnedQuote=raw?payload?.quotes.find(q=>q.providerFixtureId===raw.providerId&&q.market===market&&q.outcome===outcome&&q.status==='ACTIVE'):undefined;
           const returned=Boolean(freshEvidence&&returnedQuote);
           const kind=cell?.decimalOdds?(cell.priceKind??'UNAVAILABLE'):'UNAVAILABLE';
+          const hardExternalGap=target?.last_error==='ODDSPAPI_HTTP_404'&&!target?.last_success_at;
           const reason=returnedQuoteLost(returnedQuote,own,freshEvidence)?'INGESTION_BUG':kind==='REAL'?null:nativeReason({quote:own,snapshot:snap,now:+now,returned,returnedAt:payload?.observedAt,
             rejected:relevant.some(d=>d.classification==='MARKET_MAPPING_FAILURE'&&(!d.outcome||d.outcome===outcome)),
             unresolved:relevant.some(d=>d.classification==='IDENTITY_UNRESOLVED'),
-            delayed:quotaBlocked||Boolean(target?.retry_after&&+new Date(target.retry_after)>+now),
-            providerGap:Boolean(freshEvidence&&payload)||confirmedProviderGap(relevant,fixture.id,outcome,payload?.observedAt)});
+            delayed:quotaBlocked||Boolean(!hardExternalGap&&target?.retry_after&&+new Date(target.retry_after)>+now),
+            providerGap:hardExternalGap||Boolean(freshEvidence&&payload)||confirmedProviderGap(relevant,fixture.id,outcome,payload?.observedAt)});
           const ttl=own?quoteFreshnessTtlMs(own,snap,+now):0;
           const expiry=own?Math.min(Date.parse(own.observedAt),Date.parse(own.lastSuccessfulRefreshAt))+ttl:NaN;
           const delayReason=quotaBlocked?'DEFERRED_BY_DAILY_BUDGET':target?.retry_after&&+new Date(target.retry_after)>+now?
-            /^ODDSPAPI_HTTP_5\d\d$/.test(String(target.last_error))?'PROVIDER_TRANSIENT_BACKOFF':'TARGET_BACKOFF':reason==='STALE_OR_EXPIRED'?'EXPIRY_REFRESH_MISSED':null;
+            String(target.backoff_reason??(/^ODDSPAPI_HTTP_5\d\d$/.test(String(target.last_error))?'HTTP_5XX_TRANSIENT':'INHERITED_HISTORICAL_BACKOFF')):reason==='STALE_OR_EXPIRED'?'EXPIRY_REFRESH_MISSED':null;
           cells.push({fixtureId:fixture.id,competition:fixture.competition,bookmaker:book.canonicalId,market,outcome,window,kind,reason,source:cell?.sourceBookmaker??null,
-            nativeExpiryAt:Number.isFinite(expiry)?new Date(expiry).toISOString():null,delayReason});
+            nativeExpiryAt:Number.isFinite(expiry)?new Date(expiry).toISOString():null,delayReason,
+            nextEligibleRefreshAt:target?.next_recheck_at?new Date(target.next_recheck_at).toISOString():target?.retry_after?new Date(target.retry_after).toISOString():null,
+            nativeSourceProvider:kind==='REAL'?own?.provider??'ODDSPAPI':null,fallbackSource:kind==='PROXY'?cell?.sourceBookmaker??null:null,
+            secondaryProviderEligible:reason==='PROVIDER_GAP'});
         }
       }
     }
@@ -122,6 +131,7 @@ export async function readNativeCoverage(db:QueryExecutor,now=new Date(),quotaBl
     unresolvedIdentities:new Set(unresolved.map(d=>d.provider_fixture_id)).size,
     unresolvedInWindow:new Set(unresolved.filter(d=>Date.parse(String((d.evidence as Record<string,unknown>).kickoff))<=+now+7*86400000).map(d=>d.provider_fixture_id)).size,
     pipelineLoss:counts.INGESTION_BUG,regressions,baselineSamples:history.rows.length,
+    sourceHealth:sourceHealth.rows.map(row=>({...row,last_observed_at:row.last_observed_at?new Date(row.last_observed_at).toISOString():null})),
     diagnostics:diagnostics.rows.filter(d=>d.classification!=='NATIVE_PERSISTED'&&d.classification!=='OUT_OF_SCOPE').map(d=>({...d,observed_at:new Date(d.observed_at).toISOString()}))};
 }
 function candidate(e:Record<string,unknown>,f:CanonicalOddsFixture){

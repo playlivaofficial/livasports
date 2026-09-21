@@ -17,7 +17,9 @@ export class M5OddsPapiAdapter implements OddsProvider {
     if(!key||!Number.isInteger(runCap)||runCap<1||runCap>6)throw new Error('INVALID_ODDS_WORKER_CONFIG');
   }
   requestCount(){return this.used;}
+  private catalogMarkets:unknown[]=[];
   setCatalog(tournaments:readonly CatalogTournament[]){this.catalogTournaments=tournaments;}
+  setMarketCatalog(markets:unknown[]){this.catalogMarkets=markets;}
   allowedTournamentIds(){return new Set(this.catalogTournaments.map(row=>row.id));}
   private async request(bookmaker:string,tournamentIds:readonly string[],attempt=0,kind:RequestKind='odds'):Promise<{data:unknown;observedAt:string}> {
     const endpoint=kind==='account'?'/v4/account':kind==='tournaments'?'/v4/tournaments':'/v4/odds-by-tournaments';
@@ -59,11 +61,11 @@ export class M5OddsPapiAdapter implements OddsProvider {
   async providerTournaments(){return (await this.request('',[],0,'tournaments')).data;}
   async snapshot(bookmaker:string,tournamentIds:readonly string[]):Promise<OddsSnapshot>{
     const response=await this.request(bookmaker,tournamentIds);
-    return normalizeM5Snapshot(response.data,bookmaker,response.observedAt,tournamentIds,this.catalogTournaments);
+    return normalizeM5Snapshot(response.data,bookmaker,response.observedAt,tournamentIds,this.catalogTournaments,this.catalogMarkets);
   }
   async inspectOfferFlags(bookmaker:string,tournamentIds:readonly string[]){
     const response=await this.request(bookmaker,tournamentIds);
     return {observedAt:response.observedAt,flags:inspectM5OfferFlags(response.data,bookmaker),
-      snapshot:normalizeM5Snapshot(response.data,bookmaker,response.observedAt,tournamentIds,this.catalogTournaments)};
+      snapshot:normalizeM5Snapshot(response.data,bookmaker,response.observedAt,tournamentIds,this.catalogTournaments,this.catalogMarkets)};
   }
 }

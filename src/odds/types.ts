@@ -25,7 +25,7 @@ export interface NormalizedOddsQuote {
 export interface OddsSnapshot {
   diagnostics?:Array<{providerFixtureId:string;tournamentId:string;market:string;outcome:string;reason:string;evidence:Record<string,unknown>}>;
   cadenceScale?: number;
-  bookmaker: string; observedAt: string; fixtures: ProviderOddsFixture[]; quotes: NormalizedOddsQuote[];
+  provider?: string; bookmaker: string; observedAt: string; fixtures: ProviderOddsFixture[]; quotes: NormalizedOddsQuote[];
   rejected: Record<string,number>; tournamentIds: string[];
 }
 export interface PersistedFixtureMapping { providerId: string; fixtureId: string; homeProviderId: string; awayProviderId: string; canonicalKickoff?: string | null; providerKickoff?: string | null; }
@@ -35,7 +35,7 @@ export interface OddsProvider {
 }
 export interface ReadOddsQuote extends NormalizedOddsQuote {
   /** Data supplier is independent of the canonical bookmaker identity. */
-  provider?:string;
+  provider?:string; providerPriority?:number;
   quoteId: string;
   freshnessTtlMinutes?: number | null;
   fixtureId: string; bookmakerId: string; bookmakerName: string;

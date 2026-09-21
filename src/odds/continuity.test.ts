@@ -12,7 +12,7 @@ describe('native expiry deadlines',()=>{
  it('rescues before frozen expiry even if budget-scaled normal cadence moved later',()=>{
   const p=planTarget(target,4,now,3);expect(p.due).toBe(true);expect(p.rescue).toBe(true);expect(p.normalDueAt).toBe('2026-09-21T16:00:00.000Z');
  });
- it('retains backoff even when native expires',()=>{const p=planTarget({...target,retryAfter:'2026-09-21T13:00:00Z',lastError:'ODDSPAPI_HTTP_500'},4,now,3);expect(p.due).toBe(false);expect(p.delayReason).toBe('PROVIDER_TRANSIENT_BACKOFF');});
+ it('retains hard backoff, while legacy transient state is explicitly classified',()=>{const p=planTarget({...target,retryAfter:'2026-09-21T13:00:00Z',lastError:'ODDSPAPI_HTTP_500'},4,now,3);expect(p.due).toBe(false);expect(p.delayReason).toBe('HTTP_5XX_TRANSIENT');});
  it('rescue beats distant ordinary work without bypassing hard stop',()=>{
   const far={...target,bookmaker:'betboo.bet.br',tournamentId:'390',nativeExpiryAt:null,recentNative:false,lastSuccessAt:null,fixtures:[{id:'far',status:'SCHEDULED',kickoff:'2026-09-26T12:00:00Z'}]};
   const budget={verified:true,routineRemaining:3000,period_end:'2026-10-02',dailyCap:274,rollingDay:218};

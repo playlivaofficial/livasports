@@ -6,7 +6,7 @@ vi.mock('./budget',async importOriginal=>({...await importOriginal<typeof import
   budgetHealth:async()=>({verified:true,routineRemaining:3800,period_end:new Date(Date.now()+19*86400000)})}));
 const mocked=vi.hoisted(()=>({snapshot:vi.fn(),persist:vi.fn(),start:vi.fn(),account:vi.fn(),tournaments:vi.fn(),expanded:[] as Array<{id:string;slug:string;category:string;canonical:string}>}));
 vi.mock('@/providers/oddspapi/M5OddsPapiAdapter',()=>({M5OddsPapiAdapter:class {
-  snapshot=mocked.snapshot;accountPeriod=mocked.account;providerTournaments=mocked.tournaments;setCatalog=()=>undefined;
+  snapshot=mocked.snapshot;accountPeriod=mocked.account;providerTournaments=mocked.tournaments;setCatalog=()=>undefined;setMarketCatalog=()=>undefined;
   requestCount(){return mocked.snapshot.mock.calls.length;}
 }}));
 vi.mock('@/providers/oddspapi/m5-normalizer',()=>({
@@ -48,7 +48,7 @@ describe('scheduler independent failure and durable completion',()=>{
     mocked.snapshot.mockRejectedValueOnce(new Error('private upstream error')).mockResolvedValueOnce({observedAt:new Date().toISOString()});
     const {db,query}=database();const result=await runOddsScheduler(db,'test-only');
     expect(result.state).toBe('PARTIAL');expect(result.feeds).toHaveLength(1);expect(mocked.persist).toHaveBeenCalledTimes(1);
-    expect(result.error).toBe('ODDS_REFRESH_FAILED');expect(query.mock.calls.some(([s])=>s.includes('ELSE now()+LEAST(360,power(2,LEAST(odds_refresh_targets.consecutive_failures,5))*15)'))).toBe(true);
+    expect(result.error).toBe('ODDS_REFRESH_FAILED');expect(query.mock.calls.some(([s])=>s.includes('failure_class,backoff_reason,next_recheck_at,failure_evidence'))).toBe(true);
   });
   it('ends as BUDGET_STOPPED, not an uncontrolled retry or a false success',async()=>{
     mocked.snapshot.mockRejectedValue(new OddsBudgetStopped('ODDS_BUDGET_UNVERIFIED_OR_EXHAUSTED'));
@@ -179,7 +179,8 @@ describe('scheduler independent failure and durable completion',()=>{
     expect(query.mock.calls.some(call=>{
       const sql=String(call[0]);
       const params=(call as unknown as [string, unknown[]])[1];
-      return sql.includes('unnest($2::text[])')&&Array.isArray(params?.[1])&&(params[1] as string[]).includes('326')&&params[2]==='ODDSPAPI_HTTP_404'&&params[3]===true;
+      return sql.includes('unnest($2::text[])')&&Array.isArray(params?.[1])&&(params[1] as string[]).includes('326')&&params[2]==='ODDSPAPI_HTTP_404'
+        &&Number(params[3])>=720&&params[5]==='HTTP_404_TARGET_NOT_FOUND';
     })).toBe(true);
   });
   it('applies the short retry ladder, not the 12h backoff, when a previously priced feed reports FIXTURE_NOT_FOUND',async()=>{
@@ -200,7 +201,7 @@ describe('scheduler independent failure and durable completion',()=>{
     const db={query:typed,transaction:async(w: (tx:{query:QueryExecutor['query']})=>unknown)=>w({query:typed}),close:async()=>{}} as DatabaseClient;
     await runOddsScheduler(db,'test-only');
     const retry=query.mock.calls.find(call=>String(call[0]).includes('unnest($2::text[])'));
-    expect(retry).toBeTruthy();expect((retry as unknown as [string,unknown[]])[1][3]).toBe(false);
+    expect(retry).toBeTruthy();const params=(retry as unknown as [string,unknown[]])[1];expect(Number(params[3])).toBeLessThan(60);expect(params[5]).toBe('EMPTY_TEMPORARY_RESPONSE');
   });
   describe('P3 reliability integration',()=>{
     it('post-refresh integrity flags suspicious outcomes and stays silent on normal ones (§14)',()=>{
