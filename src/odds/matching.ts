@@ -1,4 +1,5 @@
 import { KICKOFF_TOLERANCE_MS, type CanonicalOddsFixture, type FixtureMatch, type PersistedFixtureMapping, type ProviderOddsFixture } from './types';
+import type {TeamIdentity} from './identity';
 
 // Reviewed aliases only. Accents/punctuation are normalized, but club suffixes are never stripped.
 const aliases: Record<string, Record<string,string>> = {
@@ -158,7 +159,7 @@ export function planUtcParseDefectRepair(raw: ProviderOddsFixture, fixtures: rea
   if(!Number.isFinite(Date.parse(before))||!Number.isFinite(Date.parse(after))||Date.parse(after)-Date.parse(before)!==UTC_PARSE_DEFECT_MS) return null;
   return {fixtureId:named[0].id,before,after};
 }
-export function matchOddsFixture(raw: ProviderOddsFixture, fixtures: readonly CanonicalOddsFixture[], mappings: readonly PersistedFixtureMapping[]): FixtureMatch {
+export function matchOddsFixture(raw: ProviderOddsFixture, fixtures: readonly CanonicalOddsFixture[], mappings: readonly PersistedFixtureMapping[], identities:readonly TeamIdentity[]=[]): FixtureMatch {
   const fail=(state:FixtureMatch['state'],reason:string):FixtureMatch=>({state,reason,fixture:null});
   if(raw.sport!=='FOOTBALL'||!raw.competition) return fail('COMPETITION_MISMATCH','Unverified football tournament identity');
   const saved=mappings.filter(m=>m.providerId===raw.providerId);
@@ -167,7 +168,14 @@ export function matchOddsFixture(raw: ProviderOddsFixture, fixtures: readonly Ca
   if(saved.length && (saved[0].homeProviderId!==raw.homeProviderId || saved[0].awayProviderId!==raw.awayProviderId)) return fail('TEAM_MISMATCH','Persisted home/away identity changed');
   const competition=pool.filter(f=>f.sport===raw.sport&&f.competition===raw.competition);
   if(!competition.length) return fail('COMPETITION_MISMATCH','Canonical competition is absent or changed');
-  const teams=competition.filter(f=>namesMatch(raw.homeNames,f.home,f.competition)&&namesMatch(raw.awayNames,f.away,f.competition));
+  const teamMatches=(providerId:string,names:string[],teamId:string,name:string,f:CanonicalOddsFixture)=>{
+    const ids=[...new Set(identities.filter(i=>i.providerId===providerId).map(i=>i.teamId))];
+    if(ids.length)return ids.length===1&&ids[0]===teamId;
+    const named=[...new Set(identities.filter(i=>i.competitionId===f.competitionId&&i.normalizedName&&names.some(n=>normalizeTeamName(n)===i.normalizedName)).map(i=>i.teamId))];
+    if(named.length)return named.length===1&&named[0]===teamId;
+    return namesMatch(names,name,f.competition);
+  };
+  const teams=competition.filter(f=>teamMatches(raw.homeProviderId,raw.homeNames,f.homeId,f.home,f)&&teamMatches(raw.awayProviderId,raw.awayNames,f.awayId,f.away,f));
   if(!teams.length) return fail('TEAM_MISMATCH','No exact contextual home/away aliases');
   const timed=teams.filter(f=>Number.isFinite(Date.parse(raw.kickoff))&&Math.abs(Date.parse(f.kickoff)-Date.parse(raw.kickoff))<=KICKOFF_TOLERANCE_MS);
   if(!timed.length) return fail('TIME_MISMATCH','Kickoff differs by more than ten minutes; no auto-correction');
@@ -177,4 +185,12 @@ export function matchOddsFixture(raw: ProviderOddsFixture, fixtures: readonly Ca
   // A second provider event must not take over an existing canonical identity.
   if(mappings.some(m=>m.fixtureId===timed[0].id&&m.providerId!==raw.providerId)) return fail('AMBIGUOUS','Canonical fixture already has another provider identity');
   return {state:saved.length?'EXACT':'HIGH_CONFIDENCE',fixture:timed[0],reason:saved.length?'Persisted identity and all signals revalidated':'Unique sport, competition, explicit names, roles and UTC kickoff'};
+}
+
+/** Ingestion, saved-response recovery and audits must apply exactly the same ambiguity checks. */
+export function matchOddsSnapshot(raws:readonly ProviderOddsFixture[],fixtures:readonly CanonicalOddsFixture[],mappings:readonly PersistedFixtureMapping[],identities:readonly TeamIdentity[]=[]){
+  const matches=raws.map(raw=>({raw,...matchOddsFixture(raw,fixtures,mappings,identities),candidateFixtureIds:fixtures.filter(f=>f.competition===raw.competition&&Math.abs(Date.parse(f.kickoff)-Date.parse(raw.kickoff))<=KICKOFF_TOLERANCE_MS).map(f=>f.id)}));
+  const counts=new Map<string,number>();for(const m of matches)if(m.fixture)counts.set(m.fixture.id,(counts.get(m.fixture.id)??0)+1);
+  for(const m of matches)if(m.fixture&&(counts.get(m.fixture.id)??0)>1){m.fixture=null;m.state='AMBIGUOUS';m.reason='Multiple events claim the same canonical fixture in this response';}
+  return matches;
 }

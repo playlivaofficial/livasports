@@ -15,6 +15,7 @@ import {persistCatalogRows} from './reliability/catalog';
 import {HEALTH_CONTRACT_VERSION,type IssueClassification,type Severity} from './reliability/model';
 import {readReliabilityHealth} from './reliability/read';
 import type {OddsSnapshot} from './types';
+import {recoverNativeIdentities} from './native-recovery';
 
 export interface IntegrityFinding {bookmaker:string;tournamentIds:string[];classification:IssueClassification;severity:Severity;reason:string;returnedFixtures:number;matchedFixtures:number;quotes:number;currentWrites:number;closed:number;}
 /** P3 §14: flag a "successful" refresh whose outcome is suspicious. Provider truth is never rolled back automatically. */
@@ -56,10 +57,15 @@ export async function schedulerInputs(db:DatabaseClient,tournaments:readonly Cat
         AND f.status='SCHEDULED' AND f.kickoff>now() AND f.kickoff<=now()+interval '7 days') AS useful_coverage
     FROM bookmakers b LEFT JOIN odds_refresh_targets t ON t.bookmaker=b.provider_slug WHERE b.enabled AND b.provider_slug=ANY($1::text[])`,[SCHEDULER_BOOKMAKERS])]);
   const catalog=tournaments.length?tournaments:schedulerTournaments([]);
+  const latestNative=await db.query("SELECT report FROM odds_native_rollups WHERE bucket>now()-interval '2 hours' ORDER BY bucket DESC LIMIT 1");
+  const nativeGroups=(latestNative.rows[0]?.report?.groups??[]) as Array<{bookmaker:string;competition:string;fallback:number;reasons:Record<string,number>}>;
   const targets:RefreshTarget[]=SCHEDULER_BOOKMAKERS.flatMap(bookmaker=>catalog.map(t=>{
     const row=records.rows.find(r=>r.provider_slug===bookmaker&&r.tournament_id===t.id);
     const source=records.rows.find(r=>r.provider_slug===bookmaker);
-    return {bookmaker,tournamentId:t.id,fixtures:source?fixtures.filter(f=>f.competition===t.canonical):[],publicEligible:source?.public_eligible===true,
+    const gaps=nativeGroups.filter(g=>g.bookmaker===bookmaker&&g.competition===t.canonical);
+    // Reorder only already-due requests. Known provider gaps do not earn extra polling; cadence/caps/backoff are unchanged.
+    const nativePriority=bookmaker==='betano.bet.br'?0:gaps.reduce((n,g)=>n+Math.max(0,g.fallback-(g.reasons.PROVIDER_GAP??0))+(g.reasons.STALE_OR_EXPIRED??0)+(g.reasons.INGESTION_BUG??0),0);
+    return {bookmaker,tournamentId:t.id,nativePriority,fixtures:source?fixtures.filter(f=>f.competition===t.canonical):[],publicEligible:source?.public_eligible===true,
       hasUsefulCoverage:row?.useful_coverage===true,lastSuccessAt:row?.last_success_at?.toISOString()??null,retryAfter:row?.retry_after?.toISOString()??null,
       lastError:typeof row?.last_error==='string'?row.last_error:null,needsCadenceRefresh:row?.needs_cadence_refresh===true,
       lastAttemptAt:row?.last_attempt_at?.toISOString?.()??null,consecutiveFailures:Number(row?.consecutive_failures??0)};
@@ -111,6 +117,7 @@ export async function runOddsScheduler(db:DatabaseClient,key:string,trigger:'CON
     await persistCatalogCompetitionMappings(db,tournaments);
     const pending=(await db.query('SELECT payload FROM odds_sync_snapshots WHERE applied_at IS NULL ORDER BY observed_at LIMIT 3')).rows;
     for(const row of pending){await persistSnapshot(db,job,row.payload as OddsSnapshot);recovered++;}
+    recovered+=(await recoverNativeIdentities(db,job)).repaired;
     if(pending.length===3)throw new Error('ODDS_RECOVERY_PENDING');
     if(!(await budgetHealth(db)).verified)await reconcileAccountPeriod(db,await provider.accountPeriod());
     const plan=await schedulerPlan(db,new Date(),tournaments);

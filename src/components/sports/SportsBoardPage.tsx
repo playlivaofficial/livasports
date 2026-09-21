@@ -28,6 +28,7 @@ import {FavoriteButton} from '@/favorites/FavoriteButton';
 import {notFound} from 'next/navigation';
 import {JsonLd} from '@/seo/json-ld';
 import {competitionHubSchema,siteSchema} from '@/seo/structured-data';
+import {denseHomeSections,usefulToday,type HomePeriod} from './home-density';
 
 const copy={
   br:{all:'Todos',live:'Ao vivo',upcoming:'Próximos',results:'Resultados',today:'Hoje',calendar:'Data dos jogos',go:'Ver',previous:'Dia anterior',next:'Dia seguinte',period:'Próximos 7 dias',competitions:'Competições',allCompetitions:'Todas as competições',empty:'Nenhum jogo neste filtro.',other:'Ver próximos jogos',odds:'Odds 1 X 2',pending:'Aguardando placar',fresh:'Últimos placares salvos',delayed:'Atualizações atrasadas',unavailable:'Atualizações indisponíveis',matches:'jogos',intro:'Placares, próximos jogos e comparação de odds — monte seu bilhete em um só lugar.'},
@@ -41,7 +42,8 @@ export async function SportsBoardPage({locale,page,searchParams}:{locale:Interfa
   const now=new Date(),query=await searchParams??{},text=copy[locale],dictionary=interfaceDictionary(locale);
   const timeZone=await requestTimeZone(locale);
   const today=localDateKey(now,timeZone),calendarBounds=await loadSportsCalendar(locale,timeZone).catch(()=>({from:today,to:today})),date=boardDate(query.date,today,calendarBounds);
-  const view=page==='live'?'live':boardView(query.view,page==='home'?'upcoming':'all');
+  const defaultHome=page==='home'&&query.view===undefined&&query.date===undefined&&query.competition===undefined;
+  const view=page==='live'?'live':boardView(query.view,defaultHome?'all':page==='home'?'upcoming':'all');
   const base=interfaceRoutes[locale][page];
   const requestedCompetition=typeof query.competition==='string'&&FOOTBALL_COMPETITION_TARGETS.some(t=>t.slug===query.competition)?query.competition:undefined;
   // A competition slug outside the registry is not a filter to ignore: it is an unknown entity (real 404, no soft-404 listing).
@@ -56,7 +58,11 @@ export async function SportsBoardPage({locale,page,searchParams}:{locale:Interfa
   const period=competition||hub?(locale==='br'?'Agenda da competição':locale==='mx'?'Calendario de la competición':'Competition schedule'):text.period;
   const allFixtures=data?data.sections.filter(s=>!competition||s.slug===competition).flatMap(s=>s.fixtures):[];
   const redCards=showListing?await loadRedCards(allFixtures.filter(f=>f.status!=='SCHEDULED').map(f=>f.id)).catch(()=>({} as Record<string,{home:number|null;away:number|null}>)):{};
-  const sections=data?data.sections.filter(s=>!competition||s.slug===competition).map(s=>({...s,fixtures:s.fixtures.filter(f=>matchesView(f,view,now.getTime())).sort((a,b)=>boardSort(a,b,now.getTime()))})).filter(s=>s.fixtures.length):[];
+  const nextDate=new Date(Date.parse(today+'T12:00:00Z')+86400000).toISOString().slice(0,10);
+  const tomorrowRaw=defaultHome&&data&&usefulToday(data.sections,+now)<4?await loadM3PageData(locale==='en'?'br':locale,'home',nextDate,timeZone):null;
+  const tomorrow=tomorrowRaw?(locale==='en'?englishSportsData(tomorrowRaw):tomorrowRaw):null;
+  const sections:Array<NonNullable<typeof data>['sections'][number]&{homePeriod?:HomePeriod}>=defaultHome&&data?denseHomeSections(data.sections,tomorrow?.sections??[],+now):data?data.sections.filter(s=>!competition||s.slug===competition).map(s=>({...s,fixtures:s.fixtures.filter(f=>matchesView(f,view,now.getTime())).sort((a,b)=>boardSort(a,b,now.getTime()))})).filter(s=>s.fixtures.length):[];
+  const periodLabels=locale==='br'?{live:'Ao vivo hoje',upcoming:'Próximos hoje',tomorrow:'Amanhã',results:'Resultados de hoje'}:locale==='mx'?{live:'En vivo hoy',upcoming:'Próximos hoy',tomorrow:'Mañana',results:'Resultados de hoy'}:{live:'Live today',upcoming:'Upcoming today',tomorrow:'Tomorrow',results:'Results today'};
   const navItems=await loadCompetitionNav(locale,timeZone).catch(()=>[]);
   const freshness=data?.sportsData.freshness??'fresh';
   const href=(changes:{date?:string|null;view?:BoardView;competition?:string|null},path:string=base)=>{
@@ -103,7 +109,8 @@ export async function SportsBoardPage({locale,page,searchParams}:{locale:Interfa
           <p className="board-timezone">{timeZone.replaceAll('_',' ')} · {date??(page==='football'?period:today)}</p>
           {data?.sportsData.state==='unavailable'?<p className="provider-notice" role="status">{text.unavailable}</p>:null}
           {!sections.length?<div className="board-empty" role="status"><p>{text.empty}</p><Link href={href({date:null,view:'all'},interfaceRoutes[locale].football)}>{text.other} →</Link></div>:null}
-          <div className="fixture-list">{sections.map((section,index)=>{const nav=navItems.find(item=>item.slug===section.slug),mark=competitionMark(nav??{slug:section.slug}),hasOdds=hasPregameOddsLayout(section.fixtures,now.getTime());return <section className="competition-section" data-group={section.group} data-odds-layout={hasOdds?'pregame':'none'} key={section.slug} aria-label={section.competition}>
+          <div className="fixture-list">{sections.map((section,index)=>{const nav=navItems.find(item=>item.slug===section.slug),mark=competitionMark(nav??{slug:section.slug}),hasOdds=hasPregameOddsLayout(section.fixtures,now.getTime());return <section className="competition-section" data-group={section.group} data-odds-layout={hasOdds?'pregame':'none'} key={`${section.slug}:${section.homePeriod??''}`} aria-label={section.competition}>
+            {section.homePeriod?<h2 className="board-period-label">{periodLabels[section.homePeriod]}</h2>:null}
             <header className="competition-header"><Link href={href({competition:section.slug,date:null,view:'all'},interfaceRoutes[locale].football)}><CountryMarkIcon mark={mark}/><h2 className="competition-title">{section.competition}</h2></Link><FavoriteButton locale={locale} kind="competition" id={section.slug} className="favorite-toggle-compact"/><span className="competition-count">{section.fixtures.length} {section.fixtures.length===1?(locale==='br'?'jogo':locale==='mx'?'partido':'match'):text.matches}</span>{hasOdds?<span className="board-odds-heading">{text.odds}</span>:null}</header>
             {section.fixtures.map(f=>{const live=f.status==='LIVE'||f.status==='HALFTIME',pending=f.status==='SCHEDULED'&&Date.parse(f.kickoff)<=now.getTime(),showOdds=f.status==='SCHEDULED'&&!pending;
               return <article key={f.id} className={`fixture-row${live?' is-live':''}${showOdds?' has-odds':' has-no-odds'}`} aria-label={`${f.homeTeam} – ${f.awayTeam}`} data-kickoff={f.kickoff} data-status={f.status}>

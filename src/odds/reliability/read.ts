@@ -5,6 +5,7 @@ import {LIVE_ODDS_CAPABILITY} from '../live-capability';
 import {classifyCompetition,classifyGlobal,worstHealth,type CatalogMappingState,type CompetitionBaseline,type CompetitionHealth,type FeedEvidence,type HealthIssue,type QuoteAges,type ReliabilityInput} from './classify';
 import {HEALTH_CONTRACT_VERSION,HEALTH_RANK,type HealthState} from './model';
 import {readFourSourceHealth,type FourSourceHealth} from '../four-source-health';
+import {readNativeCoverage} from '../native-coverage';
 
 export interface IncidentRecord {
   id:string;competition:string;classification:string;severity:'WARNING'|'CRITICAL';state:'OPEN'|'ACKNOWLEDGED'|'RESOLVED';
@@ -17,6 +18,8 @@ export interface RecoveryActionRecord {
 }
 export interface CompetitionReliability extends CompetitionHealth {windows:Record<CoverageWindow,CoverageWindowReport>;feeds:FeedEvidence[];baseline:CompetitionBaseline|null;}
 export interface ReliabilityHealth {
+  nativeCoverage?:Awaited<ReturnType<typeof readNativeCoverage>>;
+  nativeCoverageError?:string;
   fourSource?:FourSourceHealth;
   version:typeof HEALTH_CONTRACT_VERSION;generatedAt:string;overall:HealthState;
   counts:Record<HealthState,number>;
@@ -116,9 +119,14 @@ export async function readReliabilityHealth(db:QueryExecutor,now=new Date(),opti
     p95Minutes:allAges.length?Math.round(Math.max(...allAges.map(r=>Number(r.p95??0)))):null,oldestMinutes:allAges.length?Math.round(Math.max(...allAges.map(r=>Number(r.oldest??0)))):null,
     currentQuotes:allAges.reduce((n,r)=>n+Number(r.current_quotes),0),staleQuotes:allAges.reduce((n,r)=>n+Number(r.stale_quotes),0),expiredQuotes:allAges.reduce((n,r)=>n+Number(r.expired_quotes),0)};
   const fourSource=await readFourSourceHealth(db,now);
+  let nativeCoverage:ReliabilityHealth['nativeCoverage'];let nativeCoverageError:string|undefined;
+  try{nativeCoverage=await readNativeCoverage(db,now,budget.verified!==true||('governor' in budget&&budget.governor.routineHeadroom<=0));}catch{nativeCoverageError='NATIVE_COVERAGE_UNAVAILABLE';}
+  if(nativeCoverageError)global.push({classification:'NORMALIZATION_REJECTED',severity:'WARNING',evidence:nativeCoverageError,affectedFixtures:0});
+  if(nativeCoverage&&(nativeCoverage.pipelineLoss||nativeCoverage.counts.UNKNOWN_PIPELINE_DEFECT))global.push({classification:'NORMALIZATION_REJECTED',severity:'CRITICAL',evidence:`Native quote pipeline loss: ${nativeCoverage.pipelineLoss}; unexplained gaps: ${nativeCoverage.counts.UNKNOWN_PIPELINE_DEFECT}`,affectedFixtures:nativeCoverage.fixtures});
+  if(nativeCoverage?.regressions.length)global.push({classification:'PROXY_DOMINANT',severity:'WARNING',evidence:`Rolling native coverage regression: ${nativeCoverage.regressions.map(r=>r.key).join(', ')}`,affectedFixtures:nativeCoverage.fixtures});
   if(fourSource.windows['7d'].degraded)global.push({classification:'PROXY_DOMINANT',severity:'WARNING',evidence:'Visible REAL feed coverage is degraded; hidden insurance must not mask it',affectedFixtures:fourSource.windows['7d'].fixtures});
   const overall=worstHealth([...competitions.map(c=>c.health),...global.map(g=>g.severity==='CRITICAL'?'CRITICAL' as const:'DEGRADED' as const)]);
-  return {fourSource,version:HEALTH_CONTRACT_VERSION,generatedAt:now.toISOString(),overall:overall==='IDLE'&&competitions.length?'HEALTHY':overall,counts,horizons,
+  return {nativeCoverage,nativeCoverageError,fourSource,version:HEALTH_CONTRACT_VERSION,generatedAt:now.toISOString(),overall:overall==='IDLE'&&competitions.length?'HEALTHY':overall,counts,horizons,
     bookmakers:{betanoRealPct:seven.betanoRealPct,betssonRealPct:seven.betssonRealPct,bothRealPct:seven.fixtures?Math.round(seven.bothReal/seven.fixtures*1000)/10:0,proxyPct:seven.proxyPct,neitherPct:seven.neitherPct,stalePct:seven.stalePct,window:'7d'},
     quoteAges,competitions,global,
     scheduler:{state:String(row?.state??'READY'),lastAutomaticInvocationAt:iso(row?.last_automatic_invocation_at),lastSuccessfulRefreshAt:iso(row?.last_refresh_at),nextDueAt:iso(row?.next_due_at),automationEnabled,lastError:row?.last_error?String(row.last_error):null,

@@ -80,6 +80,7 @@
 :root .slip-return strong { font-size:1.05rem; }
 .slip-bookmaker .slip-comparison-note { margin:4px 0 0; }
 .slip-bookmaker-cta { margin-top:6px; }
+.board-period-label { margin:0; padding:8px 12px; font-size:.8rem; color:var(--text-secondary); border-bottom:1px solid var(--border); }
 @media(max-width:360px) {
   .sports-board .listing-odds-book { grid-template-columns:72px minmax(0,1fr); gap:6px; }
   .sports-board .bookmaker-logo-art { width:72px; }

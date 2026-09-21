@@ -106,12 +106,16 @@ export function normalizeM5Snapshot(data:unknown,bookmaker:string,observedAt:str
   catalog:readonly {id:string;slug:string;category:string;canonical:string}[]=M5_TOURNAMENTS):OddsSnapshot {
   if(!canonicalBookmakerSlug(bookmaker)||!isoUtc(observedAt)||!Array.isArray(data))throw new Error('Invalid pregame snapshot envelope');
   const result:OddsSnapshot={bookmaker:canonicalBookmakerSlug(bookmaker)??bookmaker,observedAt,fixtures:[],quotes:[],rejected:{},tournamentIds:[...tournamentIds]};
-  const reject=(key:string)=>{result.rejected[key]=(result.rejected[key]??0)+1;};
+  let context={providerFixtureId:'',tournamentId:'',market:'',outcome:'',evidence:{} as Record<string,unknown>};
+  const reject=(key:string)=>{result.rejected[key]=(result.rejected[key]??0)+1;
+    // Unsupported markets are accounted for in aggregate, not thousands of redundant diagnostic rows per request.
+    if(!key.startsWith('OUT_OF_SCOPE'))(result.diagnostics??=[]).push({...context,reason:key});};
   const seen=new Set<string>();
   const idCounts=new Map<unknown,number>();for(const row of data){const id=obj(row).fixtureId;idCounts.set(id,(idCounts.get(id)??0)+1);}
   const duplicateIds=new Set([...idCounts].filter(([,count])=>count>1).map(([id])=>id));
   for(const value of data){
     const r=obj(value);const kickoff=isoUtc(r.startTime);const tournament=catalog.find(t=>t.id===String(r.tournamentId));
+    context={providerFixtureId:String(r.fixtureId??'UNKNOWN'),tournamentId:String(r.tournamentId??''),market:'',outcome:'',evidence:{home:r.participant1Name,away:r.participant2Name,kickoff:r.startTime,homeProviderId:r.participant1Id,awayProviderId:r.participant2Id}};
     if(!kickoff||r.sportId!==10||!tournament||!tournamentIds.includes(tournament.id)||typeof r.fixtureId!=='string'||!/^[-a-zA-Z0-9_]{1,128}$/.test(r.fixtureId)||seen.has(r.fixtureId)||duplicateIds.has(r.fixtureId)){reject('INVALID_FIXTURE');continue;}
     if((r.tournamentSlug!==undefined&&r.tournamentSlug!==tournament.slug)||(r.categorySlug!==undefined&&r.categorySlug!==tournament.category)){reject('COMPETITION_METADATA_CONFLICT');continue;}
     seen.add(r.fixtureId);
@@ -125,11 +129,15 @@ export function normalizeM5Snapshot(data:unknown,bookmaker:string,observedAt:str
     let domain:string|null=null;
     if(typeof book.fixturePath==='string'){try { domain=new URL(book.fixturePath.includes('://')?book.fixturePath:`https://${book.fixturePath}`).hostname;}catch{/* No domain evidence. */}}
     for(const [id,rawMarket] of Object.entries(obj(book.markets))){
+      context={...context,market:rules[id]?.market??id,outcome:''};
       const rule=rules[id];if(!rule){reject('OUT_OF_SCOPE_MARKET');continue;}
       const market=obj(rawMarket);
       for(const [outcomeId,rawOutcome] of Object.entries(obj(market.outcomes))){
+        context={...context,outcome:rule.outcomes[outcomeId]?.code??outcomeId};
         const outcome=rule.outcomes[outcomeId];if(!outcome){reject('OUT_OF_SCOPE_OUTCOME');continue;}
         const players=obj(obj(rawOutcome).players);const price=obj(players['0']);
+        context={...context,evidence:{...context.evidence,marketId:id,outcomeId,price:typeof price.price==='number'?price.price:null,
+          bookmakerActive:book.bookmakerIsActive,bookmakerSuspended:book.suspended,marketActive:market.marketActive,priceActive:price.active}};
         if(Object.keys(players).length!==1||price.playerName!=null){reject('PLAYER_OR_AMBIGUOUS_OUTCOME');continue;}
         const n=typeof price.price==='number'?price.price:NaN;
         if(!Number.isFinite(n)||n<=1||n>1000){reject('INVALID_DECIMAL_ODDS');continue;}

@@ -1,7 +1,9 @@
 import { createHash, randomUUID } from 'node:crypto';
 import type { DatabaseClient, QueryExecutor } from '@/database/client';
 import { canonicalBookmakerSlug } from './bookmaker';
-import { matchOddsFixture } from './matching';
+import { matchOddsSnapshot } from './matching';
+import {readTeamIdentities,rememberTeamAliases} from './identity';
+import {persistNativeDiagnostics} from './native-diagnostics';
 import {freshnessTtlMs} from './scheduler-policy';
 import type { CanonicalOddsFixture, OddsSnapshot, PersistedFixtureMapping } from './types';
 
@@ -56,9 +58,8 @@ export async function persistSnapshot(db:DatabaseClient,jobId:string,snapshot:Od
       metadata->>'canonicalKickoff' AS "canonicalKickoff",metadata->>'providerKickoff' AS "providerKickoff"
       FROM provider_entity_mappings WHERE provider='ODDSPAPI' AND entity_type='FIXTURE'`)).rows as PersistedFixtureMapping[];
     // Later matchweeks on an already-scheduled tournament map automatically when names+kickoff uniquely match. Ambiguous rows stay unmapped.
-    const matches=snapshot.fixtures.map(raw=>({raw,...matchOddsFixture(raw,fixtures,saved)}));
-    const duplicateIds=new Set(matches.filter(m=>m.fixture&&matches.filter(other=>other.fixture?.id===m.fixture?.id).length>1).map(m=>m.fixture!.id));
-    for(const m of matches)if(m.fixture&&duplicateIds.has(m.fixture.id)){m.fixture=null;m.state='AMBIGUOUS';m.reason='Multiple events claim the same canonical fixture in this response';}
+    const identities=await readTeamIdentities(tx);
+    const matches=matchOddsSnapshot(snapshot.fixtures,fixtures,saved,identities);
     const mappings:Array<{type:string;external:string;internal:string;meta:unknown}>=[];
     for(const m of matches){if(!m.fixture)continue;
       const f=m.fixture;
@@ -80,6 +81,7 @@ export async function persistSnapshot(db:DatabaseClient,jobId:string,snapshot:Od
         AND provider_entity_mappings.entity_type='FIXTURE'
         AND (NOT(provider_entity_mappings.metadata ? 'canonicalKickoff')
           OR abs(extract(epoch from ((provider_entity_mappings.metadata->>'canonicalKickoff')::timestamptz - (excluded.metadata->>'canonicalKickoff')::timestamptz))) <= 600)`,[JSON.stringify(distinct)]);
+    await rememberTeamAliases(tx,matches);
     const reviews=matches.map(m=>({provider_fixture_id:m.raw.providerId,fixture_id:m.fixture?.id??null,state:m.state,reason:m.reason,evidence:m.raw,observed_at:snapshot.observedAt}));
     await tx.query(`INSERT INTO odds_mapping_reviews(provider_fixture_id,fixture_id,state,reason,evidence,observed_at)
       SELECT provider_fixture_id,fixture_id,state,reason,evidence,observed_at FROM jsonb_to_recordset($1::jsonb)
@@ -122,6 +124,7 @@ export async function persistSnapshot(db:DatabaseClient,jobId:string,snapshot:Od
       INSERT INTO odds_history(fixture_id,bookmaker_id,market_code,outcome_code,line,decimal_odds,provider_updated_at,received_at,status,scope,phase,observed_at)
       SELECT fixture_id,bookmaker_id,market_code,outcome_code,line,decimal_odds,provider_updated_at,received_at,status,scope,phase,observed_at FROM changed RETURNING id`,
       [closeScope.bookmaker,closeScope.fixtureIds,closeScope.providerFixtureIds,snapshot.observedAt,JSON.stringify(quotes)]):{rowCount:0};
+    await persistNativeDiagnostics(tx,key,snapshot,matches);
     await tx.query('UPDATE odds_sync_snapshots SET applied_at=COALESCE(applied_at,now()) WHERE id=$1',[key]);
     await tx.query(`INSERT INTO odds_refresh_targets(bookmaker,tournament_id,last_success_at,last_attempt_at)
       SELECT $1,unnest($2::text[]),$3,$3 ON CONFLICT(bookmaker,tournament_id) DO UPDATE SET
