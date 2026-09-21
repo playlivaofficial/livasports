@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import {matchPath} from '@/localization/interface';
 import type {SlipComparison as Comparison} from '@/slip/comparison-types';
-import {bookmakerShortName,comparisonCopy,missingLegReason} from '@/slip/comparison-copy';
+import {bookmakerShortName,missingLegReason} from '@/slip/comparison-copy';
 import {formatSlipOdds} from '@/slip/decimal';
 import {selectionLabel,slipCopy,type SlipUiLocale} from '@/slip/localization';
 import {selectionKey,type ResolvedSelection,type SavedSelection} from '@/slip/types';
@@ -38,7 +38,7 @@ export function SlipLegs({uiLocale,selections,resolvedByKey,comparison,checking,
       return <li className="slip-item" key={key} data-selection={key} data-state={view?.state??'PENDING'}>
         <div className="slip-item-header">
           <div>{fixture?<Link href={`${matchPath(uiLocale,fixture.publicId,fixture.home,fixture.away)}#odds`} prefetch={false} onClick={()=>{if(onNavigate&&window.matchMedia('(max-width:1099px)').matches)onNavigate();}}>{title}</Link>:<strong>{title}</strong>}
-            {fixture?<small>{fixture.competition}</small>:null}</div>
+            </div>
           <button type="button" className="slip-remove" aria-label={`${text.remove}: ${title}, ${selectionLabel(s,uiLocale,fixture)}`} onClick={()=>onRemove(s,index)}>
             <span aria-hidden="true">×</span>
           </button>
@@ -49,12 +49,9 @@ export function SlipLegs({uiLocale,selections,resolvedByKey,comparison,checking,
         </div>
         {view?.state==='PRICE_CHANGED'&&view.previousDecimalOdds&&view.price&&formatSlipOdds(view.previousDecimalOdds,uiLocale)&&price?
           <p className="slip-reprice"><ApproximatePrice value={formatSlipOdds(view.previousDecimalOdds,uiLocale)!} label={approximateLabel}/> → <ApproximatePrice value={price} label={approximateLabel}/></p>:null}
-        <div className={`slip-state${view?.state==='CURRENT'&&!missing.length?' is-current':''}${missing.length?' is-partial':''}`}>
+        {view?.state!=='CURRENT'||missing.length?<div className={`slip-state${missing.length?' is-partial':''}`}>
           <span>{missing.length||(view&&view.state!=='CURRENT')?'! ':view?.state==='CURRENT'?'✓ ':''}{status}</span>
-        </div>
-        {quotes.length?<p className="slip-leg-books">{quotes.map(q=>
-          <span key={q.id} data-bookmaker={q.id} data-available={q.available} data-price-kind={q.priceKind??'NONE'} title={q.priceKind==='PROXY'&&q.sourceName?`${q.name}: ${comparisonCopy[uiLocale].proxyBasedOn(bookmakerShortName('',q.sourceName))}`:undefined}>{q.name} {q.available?'✓':'—'}</span>
-        )}</p>:null}
+        </div>:null}
         {missing.length>1?<ul className="slip-leg-missing">{missing.map(q=>q.quote?
           <li key={q.id}>{missingLegReason(q.quote,q.name,uiLocale)}</li>:null)}</ul>:null}
       </li>;

@@ -1,7 +1,6 @@
 /* P5: compact identities, three desktop groups, readable stacked mobile mini-groups. */
 @media(max-width:320px) { body { min-width:0; } }
 .bookmaker-logo { display:inline-flex; flex-direction:column; align-items:center; min-width:0; max-width:100%; }
-.bookmaker-source-label { display:block; font-size:10px; line-height:1.25; color:var(--color-text-muted); text-align:center; overflow-wrap:anywhere; }
 .bookmaker-logo-art { display:flex; align-items:center; justify-content:center; width:88px; height:28px; padding:4px 5px; border-radius:4px; overflow:hidden; background:#fff; color:#172a24; }
 .bookmaker-logo-art img { display:block; width:100%; height:auto; max-height:22px; object-fit:contain; }
 .bookmaker-logo-betsson { background:#ff6600; }
@@ -17,7 +16,14 @@
   .sports-board .fixture-row:not(.has-no-odds) { grid-template-columns:minmax(200px,1fr) minmax(450px,1.25fr); }
   .sports-board .board-odds-heading { width:450px; }
 }
+@media(min-width:768px) {
+  /* Put the divider in the existing gap: keep all nine 44px targets intact. */
+  .sports-board .listing-odds-book { position:relative; }
+  .sports-board .listing-odds-book + .listing-odds-book::before { content:''; position:absolute; left:-5px; top:6px; bottom:4px; width:1px; background:var(--color-border-strong); }
+}
 @media(max-width:1099px) {
+  /* The desktop reserved rail starts at 1100px; a tablet drawer must not squeeze nine odds targets. */
+  body[data-slip-open=true] .site-content-wrapper { margin-right:0; }
   .sports-board .fixture-row:not(.has-no-odds) { grid-template-columns:minmax(0,1fr); }
   .sports-board .fixture-row .odds-slot { grid-column:1/-1; grid-row:2; }
 }
@@ -39,10 +45,41 @@
   .pregame-table th,.pregame-table td { border:0; padding:0; }
   .pregame-table td[data-outcome-label]::before { content:attr(data-outcome-label); display:block; font-size:11px; color:var(--color-text-muted); margin-bottom:4px; }
   .pregame-table tbody th .bookmaker-logo { flex-direction:row; gap:8px; }
-  .pregame-table .bookmaker-source-label { text-align:left; }
   .pregame-table td:last-child { grid-column:1/-1; text-align:right; }
   .pregame-table .pregame-price { width:100%; min-width:44px; min-height:44px; }
 }
+
+/* Comparison-first slip. Source attribution remains in the data/analytics model. */
+.slip-selections summary { display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:44px; cursor:pointer; font-size:.75rem; font-weight:700; color:var(--color-text); }
+.slip-selections summary span { color:var(--color-text-muted); font-size:.65rem; font-weight:500; }
+.slip-selections summary:focus-visible { outline:2px solid var(--color-accent); outline-offset:2px; }
+.slip-selections[open] summary { margin-bottom:4px; }
+.slip-selections .slip-list { gap:4px; margin:0; }
+:root .slip-selections .slip-item { position:relative; padding:6px 50px 6px 8px; gap:3px 8px; }
+.slip-selections .slip-item-header { display:block; }
+.slip-selections .slip-item-header a { display:block; font-size:.74rem; }
+.slip-selections .slip-remove { position:absolute; top:4px; right:2px; min-width:44px; min-height:44px; }
+.slip-selections .slip-market { display:flex; flex-wrap:wrap; gap:2px 6px; font-size:.62rem; }
+.slip-selections .slip-market strong { font-size:.7rem; }
+.slip-selections .slip-price { font-size:.8rem; padding:2px 4px; }
+.slip-summary { padding-block:0; border-bottom:0; }
+.slip-summary > div small { display:none; }
+.slip-summary button { min-height:44px; }
+.slip-stake { display:grid; grid-template-columns:minmax(0,1fr) 100px; align-items:center; gap:4px 8px; margin-block:4px; }
+.slip-stake input { min-height:44px; width:100%; }
+.slip-stake small { grid-column:1/-1; font-size:.6rem; }
+.slip-comparison { margin-top:8px; padding-top:8px; }
+.slip-comparison h3 { margin:0 0 8px; }
+.slip-bookmaker { margin-top:6px; padding:10px; }
+.slip-bookmaker > header { padding-bottom:4px; margin-bottom:4px; min-height:28px; }
+.slip-bookmaker > header h4 { margin:0; }
+.slip-combined-block { padding:4px 0; border:0; background:transparent; }
+.slip-combined { margin:0; }
+.slip-combined strong { font-size:1.3rem; }
+.slip-return { margin:4px 0 0; padding-top:4px; }
+:root .slip-return strong { font-size:1.05rem; }
+.slip-bookmaker .slip-comparison-note { margin:4px 0 0; }
+.slip-bookmaker-cta { margin-top:6px; }
 @media(max-width:360px) {
   .sports-board .listing-odds-book { grid-template-columns:72px minmax(0,1fr); gap:6px; }
   .sports-board .bookmaker-logo-art { width:72px; }

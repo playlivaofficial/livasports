@@ -19,8 +19,6 @@ export function BookmakerLogo({bookmaker,context,uiLocale='br',sources=[]}:{book
   const sourceIds=[...new Set(sources.map(s=>s.sourceBookmaker).filter((s):s is BookmakerId=>!!s&&!!bookmakerConfig(s)))];
   const sourceBookmaker=sourceIds.length===1?sourceIds[0]:undefined;
   const priceKind=sources.some(s=>s.priceKind==='PROXY')?'PROXY':sources.some(s=>s.priceKind==='REAL')?'REAL':undefined;
-  const proxyNames=[...new Set(sources.filter(s=>s.priceKind==='PROXY').map(s=>bookmakerConfig(s.sourceBookmaker??'')?.shortLabel).filter(Boolean))];
-  const estimatedLabel=uiLocale==='br'?'Estimado':uiLocale==='mx'?'Estimado':'Estimated';
   const sourceList=sourceIds.join(',');
   useEffect(()=>{if(visible&&book&&isVisibleBookmaker(bookmaker))track('bookmaker_logo_viewed',{bookmaker:book.canonicalId,sourceBookmaker,priceKind,placement:context?.placement,campaignId:offer?.campaignId},{dedupeKey:`logo:${pagePath}:${bookmaker}:${context?.fixturePublicId??'slip'}:${offer?'active':'gated'}`,props:{affiliateEnabled:!!offer,sources:sourceList}});},[visible,book,bookmaker,context?.placement,context?.fixturePublicId,pagePath,offer,sourceBookmaker,priceKind,sourceList]);
   if(!book||!isVisibleBookmaker(bookmaker))return null;
@@ -31,6 +29,5 @@ export function BookmakerLogo({bookmaker,context,uiLocale='br',sources=[]}:{book
   </span>;
   return <span className="bookmaker-logo" ref={ref} data-bookmaker-logo={book.canonicalId} data-affiliate-enabled={!!offer}>
     {offer?<AffiliateAnchor offer={offer} locale={uiLocale} className="bookmaker-logo-link" onActivate={()=>track('bookmaker_logo_clicked',{bookmaker:book.canonicalId,sourceBookmaker,priceKind,placement:offer.placement,campaignId:offer.campaignId},{props:{affiliateEnabled:true,sources:sourceList}})}>{artwork}</AffiliateAnchor>:<span aria-disabled="true">{artwork}</span>}
-    {proxyNames.length>0?<small className="bookmaker-source-label">{estimatedLabel}<br/>{proxyNames.join(' / ')}</small>:null}
   </span>;
 }

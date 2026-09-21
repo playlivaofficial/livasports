@@ -12,6 +12,7 @@ const aliases: Record<string, Record<string,string>> = {
     'operario ferroviario ec pr':'operario pr',
     'cr brasil':'crb', 'cr brasil al':'crb',
     'sc recife pe':'sport recife',
+    'ac goianiense go':'atletico go',
   },
   'liga-mx': { tigres:'tigres uanl', 'san luis':'atletico san luis', 'tijuana de caliente':'tijuana', 'club tijuana de caliente':'tijuana' },
   'premier-league': { nottingham:'nottingham forest', hull:'hull city', ipswich:'ipswich town', brighton:'brighton and hove albion', newcastle:'newcastle united' },
@@ -22,6 +23,10 @@ const aliases: Record<string, Record<string,string>> = {
     'athletic bilbao':'athletic club',
     'rc celta de vigo':'celta de vigo',
     'celta vigo':'celta de vigo',
+  },
+  'la-liga-2': {
+    'ad ceuta':'ceuta',
+    'real sociedad san sebastian b':'real sociedad ii',
   },
   'bundesliga': {
     'bayern munich':'fc bayern munchen',

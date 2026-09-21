@@ -4,7 +4,7 @@ import {buildSlipComparison,guardSlipComparison} from './comparison';
 import {multiplyDecimalOdds,potentialReturn} from './decimal';
 
 describe('P5 three-visible slip / four-native source matrix',()=>{
-  for(const count of [1,3,5,10])for(const mode of ['real','betano','alternate','mixed','incomplete'] as const)it(`${count} legs / ${mode}`,()=>{
+  for(const count of [1,2,3,5,10])for(const mode of ['real','betano','alternate','mixed','incomplete'] as const)it(`${count} legs / ${mode}`,()=>{
     const f=comparisonFixture(count);
     f.data.bookmakers.push({bookmakerId:'betboo.bet.br',displayName:'betboo BR',geoEligibility:{locale:'br',eligible:true},affiliateEligibility:{approved:false,destinationConfigured:false}});
     for(const [index,read] of [...f.data.fixtures.values()].entries()){

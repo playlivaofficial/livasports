@@ -6,16 +6,14 @@ import type {SiteLocale} from '@/config/i18n';
 import {interfaceRoutes} from '@/localization/interface';
 import {FEEDBACK_EVENT,feedback,setSlipStake,slipStore,useSlip,type SlipFeedback} from '@/slip/client';
 import {STORAGE_KEY,type StorageNotice} from '@/slip/state';
-import {selectionKey,SLIP_LIMIT,type SavedSelection} from '@/slip/types';
+import {selectionKey,type SavedSelection} from '@/slip/types';
 import {selectionLabel,slipCopy,type SlipUiLocale} from '@/slip/localization';
 import {emitSlipEvent} from '@/slip/events';
 import {resolvedByKey,useSlipResolution} from '@/slip/use-resolution';
 import {SlipComparison} from './SlipComparison';
 import {SlipLegs} from './SlipLegs';
-import {comparisonCopy} from '@/slip/comparison-copy';
-import {formatMoney,formatSlipOdds,parseStake,potentialReturn} from '@/slip/decimal';
+import {parseStake} from '@/slip/decimal';
 import {shareSlipImage,slipSharePayload} from '@/slip/share-card';
-import {ApproximatePrice} from '@/components/odds/ApproximatePrice';
 
 function TicketIcon(){return <svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 3h14v6a3 3 0 0 0 0 6v6l-3-2-4 2-4-2-3 2v-6a3 3 0 0 0 0-6V3Z" stroke="currentColor" strokeWidth="1.5"/><path d="M9 8h6M9 12h6M9 16h3" stroke="currentColor" strokeWidth="1.5"/></svg>;}
 
@@ -45,13 +43,6 @@ function SlipDrawer({locale,uiLocale,selections,stake,slipId,pending,onPending,o
     feedback({result:result.result});onPending(null);closeRef.current?.focus();
   }
   const currentCount=resolved.filter(v=>v.price!==null).length;
-  const best=comparison?.bookmakers.find(b=>b.best&&b.combinedDecimalOdds);
-  const priced=best??comparison?.bookmakers.find(b=>b.combinedDecimalOdds);
-  const combined=priced?.combinedDecimalOdds??null;
-  const combinedLabel=combined?formatSlipOdds(combined,uiLocale):null;
-  const approximateLabel=uiLocale==='br'?'preço aproximado':uiLocale==='mx'?'cuota aproximada':'approximate price';
-  const estimated=combined?potentialReturn(stake,combined):null;
-  const estimatedLabel=estimated?formatMoney(estimated,uiLocale):null;
   const browse=uiLocale==='en'?interfaceRoutes.en.football:uiLocale==='mx'?interfaceRoutes.mx.football:interfaceRoutes.br.football;
   return <aside className="slip-panel" ref={panel} role="dialog" aria-modal="false" aria-labelledby="slip-title" aria-describedby="slip-disclaimer" lang={uiLocale==='br'?'pt-BR':uiLocale==='mx'?'es-MX':'en'}>
     <header className="slip-heading"><div><TicketIcon/><h2 id="slip-title">{text.title}</h2><span className="slip-count">{selections.length}</span></div><button type="button" ref={closeRef} className="slip-icon-button" aria-label={text.close} onClick={onClose}>×</button></header>
@@ -63,18 +54,17 @@ function SlipDrawer({locale,uiLocale,selections,stake,slipId,pending,onPending,o
         <div><button type="button" onClick={replace}>{text.replace}</button><button type="button" onClick={()=>{onPending(null);closeRef.current?.focus();}}>{text.cancel}</button></div></section>:null}
       {confirmClear?<section className="slip-confirm" aria-label={text.clear}><strong>{text.clearQuestion}</strong><div><button type="button" onClick={clear}>{text.confirmClear}</button><button type="button" onClick={()=>{setConfirmClear(false);closeRef.current?.focus();}}>{text.cancel}</button></div></section>:null}
       {!selections.length?<div className="slip-empty"><span className="slip-empty-icon"><TicketIcon/></span><h3>{text.emptyTitle}</h3><p>{text.empty}</p><Link href={browse} onClick={onClose}>{text.browse} →</Link></div>:<>
-        <p className="slip-leg-count">{selections.length} {selections.length===1?text.selection:text.selections}</p>
-        <SlipLegs uiLocale={uiLocale} selections={selections} resolvedByKey={byKey} comparison={comparison} checking={checking} resolvedAt={resolvedAt} now={now} onRemove={remove} onNavigate={onClose}/>
-        <div className="slip-summary"><div><span>{selections.length}/{SLIP_LIMIT}</span><small>{text.scope}</small></div><button type="button" onClick={()=>selections.length>1?setConfirmClear(true):clear()}>{text.clear}</button></div>
+        <details className="slip-selections" open={selections.length<=2}>
+          <summary>{selections.length} {selections.length===1?text.selection:text.selections}<span>{uiLocale==='br'?'Ver / editar':uiLocale==='mx'?'Ver / editar':'View / edit'}</span></summary>
+          <SlipLegs uiLocale={uiLocale} selections={selections} resolvedByKey={byKey} comparison={comparison} checking={checking} resolvedAt={resolvedAt} now={now} onRemove={remove} onNavigate={onClose}/>
+        </details>
         <label className="slip-stake"><span>{text.stake}</span>
           <input inputMode="decimal" enterKeyHint="done" autoComplete="off" value={stakeValue} aria-invalid={parseStake(stakeValue)===null} aria-describedby="slip-stake-hint"
             onChange={event=>setStakeDraft(event.target.value)} onBlur={commitStake} onKeyDown={event=>{if(event.key==='Enter'){event.preventDefault();commitStake();}}}/>
           <small id="slip-stake-hint">{text.stakeHint} · {text.oddsMayChange}</small></label>
-        {combinedLabel?<p className="slip-totals" role="status"><span>{text.combined}: <b><ApproximatePrice value={combinedLabel} label={approximateLabel}/></b></span>{estimatedLabel?<span>{comparisonCopy[uiLocale].estimatedPotentialReturn}: <b>{estimatedLabel}</b></span>:null}</p>:null}
-        <button className="slip-compare-jump" type="button" onClick={()=>{const target=panel.current?.querySelector<HTMLElement>('#slip-comparison');const body=panel.current?.querySelector<HTMLElement>('.slip-body');
-          if(target&&body){target.focus({preventScroll:true});body.scrollTo({top:body.scrollTop+target.getBoundingClientRect().top-body.getBoundingClientRect().top-8,behavior:'instant'});}}}>{comparisonCopy[uiLocale].jump}</button>
         {!online||failed?<p className="slip-notice">{!online?text.offline:text.retry}</p>:null}
         <SlipComparison locale={locale} uiLocale={uiLocale} selections={selections} value={comparison} checking={checking} stake={stake} slipId={slipId}/>
+        <div className="slip-summary"><div><small>{text.scope}</small></div><button type="button" onClick={()=>selections.length>1?setConfirmClear(true):clear()}>{text.clear}</button></div>
         {resolvedAt?<p className="slip-verified">{currentCount}/{selections.length} {text.currentCount}</p>:null}
         <button type="button" className="slip-share" disabled={sharing||!selections.length} onClick={async()=>{setSharing(true);await shareSlipImage(slipSharePayload({locale:uiLocale,slipId:slipId||'local',stake,generatedAt:resolvedAt??new Date().toISOString(),selections,resolved,comparison}));setSharing(false);}}>{text.share}</button>
         <p className="slip-comparison-note">{text.shareHint}</p>

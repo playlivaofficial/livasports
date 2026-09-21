@@ -14,7 +14,7 @@ describe('restrained commercial odds rendering',()=>{
     for(const [locale,label] of [['br','Ver odds'],['mx','Ver cuotas'],['en','View odds']] as const){
       const html=renderToStaticMarkup(<PregameOdds initial={[view]} fixturePublicId="aaaaaaaaaaaaaaaa" uiLocale={locale==='en'?'en':undefined} context={{fixtureId:'test-only',competitionId:'test',locale:locale==='en'?'br':locale}}/>);
       expect(html).toContain('rel="sponsored nofollow noopener noreferrer"');expect(html).toContain(label);expect(html).toContain('18+');
-      expect(html).toContain('odds-approx-mark');expect(html).toContain('data-price-kind="REAL"');
+      expect(html).toContain('odds-approx-mark');expect(view.rows[0].cells[0].priceKind).toBe('REAL');expect(html).not.toMatch(/Estimated|Estimado|data-source/);
     }
   });
   it('does not show a link or affiliate commission disclosure without an approved action',()=>{
@@ -28,8 +28,8 @@ describe('restrained commercial odds rendering',()=>{
     const union=buildComparison({quotes,kickoff:source.providerKickoff,fixtureStatus:'SCHEDULED'},'MATCH_WINNER',now);
     const html=renderToStaticMarkup(<PregameOdds initial={[union]} fixturePublicId="aaaaaaaaaaaaaaaa" context={{fixtureId:'fixture',competitionId:'test',locale:'br'}}/>);
     expect(html.match(/<tr/g)?.length).toBe(4);expect(html.match(/odds-approx-mark/g)?.length).toBe(9);
-    expect(html.match(/data-price-kind="REAL"/g)?.length??0).toBe(0);expect(html.match(/data-price-kind="PROXY"/g)?.length).toBe(9);
-    expect(html).toContain('data-target-bookmaker="betsson"');expect(html).toContain('Fonte estimada: Betano BR');
-    expect(html).toContain('bookmaker-source-label');expect(html).toContain('Estimado');expect(html).toContain('data-outcome-label="1"');
+    expect(union.rows.flatMap(r=>r.cells).every(c=>c.priceKind==='PROXY'&&c.sourceBookmaker==='betano.bet.br')).toBe(true);
+    expect(html).toContain('data-target-bookmaker="betsson"');expect(html).not.toMatch(/Estimated|Estimado|Fonte estimada|Betano|bookmaker-source-label|data-source/);
+    expect(html).toContain('data-outcome-label="1"');
   });
 });

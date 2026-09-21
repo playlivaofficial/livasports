@@ -4,6 +4,18 @@ import type {CanonicalOddsFixture,ProviderOddsFixture} from './types';
 const canonical:CanonicalOddsFixture={id:'canonical',sport:'FOOTBALL',competitionId:'br',competition:'brasileirao-serie-a',kickoff:'2026-09-12T19:00:00Z',status:'SCHEDULED',homeId:'h',home:'Atlético Mineiro',awayId:'a',away:'Fluminense'};
 const raw:ProviderOddsFixture={providerId:'provider',sport:'FOOTBALL',competition:'brasileirao-serie-a',providerCompetitionId:'325',kickoff:canonical.kickoff,status:'PREGAME',homeProviderId:'10',awayProviderId:'20',homeNames:['Atletico Mineiro MG','Atletico Mineiro'],awayNames:['Fluminense FC RJ','Fluminense']};
 describe('safe odds fixture matching',()=>{
+  it.each([
+    ['brasileirao-serie-b','Goiás','Atlético GO','Goias','AC Goianiense GO'],
+    ['la-liga-2','Ceuta','Real Sociedad II','AD Ceuta','Real Sociedad San Sebastian B'],
+  ])('accepts reviewed P5 aliases only in %s with exact contextual identity', (competition,home,away,providerHome,providerAway)=>{
+    const target={...canonical,competition,home,away};
+    const provider={...raw,competition,homeNames:[providerHome],awayNames:[providerAway]};
+    expect(matchOddsFixture(provider,[target],[]).state).toBe('HIGH_CONFIDENCE');
+    expect(matchOddsFixture({...provider,kickoff:'2026-09-13T19:00:00Z'},[target],[]).state).toBe('TIME_MISMATCH');
+    expect(matchOddsFixture(provider,[target,{...target,id:'other'}],[]).state).toBe('AMBIGUOUS');
+    expect(matchOddsFixture({...provider,homeNames:provider.awayNames,awayNames:provider.homeNames},[target],[]).state).toBe('TEAM_MISMATCH');
+    expect(matchOddsFixture({...provider,competition:'la-liga'},[{...target,competition:'la-liga'}],[]).state).toBe('TEAM_MISMATCH');
+  });
   it('requires all contextual identity signals, then revalidates persistent identities',()=>{
     expect(matchOddsFixture(raw,[canonical],[]).state).toBe('HIGH_CONFIDENCE');
     expect(matchOddsFixture(raw,[canonical],[{providerId:'provider',fixtureId:'canonical',homeProviderId:'10',awayProviderId:'20'}]).state).toBe('EXACT');

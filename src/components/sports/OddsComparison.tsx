@@ -73,7 +73,6 @@ export function OddsComparison({ locale, fixture, emptyLabel, commercialLocale =
   const currentPrice = (price: ListingPrice | null) => !!price?.expiresAt && (clock === null || clock < Date.parse(price.expiresAt));
   const summary = books.map(book => `${book.label} ${book.cells.map(cell => currentPrice(cell.price) ? cell.price!.decimalOdds.toFixed(2) : '—').join(' / ')}`).join(' · ');
   const approximateLabel = locale==='br'?'preço aproximado':locale==='mx'?'cuota aproximada':'approximate price';
-  const proxySource = (name:string) => locale==='br'?`Fonte estimada: ${name}`:locale==='mx'?`Fuente estimada: ${name}`:`Estimated source: ${name}`;
   const selectable = /^[0-9a-f]{16}$/.test(fixture.publicId ?? '');
   return <div className="odds-slot" aria-label={`${labels.odds}: ${summary}. ${slipText.oddsMayChange}`}>
     <div className="listing-odds-books">
@@ -86,18 +85,17 @@ export function OddsComparison({ locale, fixture, emptyLabel, commercialLocale =
               const pressed = intent ? saved.slip.selections.some(s => selectionKey(s) === selectionKey(intent)) : false;
               const priceLabel = cell.price === null ? '—' : cell.price.decimalOdds.toFixed(2);
               const expired = !cell.price?.expiresAt || (clock !== null && clock >= Date.parse(cell.price.expiresAt));
-              const sourceTitle=cell.price?.priceKind==='PROXY'?proxySource(cell.price.sourceBookmakerName):undefined;
               if (intent && cell.price && !expired) {
                 return <button type="button" key={cell.outcome} className={`listing-odds-cell listing-odds-select${pressed ? ' is-selected' : ''}`} aria-pressed={pressed} disabled={!saved.ready}
-                  data-price-kind={cell.price.priceKind} data-target-bookmaker={cell.price.targetBookmaker} data-source-bookmaker={cell.price.sourceBookmaker} data-source-quote={cell.price.sourceQuoteId} data-source-observed-at={cell.price.sourceObservedAt} title={sourceTitle}
-                  aria-label={`${pressed ? slipText.selected : slipText.add}: ${book.label}, ${slipText.markets.MATCH_WINNER}, ${selectionLabel(intent, uiLocale, { publicId: fixture.publicId!, home: fixture.homeTeam, away: fixture.awayTeam, competition: fixture.competition, kickoff: fixture.kickoff, status: fixture.status })}, ${priceLabel}, ${approximateLabel}${sourceTitle?`, ${sourceTitle}`:''}`}
+                  data-target-bookmaker={cell.price.targetBookmaker}
+                  aria-label={`${pressed ? slipText.selected : slipText.add}: ${book.label}, ${slipText.markets.MATCH_WINNER}, ${selectionLabel(intent, uiLocale, { publicId: fixture.publicId!, home: fixture.homeTeam, away: fixture.awayTeam, competition: fixture.competition, kickoff: fixture.kickoff, status: fixture.status })}, ${priceLabel}, ${approximateLabel}`}
                   onClick={event => { event.preventDefault(); event.stopPropagation(); const price=cell.price!;addSlipSelection(intent,commercialLocale,price.expiresAt!,price.targetBookmaker,{targetBookmaker:price.targetBookmaker,priceKind:price.priceKind,sourceBookmaker:price.sourceBookmaker,...(price.sourceQuoteId?{sourceQuoteId:price.sourceQuoteId}:{}),sourceObservedAt:price.sourceObservedAt}); }}>
                   {pressed ? <span className="listing-odds-check" aria-hidden="true">✓</span> : null}
                   <span className="listing-odds-label">{cell.label}</span>
                   <ApproximatePrice className="listing-odds-price" value={priceLabel} label={approximateLabel}/>
                 </button>;
               }
-              return <div key={cell.outcome} className={`listing-odds-cell${cell.price === null || expired ? ' is-muted' : ''}`} data-price-kind={cell.price?.priceKind??'UNAVAILABLE'} title={sourceTitle}>
+              return <div key={cell.outcome} className={`listing-odds-cell${cell.price === null || expired ? ' is-muted' : ''}`}>
                 <span className="listing-odds-label">{cell.label}</span>
                 {cell.price&&!expired?<ApproximatePrice className="listing-odds-price" value={priceLabel} label={approximateLabel}/>:<strong className="listing-odds-price">—</strong>}
               </div>;
