@@ -43,7 +43,8 @@ export async function SportsBoardPage({locale,page,searchParams}:{locale:Interfa
   const timeZone=await requestTimeZone(locale);
   const today=localDateKey(now,timeZone),calendarBounds=await loadSportsCalendar(locale,timeZone).catch(()=>({from:today,to:today})),date=boardDate(query.date,today,calendarBounds);
   const defaultHome=page==='home'&&query.view===undefined&&query.date===undefined&&query.competition===undefined;
-  const view=page==='live'?'live':boardView(query.view,defaultHome?'all':page==='home'?'upcoming':'all');
+  // An explicitly selected day shows everything of that day; only the competition shortcut on home defaults to upcoming.
+  const view=page==='live'?'live':boardView(query.view,defaultHome||query.date!==undefined?'all':page==='home'?'upcoming':'all');
   const base=interfaceRoutes[locale][page];
   const requestedCompetition=typeof query.competition==='string'&&FOOTBALL_COMPETITION_TARGETS.some(t=>t.slug===query.competition)?query.competition:undefined;
   // A competition slug outside the registry is not a filter to ignore: it is an unknown entity (real 404, no soft-404 listing).
@@ -83,7 +84,7 @@ export async function SportsBoardPage({locale,page,searchParams}:{locale:Interfa
     <BoardRefresh live={allFixtures.some(f=>f.status==='LIVE'||f.status==='HALFTIME')}/>
     <main id="fixtures-content" className="page-container" data-board-view={view} data-time-zone={timeZone}>
       {sponsor('home_top_banner')}
-      <header className="board-heading"><div><span className="board-eyebrow">{locale==='br'?'FUTEBOL':locale==='mx'?'FÚTBOL':'FOOTBALL'}</span><h1>{hub?.name??selectedCompetition?.competition??dictionary.pages[page].title}</h1>{!hub&&!selectedCompetition?<p>{text.intro}</p>:null}</div>
+      <header className="board-heading"><div><span className="board-eyebrow">{locale==='br'?'FUTEBOL':locale==='mx'?'FÚTBOL':'FOOTBALL'}</span><h1>{hub?.name??selectedCompetition?.competition??(page==='home'&&date?(date===today?dictionary.pages.today.title:dictionary.pages.football.title):dictionary.pages[page].title)}</h1>{!hub&&!selectedCompetition?<p>{text.intro}</p>:null}</div>
         <span className={`freshness is-${freshness}`}><span className="freshness-dot"/>{freshness==='fresh'?text.fresh:freshness==='stale'?text.delayed:text.unavailable}</span>
       </header>
       <SportsSearch locale={locale} query={query.q}/>
