@@ -24,8 +24,9 @@ export function competitionClusters(summaries:readonly CompetitionSitemapSummary
   const bySlug=new Map((summaries??[]).map(summary=>[summary.slug,summary]));
   return enabledCompetitionSlugs().flatMap(slug=>{
     const summary=bySlug.get(slug);
-    // Without a summary (database unavailable) the competition entry stays listed; only tab detail is withheld.
-    if(!summary)return [{paths:competitionPaths(slug)}];
+    // `null` means the database was unavailable: keep every registry hub listed rather than dropping the section.
+    // Loaded but absent means M1's coverage filter rejected it — routed, but not actually covered, so not submitted.
+    if(!summary)return summaries===null?[{paths:competitionPaths(slug)}]:[];
     const rows:Record<CompetitionTab,number>={fixtures:summary.upcoming+Math.min(summary.results,5),results:summary.results,standings:summary.standings?1:0,scorers:summary.scorers?1:0,teams:summary.teams?1:0};
     const lastModified=summary.updatedAt??undefined;
     return tabOrder.flatMap(tab=>{

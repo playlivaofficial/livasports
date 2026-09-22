@@ -6,7 +6,7 @@ vi.mock('@/auth/database',()=>({authConfigured:()=>false,emailAuthConfigured:()=
 vi.mock('@/auth/actions',()=>({signOutUser:async()=>undefined,updateDisplayName:async()=>undefined}));
 vi.mock('@/auth/session',()=>({userProviders:async()=>[],currentUser:async()=>null}));
 vi.mock('@/favorites/database',()=>({favoritesRepository:()=>({})}));
-import {absoluteUrl,competitionCanonical,competitionRequest,enabledCompetitionSlugs,isNonSemanticParam,isPrivatePath,locales,privatePathPrefixes,robotsDisallow,routePolicies} from './policy';
+import {absoluteUrl,competitionCanonical,competitionRequest,enabledCompetitionSlugs,finishedMatchDecayDays,isFinishedMatchDecayed,isMatchInSitemapWindow,isNonSemanticParam,isPrivatePath,locales,matchSitemapFutureDays,matchSitemapPastDays,matchSitemapWindow,privatePathPrefixes,robotsDisallow,routePolicies,submittableCoverageStatuses} from './policy';
 import {competitionClusters,primarySitemap,primarySitemapXml} from './sitemap';
 import {serializeJsonLd} from './json-ld';
 import {competitionHubSchema,siteSchema} from './structured-data';
@@ -118,7 +118,10 @@ describe('P2 sitemap policy',()=>{
     const rows=primarySitemap([summary('premier-league')]);
     expect(validateSitemapUrls(rows.map(r=>r.url))).toEqual([]);
     expect(rows.filter(r=>r.url.includes('premier-league'))).toHaveLength(4*3);
-    expect(rows.filter(r=>r.lastModified===undefined).length).toBe(4*3+slugs.length*3-3);
+    // M1: a registry competition with no coverage summary is not submitted at all, so only the four
+    // static hubs (×3 locales) remain without a source-backed lastmod.
+    expect(rows.filter(r=>r.lastModified===undefined).length).toBe(4*3);
+    expect(rows.some(r=>r.url.includes('la-liga'))).toBe(false);
     expect(rows.every(r=>!('changeFrequency' in r)&&!('priority' in r))).toBe(true);
   });
   it('rejects wrong origins, private paths, tracking parameters, fragments and duplicates',()=>{
@@ -198,5 +201,56 @@ describe('P2 sitemap XML well-formedness (Search Console "Parsing error" regress
     expect(problems.some(p=>p.startsWith('unescaped-ampersand'))).toBe(true);
     expect(problems.some(p=>p.startsWith('lastmod-format'))).toBe(true);
     expect(problems).toContain('unsupported-element:foo');expect(problems).toContain('unclosed:urlset');
+  });
+});
+
+describe('M1 match submission window and finished-match decay',()=>{
+  const now=new Date('2026-09-22T12:00:00.000Z');
+  const at=(days:number,seconds=0)=>new Date(now.getTime()+days*86_400_000+seconds*1000).toISOString();
+
+  it('bounds submission to the last 30 and next 45 days',()=>{
+    expect(matchSitemapPastDays).toBe(30);expect(matchSitemapFutureDays).toBe(45);
+    const {from,to}=matchSitemapWindow(now);
+    expect(from.toISOString()).toBe('2026-08-23T12:00:00.000Z');
+    expect(to.toISOString()).toBe('2026-11-06T12:00:00.000Z');
+  });
+  it('includes both boundaries and excludes the instant beyond each',()=>{
+    expect(isMatchInSitemapWindow(at(-30),now)).toBe(true);
+    expect(isMatchInSitemapWindow(at(-30,-1),now)).toBe(false);
+    expect(isMatchInSitemapWindow(at(45),now)).toBe(true);
+    expect(isMatchInSitemapWindow(at(45,1),now)).toBe(false);
+    expect(isMatchInSitemapWindow(at(0),now)).toBe(true);
+  });
+  it('rejects an unparseable kickoff instead of silently submitting it',()=>{
+    expect(isMatchInSitemapWindow('not-a-date',now)).toBe(false);
+    expect(isFinishedMatchDecayed('FINISHED','not-a-date',now)).toBe(false);
+  });
+  it('decays only finished matches, and only past the boundary',()=>{
+    expect(finishedMatchDecayDays).toBe(matchSitemapPastDays);
+    expect(isFinishedMatchDecayed('FINISHED',at(-29),now)).toBe(false);
+    expect(isFinishedMatchDecayed('FINISHED',at(-30),now)).toBe(false);
+    expect(isFinishedMatchDecayed('FINISHED',at(-30,-1),now)).toBe(true);
+    expect(isFinishedMatchDecayed('FINISHED',at(-400),now)).toBe(true);
+    // A fixture that can still be replayed or rescheduled is never retired on age alone.
+    for(const status of ['SCHEDULED','LIVE','HALFTIME','POSTPONED','CANCELLED','ABANDONED'])
+      expect(isFinishedMatchDecayed(status,at(-400),now)).toBe(false);
+  });
+  it('keeps the sitemap window and the decay boundary in agreement',()=>{
+    // Anything that decays is already out of the submitted window, so the two can never contradict.
+    for(const days of [-31,-45,-400])expect(isMatchInSitemapWindow(at(days),now)).toBe(false);
+    for(const days of [-29,-1,0,44])expect(isFinishedMatchDecayed('FINISHED',at(days),now)).toBe(false);
+  });
+  it('crosses month, year and leap-day boundaries by real elapsed time',()=>{
+    const newYear=new Date('2027-01-15T00:00:00.000Z');
+    expect(matchSitemapWindow(newYear).from.toISOString()).toBe('2026-12-16T00:00:00.000Z');
+    expect(matchSitemapWindow(newYear).to.toISOString()).toBe('2027-03-01T00:00:00.000Z');
+    const leap=new Date('2028-03-15T00:00:00.000Z');
+    expect(matchSitemapWindow(leap).from.toISOString()).toBe('2028-02-14T00:00:00.000Z');
+    expect(isFinishedMatchDecayed('FINISHED','2026-12-16T00:00:00.000Z',newYear)).toBe(false);
+    expect(isFinishedMatchDecayed('FINISHED','2026-12-15T23:59:59.000Z',newYear)).toBe(true);
+  });
+  it('submits only competitions with real coverage',()=>{
+    expect([...submittableCoverageStatuses]).toEqual(['SUPPORTED','SUPPORTED_BUT_NO_CURRENT_FIXTURES']);
+    expect(submittableCoverageStatuses as readonly string[]).not.toContain('UNSUPPORTED');
   });
 });

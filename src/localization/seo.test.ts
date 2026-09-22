@@ -1,13 +1,14 @@
-import {expect,it,vi} from 'vitest';
+import {describe,expect,it,vi} from 'vitest';
 vi.mock('server-only',()=>({}));
 vi.mock('next/server',()=>({connection:async()=>undefined}));
 vi.mock('@/sports/sitemap-runtime',()=>({loadCompetitionSitemapSummaries:vi.fn(async()=>[{slug:'premier-league',seasonId:'11111111-1111-4111-8111-111111111111',upcoming:3,results:10,standings:true,scorers:true,teams:true,updatedAt:new Date('2026-09-17T13:15:13Z')}])}));
 vi.mock('@/match-center/runtime',()=>({
-  loadMatchCenter:async()=>({kind:'found',match:{header:{publicId:'0123456789abcdef',home:{name:'Home'},away:{name:'Away'},competition:'Copa do Brasil'}}})}));
+  loadMatchCenter:vi.fn(async(publicId:string)=>({kind:'found',match:{header:{publicId,home:{name:'Home'},away:{name:'Away'},competition:'Copa do Brasil'}}}))}));
 vi.mock('@/profiles/runtime',()=>({
   loadTeamProfile:vi.fn(async()=>({kind:'found',profile:{publicId:'1123456789abcdef',name:'Team',indexable:true,imageUrl:null}})),
   loadPlayerProfile:async()=>({kind:'found',profile:{publicId:'2123456789abcdef',name:'Player',indexable:true,imageUrl:null}})}));
 import {GET as sitemapRoute} from '@/app/sitemap.xml/route';
+import {loadCompetitionSitemapSummaries} from '@/sports/sitemap-runtime';
 import {primarySitemap} from '@/seo/sitemap';
 import {sitemapXmlProblems} from '@/sports/sitemap';
 import {englishMatchMetadata,englishProfileMetadata} from './english-routes';
@@ -50,5 +51,41 @@ it('/sitemap.xml is served as well-formed, escaped XML with the correct content 
   expect(sitemapXmlProblems(body)).toEqual([]);
   expect(body).toContain('competition=premier-league&amp;tab=results</loc>');
   expect(body).not.toMatch(/&tab=/);
-  expect(body.match(/<url>/g)).toHaveLength(primarySitemap(null).length+4*3);
+  // M1: the served document matches the sitemap built from the same coverage summaries — only the
+  // covered competition is submitted, so the registry's other hubs no longer spend index budget.
+  expect(body.match(/<url>/g)).toHaveLength(primarySitemap(await loadCompetitionSitemapSummaries()).length);
+  expect(body.match(/<loc>[^<]*\?competition=/g)).toHaveLength(5*3);
+  expect(body).not.toContain('competition=la-liga');
+});
+
+describe('M1 finished-match decay in metadata',()=>{
+  const ago=(days:number)=>new Date(Date.now()-days*86_400_000).toISOString();
+  const serve=async(publicId:string,status:string,kickoff:string)=>{
+    const {loadMatchCenter}=await import('@/match-center/runtime');
+    vi.mocked(loadMatchCenter).mockResolvedValue({kind:'found',match:{header:{publicId,home:{name:'Home'},away:{name:'Away'},
+      competition:'Copa do Brasil',competitionSlug:'copa-do-brasil',season:'2026',status,kickoff}}} as never);
+    return englishMatchMetadata(Promise.resolve({match:`home-x-away-${publicId}`}));
+  };
+  it('an aged-out finished match keeps its canonical, drops hreflang and stops asking to be indexed',async()=>{
+    const metadata=await serve('00000000000000a1','FINISHED',ago(120));
+    expect(metadata.robots).toEqual({index:false,follow:true});
+    expect(metadata.alternates?.canonical).toBe('/en/match/home-x-away-00000000000000a1');
+    expect(metadata.alternates?.languages).toBeUndefined();
+  });
+  it('a recent finished match stays indexable with the full reciprocal cluster',async()=>{
+    const metadata=await serve('00000000000000a2','FINISHED',ago(5));
+    expect(metadata.robots).toBeUndefined();
+    expect(Object.keys(metadata.alternates?.languages??{})).toEqual(['pt-BR','es-MX','en','x-default']);
+    expect(metadata.title).toContain('Result and stats');
+  });
+  it('an upcoming match is never decayed on age and carries odds intent',async()=>{
+    const metadata=await serve('00000000000000a3','SCHEDULED',ago(-10));
+    expect(metadata.robots).toBeUndefined();
+    expect(metadata.title).toContain('Odds and stats');
+    // The en route names the competition in English and appends the stored season.
+    expect(metadata.title).toContain('Brazil Cup 2026');
+  });
+  it('an old postponed fixture is not retired, because it can still be rescheduled',async()=>{
+    expect((await serve('00000000000000a4','POSTPONED',ago(400))).robots).toBeUndefined();
+  });
 });

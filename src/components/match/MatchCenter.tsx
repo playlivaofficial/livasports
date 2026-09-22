@@ -15,6 +15,8 @@ import { TeamIdentity } from '@/components/sports/FixtureCard';
 import { MatchClientActions, MatchSectionNav } from './MatchClientActions';
 import { LiveRefreshBoundary } from './LiveRefreshBoundary';
 import {PregameOdds} from './PregameOdds';
+import {NextMatches} from './NextMatches';
+import {isFinishedMatchDecayed} from '@/seo/policy';
 import {SponsoredSlot} from '@/components/commercial/SponsoredSlot';
 import {FavoriteButton} from '@/favorites/FavoriteButton';
 import {publicOddsComparisons} from '@/odds/public-response';
@@ -134,12 +136,17 @@ function Odds({ locale, commercialLocale, match }: { locale: SiteLocale; commerc
   return <PregameOdds key={`${match.header.id}:${locale}:${commercialLocale}`} uiLocale={locale} fixturePublicId={match.header.publicId} initial={publicOddsComparisons(match.oddsComparisons??[])} context={{fixtureId:match.header.id,competitionId:match.header.competitionId,locale:commercialLocale}}/>;
 }
 
-function PlayerPerformances({locale,match}:{locale:SiteLocale;match:MatchCenterView}){
+/**
+ * M1 crawl emphasis: every player named here is already linked once in the lineups above, so on a match
+ * that has aged out of index priority the repeat mention becomes plain text. That removes roughly thirty
+ * duplicate player links from an old page without losing a single unique link or any visible information.
+ */
+function PlayerPerformances({locale,match,linkPlayers}:{locale:SiteLocale;match:MatchCenterView;linkPlayers:boolean}){
   const rows=match.playerStatistics.data;
   if(!rows.length)return null;
   return <section id="player-statistics" className="match-panel"><h2>{copy[locale].playerPerformance}</h2><div className="player-performance-grid">{rows.map(row=>{
     const stats=row.statistics.filter(item=>Boolean(playerStatisticLabels[locale][item.code])).slice(0,5);
-    return stats.length?<article key={row.playerId}><div><Link href={playerPath(locale,row.playerPublicId,row.player)}>{row.player}</Link><small>{row.team}</small></div>
+    return stats.length?<article key={row.playerId}><div>{linkPlayers?<Link href={playerPath(locale,row.playerPublicId,row.player)}>{row.player}</Link>:<span>{row.player}</span>}<small>{row.team}</small></div>
       <p>{stats.map(item=><span key={item.code}><strong>{item.value}</strong> {playerStatisticLabels[locale][item.code]}</span>)}</p></article>:null;
   })}</div></section>;
 }
@@ -153,13 +160,17 @@ export async function MatchCenter({ locale, match, replay = false, commercialLoc
   const kickoff=new Intl.DateTimeFormat(dictionary.locale,{dateStyle:'medium',timeStyle:'short',timeZone}).format(new Date(match.header.kickoff));
   const displayStatus=replay?FixtureStatus.LIVE:match.header.status;
   const scheduled=displayStatus===FixtureStatus.SCHEDULED;
+  // M1: an aged-out finished match keeps its content and its unique links, but stops repeating ~30 player links.
+  const decayed=isFinishedMatchDecayed(match.header.status,match.header.kickoff);
   const kickoffTime=new Intl.DateTimeFormat(dictionary.locale,{hour:'2-digit',minute:'2-digit',timeZone}).format(new Date(match.header.kickoff));
   return <div lang={dictionary.locale} className="app-shell match-shell"><SiteHeader locale={locale} activePage="football" localeHrefs={alternate} contentId="match-content"/>
     <main id="match-content" className="match-container"><h1 className="sr-only">{match.header.home.name} × {match.header.away.name}</h1><Link href={localeRoutes[locale].football} className="match-back">← {text.back}</Link>
       {replay?<p className="replay-label">{text.replay}</p>:null}
       {!replay?<SponsoredSlot context={{locale,pagePath:canonical,placement:'match_top_banner'}}/>:null}
       {!replay&&match.liveSnapshotStale?<p className="stale-live-label">{text.liveStale}</p>:null}
-      <header className="match-hero" data-status={displayStatus}><div className="match-competition"><Link href={competitionPath(locale,match.header.competitionSlug,{season:match.header.seasonId??undefined})}>{match.header.competition}</Link><FavoriteButton locale={locale} kind="competition" id={match.header.competitionSlug} className="favorite-toggle-compact"/><FavoriteButton locale={locale} kind="fixture" id={match.header.publicId}/><b>{statusLabel(locale,displayStatus)}</b></div>
+      <header className="match-hero" data-status={displayStatus}>{/* M1: the canonical competition URL — a ?season= equal to the hub's default season is dropped from the
+        canonical, so linking it here pointed readers and crawlers at a non-canonical twin of the same hub. */}
+      <div className="match-competition"><Link href={competitionPath(locale,match.header.competitionSlug)}>{match.header.competition}</Link><FavoriteButton locale={locale} kind="competition" id={match.header.competitionSlug} className="favorite-toggle-compact"/><FavoriteButton locale={locale} kind="fixture" id={match.header.publicId}/><b>{statusLabel(locale,displayStatus)}</b></div>
         <div className="match-scoreboard"><div className="match-team"><Link href={teamPath(locale,match.header.home.publicId,match.header.home.name)}><TeamIdentity name={match.header.home.name} shortName={match.header.home.shortName} imageUrl={match.header.home.imageUrl} size={80}/></Link><FavoriteButton locale={locale} kind="team" id={match.header.home.publicId} className="favorite-toggle-compact"/></div>
           <div className={`match-score${scheduled?' is-scheduled':''}`}><strong>{scheduled?kickoffTime:<>{match.header.homeScore??'—'} <span>–</span> {match.header.awayScore??'—'}</>}</strong><time dateTime={match.header.kickoff}>{kickoff}</time><small>{timeZone.replaceAll('_',' ')}</small></div>
           <div className="match-team is-away"><Link href={teamPath(locale,match.header.away.publicId,match.header.away.name)}><TeamIdentity name={match.header.away.name} shortName={match.header.away.shortName} imageUrl={match.header.away.imageUrl} size={80}/></Link><FavoriteButton locale={locale} kind="team" id={match.header.away.publicId} className="favorite-toggle-compact"/></div></div>
@@ -168,7 +179,7 @@ export async function MatchCenter({ locale, match, replay = false, commercialLoc
       {!replay?<SponsoredSlot context={{locale,pagePath:canonical,placement:'mobile_inline'}}/>:null}
       <MatchSectionNav context={context} items={[{href:'#summary',label:text.summary},{href:'#statistics',label:text.statistics},{href:'#lineups',label:text.lineups},
         ...(match.playerStatistics.data.length?[{href:'#player-statistics',label:text.playerPerformance}]:[]),{href:'#meetings',label:text.meetings},{href:'#standings',label:text.standings},{href:'#odds',label:text.odds}]}/>
-      <div className="match-content-grid"><div className="match-main-column"><Summary locale={locale} match={match}/><Statistics locale={locale} module={match.statistics}/><Lineups locale={locale} match={match}/><PlayerPerformances locale={locale} match={match}/><Form locale={locale} match={match}/><Standings locale={locale} match={match}/><Odds locale={locale} commercialLocale={commercial} match={match}/>{!replay?<SponsoredSlot context={{locale,pagePath:canonical,placement:'match_inline'}}/>:null}</div>
+      <div className="match-content-grid"><div className="match-main-column"><Summary locale={locale} match={match}/><Statistics locale={locale} module={match.statistics}/><Lineups locale={locale} match={match}/><PlayerPerformances locale={locale} match={match} linkPlayers={!decayed}/><Form locale={locale} match={match}/><Standings locale={locale} match={match}/><Odds locale={locale} commercialLocale={commercial} match={match}/><NextMatches locale={locale} matches={match.nextMatches} timeZone={timeZone}/>{!replay?<SponsoredSlot context={{locale,pagePath:canonical,placement:'match_inline'}}/>:null}</div>
         <aside className="match-context">{!replay?<SponsoredSlot context={{locale,pagePath:canonical,placement:'match_right_rail'}}/>:null}<section><h2>{text.summary}</h2><dl><div><dt>{text.season}</dt><dd>{match.header.season??'—'}</dd></div><div><dt>{text.stage}</dt><dd>{sportStage(locale,match.header.stage) ?? '—'}</dd></div><div><dt>{text.venue}</dt><dd>{match.header.venue??'—'}</dd></div></dl></section></aside></div>
       {!replay?<LiveRefreshBoundary publicId={match.header.publicId} locale={locale} status={match.header.status} snapshotAt={match.snapshotAt}/>:null}
     </main></div>;

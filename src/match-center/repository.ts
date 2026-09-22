@@ -5,7 +5,7 @@ import type { FixtureStatus } from '@/domain/enums';
 import type { SiteLocale } from '@/config/i18n';
 import type {
   MatchEventView, MatchFormView, MatchHeaderView, MatchHistoryView, MatchLineupTeamView, MatchModuleState,
-  MatchOddsPriceView, MatchPlayerPerformanceView, MatchScoreView, MatchStandingView, MatchStatisticView,
+  MatchOddsPriceView, MatchPlayerPerformanceView, MatchScoreView, MatchStandingView, MatchStatisticView, NextMatchView,
 } from './types';
 import { isPregameActionable } from './rules';
 import type { CommercialGeo } from '@/odds/commercial-geo';
@@ -30,6 +30,34 @@ export interface MatchModuleMeta {
 
 export class PostgresMatchCenterRepository {
   constructor(private readonly database: DatabaseClient) {}
+
+  /**
+   * M1: the upcoming inventory a finished match should hand the reader on to. A fixture involving either
+   * of these teams ranks above another fixture in the same competition, and within each group the soonest
+   * kickoff wins. Reuses the same coverage, pending-draw and status rules as the rest of the read model,
+   * so the block can never point at a fixture the site would not otherwise show.
+   */
+  async nextMatches(header: MatchHeaderView, limit = 3): Promise<NextMatchView[]> {
+    const result = await this.database.query<Record<string, unknown>>(`SELECT f.public_id,f.kickoff,c.slug AS competition_slug,
+      CASE WHEN $5='br' THEN c.display_name_pt_br ELSE c.display_name_es_mx END AS competition_name,
+      ht.public_id AS home_public_id,ht.name AS home_name,at.public_id AS away_public_id,at.name AS away_name,
+      CASE WHEN f.home_team_id IN ($2,$3) OR f.away_team_id IN ($2,$3) THEN 0 ELSE 1 END AS relation_rank
+      FROM fixtures f JOIN competitions c ON c.id=f.competition_id
+      JOIN teams ht ON ht.id=f.home_team_id JOIN teams at ON at.id=f.away_team_id
+      WHERE f.id<>$1 AND f.status='SCHEDULED' AND f.kickoff>=now()
+        AND c.enabled AND c.coverage_status IN ('SUPPORTED','SUPPORTED_BUT_NO_CURRENT_FIXTURES')
+        AND NOT EXISTS(SELECT 1 FROM sports_pending_fixtures p WHERE p.id=f.id)
+        AND (f.home_team_id IN ($2,$3) OR f.away_team_id IN ($2,$3) OR f.competition_id=$4)
+      ORDER BY relation_rank,f.kickoff LIMIT ${Math.trunc(limit)}`,
+      [header.id, header.home.id, header.away.id, header.competitionId, header.locale]);
+    return result.rows.map(row => ({
+      publicId: String(row.public_id), kickoff: new Date(String(row.kickoff)).toISOString(),
+      competition: String(row.competition_name), competitionSlug: String(row.competition_slug),
+      relation: Number(row.relation_rank) === 0 ? 'TEAM' : 'COMPETITION',
+      home: { publicId: String(row.home_public_id), name: String(row.home_name) },
+      away: { publicId: String(row.away_public_id), name: String(row.away_name) },
+    }));
+  }
 
   async header(publicId: string, locale: SiteLocale): Promise<MatchHeaderView | null> {
     const result = await this.database.query<Record<string, unknown>>(`SELECT f.*,c.competition_type,c.slug AS competition_slug,
