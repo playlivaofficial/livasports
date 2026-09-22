@@ -87,7 +87,7 @@ Application rollback target: existing READY deployment `dpl_E2zJpM6hzK546MSnqzdU
 | Betsson assets | Approved sandboxed creative; failure must not block sports/slip | Placement QA, commercial health |
 | cron-job.org | Existing five-minute protected odds ticker | Scheduler execution history, stale tick alerts |
 
-GitHub workflow was manual `workflow_dispatch` only at launch; vercel.json defines no cron. Since 2026-09-22 (production stall of 2026-09-21: the external cron disabled itself after 503 answers) the workflow also runs on a 10-minute fallback schedule; the backend lease (409) de-duplicates overlapping ticks. See `docs/P6_PIPELINE_RECOVERY.md`.
+GitHub workflow was manual `workflow_dispatch` only at launch; vercel.json defined no cron. Since 2026-09-22 (production stall of 2026-09-21: the external cron disabled itself after 503 answers) the primary ticker is a Vercel Cron (`*/5`) and the GitHub workflow runs as a 10-minute fallback; the backend lease (409) de-duplicates overlapping ticks. See `docs/P6_PIPELINE_RECOVERY.md`.
 
 ## Performance and remaining limitations
 

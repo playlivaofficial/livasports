@@ -23,3 +23,12 @@ describe('GitHub Actions odds ticker',()=>{
     expect(yaml).not.toContain('state}" != "SUCCEEDED"');
   });
 });
+
+describe('first-party production ticker (Vercel Cron)',()=>{
+  const config=JSON.parse(readFileSync(resolve(process.cwd(),'vercel.json'),'utf8')) as {crons?:Array<{path:string;schedule:string}>};
+  it('drives the existing protected refresh route every five minutes',()=>{
+    // Vercel signs cron requests with CRON_SECRET, which is what the route already requires; no new endpoint,
+    // no query string (the route answers 400 to one) and no second worker: the advisory lease de-duplicates.
+    expect(config.crons).toEqual([{path:'/api/internal/odds-refresh',schedule:'*/5 * * * *'}]);
+  });
+});

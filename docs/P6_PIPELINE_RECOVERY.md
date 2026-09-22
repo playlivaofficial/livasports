@@ -20,7 +20,12 @@ Production symptom: the homepage showed no fixtures for the day and odds stopped
      `STORE_WRITE_FAILED` integrity finding so an incident opens; the tick continues to its plan;
    - `/api/internal/odds-refresh` answers **200** for every completed tick (state is reported through owner health);
      409 (lease) and 503 (infrastructure) remain;
-   - `.github/workflows/odds-refresh.yml` runs on a 10-minute fallback schedule (needs the `CRON_SECRET` Actions secret).
+   - `.github/workflows/odds-refresh.yml` runs on a 10-minute fallback schedule (uses the `CRON_SECRET` Actions secret).
+
+   **Ticker after recovery (2026-09-22):** cron-job.org stays disabled and unreachable from this environment, so the
+   primary ticker is now a first-party **Vercel Cron** (`vercel.json`, `*/5 * * * *` → `/api/internal/odds-refresh`;
+   Vercel signs cron requests with `CRON_SECRET`, which the route already requires). GitHub Actions remains the
+   10-minute fallback. Overlaps are de-duplicated by the scheduler's advisory lease (409 = healthy).
 3. **Catalog noise.** 454 `UNMATCHED` and 2 `AMBIGUOUS` rows were competitions LivaSports does not offer or split-season
    twins without fixtures. `classifyCatalogRows` now marks them `IGNORED_WITH_REASON` deterministically (no fuzzy
    auto-mapping; a twin with upcoming fixtures stays `AMBIGUOUS`; a country with an unmapped registry competition keeps
