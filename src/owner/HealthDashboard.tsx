@@ -24,13 +24,13 @@ export function useOwnerHealthActions(){
 }
 const pct=(v:number)=>`${v.toFixed(v%1?1:0)}%`;
 
-export function OwnerHealthLogin({configured}:{configured:boolean}){
+export function OwnerHealthLogin({configured,title='Owner health',subtitle='Odds reliability control plane · owner access only'}:{configured:boolean;title?:string;subtitle?:string}){
   const [error,setError]=useState(''),[busy,setBusy]=useState(false);
   async function login(event:FormEvent<HTMLFormElement>){event.preventDefault();const form=event.currentTarget,key=new FormData(form).get('key');form.reset();setBusy(true);setError('');
     try{const response=await fetch('/api/owner/preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'login',key}),cache:'no-store'});
       if(!response.ok)throw Error(response.status===401?'Access key is invalid.':response.status===429?'Too many failed attempts. Wait 15 minutes.':'Owner sign-in is temporarily unavailable.');
       window.location.reload();}catch(e){setError((e as Error).message);setBusy(false);}}
-  return <main className="owner-preview-page owner-health-login"><h1>Owner health</h1><p>Odds reliability control plane · owner access only</p>
+  return <main className="owner-preview-page owner-health-login"><h1>{title}</h1><p>{subtitle}</p>
     {!configured?<p>Owner access has not been configured.</p>:<form onSubmit={login}><label htmlFor="owner-key">Private owner access key</label><input id="owner-key" name="key" type="password" autoComplete="current-password" required maxLength={128}/><button disabled={busy}>Sign in</button></form>}
     {error?<p role="alert">{error}</p>:null}</main>;
 }
@@ -56,7 +56,7 @@ export function OwnerHealthDashboard({health}:{health:ReliabilityHealth}){
   const budget=health.budget;
   return <main className="owner-health">
     <header className="owner-health-header"><div><h1>LivaSports odds health</h1><p>Generated {ago(health.generatedAt)} · contract {health.version} · provider requests on this page: 0</p></div>
-      <div className="owner-health-actions"><button disabled={busy!==null} onClick={()=>void run('recheck')}>Re-check health</button><button disabled={busy!==null} onClick={()=>void run('retry-mapping')}>Retry catalog mapping</button><a href="/owner/preview">Owner preview</a></div></header>
+      <div className="owner-health-actions"><button disabled={busy!==null} onClick={()=>void run('recheck')}>Re-check health</button><button disabled={busy!==null} onClick={()=>void run('retry-mapping')}>Retry catalog mapping</button><a href="/owner/growth">Traffic Engine</a><a href="/owner/preview">Owner preview</a></div></header>
     {message?<p className="owner-health-notice" role="status">{message}</p>:null}{error?<p className="owner-health-notice" role="alert">{error}</p>:null}
     <section className="owner-health-cards" aria-label="Summary">
       <div className={cardClass(health.overall)}><span>Overall</span><strong>{health.overall}</strong><small>{health.counts.CRITICAL+health.counts.UNMAPPED} critical · {health.counts.DEGRADED+health.counts.UNKNOWN} degraded · {health.counts.HEALTHY} healthy</small></div>

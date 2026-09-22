@@ -18,7 +18,7 @@ export function AnalyticsDashboard({report}:{report:AnalyticsReport}){
   const f=report.filters,c=report.cards;
   const link=(over:Partial<ReportFilters>)=>{const p=new URLSearchParams();const merged={...f,...over};for(const [k,v] of Object.entries(merged))if(v)p.set(k,String(v));return `/owner/analytics?${p.toString()}`;};
   return <main className="owner-health owner-analytics">
-    <header className="owner-health-header"><div><h1>LivaSports product analytics</h1><p>Window {report.from.slice(0,16)}Z → {report.to.slice(0,16)}Z · traffic {f.traffic??'HUMAN'} · generated {ago(report.generatedAt)} · provider requests on this page: 0 · <Link href="/owner/health">Odds health</Link></p></div>
+    <header className="owner-health-header"><div><h1>LivaSports product analytics</h1><p>Window {report.from.slice(0,16)}Z → {report.to.slice(0,16)}Z · traffic {f.traffic??'HUMAN'} · generated {ago(report.generatedAt)} · provider requests on this page: 0 · <Link href="/owner/health">Odds health</Link> · <Link href="/owner/growth">Traffic Engine</Link></p></div>
       <nav className="owner-health-actions" aria-label="Window">{(['today','7d','30d'] as const).map(w=><Link key={w} className={w===f.window?'owner-analytics-active':''} href={link({window:w})}>{w==='today'?'Today':w==='7d'?'7 days':'30 days'}</Link>)}</nav></header>
     <form className="owner-health-filters" method="get" action="/owner/analytics">
       <input type="hidden" name="window" value={f.window}/>

@@ -4,6 +4,10 @@
     {
       "path": "/api/internal/odds-refresh",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/internal/growth-refresh",
+      "schedule": "17 10,16,22 * * *"
     }
   ],
   "git": {
