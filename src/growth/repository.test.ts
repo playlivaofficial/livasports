@@ -38,7 +38,8 @@ describe('Traffic Engine V1 persistence',()=>{
     });
     const video={channel:'TIKTOK' as const,status:'READY' as const,mimeType:'video/mp4' as const,sha256:'a'.repeat(64),byteLength:4,data:Buffer.from('mp4!')};
     await persistGrowthItem(database(query as unknown as QueryExecutor['query']),{...input(true),videos:[video],supersedesItemId:'11111111-1111-4111-8111-111111111111'});
-    expect(query.mock.calls.some(call=>String(call[0]).includes('INSERT INTO growth_platform_assets'))).toBe(true);
+    const assetInsert=query.mock.calls.find(call=>String(call[0]).includes('INSERT INTO growth_platform_assets'));expect(assetInsert).toBeDefined();
+    expect(String(assetInsert?.[0])).toContain('$9::timestamptz');
     expect(query.mock.calls.some(call=>String(call[0]).includes('SET superseded_at'))).toBe(true);
   });
   it('selects only active legacy items whose every platform remains DRAFT',async()=>{

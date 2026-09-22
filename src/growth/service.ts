@@ -35,6 +35,12 @@ function rowsForPriorities(rows:RankedGrowthFixture[],priorities:ReturnType<type
   return priorities.flatMap(priority=>{const row=byId.get(priority.fixtureId);return row?[row]:[];});
 }
 
+function safeItemFailure(error:unknown){
+  const databaseCode=typeof (error as {code?:unknown})?.code==='string'?(error as {code:string}).code:null;
+  const message=error instanceof Error&&/^[A-Z0-9_]+$/.test(error.message)?error.message:null;
+  return databaseCode??message??'UNCLASSIFIED_ITEM_FAILURE';
+}
+
 export async function readGrowthDashboard(db:DatabaseClient,now=new Date()):Promise<GrowthDashboard>{
   const ranked=await rankGrowthInventory(db,now);
   const shortlist=buildShortlist(ranked.map(row=>row.priority));
@@ -84,7 +90,7 @@ export async function runGrowthGeneration(db:DatabaseClient,trigger:'AUTOMATIC'|
           fixture:material.fixture,content:material.content,canonicalUrl:row.destinationUrl,tracking:material.tracking,now,
           force:!!options.forceFixtureId,videos});
         if(stored){generated++;itemIds.push(stored.id);if(videos.some(video=>video.status==='FAILED'))failed++;}else skippedDuplicate++;
-      }catch{failed++;}
+      }catch(error){failed++;console.error(`[LivaSports Traffic V1.1] ${JSON.stringify({event:'growth-item-failed',fixtureId:row.signals.fixtureId,code:safeItemFailure(error)})}`);}
     }
     const state=failed?'PARTIAL':'SUCCEEDED';
     await finishGrowthJob(db,jobId,state,{considered,generated,skippedDuplicate,...(failed?{error:'ITEM_GENERATION_FAILED'}:{})},new Date());

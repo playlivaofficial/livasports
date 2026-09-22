@@ -183,7 +183,7 @@ export async function persistGrowthItem(db:DatabaseClient,input:PersistInput):Pr
         VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,[item.id,channel,regenerated?'DRAFT':previous?.status??'DRAFT',input.tracking[channel],
         regenerated?null:previous?.approvedAt??null,regenerated?null:previous?.rejectedAt??null,regenerated?null:previous?.publishedAt??null,input.now]);}
     for(const video of input.videos??[])await tx.query(`INSERT INTO growth_platform_assets(content_item_id,channel,status,mime_type,sha256,byte_length,video_data,error_code,generated_at,updated_at)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,CASE WHEN $3='READY' THEN $9 ELSE NULL END,$9)`,[item.id,video.channel,video.status,video.mimeType,video.sha256,video.byteLength,video.data,video.status==='FAILED'?video.errorCode:null,input.now]);
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,CASE WHEN $3='READY' THEN $9::timestamptz ELSE NULL END,$9::timestamptz)`,[item.id,video.channel,video.status,video.mimeType,video.sha256,video.byteLength,video.data,video.status==='FAILED'?video.errorCode:null,input.now]);
     if(input.supersedesItemId)await tx.query('UPDATE growth_content_items SET superseded_at=$2 WHERE id=$1',[input.supersedesItemId,input.now]);
     return {id:item.id,revision};
   });
