@@ -6,12 +6,12 @@ import type {GrowthContentItem} from './types';
 export const socialAssetSize={width:1080,height:1920} as const;
 const colors={ink:'#f7fbff',muted:'#b9cbd8',lime:'#d5ff48',navy:'#07131c',panel:'#102634',line:'#2a4959'} as const;
 
-function teamNameSize(name:string){return name.length>24?54:name.length>17?62:72;}
+function teamNameSize(name:string){return name.length>24?44:name.length>17?50:name.length>11?56:64;}
 function Team({name,imageUrl,align}:{name:string;imageUrl:string|null;align:'left'|'right'}){
   return <div style={{display:'flex',flexDirection:'column',alignItems:align==='left'?'flex-start':'flex-end',width:'44%',gap:24}}>
-    {imageUrl?<img src={imageUrl} alt="" width="210" height="210" style={{objectFit:'contain'}}/>:
+    {imageUrl?<img src={imageUrl} alt="" width={210} height={210} style={{objectFit:'contain'}}/>:
       <div style={{width:210,height:210,borderRadius:105,display:'flex',alignItems:'center',justifyContent:'center',background:colors.panel,border:`3px solid ${colors.line}`,fontSize:72,fontWeight:900}}>{name.slice(0,2).toUpperCase()}</div>}
-    <div style={{display:'flex',fontSize:teamNameSize(name),lineHeight:1.02,fontWeight:900,textAlign:align==='left'?'left':'right',maxWidth:'100%'}}>{name}</div>
+    <div style={{display:'flex',fontSize:teamNameSize(name),lineHeight:1.04,fontWeight:900,textAlign:align==='left'?'left':'right',maxWidth:'100%',overflowWrap:'anywhere'}}>{name}</div>
   </div>;
 }
 /** Pure deterministic layout used by the protected 1080×1920 export route and unit tests. */
@@ -34,7 +34,7 @@ export function createSocialAssetElement(item:GrowthContentItem):ReactElement{
       {context?<div style={{display:'flex',alignSelf:'flex-start',background:'#d5ff4822',border:`2px solid ${colors.lime}`,borderRadius:999,padding:'12px 24px',fontSize:27,fontWeight:800,marginBottom:56}}>{context}</div>:null}
       <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:24,minHeight:500}}>
         <Team name={fixture.home.name} imageUrl={fixture.home.imageUrl} align="left"/>
-        <div style={{display:'flex',alignItems:'center',justifyContent:'center',width:'12%',paddingTop:160,fontSize:40,fontWeight:800,color:colors.muted}}>×</div>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'center',width:'12%',paddingTop:82,fontSize:40,fontWeight:800,color:colors.muted}}>×</div>
         <Team name={fixture.away.name} imageUrl={fixture.away.imageUrl} align="right"/>
       </div>
       <section style={{display:'flex',flexDirection:'column',background:'#07131cbb',border:`2px solid ${colors.line}`,borderRadius:32,padding:'40px 42px',gap:18,marginTop:36}}>
