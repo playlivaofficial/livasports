@@ -53,6 +53,21 @@ try{
       WHERE license_status='APPROVED' AND commercial_eligible AND (valid_from IS NULL OR valid_from<=now()) AND (valid_until IS NULL OR valid_until>now())`)).rows[0]?.count??0:0;
     console.info(JSON.stringify({command,...state,approvedCommercialAssets,decision:approvedCommercialAssets>0?'PLAYER_MEDIA_ENABLED':'PLAYER_TEMPLATES_DORMANT_RIGHTS_SAFE_FALLBACK'},null,2));
   }
+  else if(command==='audit-top10'){
+    const ranked=await rankGrowthInventory(db),shortlist=buildShortlist(ranked.map(row=>row.priority)),byId=new Map(ranked.map(row=>[row.signals.fixtureId,row]));
+    const selected=shortlist.content.flatMap(priority=>{const row=byId.get(priority.fixtureId);return row?[row]:[]}),ids=selected.map(row=>row.signals.fixtureId);
+    const canonical=(await db.query<Record<string,unknown>>(`SELECT f.id AS fixture_id,f.public_id,f.kickoff,c.slug AS competition_slug,c.display_name_pt_br AS competition_name,
+      ht.public_id AS home_public_id,ht.name AS home_name,at.public_id AS away_public_id,at.name AS away_name
+      FROM fixtures f JOIN competitions c ON c.id=f.competition_id JOIN teams ht ON ht.id=f.home_team_id JOIN teams at ON at.id=f.away_team_id
+      WHERE f.id=ANY($1::uuid[])`,[ids])).rows,sourceById=new Map(canonical.map(row=>[String(row.fixture_id),row]));
+    const fixtures=selected.map((row,index)=>{const source=sourceById.get(row.signals.fixtureId),checks={fixture:!!source&&String(source.public_id)===row.signals.publicId,
+      competition:!!source&&String(source.competition_slug)===row.signals.competitionSlug&&String(source.competition_name)===row.signals.competitionName,
+      home:!!source&&String(source.home_public_id)===row.signals.home.publicId&&String(source.home_name)===row.signals.home.name,
+      away:!!source&&String(source.away_public_id)===row.signals.away.publicId&&String(source.away_name)===row.signals.away.name,
+      kickoff:!!source&&new Date(String(source.kickoff)).toISOString()===row.signals.kickoff};
+      return {rank:index+1,fixtureId:row.signals.fixtureId,publicId:row.signals.publicId,competition:row.signals.competitionName,home:row.signals.home.name,away:row.signals.away.name,kickoff:row.signals.kickoff,canonicalPath:row.destinationPath,checks,verified:Object.values(checks).every(Boolean)};});
+    const verified=fixtures.length===10&&fixtures.every(row=>row.verified);console.info(JSON.stringify({command,count:fixtures.length,verified,fixtures},null,2));if(!verified)throw new Error('TOP_10_CANONICAL_MISMATCH');
+  }
   else if(command==='render-top5'){
     const ranked=await rankGrowthInventory(db),shortlist=buildShortlist(ranked.map(row=>row.priority)),byId=new Map(ranked.map(row=>[row.signals.fixtureId,row]));
     const top=shortlist.social.flatMap(priority=>{const row=byId.get(priority.fixtureId);return row?[row]:[]}),directory=await mkdtemp(join(tmpdir(),'livasports-v11-qa-')),manifest:Record<string,unknown>[]=[],qaVideos:QaVideo[]=[];
