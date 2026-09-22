@@ -143,6 +143,9 @@ export const ODDS_FULL_COVERAGE=2;
 export const SHORTLIST={
   socialSize:5,
   contentSize:10,
+  /** Maximum new fixtures rendered by one scheduled serverless invocation. The complete Top 10
+   * still powers SEO; three daily runs advance through duplicate-safe content batches. */
+  generationBatchSize:3,
   /** How far ahead a fixture may be and still be shortlisted. */
   horizonHours:168,
   /** Fixtures that kicked off within this many hours stay eligible (a match in play still draws traffic). */

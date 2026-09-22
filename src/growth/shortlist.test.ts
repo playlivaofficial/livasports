@@ -1,4 +1,5 @@
 import {describe,expect,it} from 'vitest';
+import {SHORTLIST} from './config';
 import {buildShortlist,pickWithDiversity,rankPriorities} from './shortlist';
 import type {FixturePriority} from './scoring';
 
@@ -6,6 +7,9 @@ const priority=(id:string,total:number,competitionSlug='brasileirao-serie-a',kic
   lines:[],reasons:[],rivalry:null,stage:null,eligible:true,ineligibleReason:null,oddsBookmakers:1});
 
 describe('Traffic Engine V1 shortlist diversity',()=>{
+  it('bounds one serverless generation run while retaining the broader shared Top 10',()=>{
+    expect(SHORTLIST.contentSize).toBe(10);expect(SHORTLIST.generationBatchSize).toBe(3);expect(SHORTLIST.generationBatchSize).toBeLessThan(SHORTLIST.contentSize);
+  });
   it('is deterministic for multiple top fixtures on the same day regardless of input order',()=>{
     const rows=[priority('3',70),priority('1',70,'copa-libertadores'),priority('2',70,'champions-league')];
     expect(rankPriorities(rows).map(row=>row.fixtureId)).toEqual(rankPriorities([...rows].reverse()).map(row=>row.fixtureId));
