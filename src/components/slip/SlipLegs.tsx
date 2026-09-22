@@ -11,6 +11,13 @@ import {ApproximatePrice} from '@/components/odds/ApproximatePrice';
 function fixtureTitle(fixture:ResolvedSelection['fixture'],fallback:string){
   return fixture?`${fixture.home} vs ${fixture.away}`:fallback;
 }
+const intlLocale={br:'pt-BR',mx:'es-MX',en:'en-GB'} as const;
+/** Day and time in the visitor's own zone; the element keeps the machine-readable kickoff. */
+function kickoffLabel(kickoff:string,uiLocale:SlipUiLocale){
+  const date=new Date(kickoff);
+  if(!Number.isFinite(date.getTime()))return null;
+  return new Intl.DateTimeFormat(intlLocale[uiLocale],{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}).format(date);
+}
 
 export function SlipLegs({uiLocale,selections,resolvedByKey,comparison,checking,onRemove,onNavigate}:{
   uiLocale:SlipUiLocale;selections:SavedSelection[];
@@ -37,7 +44,9 @@ export function SlipLegs({uiLocale,selections,resolvedByKey,comparison,checking,
       else status=checking?text.checking:text.states.UNAVAILABLE;
       return <li className="slip-item" key={key} data-selection={key} data-state={view?.state??'PENDING'}>
         <div className="slip-item-header">
-          <div>{fixture?<Link href={`${matchPath(uiLocale,fixture.publicId,fixture.home,fixture.away)}#odds`} prefetch={false} onClick={()=>{if(onNavigate&&window.matchMedia('(max-width:1099px)').matches)onNavigate();}}>{title}</Link>:<strong>{title}</strong>}
+          <div>
+            {fixture?<p className="slip-fixture-meta"><span>{fixture.competition}</span>{kickoffLabel(fixture.kickoff,uiLocale)?<time dateTime={fixture.kickoff}>{kickoffLabel(fixture.kickoff,uiLocale)}</time>:null}</p>:null}
+            {fixture?<Link href={`${matchPath(uiLocale,fixture.publicId,fixture.home,fixture.away)}#odds`} prefetch={false} onClick={()=>{if(onNavigate&&window.matchMedia('(max-width:1099px)').matches)onNavigate();}}>{title}</Link>:<strong>{title}</strong>}
             </div>
           <button type="button" className="slip-remove" aria-label={`${text.remove}: ${title}, ${selectionLabel(s,uiLocale,fixture)}`} onClick={()=>onRemove(s,index)}>
             <span aria-hidden="true">×</span>

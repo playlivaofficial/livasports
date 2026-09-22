@@ -54,16 +54,17 @@ function SlipDrawer({locale,uiLocale,selections,stake,slipId,pending,onPending,o
         <div><button type="button" onClick={replace}>{text.replace}</button><button type="button" onClick={()=>{onPending(null);closeRef.current?.focus();}}>{text.cancel}</button></div></section>:null}
       {confirmClear?<section className="slip-confirm" aria-label={text.clear}><strong>{text.clearQuestion}</strong><div><button type="button" onClick={clear}>{text.confirmClear}</button><button type="button" onClick={()=>{setConfirmClear(false);closeRef.current?.focus();}}>{text.cancel}</button></div></section>:null}
       {!selections.length?<div className="slip-empty"><span className="slip-empty-icon"><TicketIcon/></span><h3>{text.emptyTitle}</h3><p>{text.empty}</p><Link href={browse} onClick={onClose}>{text.browse} →</Link></div>:<>
-        <details className="slip-selections" open={selections.length<=2}>
-          <summary>{selections.length} {selections.length===1?text.selection:text.selections}<span>{uiLocale==='br'?'Ver / editar':uiLocale==='mx'?'Ver / editar':'View / edit'}</span></summary>
-          <SlipLegs uiLocale={uiLocale} selections={selections} resolvedByKey={byKey} comparison={comparison} checking={checking} resolvedAt={resolvedAt} now={now} onRemove={remove} onNavigate={onClose}/>
-        </details>
         <label className="slip-stake"><span>{text.stake}</span>
           <input inputMode="decimal" enterKeyHint="done" autoComplete="off" value={stakeValue} aria-invalid={parseStake(stakeValue)===null} aria-describedby="slip-stake-hint"
             onChange={event=>setStakeDraft(event.target.value)} onBlur={commitStake} onKeyDown={event=>{if(event.key==='Enter'){event.preventDefault();commitStake();}}}/>
           <small id="slip-stake-hint">{text.stakeHint} · {text.oddsMayChange}</small></label>
         {!online||failed?<p className="slip-notice">{!online?text.offline:text.retry}</p>:null}
         <SlipComparison locale={locale} uiLocale={uiLocale} selections={selections} value={comparison} checking={checking} stake={stake} slipId={slipId}/>
+        {/* Below the bookmaker cards: what the visitor actually picked, always visible, removable one by one. */}
+        <section className="slip-selections" aria-labelledby="slip-selections-title">
+          <h3 id="slip-selections-title">{text.yourSelections}<span className="slip-count">{selections.length}</span></h3>
+          <SlipLegs uiLocale={uiLocale} selections={selections} resolvedByKey={byKey} comparison={comparison} checking={checking} resolvedAt={resolvedAt} now={now} onRemove={remove} onNavigate={onClose}/>
+        </section>
         <div className="slip-summary"><div><small>{text.scope}</small></div><button type="button" onClick={()=>selections.length>1?setConfirmClear(true):clear()}>{text.clear}</button></div>
         {resolvedAt?<p className="slip-verified">{currentCount}/{selections.length} {text.currentCount}</p>:null}
         <button type="button" className="slip-share" disabled={sharing||!selections.length} onClick={async()=>{setSharing(true);await shareSlipImage(slipSharePayload({locale:uiLocale,slipId:slipId||'local',stake,generatedAt:resolvedAt??new Date().toISOString(),selections,resolved,comparison}));setSharing(false);}}>{text.share}</button>

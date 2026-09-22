@@ -3,7 +3,7 @@ import type {CanonicalSelection,ResolvedSelection,SelectionState} from './types'
 export type SlipUiLocale='br'|'mx'|'en';
 const sharedOutcomes={HOME:'Mandante',DRAW:'Empate',AWAY:'Visitante',OVER:'Mais de 2,5',UNDER:'Menos de 2,5',YES:'Sim',NO:'Não'} as const;
 export const slipCopy={
-  br:{title:'Meu bilhete',selections:'seleções',selection:'seleção',close:'Fechar bilhete',remove:'Remover',clear:'Limpar tudo',clearQuestion:'Remover todas as seleções?',
+  br:{title:'Meu bilhete',selections:'seleções',selection:'seleção',yourSelections:'Suas seleções',close:'Fechar bilhete',remove:'Remover',clear:'Limpar tudo',clearQuestion:'Remover todas as seleções?',
     confirmClear:'Sim, limpar',cancel:'Cancelar',replace:'Substituir seleção',replaceQuestion:'Já existe uma seleção deste mercado no bilhete.',replaceWith:'Nova seleção',
     emptyTitle:'Seu próximo palpite começa aqui',empty:'Toque em uma odd disponível nas partidas para montar seu bilhete.',browse:'Explorar partidas',
     disclaimer:'Apenas planejamento. Nenhuma aposta foi realizada. Cotações podem mudar na casa de apostas.',local:'Salvo somente neste navegador. Sem cadastro.',
@@ -22,7 +22,7 @@ export const slipCopy={
     states:{CURRENT:'Odd atual',PRICE_CHANGED:'Preço atualizado',STALE:'Odd desatualizada',UNAVAILABLE:'Odd indisponível',SUSPENDED:'Mercado suspenso',CLOSED:'Mercado encerrado',MATCH_STARTED:'Partida iniciada',MATCH_FINISHED:'Partida encerrada'},
     notices:{OUTBOUND_UNAVAILABLE:'Não foi possível abrir a casa. Confira as odds atuais do bilhete.',ADDED:'Seleção adicionada',REPLACED:'Seleção substituída',REMOVED:'Seleção removida',CLEARED:'Bilhete limpo',UNCHANGED:'Seleção já está no bilhete',LIMIT:'Você pode adicionar até 10 seleções.',EXPIRED:'Esta odd não está mais disponível.',
       RECOVERED:'O bilhete salvo foi recuperado. Seleções incompatíveis foram removidas.',UNSUPPORTED_VERSION:'Este bilhete usa uma versão não compatível. Você pode começar um novo.',STORAGE_UNAVAILABLE:'Não foi possível salvar no navegador. O bilhete ficará disponível somente nesta página.',INVALID_STAKE:'Informe um valor positivo válido.'}},
-  mx:{title:'Mi boleto',selections:'selecciones',selection:'selección',close:'Cerrar boleto',remove:'Quitar',clear:'Borrar todo',clearQuestion:'¿Quitar todas las selecciones?',
+  mx:{title:'Mi boleto',selections:'selecciones',selection:'selección',yourSelections:'Tus selecciones',close:'Cerrar boleto',remove:'Quitar',clear:'Borrar todo',clearQuestion:'¿Quitar todas las selecciones?',
     confirmClear:'Sí, borrar',cancel:'Cancelar',replace:'Reemplazar selección',replaceQuestion:'Ya tienes una selección de este mercado en el boleto.',replaceWith:'Nueva selección',
     emptyTitle:'Tu próximo pronóstico empieza aquí',empty:'Toca una cuota disponible en los partidos para armar tu boleto.',browse:'Explorar partidos',
     disclaimer:'Solo para planificar. No se ha realizado ninguna apuesta. Las cuotas pueden cambiar en la casa de apuestas.',local:'Guardado solo en este navegador. Sin registro.',
@@ -41,7 +41,7 @@ export const slipCopy={
     states:{CURRENT:'Cuota actual',PRICE_CHANGED:'Cuota actualizada',STALE:'Cuota desactualizada',UNAVAILABLE:'Cuota no disponible',SUSPENDED:'Mercado suspendido',CLOSED:'Mercado cerrado',MATCH_STARTED:'Partido iniciado',MATCH_FINISHED:'Partido finalizado'},
     notices:{OUTBOUND_UNAVAILABLE:'No se pudo abrir la casa. Revisa las cuotas actuales del boleto.',ADDED:'Selección agregada',REPLACED:'Selección reemplazada',REMOVED:'Selección eliminada',CLEARED:'Boleto vacío',UNCHANGED:'La selección ya está en tu boleto',LIMIT:'Puedes agregar hasta 10 selecciones.',EXPIRED:'Esta cuota ya no está disponible.',
       RECOVERED:'Se recuperó tu boleto. Se quitaron las selecciones incompatibles.',UNSUPPORTED_VERSION:'Este boleto usa una versión no compatible. Puedes empezar uno nuevo.',STORAGE_UNAVAILABLE:'No se pudo guardar en el navegador. El boleto solo estará disponible en esta página.',INVALID_STAKE:'Ingresa un valor positivo válido.'}},
-  en:{title:'My slip',selections:'selections',selection:'selection',close:'Close slip',remove:'Remove',clear:'Clear all',clearQuestion:'Remove every selection?',
+  en:{title:'My slip',selections:'selections',selection:'selection',yourSelections:'Your selections',close:'Close slip',remove:'Remove',clear:'Clear all',clearQuestion:'Remove every selection?',
     confirmClear:'Yes, clear',cancel:'Cancel',replace:'Replace selection',replaceQuestion:'This market already has a selection on the slip.',replaceWith:'New selection',
     emptyTitle:'Build your next slip here',empty:'Tap available odds on the fixtures to add selections.',browse:'Browse matches',
     disclaimer:'Planning only. No bet has been placed. Odds can change at the bookmaker.',local:'Saved only in this browser. No account required.',
