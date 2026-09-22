@@ -1,7 +1,7 @@
 import {describe,expect,it,vi} from 'vitest';
 vi.mock('server-only',()=>({}));
 import type {DatabaseClient,QueryExecutor} from '@/database/client';
-import {canTransitionGrowthStatus,persistGrowthItem,transitionGrowthChannel} from './repository';
+import {canTransitionGrowthStatus,persistGrowthItem,readV1DraftsForRegeneration,transitionGrowthChannel} from './repository';
 import {generatedContent} from './content';
 import {rankedFixture,testNow} from './fixtures.test-support';
 
@@ -29,6 +29,21 @@ describe('Traffic Engine V1 persistence',()=>{
     });
     expect(await persistGrowthItem(database(query as unknown as QueryExecutor['query']),input(true))).toEqual({id:'22222222-2222-4222-8222-222222222222',revision:2});
     expect(query.mock.calls.filter(call=>String(call[0]).includes('INSERT INTO growth_content_channels'))).toHaveLength(4);
+  });
+  it('persists one video row per supplied platform and links controlled draft regeneration',async()=>{
+    const query=vi.fn(async(sql:string)=>{
+      if(sql.includes('SELECT i.id FROM growth_content_items'))return {rows:[{id:'old'}],rowCount:1};
+      if(sql.includes('COALESCE(max(revision)'))return {rows:[{revision:2}],rowCount:1};
+      if(sql.includes('INSERT INTO growth_content_items'))return {rows:[{id:'22222222-2222-4222-8222-222222222222'}],rowCount:1};return {rows:[],rowCount:1};
+    });
+    const video={channel:'TIKTOK' as const,status:'READY' as const,mimeType:'video/mp4' as const,sha256:'a'.repeat(64),byteLength:4,data:Buffer.from('mp4!')};
+    await persistGrowthItem(database(query as unknown as QueryExecutor['query']),{...input(true),videos:[video],supersedesItemId:'11111111-1111-4111-8111-111111111111'});
+    expect(query.mock.calls.some(call=>String(call[0]).includes('INSERT INTO growth_platform_assets'))).toBe(true);
+    expect(query.mock.calls.some(call=>String(call[0]).includes('SET superseded_at'))).toBe(true);
+  });
+  it('selects only active legacy items whose every platform remains DRAFT',async()=>{
+    const query=vi.fn(async(sql:string)=>{void sql;return {rows:[],rowCount:0};});await readV1DraftsForRegeneration(database(query as unknown as QueryExecutor['query']));
+    const sql=String(query.mock.calls[0][0]);expect(sql).toContain('generator_version<2');expect(sql).toContain("ch.status<>'DRAFT'");expect(sql).toContain('superseded_at IS NULL');
   });
   it('locks and performs one valid state update, rejecting invalid transitions',async()=>{
     const query=vi.fn(async(sql:string)=>sql.includes('SELECT status')?{rows:[{status:'APPROVED'}],rowCount:1}:{rows:[],rowCount:1});

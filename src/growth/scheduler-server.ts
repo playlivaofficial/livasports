@@ -13,7 +13,7 @@ export async function growthSchedulerResponse(request:Request){
   if(process.env.VERCEL_ENV==='preview')return Response.json({error:'PREVIEW_REFRESH_DISABLED'},{status:403,headers});
   try{
     const result=await runGrowthGeneration(database(),request.method==='GET'?'AUTOMATIC':'OWNER');
-    console.info(`[LivaSports Traffic V1] ${JSON.stringify({event:'growth-generation',...result})}`);
+    console.info(`[LivaSports Traffic V1.1] ${JSON.stringify({event:'growth-generation',...result})}`);
     return Response.json(result,{headers});
   }catch{return Response.json({error:'GROWTH_GENERATION_FAILED',providerRequests:0},{status:503,headers});}
 }

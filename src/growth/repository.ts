@@ -6,8 +6,11 @@ import {slugifyProfileName} from '@/profiles/routes';
 import {readListingOddsSnapshots} from '@/odds/read-repository';
 import {quoteState} from '@/odds/comparison';
 import {SHORTLIST,GROWTH_CHANNELS,type GrowthChannel} from './config';
+import {publicBookmakerSummary} from './public-bookmakers';
+import {playerEvidenceScore} from './strategy';
 import type {FixtureSignals} from './scoring';
-import type {GrowthChannelRecord,GrowthChannelStatus,GrowthContentItem,GrowthContentPack,GrowthFixture,GrowthFixtureSnapshot} from './types';
+import type {GrowthVideoRenderResult} from './video-renderer';
+import type {GrowthChannelRecord,GrowthChannelStatus,GrowthContentItem,GrowthContentPack,GrowthFixture,GrowthFixtureSnapshot,GrowthMediaRights,GrowthPlatformAsset,GrowthPlayerCandidate,GrowthSeoPriority,GrowthTeamForm,RankedGrowthFixture} from './types';
 
 type Row=Record<string,unknown>;
 const iso=(value:unknown)=>new Date(String(value)).toISOString();
@@ -39,8 +42,8 @@ export async function readGrowthFixtures(db:QueryExecutor,now=new Date()):Promis
     if(snapshot)for(const quote of snapshot.quotes){
       if(quote.geoEligible&&quoteState(quote,snapshot,now.getTime())==='ACTIVE')active.set(quote.bookmaker,quote.bookmakerName);
     }
-    const bookmakers=[...active].sort(([a],[b])=>a.localeCompare(b)).map(([slug,name])=>({slug,name}));
-    const count=bookmakers.length;
+    const count=active.size;
+    const publicSummary=snapshot?publicBookmakerSummary(snapshot,now.getTime()):{bookmakers:[],priceGap:null};
     const standingsTotal=numeric(row.total_teams),homePosition=numeric(row.home_position),awayPosition=numeric(row.away_position);
     const standings=standingsTotal&&standingsTotal>0?{homePosition,awayPosition,totalTeams:standingsTotal}:null;
     const homeName=String(row.home_name),awayName=String(row.away_name),publicId=String(row.public_id);
@@ -50,9 +53,74 @@ export async function readGrowthFixtures(db:QueryExecutor,now=new Date()):Promis
       away:{slug:slugifyProfileName(awayName),name:awayName,publicId:String(row.away_public_id),imageUrl:text(row.away_image_url)},
       stageName:text(row.stage_name),roundName:text(row.round_name),venue:text(row.venue_name),standings,oddsBookmakers:count};
     const destinationPath=matchPath('br',publicId,homeName,awayName);
-    return {signals,destinationPath,destinationUrl:absoluteUrl(destinationPath),odds:{bookmakers,count,
-      label:count?`${count} ${count===1?'casa com odds atuais':'casas com odds atuais'}`:'Sem odds atuais'}};
+    return {signals,destinationPath,destinationUrl:absoluteUrl(destinationPath),odds:{bookmakers:publicSummary.bookmakers,count,
+      label:count?`${count} ${count===1?'casa com odds atuais':'casas com odds atuais'}`:'Sem odds atuais',
+      publicBookmakers:publicSummary.bookmakers,publicPriceGap:publicSummary.priceGap}};
   });
+}
+
+function metric(value:unknown){
+  if(value===null||value===undefined)return null;
+  const candidate=typeof value==='object'&&(value as Record<string,unknown>).total!==undefined?(value as Record<string,unknown>).total:value;
+  const number=Number(candidate);return Number.isFinite(number)&&number>=0?number:null;
+}
+function form(rows:Row[],side:'home'|'away'):GrowthTeamForm|null{
+  const matches=rows.filter(row=>String(row.side)===side);if(!matches.length)return null;const teamId=String(matches[0].team_id);
+  return matches.reduce<GrowthTeamForm>((summary,row)=>{const home=String(row.home_team_id)===teamId;
+    const own=Number(home?row.home_score:row.away_score),other=Number(home?row.away_score:row.home_score);
+    summary.played++;summary.goalsFor+=own;summary.goalsAgainst+=other;if(own>other)summary.wins++;else if(own===other)summary.draws++;else summary.losses++;return summary;
+  },{played:0,wins:0,draws:0,losses:0,goalsFor:0,goalsAgainst:0});
+}
+function media(row:Row):GrowthMediaRights{
+  const stored=String(row.license_status??'UNKNOWN') as GrowthMediaRights['licenseStatus'],now=Date.now(),from=row.valid_from?Date.parse(String(row.valid_from)):null,until=row.valid_until?Date.parse(String(row.valid_until)):null;
+  const inWindow=(from===null||from<=now)&&(until===null||until>now),status:GrowthMediaRights['licenseStatus']=stored==='APPROVED'&&!inWindow?'EXPIRED':stored;
+  const eligible=status==='APPROVED'&&inWindow&&row.commercial_eligible===true&&!!row.asset_url;
+  return {source:text(row.media_source),licenseStatus:status,commercialEligible:eligible,assetUrl:eligible?text(row.asset_url):null,
+    evidence:row.media_evidence?JSON.stringify(asJson(row.media_evidence)):null};
+}
+
+/** Adds only persisted, current-season player/form evidence. Missing rights always means no portrait. */
+export async function enrichGrowthStorySignals(db:QueryExecutor,fixtures:RankedGrowthFixture[]):Promise<RankedGrowthFixture[]>{
+  if(!fixtures.length)return fixtures;
+  const ids=fixtures.map(row=>row.signals.fixtureId);
+  const playerRows=(await db.query<Row>(`WITH targets AS (
+      SELECT f.id AS fixture_id,f.season_id,f.home_team_id,f.away_team_id FROM fixtures f WHERE f.id=ANY($1::uuid[])
+    ), player_metrics AS (
+      SELECT ps.player_id,ps.team_id,ps.season_id,jsonb_object_agg(st.developer_name,ps.value) FILTER(WHERE st.developer_name IS NOT NULL) AS metrics
+      FROM player_season_statistics ps JOIN profile_statistic_types st ON st.provider='SPORTMONKS' AND st.provider_type_id=ps.provider_type_id
+      WHERE st.developer_name IN ('GOALS','ASSISTS','APPEARANCES','STARTS','LINEUPS','MINUTES_PLAYED') GROUP BY ps.player_id,ps.team_id,ps.season_id
+    ) SELECT t.fixture_id,CASE WHEN sm.team_id=t.home_team_id THEN 'home' ELSE 'away' END AS side,sm.team_id,tm.name AS team_name,
+      p.id,p.public_id,p.display_name,COALESCE(pm.metrics,'{}'::jsonb) AS metrics,
+      rights.source AS media_source,rights.asset_url,rights.license_status,rights.commercial_eligible,rights.evidence AS media_evidence,rights.valid_from,rights.valid_until
+    FROM targets t JOIN team_squad_memberships sm ON sm.season_id=t.season_id AND sm.team_id IN(t.home_team_id,t.away_team_id)
+    JOIN teams tm ON tm.id=sm.team_id JOIN players p ON p.id=sm.player_id
+    LEFT JOIN player_metrics pm ON pm.player_id=sm.player_id AND pm.team_id=sm.team_id AND pm.season_id=sm.season_id
+    LEFT JOIN LATERAL (SELECT mr.* FROM growth_media_rights mr WHERE mr.player_id=p.id
+      ORDER BY (mr.license_status='APPROVED' AND mr.commercial_eligible AND (mr.valid_from IS NULL OR mr.valid_from<=now()) AND (mr.valid_until IS NULL OR mr.valid_until>now())) DESC,mr.updated_at DESC LIMIT 1) rights ON true
+    WHERE (sm.starts_at IS NULL OR sm.starts_at<=current_date) AND (sm.ends_at IS NULL OR sm.ends_at>=current_date)
+    ORDER BY t.fixture_id,side,p.display_name`,[ids])).rows;
+  const formRows=(await db.query<Row>(`WITH target_teams AS (
+      SELECT f.id AS fixture_id,f.kickoff,f.home_team_id AS team_id,'home'::text AS side FROM fixtures f WHERE f.id=ANY($1::uuid[])
+      UNION ALL SELECT f.id,f.kickoff,f.away_team_id,'away'::text FROM fixtures f WHERE f.id=ANY($1::uuid[])
+    ) SELECT tt.fixture_id,tt.team_id,tt.side,recent.home_team_id,recent.away_team_id,recent.home_score,recent.away_score
+    FROM target_teams tt CROSS JOIN LATERAL (SELECT f.home_team_id,f.away_team_id,f.home_score,f.away_score FROM fixtures f
+      WHERE f.status='FINISHED' AND f.kickoff<tt.kickoff AND (f.home_team_id=tt.team_id OR f.away_team_id=tt.team_id)
+        AND f.home_score IS NOT NULL AND f.away_score IS NOT NULL ORDER BY f.kickoff DESC,f.id LIMIT 5) recent`,[ids])).rows;
+  const playerGroups=new Map<string,{home:GrowthPlayerCandidate[];away:GrowthPlayerCandidate[]}>();
+  for(const row of playerRows){
+    const values=asJson<Record<string,unknown>>(row.metrics??{});const statistics={appearances:metric(values.APPEARANCES),starts:metric(values.STARTS??values.LINEUPS),minutes:metric(values.MINUTES_PLAYED),goals:metric(values.GOALS),assists:metric(values.ASSISTS)};
+    const goals=statistics.goals??0,assists=statistics.assists??0,starts=statistics.starts??0,appearances=statistics.appearances??0;
+    const reason=goals>0?`${goals} gols registrados na temporada`:assists>0?`${assists} assistências registradas na temporada`:starts>0?`${starts} titularidades registradas na temporada`:`${appearances} aparições registradas na temporada`;
+    const candidate:GrowthPlayerCandidate={id:String(row.id),publicId:String(row.public_id),teamId:String(row.team_id),teamName:String(row.team_name),name:String(row.display_name),statistics,
+      evidenceScore:playerEvidenceScore(statistics),selectionReason:reason,media:media(row)};
+    const key=String(row.fixture_id),group=playerGroups.get(key)??{home:[],away:[]};group[String(row.side)==='home'?'home':'away'].push(candidate);playerGroups.set(key,group);
+  }
+  for(const group of playerGroups.values())for(const side of [group.home,group.away]){
+    const maxGoals=Math.max(0,...side.map(candidate=>candidate.statistics.goals??0));
+    if(maxGoals>0)for(const candidate of side.filter(item=>item.statistics.goals===maxGoals))candidate.selectionReason=`artilheiro atual do elenco nos dados da temporada (${maxGoals} gols)`;
+  }
+  return fixtures.map(row=>{const players=playerGroups.get(row.signals.fixtureId)??{home:[],away:[]};const rows=formRows.filter(item=>String(item.fixture_id)===row.signals.fixtureId);
+    return {...row,storySignals:{players,form:{home:form(rows,'home'),away:form(rows,'away')}}};});
 }
 export async function recentGrowthFixtureIds(db:QueryExecutor,now=new Date()):Promise<Set<string>>{
   const since=new Date(now.getTime()-SHORTLIST.duplicateWindowDays*86_400_000);
@@ -86,6 +154,8 @@ interface PersistInput {
   fixtureId:string;sourceHash:string;trigger:'AUTOMATIC'|'OWNER';priorityScore:number;
   scoreBreakdown:unknown;reasons:string[];fixture:GrowthFixtureSnapshot;content:GrowthContentPack;
   canonicalUrl:string;tracking:Record<GrowthChannel,string>;now:Date;force:boolean;
+  videos?:GrowthVideoRenderResult[];supersedesItemId?:string|null;
+  regeneratedChannel?:GrowthChannel|null;channelRecords?:GrowthChannelRecord[];
 }
 /** Advisory locking makes the seven-day duplicate check and revision increment atomic per fixture. */
 export async function persistGrowthItem(db:DatabaseClient,input:PersistInput):Promise<{id:string;revision:number}|null>{
@@ -96,14 +166,25 @@ export async function persistGrowthItem(db:DatabaseClient,input:PersistInput):Pr
       const duplicate=(await tx.query('SELECT 1 FROM growth_content_items WHERE fixture_id=$1 AND created_at>=$2 LIMIT 1',[input.fixtureId,since])).rowCount;
       if(duplicate)return null;
     }
+    if(input.supersedesItemId){
+      const predecessor=(await tx.query<{id:string}>(`SELECT i.id FROM growth_content_items i
+        WHERE i.id=$1 AND i.superseded_at IS NULL AND (($2::text IS NULL AND NOT EXISTS(SELECT 1 FROM growth_content_channels ch WHERE ch.content_item_id=i.id AND ch.status<>'DRAFT'))
+          OR ($2::text IS NOT NULL AND EXISTS(SELECT 1 FROM growth_content_channels ch WHERE ch.content_item_id=i.id AND ch.channel=$2 AND ch.status IN('DRAFT','REJECTED')))) FOR UPDATE`,[input.supersedesItemId,input.regeneratedChannel??null])).rows[0];
+      if(!predecessor)throw new Error('DRAFT_REGENERATION_NOT_ALLOWED');
+    }
     const revision=Number((await tx.query<{revision:number}>('SELECT COALESCE(max(revision),0)+1 AS revision FROM growth_content_items WHERE fixture_id=$1',[input.fixtureId])).rows[0]?.revision??1);
     const item=(await tx.query<{id:string}>(`INSERT INTO growth_content_items(fixture_id,revision,generator_version,source_hash,trigger_source,
-      priority_score,score_breakdown,ranking_reasons,fixture_snapshot,content_pack,canonical_url,created_at)
-      VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb,$9::jsonb,$10::jsonb,$11,$12) RETURNING id`,[
+      priority_score,score_breakdown,ranking_reasons,fixture_snapshot,content_pack,canonical_url,created_at,supersedes_item_id)
+      VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb,$9::jsonb,$10::jsonb,$11,$12,$13) RETURNING id`,[
       input.fixtureId,revision,input.content.generatorVersion,input.sourceHash,input.trigger,input.priorityScore,JSON.stringify(input.scoreBreakdown),
-      JSON.stringify(input.reasons),JSON.stringify(input.fixture),JSON.stringify(input.content),input.canonicalUrl,input.now])).rows[0];
-    for(const channel of GROWTH_CHANNELS)await tx.query(`INSERT INTO growth_content_channels(content_item_id,channel,tracked_url,updated_at)
-      VALUES($1,$2,$3,$4)`,[item.id,channel,input.tracking[channel],input.now]);
+      JSON.stringify(input.reasons),JSON.stringify(input.fixture),JSON.stringify(input.content),input.canonicalUrl,input.now,input.supersedesItemId??null])).rows[0];
+    for(const channel of GROWTH_CHANNELS){const previous=input.channelRecords?.find(record=>record.channel===channel),regenerated=input.regeneratedChannel===channel;
+      await tx.query(`INSERT INTO growth_content_channels(content_item_id,channel,status,tracked_url,approved_at,rejected_at,published_at,updated_at)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,[item.id,channel,regenerated?'DRAFT':previous?.status??'DRAFT',input.tracking[channel],
+        regenerated?null:previous?.approvedAt??null,regenerated?null:previous?.rejectedAt??null,regenerated?null:previous?.publishedAt??null,input.now]);}
+    for(const video of input.videos??[])await tx.query(`INSERT INTO growth_platform_assets(content_item_id,channel,status,mime_type,sha256,byte_length,video_data,error_code,generated_at,updated_at)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,CASE WHEN $3='READY' THEN $9 ELSE NULL END,$9)`,[item.id,video.channel,video.status,video.mimeType,video.sha256,video.byteLength,video.data,video.status==='FAILED'?video.errorCode:null,input.now]);
+    if(input.supersedesItemId)await tx.query('UPDATE growth_content_items SET superseded_at=$2 WHERE id=$1',[input.supersedesItemId,input.now]);
     return {id:item.id,revision};
   });
 }
@@ -113,7 +194,7 @@ export async function acquireGrowthJob(db:DatabaseClient,trigger:'AUTOMATIC'|'OW
     await tx.query(`UPDATE growth_generation_jobs SET status='FAILED',completed_at=$1,error_code='LEASE_EXPIRED'
       WHERE status='RUNNING' AND lease_expires_at<$1`,[now]);
     const row=(await tx.query<{id:string}>(`INSERT INTO growth_generation_jobs(status,trigger_source,lease_expires_at,heartbeat_at,started_at)
-      VALUES('RUNNING',$1,$2,$3,$3) RETURNING id`,[trigger,new Date(now.getTime()+120_000),now])).rows[0];
+      VALUES('RUNNING',$1,$2,$3,$3) RETURNING id`,[trigger,new Date(now.getTime()+600_000),now])).rows[0];
     return row.id;
   });}catch(error){return (error as {code?:string}).code==='23505'?null:Promise.reject(error);}
 }
@@ -133,7 +214,8 @@ function hydrateItem(row:Row):GrowthContentItem{
   return {id:String(row.id),fixtureId:String(row.fixture_id),revision:Number(row.revision),sourceHash:String(row.source_hash),
     trigger:String(row.trigger_source) as GrowthContentItem['trigger'],priorityScore:Number(row.priority_score),
     scoreBreakdown:asJson(row.score_breakdown),reasons:asJson(row.ranking_reasons),canonicalUrl:String(row.canonical_url),
-    fixture:asJson(row.fixture_snapshot),content:asJson(row.content_pack),channels,createdAt:iso(row.created_at)};
+    fixture:asJson(row.fixture_snapshot),content:asJson(row.content_pack),channels,supersedesItemId:text(row.supersedes_item_id),
+    supersededAt:row.superseded_at?iso(row.superseded_at):null,createdAt:iso(row.created_at)};
 }
 
 const itemSelect=`SELECT i.*,COALESCE(jsonb_agg(jsonb_build_object('channel',ch.channel,'status',ch.status,'tracked_url',ch.tracked_url,
@@ -142,11 +224,49 @@ const itemSelect=`SELECT i.*,COALESCE(jsonb_agg(jsonb_build_object('channel',ch.
   FROM growth_content_items i LEFT JOIN growth_content_channels ch ON ch.content_item_id=i.id`;
 
 export async function readLatestGrowthItems(db:QueryExecutor,limit=100):Promise<GrowthContentItem[]>{
-  const rows=(await db.query<Row>(`${itemSelect} GROUP BY i.id ORDER BY i.created_at DESC,i.id DESC LIMIT $1`,[limit])).rows;
-  return rows.map(hydrateItem);
+  let rows:Row[];
+  try{rows=(await db.query<Row>(`${itemSelect} WHERE i.superseded_at IS NULL GROUP BY i.id ORDER BY i.created_at DESC,i.id DESC LIMIT $1`,[limit])).rows;}
+  catch(error){if((error as {code?:string}).code!=='42703')throw error;rows=(await db.query<Row>(`${itemSelect} GROUP BY i.id ORDER BY i.created_at DESC,i.id DESC LIMIT $1`,[limit])).rows;}
+  return await hydrateAssets(db,rows.map(hydrateItem));
 }
 
 export async function readGrowthItem(db:QueryExecutor,id:string):Promise<GrowthContentItem|null>{
   const row=(await db.query<Row>(`${itemSelect} WHERE i.id=$1 GROUP BY i.id`,[id])).rows[0];
-  return row?hydrateItem(row):null;
+  if(!row)return null;return (await hydrateAssets(db,[hydrateItem(row)]))[0]??null;
+}
+
+async function hydrateAssets(db:QueryExecutor,items:GrowthContentItem[]):Promise<GrowthContentItem[]>{
+  if(!items.length)return items;
+  try{
+    const rows=(await db.query<Row>(`SELECT content_item_id,channel,status,mime_type,sha256,byte_length,error_code,generated_at
+      FROM growth_platform_assets WHERE content_item_id=ANY($1::uuid[]) ORDER BY content_item_id,channel`,[items.map(item=>item.id)])).rows;
+    return items.map(item=>({...item,platformAssets:rows.filter(row=>String(row.content_item_id)===item.id).map((row):GrowthPlatformAsset=>({channel:String(row.channel) as GrowthPlatformAsset['channel'],
+      status:String(row.status) as 'READY'|'FAILED'|'PENDING',mimeType:text(row.mime_type),sha256:text(row.sha256),byteLength:numeric(row.byte_length),generatedAt:row.generated_at?iso(row.generated_at):null,errorCode:text(row.error_code)}))}));
+  }catch(error){const code=(error as {code?:string}).code;if(code==='42P01'||code==='42703')return items;throw error;}
+}
+
+export async function readGrowthVideo(db:QueryExecutor,itemId:string,channel:string){
+  const row=(await db.query<Row>(`SELECT video_data,mime_type,sha256,byte_length FROM growth_platform_assets
+    WHERE content_item_id=$1 AND channel=$2 AND status='READY'`,[itemId,channel])).rows[0];
+  if(!row||!Buffer.isBuffer(row.video_data))return null;
+  return {data:row.video_data as Buffer,mimeType:String(row.mime_type),sha256:String(row.sha256),byteLength:Number(row.byte_length)};
+}
+
+export interface GrowthSeoUpsert {fixtureId:string;rank:number;score:number;topSocial:boolean;canonicalUrl:string;seo:GrowthSeoPriority;sourceHash:string;}
+export async function upsertGrowthSeoPriorities(db:DatabaseClient,rows:GrowthSeoUpsert[],now=new Date()){
+  await db.transaction(async tx=>{
+    await tx.query('UPDATE growth_seo_priorities SET active=false,updated_at=$1 WHERE active',[now]);
+    for(const row of rows)await tx.query(`INSERT INTO growth_seo_priorities(fixture_id,priority_rank,priority_score,top_social,canonical_url,intent_cluster,placements,context_pt_br,source_hash,active,updated_at)
+      VALUES($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8,$9,true,$10)
+      ON CONFLICT(fixture_id) DO UPDATE SET priority_rank=EXCLUDED.priority_rank,priority_score=EXCLUDED.priority_score,top_social=EXCLUDED.top_social,
+      canonical_url=EXCLUDED.canonical_url,intent_cluster=EXCLUDED.intent_cluster,placements=EXCLUDED.placements,context_pt_br=EXCLUDED.context_pt_br,
+      source_hash=EXCLUDED.source_hash,active=true,updated_at=EXCLUDED.updated_at`,[row.fixtureId,row.rank,row.score,row.topSocial,row.canonicalUrl,JSON.stringify(row.seo.intent),JSON.stringify(row.seo.placements),row.seo.context,row.sourceHash,now]);
+  });
+}
+
+export async function readV1DraftsForRegeneration(db:QueryExecutor){
+  return (await db.query<{id:string;fixture_id:string}>(`SELECT DISTINCT ON(i.fixture_id) i.id,i.fixture_id FROM growth_content_items i
+    WHERE i.generator_version<2 AND i.superseded_at IS NULL
+      AND NOT EXISTS(SELECT 1 FROM growth_content_channels ch WHERE ch.content_item_id=i.id AND ch.status<>'DRAFT')
+    ORDER BY i.fixture_id,i.revision DESC`)).rows;
 }

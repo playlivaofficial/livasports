@@ -2,9 +2,8 @@
  * Traffic Engine V1 — every weight the priority engine uses lives here, so tuning Brazil's traffic
  * strategy is one edit in one file rather than numbers scattered through queries and components.
  *
- * This is deliberately separate from `FOOTBALL_COMPETITION_TARGETS.priority`, which orders what the
- * public board *displays*. Traffic priority answers a different question — where is acquisition effort
- * worth spending — so the two are allowed to disagree and neither silently moves the other.
+ * V1.1 makes this the single acquisition-priority signal. Social generation and explicit SEO prominence
+ * both consume this score; the normal sports board still keeps chronological usability inside its lists.
  *
  * Nothing here is a trend, a prediction or a popularity metric we cannot source: competition and club
  * tiers are an editorial acquisition decision, and the rivalries are long-established Brazilian derbies.
@@ -162,9 +161,11 @@ export const SHORTLIST={
 export const MINIMUM_SCORE=18;
 
 /** Deterministic content/attribution contract shared by generation, persistence and the owner UI. */
-export const CONTENT_GENERATOR_VERSION=1;
+export const CONTENT_GENERATOR_VERSION=2;
 export const GROWTH_CHANNELS=['TIKTOK','INSTAGRAM_REELS','YOUTUBE_SHORTS','EDITORIAL'] as const;
 export type GrowthChannel=typeof GROWTH_CHANNELS[number];
+export const VIDEO_CHANNELS=['TIKTOK','INSTAGRAM_REELS','YOUTUBE_SHORTS'] as const;
+export type GrowthVideoChannel=typeof VIDEO_CHANNELS[number];
 export const CHANNEL_UTM:Readonly<Record<GrowthChannel,{source:string;medium:'social';label:string}>>={
   TIKTOK:{source:'tiktok',medium:'social',label:'TikTok'},
   INSTAGRAM_REELS:{source:'instagram',medium:'social',label:'Instagram Reels'},
@@ -172,3 +173,16 @@ export const CHANNEL_UTM:Readonly<Record<GrowthChannel,{source:string;medium:'so
   EDITORIAL:{source:'editorial_social',medium:'social',label:'Social editorial'},
 };
 export const UTM_CAMPAIGN='traffic_engine_v1';
+
+/** Centrally editable platform behavior. Copy generators consume these constraints; they are not prompts. */
+export const PLATFORM_PROFILES={
+  TIKTOK:{label:'TikTok',durationSeconds:20,hookSeconds:2,tone:'CONVERSATIONAL',maxHashtags:4,brandIntro:false},
+  INSTAGRAM_REELS:{label:'Instagram Reels',durationSeconds:24,hookSeconds:3,tone:'PREMIUM',maxHashtags:5,brandIntro:true},
+  YOUTUBE_SHORTS:{label:'YouTube Shorts',durationSeconds:25,hookSeconds:1,tone:'INFORMATIONAL',maxHashtags:4,brandIntro:false},
+} as const satisfies Record<GrowthVideoChannel,{label:string;durationSeconds:number;hookSeconds:number;tone:'CONVERSATIONAL'|'PREMIUM'|'INFORMATIONAL';maxHashtags:number;brandIntro:boolean}>;
+
+export const QUALITY={publishReady:68,needsReview:50,playerEvidenceMinimum:22,oddsGapMinimum:0.18} as const;
+export const VIDEO={width:1080,height:1920,fps:12,subtitleTop:1320,subtitleBottom:1640,maxRenderBytes:8_000_000} as const;
+
+/** Reserved boundary for future verified Search Console/social-trend inputs. No source means no adjustment. */
+export const VERIFIED_TREND_PROVIDERS=[] as readonly string[];
