@@ -37,8 +37,13 @@ export class MatchCenterLoader {
       this.cached(header.id, locale, 'standings', 600, () => this.repository.standings(header)),
       this.cached(header.id, locale, 'form-v2', 120, () => this.repository.form(header)),
       loadOddsComparisons(header.id,geo),
+      // M1: a finished match is otherwise a dead end, so it carries the next relevant upcoming fixtures.
+      // Only finished matches pay for this query; live and upcoming pages already point forward.
+      header.status === FixtureStatus.FINISHED
+        ? this.cached(header.id, locale, 'next-matches', 900, () => this.repository.nextMatches(header))
+        : Promise.resolve([]),
     ] as const;
-    const [eventsResult, statisticsResult, lineupsResult, playerStatisticsResult, standingsResult, formResult, oddsResult] = await Promise.allSettled(calls);
+    const [eventsResult, statisticsResult, lineupsResult, playerStatisticsResult, standingsResult, formResult, oddsResult, nextMatchesResult] = await Promise.allSettled(calls);
     const value = <T>(result: PromiseSettledResult<T>, fallback: T): T => result.status === 'fulfilled' ? result.value : fallback;
     const state = <T>(result: PromiseSettledResult<T>, requested: MatchModule<T>): MatchModule<T> => result.status === 'fulfilled' ? requested : { ...requested, state: 'ERROR' };
     const eventsData = value(eventsResult, []); const statisticsData = value(statisticsResult, []); const lineupsData = value(lineupsResult, []);
@@ -54,6 +59,8 @@ export class MatchCenterLoader {
       form: state(formResult, { ...emptyMeta(formData.home.length || formData.away.length ? 'AVAILABLE' : 'NO_DATA_IN_WINDOW'), data: formData }),
       odds: { ...emptyMeta('NO_DATA_IN_WINDOW'), data: [] },
       oddsComparisons: oddsData,
+      // A failed next-match lookup leaves the block out; it must never break a match page.
+      nextMatches: value(nextMatchesResult, []),
       snapshotAt, liveSnapshotStale: isLiveSnapshotStale(header.status, header.providerUpdatedAt ?? snapshotAt), providerRequests: 0 };
     return { kind: 'found', match };
   }

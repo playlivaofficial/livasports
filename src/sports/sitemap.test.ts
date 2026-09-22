@@ -2,21 +2,30 @@ import {afterEach,describe,expect,it,vi} from 'vitest';
 vi.mock('server-only',()=>({}));
 vi.mock('./sitemap-runtime',()=>({loadSitemapCounts:vi.fn(),loadSitemapBatch:vi.fn()}));
 import {loadSitemapBatch,loadSitemapCounts} from './sitemap-runtime';
-import {parseSitemapBatch,sitemapBatches,sitemapEntriesXml,sitemapIndexXml,sitemapBatchSize} from './sitemap';
+import {parseSitemapBatch,sitemapBatches,sitemapEntriesXml,sitemapIndexXml,sitemapBatchSize,submittedSitemapKinds} from './sitemap';
+import {routePolicies} from '@/seo/policy';
 import {GET as index} from '@/app/sports-sitemaps.xml/route';
 import {GET as batch} from '@/app/sports-sitemaps/[batch]/route';
 import robots from '@/app/robots';
 const entries=[{publicId:'0123456789abcdef',name:'A & B <FC>',away:'C "FC"',updatedAt:new Date('2026-09-14T00:00:00Z')}];
 afterEach(()=>{vi.resetAllMocks();vi.unstubAllEnvs();});
 describe('complete bounded sports sitemaps',()=>{
-  it('covers every entity beyond old limits with bounded batches and no empty trailing page',()=>{
+  it('covers every submitted entity with bounded batches and no empty trailing page',()=>{
     const names=sitemapBatches({matches:5001,teams:1000,players:10001});
-    expect(names).toHaveLength(34);expect(names).toContain('matches-10.xml');expect(names).toContain('players-20.xml');expect(names).not.toContain('teams-2.xml');
+    expect(names).toHaveLength(13);expect(names).toContain('matches-10.xml');expect(names).not.toContain('teams-2.xml');
     expect(sitemapBatches({matches:0,teams:0,players:0})).toEqual([]);
     expect(sitemapIndexXml({matches:1,teams:0,players:0})).toContain('https://livasports.com/sports-sitemaps/matches-0.xml');
   });
-  it.each(['players--1.xml','teams-01.xml','matches-1','odds-0.xml','players-9007199254740992.xml','../matches-0.xml'])('rejects an invalid batch: %s',input=>expect(parseSitemapBatch(input)).toBeNull());
-  it.each(['matches','teams','players'] as const)('serializes reciprocal locale links and real modification dates for %s',kind=>{
+  it('M1: never submits player profiles however many are eligible, and leaves the route itself alone',()=>{
+    expect(sitemapBatches({matches:1,teams:1,players:10001})).toEqual(['matches-0.xml','teams-0.xml']);
+    expect(sitemapIndexXml({matches:0,teams:0,players:10001})).not.toContain('players');
+    expect(submittedSitemapKinds as readonly string[]).not.toContain('players');
+    expect(routePolicies.player.sitemap).toBe(false);
+    // Removed from submission only: the profile stays crawlable, linkable and indexable on its own merit.
+    expect(routePolicies.player.indexable).toBe(true);expect(routePolicies.player.crawl).toBe('allow');
+  });
+  it.each(['players--1.xml','players-0.xml','players-3.xml','teams-01.xml','matches-1','odds-0.xml','players-9007199254740992.xml','../matches-0.xml'])('rejects an invalid or unsubmitted batch: %s',input=>expect(parseSitemapBatch(input)).toBeNull());
+  it.each(['matches','teams'] as const)('serializes reciprocal locale links and real modification dates for %s',kind=>{
     const content=sitemapEntriesXml(kind,entries);
     expect(content.match(/<url>/g)).toHaveLength(3);expect(content.match(/hreflang=/g)).toHaveLength(12);
     expect(content.match(/hreflang="x-default" href="https:\/\/livasports.com\/en\//g)).toHaveLength(3);

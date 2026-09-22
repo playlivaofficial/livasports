@@ -1,10 +1,18 @@
-import {languageAlternates,matchPath,playerPath,teamPath} from '@/localization/interface';
+import {languageAlternates,matchPath,teamPath} from '@/localization/interface';
 import {isNonSemanticParam,isPrivatePath,siteOrigin} from '@/seo/policy';
 
 export const sitemapBatchSize=500;
+/** Entity sets the repository can materialise; players stay queryable for the launch/audit scripts. */
 export const sitemapKinds=['matches','teams','players'] as const;
 export type SitemapKind=typeof sitemapKinds[number];
 export type SitemapCounts=Record<SitemapKind,number>;
+/**
+ * M1: what is actually submitted. Player profiles were the largest and least commercial slice of the
+ * ~263k submitted URLs, so they leave submission (routePolicies.player.sitemap === false) while keeping
+ * their routes, internal links and their own indexability.
+ */
+export const submittedSitemapKinds=['matches','teams'] as const satisfies readonly SitemapKind[];
+export type SubmittedSitemapKind=typeof submittedSitemapKinds[number];
 export interface SportsSitemapEntry {publicId:string;name:string;away?:string;updatedAt:Date|string;}
 /** Per-competition tab availability for the default season (P2 sitemap tab policy). */
 export interface CompetitionSitemapSummary {slug:string;seasonId:string;upcoming:number;results:number;standings:boolean;scorers:boolean;teams:boolean;updatedAt:Date|null;}
@@ -12,19 +20,19 @@ const origin=siteOrigin;
 export const xml=(value:string)=>value.replace(/[<>&"']/g,char=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&apos;'}[char]!));
 
 export function sitemapBatches(counts:SitemapCounts){
-  return sitemapKinds.flatMap(kind=>Array.from({length:Math.ceil(counts[kind]/sitemapBatchSize)},(_,page)=>`${kind}-${page}.xml`));
+  return submittedSitemapKinds.flatMap(kind=>Array.from({length:Math.ceil(counts[kind]/sitemapBatchSize)},(_,page)=>`${kind}-${page}.xml`));
 }
-export function parseSitemapBatch(batch:string):{kind:SitemapKind;page:number}|null{
-  const match=/^(matches|teams|players)-(0|[1-9]\d*)\.xml$/.exec(batch);
+export function parseSitemapBatch(batch:string):{kind:SubmittedSitemapKind;page:number}|null{
+  const match=/^(matches|teams)-(0|[1-9]\d*)\.xml$/.exec(batch);
   if(!match||!Number.isSafeInteger(Number(match[2])))return null;
-  return {kind:match[1] as SitemapKind,page:Number(match[2])};
+  return {kind:match[1] as SubmittedSitemapKind,page:Number(match[2])};
 }
 export function sitemapIndexXml(counts:SitemapCounts){
   return `<?xml version="1.0" encoding="UTF-8"?><sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${sitemapBatches(counts).map(batch=>`<sitemap><loc>${origin}/sports-sitemaps/${batch}</loc></sitemap>`).join('')}</sitemapindex>`;
 }
-export function sitemapEntriesXml(kind:SitemapKind,entries:SportsSitemapEntry[]){
+export function sitemapEntriesXml(kind:SubmittedSitemapKind,entries:SportsSitemapEntry[]){
   return `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">${entries.map(entry=>{
-    const paths=(['br','mx','en'] as const).map(locale=>origin+(kind==='matches'?matchPath(locale,entry.publicId,entry.name,entry.away!):kind==='teams'?teamPath(locale,entry.publicId,entry.name):playerPath(locale,entry.publicId,entry.name)));
+    const paths=(['br','mx','en'] as const).map(locale=>origin+(kind==='matches'?matchPath(locale,entry.publicId,entry.name,entry.away!):teamPath(locale,entry.publicId,entry.name)));
     const links=Object.entries(languageAlternates(paths[0],paths[1],paths[2])).map(([lang,href])=>`<xhtml:link rel="alternate" hreflang="${lang}" href="${xml(href)}"/>`).join('');
     return paths.map(path=>`<url><loc>${xml(path)}</loc><lastmod>${new Date(entry.updatedAt).toISOString()}</lastmod>${links}</url>`).join('');
   }).join('')}</urlset>`;

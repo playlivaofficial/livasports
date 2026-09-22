@@ -1,4 +1,5 @@
-import {matchDateDescription,sportsMatchSchema} from '@/sports/match-seo';
+import {matchSeoDescription,matchSeoTitle,sportsMatchSchema} from '@/sports/match-seo';
+import {isFinishedMatchDecayed,noindexRobots} from '@/seo/policy';
 import 'server-only';
 import {JsonLd} from '@/seo/json-ld';
 import {openGraphImages} from '@/seo/open-graph';
@@ -16,7 +17,7 @@ import {parseProfileParam,slugifyProfileName} from '@/profiles/routes';
 import {EnglishMatchCenter} from './EnglishMatchCenter';
 import {EnglishTeamProfilePage,EnglishPlayerProfilePage} from './EnglishProfiles';
 import {matchPath,teamPath,playerPath,languageAlternates} from './interface';
-import {englishSportsData,englishCompetition} from './sports-copy';
+import {englishSportsData} from './sports-copy';
 import {headers} from 'next/headers';
 import {commercialLocale,requestCommercialGeo} from '@/odds/commercial-geo';
 
@@ -30,11 +31,12 @@ export async function englishMatchMetadata(params:Promise<{match:string}>):Promi
   await connection();const parsed=parseMatchParam((await params).match);
   const result=parsed?await matchData(parsed.publicId):null;
   if(!result||result.kind==='not-found'){const pending=parsed?await loadPendingFixture(parsed.publicId):null;return pending?pendingMetadata('en',pending):{title:'Match not found',robots:{index:false,follow:false}};}
-  const h=result.match.header,title=`${h.home.name} x ${h.away.name}`;
+  const h=result.match.header,title=matchSeoTitle('en',h),description=matchSeoDescription('en',h);
   const paths=(['br','mx','en'] as const).map(locale=>matchPath(locale,h.publicId,h.home.name,h.away.name));
-  const when=matchDateDescription('en',h);
-  const description=`${title} in ${englishCompetition(h.competition)}. ${when?when+'. ':''}Scores, lineups, statistics and match events.`;
-  return {title,description,alternates:{canonical:paths[2],languages:languageAlternates(paths[0],paths[1],paths[2])},
+  // M1 decay: same boundary as the pt-BR/es-MX routes, so the three locales never disagree about indexability.
+  const decayed=isFinishedMatchDecayed(h.status,h.kickoff);
+  return {title,description,...(decayed?{robots:noindexRobots}:{}),
+    alternates:decayed?{canonical:paths[2]}:{canonical:paths[2],languages:languageAlternates(paths[0],paths[1],paths[2])},
     openGraph:{type:'website',siteName:'LivaSports',title,description,url:paths[2],locale:'en',images:openGraphImages()},other:{'content-language':'en'}};
 }
 export async function EnglishMatchRoute({params}:{params:Promise<{match:string}>}){

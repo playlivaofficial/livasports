@@ -1,15 +1,29 @@
 import 'server-only';
 import type {QueryExecutor} from '@/database/client';
+import {matchSitemapFutureDays,matchSitemapPastDays,submittableCoverageStatuses} from '@/seo/policy';
 import {resolveDefaultSeason} from './policy';
 import {sitemapBatchSize,type SitemapKind,type SitemapCounts,type SportsSitemapEntry,type CompetitionSitemapSummary} from './sitemap';
 
 // Counts and batches share eligibility, so pending draws and empty profiles never enter the index.
+/**
+ * M1: registry `enabled` says we route a competition; `coverage_status` says we actually have data for it.
+ * Submission needs both, so hubs we merely know about stop spending index budget.
+ */
+const submittableCompetition=`c.enabled AND c.coverage_status IN (${submittableCoverageStatuses.map(status=>`'${status}'`).join(',')})`;
+/** Integer-literal interval built from the policy constants; never from request data. */
+const days=(value:number)=>`interval '${Math.trunc(value)} days'`;
+/**
+ * M1: the submitted kickoff window mirrors `matchSitemapWindow()` in the SEO policy — a completed match holds
+ * result value for about a month and an upcoming match earns traffic once it is close enough to carry odds.
+ * Fixtures outside the window keep their routes and internal links; they only leave submission.
+ */
+const matchWindow=`f.kickoff>=now()-${days(matchSitemapPastDays)} AND f.kickoff<=now()+${days(matchSitemapFutureDays)}`;
 const eligibleFixtures=`SELECT f.* FROM fixtures f JOIN competitions c ON c.id=f.competition_id
-  WHERE c.enabled AND NOT EXISTS(SELECT 1 FROM sports_pending_fixtures p WHERE p.id=f.id)`;
+  WHERE ${submittableCompetition} AND ${matchWindow} AND NOT EXISTS(SELECT 1 FROM sports_pending_fixtures p WHERE p.id=f.id)`;
 const eligibleTeams=`SELECT t.* FROM teams t WHERE NOT t.provider_placeholder AND (
-  t.id IN (SELECT f.home_team_id FROM fixtures f JOIN competitions c ON c.id=f.competition_id WHERE c.enabled
-    UNION SELECT f.away_team_id FROM fixtures f JOIN competitions c ON c.id=f.competition_id WHERE c.enabled)
-  OR t.id IN (SELECT sm.team_id FROM team_squad_memberships sm JOIN seasons s ON s.id=sm.season_id JOIN competitions c ON c.id=s.competition_id WHERE c.enabled))`;
+  t.id IN (SELECT f.home_team_id FROM fixtures f JOIN competitions c ON c.id=f.competition_id WHERE ${submittableCompetition}
+    UNION SELECT f.away_team_id FROM fixtures f JOIN competitions c ON c.id=f.competition_id WHERE ${submittableCompetition})
+  OR t.id IN (SELECT sm.team_id FROM team_squad_memberships sm JOIN seasons s ON s.id=sm.season_id JOIN competitions c ON c.id=s.competition_id WHERE ${submittableCompetition}))`;
 export const sitemapPlayerEligibilitySql=`SELECT p.* FROM players p WHERE EXISTS (
   SELECT 1 FROM team_squad_memberships sm JOIN seasons s ON s.id=sm.season_id JOIN competitions c ON c.id=s.competition_id
   WHERE sm.player_id=p.id AND c.enabled AND c.coverage_status IN ('SUPPORTED','SUPPORTED_BUT_NO_CURRENT_FIXTURES'))
@@ -56,7 +70,7 @@ export class SportsSitemapRepository {
       (SELECT count(*) FROM fixtures f WHERE f.season_id=s.id AND NOT EXISTS(SELECT 1 FROM sports_pending_fixtures p WHERE p.id=f.id))::int
         +(SELECT count(*) FROM sports_pending_fixtures p WHERE p.season_id=s.id)::int AS fixtures,
       (SELECT count(*)=6 AND bool_and(status='EMPTY' AND provider_count=0 AND persisted_count=0) FROM sports_season_coverage WHERE season_id=s.id) AS verified_empty
-      FROM competitions c JOIN seasons s ON s.competition_id=c.id WHERE c.enabled
+      FROM competitions c JOIN seasons s ON s.competition_id=c.id WHERE ${submittableCompetition}
       ORDER BY c.slug,s.is_current DESC,s.starts_at DESC NULLS LAST,s.name DESC`)).rows;
     const bySlug=new Map<string,Array<{id:string;name:string;current:boolean;fixtures:number;verifiedEmpty:boolean}>>();
     for(const row of seasonRows){const list=bySlug.get(String(row.slug))??[];list.push({id:String(row.id),name:String(row.name),current:Boolean(row.is_current),fixtures:Number(row.fixtures),verifiedEmpty:row.verified_empty===true});bySlug.set(String(row.slug),list);}

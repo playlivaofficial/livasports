@@ -36,6 +36,15 @@ export interface MatchStandingView { teamId: string; teamPublicId: string; team:
 export interface MatchHistoryView { id: string; publicId: string; kickoff: string; home: string; away: string; homeScore: number | null; awayScore: number | null; status: FixtureStatus; perspective: 'W' | 'D' | 'L' | null; }
 export interface MatchFormView { home: MatchHistoryView[]; away: MatchHistoryView[]; headToHead: MatchHistoryView[]; }
 export interface MatchOddsPriceView { bookmaker: string; market: string; outcome: string; line: number | null; decimalOdds: number; providerUpdatedAt: string; affiliateEligible: boolean; affiliateUrl: string | null; }
+/**
+ * M1: where a finished match sends a reader (and a crawler) next. `relation` records why the fixture
+ * was chosen so the UI can label it truthfully — a fixture involving one of these teams outranks
+ * another fixture in the same competition.
+ */
+export interface NextMatchView {
+  publicId: string; kickoff: string; competition: string; competitionSlug: string; relation: 'TEAM' | 'COMPETITION';
+  home: { publicId: string; name: string }; away: { publicId: string; name: string };
+}
 
 export interface MatchCenterView {
   header: MatchHeaderView;
@@ -47,6 +56,8 @@ export interface MatchCenterView {
   form: MatchModule<MatchFormView>;
   odds: MatchModule<MatchOddsPriceView[]>;
   oddsComparisons?: OddsComparison[];
+  /** M1: only loaded for a finished match, which would otherwise be a dead end. */
+  nextMatches?: NextMatchView[];
   snapshotAt: string | null;
   liveSnapshotStale: boolean;
   providerRequests: 0;

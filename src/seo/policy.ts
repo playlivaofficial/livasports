@@ -27,7 +27,7 @@ export interface RouteFamilyPolicy {
   semanticParams:readonly string[];
   /** Indexable when the entity exists and the minimum-content rule below holds. */
   indexable:boolean;
-  /** Emitted by the sitemap engine when indexable. */
+  /** Submitted by the sitemap engine. Independent from `indexable`: a page can stay crawlable and linked without spending submission budget. */
   sitemap:boolean;
   /** pt-BR / es-MX / en equivalents exist and are emitted as reciprocal hreflang. */
   alternates:boolean;
@@ -45,7 +45,9 @@ export const routePolicies:Record<RouteFamily,RouteFamilyPolicy>={
   competition:{identity:'Competition hub identified by ?competition=<registry slug>; tab, non-default season and page>1 are distinct content',semanticParams:['competition','tab','season','p'],indexable:true,sitemap:true,alternates:true,crawl:'allow',minimumContent:'Competition name, resolved season and at least one row for the active tab'},
   match:{identity:'Fixture identified by its 16-hex public id (slug is cosmetic and 308-corrected)',semanticParams:[],indexable:true,sitemap:true,alternates:true,crawl:'allow',minimumContent:'Both team names, competition and kickoff/result state'},
   team:{identity:'Team profile identified by public id',semanticParams:[],indexable:true,sitemap:true,alternates:true,crawl:'allow',minimumContent:'Team name plus persisted matches, squad or statistics (profile.indexable)'},
-  player:{identity:'Player profile identified by public id',semanticParams:[],indexable:true,sitemap:true,alternates:true,crawl:'allow',minimumContent:'Player name plus season statistics or a linked match log (profile.indexable)'},
+  // M1: player profiles are the largest and least commercial slice of the submitted inventory. They stay crawlable,
+  // linked and indexable on their own merit, but they no longer spend XML submission budget.
+  player:{identity:'Player profile identified by public id',semanticParams:[],indexable:true,sitemap:false,alternates:true,crawl:'allow',minimumContent:'Player name plus season statistics or a linked match log (profile.indexable)'},
   legal:{identity:'Legal/safety document',semanticParams:[],indexable:true,sitemap:true,alternates:true,crawl:'allow',minimumContent:'Reviewed document text'},
   help:{identity:'Evergreen product help topic',semanticParams:[],indexable:true,sitemap:true,alternates:true,crawl:'allow',minimumContent:'Reviewed help text describing implemented behaviour'},
   pending:{identity:'Fixture whose participants are not yet drawn',semanticParams:[],indexable:false,sitemap:false,alternates:false,crawl:'allow',minimumContent:'—'},
@@ -142,3 +144,46 @@ export function privatePathPrefixes(){
   ];
 }
 export function isPrivatePath(path:string){const pathname=path.split('?')[0];return privatePathPrefixes().some(prefix=>pathname===prefix||pathname.startsWith(prefix+'/'));}
+
+// ---------------------------------------------------------------------------
+// M1 — crawl/index budget for match inventory
+// ---------------------------------------------------------------------------
+/**
+ * Search Console showed ~263k submitted entity URLs of which ~248k stayed
+ * "Discovered – currently not indexed": the index budget was spread across
+ * inventory that cannot earn qualified traffic. Submission is therefore bounded
+ * to the commercially useful window — a completed match keeps result value for
+ * about a month, an upcoming match becomes useful once it is close enough to
+ * carry odds. Nothing here deletes a route: an aged-out match still answers 200
+ * for users and internal links, it only stops consuming sitemap/index priority.
+ */
+export const matchSitemapPastDays=30;
+export const matchSitemapFutureDays=45;
+/** A completed match leaves the index on the same boundary it leaves the sitemap, so the two can never disagree. */
+export const finishedMatchDecayDays=matchSitemapPastDays;
+/** Coverage states whose entities may be submitted; registry `enabled` alone is not evidence of real coverage. */
+export const submittableCoverageStatuses=['SUPPORTED','SUPPORTED_BUT_NO_CURRENT_FIXTURES'] as const;
+
+const dayMs=86_400_000;
+export interface MatchSitemapWindow {from:Date;to:Date;}
+/** Inclusive kickoff window a fixture must fall in to be submitted. The SQL eligibility sets mirror this exactly. */
+export function matchSitemapWindow(now:Date=new Date()):MatchSitemapWindow{
+  return {from:new Date(now.getTime()-matchSitemapPastDays*dayMs),to:new Date(now.getTime()+matchSitemapFutureDays*dayMs)};
+}
+export function isMatchInSitemapWindow(kickoff:Date|string,now:Date=new Date()){
+  const at=new Date(kickoff).getTime();
+  if(!Number.isFinite(at))return false;
+  const {from,to}=matchSitemapWindow(now);
+  return at>=from.getTime()&&at<=to.getTime();
+}
+/**
+ * A finished match past the decay boundary keeps its route, its content and its
+ * internal links but stops asking to be indexed. Only FINISHED decays: a postponed
+ * or abandoned fixture can still be rescheduled and re-enter the window, so it is
+ * never retired on age alone.
+ */
+export function isFinishedMatchDecayed(status:string,kickoff:Date|string,now:Date=new Date()){
+  if(status!=='FINISHED')return false;
+  const at=new Date(kickoff).getTime();
+  return Number.isFinite(at)&&at<now.getTime()-finishedMatchDecayDays*dayMs;
+}
