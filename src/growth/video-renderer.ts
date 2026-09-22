@@ -111,6 +111,10 @@ export async function renderGrowthVideo(draft:GrowthPlatformDraft,fixture:Growth
 
 export async function renderGrowthVideos(drafts:Record<GrowthVideoChannel,GrowthPlatformDraft>,fixture:GrowthFixtureSnapshot,options:VideoRendererOptions={}):Promise<GrowthVideoRenderResult[]>{
   const channels=Object.keys(drafts) as GrowthVideoChannel[];
-  return Promise.all(channels.map(async channel=>{try{return await renderGrowthVideo(drafts[channel],fixture,options);}catch(error){return {channel,status:'FAILED',mimeType:null,sha256:null,byteLength:null,data:null,
-    errorCode:error instanceof Error&&/^[A-Z0-9_]+$/.test(error.message)?error.message:'VIDEO_RENDER_FAILED'};}}));
+  const results:GrowthVideoRenderResult[]=[];
+  // A single 1080×1920 encoder comfortably fits the serverless memory budget; three parallel FFmpeg
+  // processes do not. Keep platform output deterministic while bounding peak memory to one encoder.
+  for(const channel of channels){try{results.push(await renderGrowthVideo(drafts[channel],fixture,options));}catch(error){results.push({channel,status:'FAILED',mimeType:null,sha256:null,byteLength:null,data:null,
+    errorCode:error instanceof Error&&/^[A-Z0-9_]+$/.test(error.message)?error.message:'VIDEO_RENDER_FAILED'});}}
+  return results;
 }
