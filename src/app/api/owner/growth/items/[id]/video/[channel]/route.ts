@@ -1,0 +1,22 @@
+import {requestOwnerSession} from '@/owner/session';
+import {ownerHeaders} from '@/owner/server';
+import {databaseUrl,PostgresDatabaseClient} from '@/database/client';
+import {readGrowthVideo} from '@/growth/repository';
+import {VIDEO_CHANNELS,type GrowthVideoChannel} from '@/growth/config';
+
+export const runtime='nodejs';
+export const dynamic='force-dynamic';
+const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export async function GET(request:Request,{params}:{params:Promise<{id:string;channel:string}>}){
+  if(!requestOwnerSession(request.headers))return Response.json({error:'UNAUTHORIZED'},{status:401,headers:ownerHeaders});
+  const {id,channel:raw}=await params,channel=raw.toUpperCase() as GrowthVideoChannel;
+  const query=new URL(request.url).searchParams;if(!uuid.test(id)||!VIDEO_CHANNELS.includes(channel)||[...query.keys()].some(key=>key!=='download'))return Response.json({error:'NOT_FOUND'},{status:404,headers:ownerHeaders});
+  const url=databaseUrl();if(!url)return Response.json({error:'GROWTH_DATABASE_UNAVAILABLE'},{status:503,headers:ownerHeaders});
+  const db=new PostgresDatabaseClient(url);
+  try{const video=await readGrowthVideo(db,id,channel);if(!video)return Response.json({error:'NOT_FOUND'},{status:404,headers:ownerHeaders});
+    const disposition=query.get('download')==='1'?'attachment':'inline';
+    return new Response(new Uint8Array(video.data),{headers:{...ownerHeaders,'Content-Type':'video/mp4','Content-Length':String(video.byteLength),
+      'Content-Disposition':`${disposition}; filename="livasports-${id}-${channel.toLowerCase()}.mp4"`,'Cache-Control':'private, no-store','ETag':`"${video.sha256}"`}});
+  }catch{return Response.json({error:'VIDEO_READ_FAILED'},{status:500,headers:ownerHeaders});}finally{await db.close();}
+}

@@ -29,6 +29,7 @@ import {notFound} from 'next/navigation';
 import {JsonLd} from '@/seo/json-ld';
 import {competitionHubSchema,siteSchema} from '@/seo/structured-data';
 import {HOME_WINDOW_DAYS,weekHomeSections,type HomePeriod} from './home-density';
+import {GrowthProminence} from '@/growth/GrowthProminence';
 
 const copy={
   br:{all:'Todos',live:'Ao vivo',upcoming:'Próximos',results:'Resultados',today:'Hoje',calendar:'Data dos jogos',go:'Ver',previous:'Dia anterior',next:'Dia seguinte',period:'Próximos 7 dias',competitions:'Competições',allCompetitions:'Todas as competições',empty:'Nenhum jogo neste filtro.',other:'Ver próximos jogos',odds:'Odds 1 X 2',pending:'Aguardando placar',fresh:'Últimos placares salvos',delayed:'Atualizações atrasadas',unavailable:'Atualizações indisponíveis',matches:'jogos',intro:'Placares, próximos jogos e comparação de odds — monte seu bilhete em um só lugar.'},
@@ -92,6 +93,7 @@ export async function SportsBoardPage({locale,page,searchParams}:{locale:Interfa
       <div className="sports-layout">
         <aside className="context-rail"><CompetitionNav locale={locale} title={text.competitions} allHref={href({competition:null})} allLabel={text.allCompetitions} activeSlug={requestedCompetition??competition} items={navItems}/></aside>
         <div className="fixture-content">
+          <GrowthProminence locale={locale} surface={requestedCompetition?{kind:'COMPETITION',slug:requestedCompetition}:page==='home'?{kind:'HOME'}:{kind:'DAILY'}}/>
           {hub?<CompetitionPanel hub={hub} locale={locale} tab={tab}/>:requestedCompetition&&page==='football'?<p className="sports-empty" role="status">{sportsCopy[locale].unavailable}</p>:null}
           {showListing?<>
           <div className="board-toolbar">

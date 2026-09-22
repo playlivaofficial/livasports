@@ -1,4 +1,9 @@
 allowBuilds:
   esbuild: true
+  ffmpeg-static: true
   unrs-resolver: true
+onlyBuiltDependencies:
+  - esbuild
+  - ffmpeg-static
+  - unrs-resolver
 verifyDepsBeforeRun: false

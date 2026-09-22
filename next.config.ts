@@ -3,6 +3,11 @@ import type { NextConfig } from 'next';
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  serverExternalPackages: ['ffmpeg-static'],
+  outputFileTracingIncludes: {
+    '/api/internal/growth-refresh': ['./node_modules/ffmpeg-static/**'],
+    '/api/owner/growth': ['./node_modules/ffmpeg-static/**'],
+  },
   async headers(){
     const production=process.env.NODE_ENV==='production';
     const policy=["default-src 'self'",`script-src 'self' 'unsafe-inline'${production?'':" 'unsafe-eval'"}`,

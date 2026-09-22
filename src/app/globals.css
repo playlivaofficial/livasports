@@ -694,3 +694,15 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .next-match-list li>a { color: var(--color-text); font-size: .78rem; font-weight: 700; }
 .next-match-list small { color: var(--color-text-muted); font-size: .68rem; }
 .next-match-list small a { color: var(--color-text-secondary); }
+
+/* Traffic Engine V1.1 — visible, compact crawl/discovery emphasis from the shared acquisition rank. */
+.growth-prominence { display:grid; gap:.75rem; border:1px solid var(--color-border); border-radius:var(--radius-md); background:linear-gradient(135deg,var(--color-surface-raised),var(--color-surface)); margin:0 0 var(--space-4); padding:var(--space-4); }
+.growth-prominence header { display:grid; gap:.15rem; }
+.growth-prominence header span { color:var(--color-accent); font-size:.62rem; font-weight:800; letter-spacing:.12em; text-transform:uppercase; }
+.growth-prominence h2 { margin:0; color:var(--color-text); font-size:1rem; }
+.growth-prominence-context { margin:0; color:var(--color-text-secondary); font-size:.76rem; line-height:1.55; }
+.growth-prominence-links { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:.5rem; }
+.growth-prominence-links a { display:grid; gap:.2rem; min-width:0; border:1px solid var(--color-border); border-radius:var(--radius-sm); background:var(--color-bg); padding:.7rem; color:var(--color-text); }
+.growth-prominence-links a:hover,.growth-prominence-links a:focus-visible { border-color:var(--color-accent); outline:0; }
+.growth-prominence-links span,.growth-prominence-links time { color:var(--color-text-muted); font-size:.61rem; }
+.growth-prominence-links strong { overflow:hidden; font-size:.74rem; text-overflow:ellipsis; white-space:nowrap; }

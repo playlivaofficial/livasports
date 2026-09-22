@@ -4,7 +4,7 @@ import {requestOwnerSession} from '@/owner/session';
 import {ownerHeaders} from '@/owner/server';
 import {boundedJson} from '@/slip/server';
 import {GROWTH_CHANNELS,type GrowthChannel} from './config';
-import {readGrowthDashboard,runGrowthGeneration} from './service';
+import {readGrowthDashboard,regenerateGrowthPlatform,runGrowthGeneration} from './service';
 import {transitionGrowthChannel} from './repository';
 import type {GrowthChannelStatus} from './types';
 
@@ -15,10 +15,11 @@ export interface GrowthOwnerDependencies {
   dashboard:typeof readGrowthDashboard;
   run:typeof runGrowthGeneration;
   transition:typeof transitionGrowthChannel;
+  regeneratePlatform:typeof regenerateGrowthPlatform;
 }
 const productionDependencies:GrowthOwnerDependencies={database:()=>{
   const url=databaseUrl();if(!url)throw new Error('GROWTH_DATABASE_UNAVAILABLE');return new PostgresDatabaseClient(url);
-},dashboard:readGrowthDashboard,run:runGrowthGeneration,transition:transitionGrowthChannel};
+},dashboard:readGrowthDashboard,run:runGrowthGeneration,transition:transitionGrowthChannel,regeneratePlatform:regenerateGrowthPlatform};
 
 export async function growthOwnerStatus(request:Request,deps:GrowthOwnerDependencies=productionDependencies){
   if(new URL(request.url).search)return reply({error:'INVALID_REQUEST'},400);
@@ -36,7 +37,7 @@ export async function growthOwnerAction(request:Request,deps:GrowthOwnerDependen
   try{body=await boundedJson(request,2048) as Record<string,unknown>;}catch{return reply({error:'INVALID_REQUEST'},400);}
   if(!body||Array.isArray(body))return reply({error:'INVALID_REQUEST'},400);
   const action=body.action;
-  const allowed=action==='refresh'?['action']:action==='regenerate'?['action','fixtureId']:action==='transition'?['action','itemId','channel','status']:[];
+  const allowed=action==='refresh'?['action']:action==='regenerate'?['action','fixtureId']:action==='regenerate-platform'?['action','itemId','channel']:action==='transition'?['action','itemId','channel','status']:[];
   if(!allowed.length||Object.keys(body).some(key=>!allowed.includes(key)))return reply({error:'INVALID_REQUEST'},400);
   let db:DatabaseClient;try{db=deps.database();}catch{return reply({error:'GROWTH_DATABASE_UNAVAILABLE'},503);}
   try{
@@ -46,6 +47,11 @@ export async function growthOwnerAction(request:Request,deps:GrowthOwnerDependen
     if(action==='regenerate'){
       if(!uuid.test(String(body.fixtureId??'')))return reply({error:'INVALID_REQUEST'},400);
       const result=await deps.run(db,'OWNER',{forceFixtureId:String(body.fixtureId)});return reply(result,result.state==='FAILED'?409:200);
+    }
+    if(action==='regenerate-platform'){
+      const channel=String(body.channel??'') as GrowthChannel;
+      if(!uuid.test(String(body.itemId??''))||channel==='EDITORIAL'||!GROWTH_CHANNELS.includes(channel))return reply({error:'INVALID_REQUEST'},400);
+      const result=await deps.regeneratePlatform(db,String(body.itemId),channel);return reply(result,result.state==='FAILED'?409:200);
     }
     const channel=String(body.channel??'') as GrowthChannel,status=String(body.status??'') as GrowthChannelStatus;
     if(!uuid.test(String(body.itemId??''))||!GROWTH_CHANNELS.includes(channel)||!['APPROVED','REJECTED','PUBLISHED'].includes(status))return reply({error:'INVALID_REQUEST'},400);

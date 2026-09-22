@@ -2,6 +2,8 @@ import {createHash} from 'node:crypto';
 import {CHANNEL_UTM,CONTENT_GENERATOR_VERSION,type GrowthChannel} from './config';
 import {growthTrackingUrls} from './attribution';
 import type {GrowthContentPack,GrowthFixtureSnapshot,RankedGrowthFixture} from './types';
+import {platformDrafts} from './platform-content';
+import {readiness,safeTemplate,selectedPlayers,selectStory,seoPriority,truthfulMatchContext} from './strategy';
 
 const brazilTimeZone='America/Sao_Paulo';
 const kickoffFormatter=new Intl.DateTimeFormat('pt-BR',{
@@ -63,12 +65,27 @@ export function generateContentPack(row:RankedGrowthFixture):GrowthContentPack{
     generatedBy:'DETERMINISTIC_TEMPLATE',generatorVersion:CONTENT_GENERATOR_VERSION};
 }
 
+/** V1.1 keeps the V1 facts contract while adding one shared SEO/story/platform plan. */
+export function generateV11ContentPack(row:RankedGrowthFixture,rank=1,topSocial:RankedGrowthFixture[]=[row]):GrowthContentPack{
+  const fixture=fixtureSnapshot(row),players=selectedPlayers(row),initialStory=selectStory(row,players,{rank,topSocial});
+  const quality=readiness(row,initialStory,players),story={...initialStory,template:safeTemplate(initialStory.template,quality)};
+  const platforms=platformDrafts(row,story,players,topSocial),editorialContext=truthfulMatchContext(row);
+  const primary=platforms.YOUTUBE_SHORTS;
+  const captions:Record<GrowthChannel,string>={TIKTOK:platforms.TIKTOK.caption,INSTAGRAM_REELS:platforms.INSTAGRAM_REELS.caption,
+    YOUTUBE_SHORTS:platforms.YOUTUBE_SHORTS.caption,EDITORIAL:`${fixture.home.name} x ${fixture.away.name}. ${editorialContext} Acesse ${row.destinationUrl}`};
+  return {locale:'pt-BR',headline:`${fixture.home.name} x ${fixture.away.name}`,hook:primary.hook,script:primary.script,
+    screens:primary.scenes.map(scene=>({order:scene.order,durationSeconds:scene.durationSeconds,headline:scene.headline,body:scene.subtitle})),
+    cta:primary.cta,captions,facts:[{label:'Competição',value:fixture.competition.name},{label:'Início',value:formatBrazilKickoff(fixture.kickoff)},
+      {label:'História',value:story.reason},{label:'Contexto',value:editorialContext||'Dados da partida disponíveis no LivaSports.'}],
+    generatedBy:'DETERMINISTIC_TEMPLATE',generatorVersion:CONTENT_GENERATOR_VERSION,version:'V1.1',seo:seoPriority(row,rank),story,players,platforms,readiness:quality};
+}
+
 export function contentSourceHash(row:RankedGrowthFixture):string{
-  const value={fixture:fixtureSnapshot(row),score:row.priority.total,breakdown:row.priority.lines};
+  const value={generatorVersion:CONTENT_GENERATOR_VERSION,fixture:fixtureSnapshot(row),score:row.priority.total,breakdown:row.priority.lines,storySignals:row.storySignals??null};
   return createHash('sha256').update(JSON.stringify(value)).digest('hex');
 }
 
-export function generatedContent(row:RankedGrowthFixture){
-  return {content:generateContentPack(row),fixture:fixtureSnapshot(row),sourceHash:contentSourceHash(row),
+export function generatedContent(row:RankedGrowthFixture,rank=1,topSocial:RankedGrowthFixture[]=[row]){
+  return {content:generateV11ContentPack(row,rank,topSocial),fixture:fixtureSnapshot(row),sourceHash:contentSourceHash(row),
     tracking:growthTrackingUrls(row.destinationUrl,row.signals.publicId)};
 }
