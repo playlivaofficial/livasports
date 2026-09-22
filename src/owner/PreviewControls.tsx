@@ -12,7 +12,7 @@ export function PreviewControls({authorized,preview,configured,country}:{authori
       <p>Preview clicks and impressions are QA_TEST. Betsson test links open the approved sportsbook. LivaSports does not record these clicks as production conversions.</p>
       <button disabled={busy} onClick={()=>void run({action:'preview',enabled:!preview})}>{preview?'Turn Brazil preview off':'Turn Brazil preview on'}</button>
       {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- Re-read the owner session and preview headers with a full document request. */}
-      <a href="/br">Open Brazil site →</a><button disabled={busy} onClick={()=>void run({action:'logout'})}>Sign out</button><p>This device stays signed in for 30 days. Keep your permanent access key private.</p>
+      <a href="/br">Open Brazil site →</a><a href="/owner/growth">Traffic Engine</a><a href="/owner/health">Odds health</a><a href="/owner/analytics">Analytics</a><button disabled={busy} onClick={()=>void run({action:'logout'})}>Sign out</button><p>This device stays signed in for 30 days. Keep your permanent access key private.</p>
     </>}{error?<p role="alert">{error}</p>:null}</main>;
 }
 export function OwnerPreviewBar({preview}:{preview:boolean}){
