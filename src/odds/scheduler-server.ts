@@ -3,6 +3,7 @@ import {timingSafeEqual} from 'node:crypto';
 import {databaseUrl,PostgresDatabaseClient} from '@/database/client';
 import {runOddsScheduler,safeSchedulerError,schedulerHealth} from './scheduler';
 import {runScoreTicker} from '@/ingestion/score-ticker';
+import {runFixtureTicker} from '@/ingestion/fixture-ticker';
 import {NextCacheInvalidator} from '@/cache/next-invalidation';
 
 export function authorizedScheduler(request:Request,secret=process.env.CRON_SECRET){
@@ -27,7 +28,12 @@ export async function schedulerResponse(request:Request,health=false){
     const result=await runOddsScheduler(database(),process.env.ODDSPAPI_API_KEY!,request.method==='GET'?'AUTOMATIC':'CONTROLLED');
     const scores=request.method==='GET'&&Date.now()-started<140000
       ?await runScoreTicker(database(),process.env.SPORTMONKS_API_KEY,new NextCacheInvalidator(true)).catch(()=>({state:'FAILED',providerRequests:0,error:'SCORES_SYNC_FAILED'})):undefined;
-    console.info(`[LivaSports M5.1] ${JSON.stringify({event:'odds-scheduler',state:result.state,trigger:result.trigger,requests:result.requests,error:result.error})}`);
-    return Response.json({...result,...(scores?{scores}:{})},{status:['FAILED','BUDGET_STOPPED'].includes(result.state)?503:200,headers});
+    // Fixture schedules refresh automatically on the same ticker (every six hours, when this tick has time left).
+    const fixtures=request.method==='GET'&&Date.now()-started<60000
+      ?await runFixtureTicker(database(),process.env.SPORTMONKS_API_KEY,new NextCacheInvalidator(true)).catch(()=>({state:'FAILED',providerRequests:0,error:'FIXTURES_SYNC_FAILED'})):undefined;
+    console.info(`[LivaSports M5.1] ${JSON.stringify({event:'odds-scheduler',state:result.state,trigger:result.trigger,requests:result.requests,error:result.error,scores:scores?.state,fixtures:fixtures?.state})}`);
+    // A completed tick is a successful invocation for the external ticker even when the refresh failed or was budget-stopped:
+    // those states are reported through health/incidents. Non-2xx answers made the external cron disable the job.
+    return Response.json({...result,...(scores?{scores}:{}),...(fixtures?{fixtures}:{})},{status:200,headers});
   }catch(error){const code=safeSchedulerError(error);return Response.json({error:code},{status:code==='ODDS_WORKER_ALREADY_RUNNING'?409:503,headers});}
 }

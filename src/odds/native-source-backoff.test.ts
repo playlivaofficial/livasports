@@ -50,8 +50,8 @@ describe('provider-independent native market resolution',()=>{
     expect(selected.provider).toBe('ODDSPAPI');expect([...selected.keys()]).toEqual(['HOME','DRAW']);expect(selected.has('AWAY')).toBe(false);
   });
   it('accepts a verified future adapter batch without changing public bookmaker identity',()=>{
-    const batch=validateNativeSourceBatch({sourceProvider:'SECONDARY',observedAt:'2026-10-01T11:05:00Z',requestCount:1,quotes:[{sourceProvider:'SECONDARY',fixture:{providerFixtureId:'pf',canonicalFixtureId:'11111111-1111-4111-8111-111111111111',mappingVerified:true},bookmaker:'sportingbet.bet.br',providerBookmakerId:'sportingbet-br',market:'MATCH_WINNER',providerMarketId:'1x2',outcome:'HOME',line:null,decimalOdds:'2.20',status:'ACTIVE',providerUpdatedAt:'2026-10-01T11:04:00Z',observedAt:'2026-10-01T11:05:00Z',providerKickoff:kickoff,freshnessTtlMinutes:30,sourceDomain:'sportingbet.bet.br',confidence:'VERIFIED'}]});
-    expect(batch.quotes[0].bookmaker).toBe('sportingbet.bet.br');expect(batch.sourceProvider).toBe('SECONDARY');
+    const {batch,rejected}=validateNativeSourceBatch({sourceProvider:'SECONDARY',observedAt:'2026-10-01T11:05:00Z',requestCount:1,quotes:[{sourceProvider:'SECONDARY',fixture:{providerFixtureId:'pf',canonicalFixtureId:'11111111-1111-4111-8111-111111111111',mappingVerified:true},bookmaker:'sportingbet.bet.br',providerBookmakerId:'sportingbet-br',market:'MATCH_WINNER',providerMarketId:'1x2',outcome:'HOME',line:null,decimalOdds:'2.20',status:'ACTIVE',providerUpdatedAt:'2026-10-01T11:04:00Z',observedAt:'2026-10-01T11:05:00Z',providerKickoff:kickoff,freshnessTtlMinutes:30,sourceDomain:'sportingbet.bet.br',confidence:'VERIFIED'}]});
+    expect(batch.quotes[0].bookmaker).toBe('sportingbet.bet.br');expect(batch.sourceProvider).toBe('SECONDARY');expect(rejected).toEqual([]);
   });
 });
 

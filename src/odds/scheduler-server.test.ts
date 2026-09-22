@@ -1,9 +1,12 @@
 import {describe,it,expect,vi,afterEach} from 'vitest';
 vi.mock('server-only',()=>({}));
-vi.mock('./scheduler',()=>({runOddsScheduler:vi.fn(),schedulerHealth:vi.fn(),safeSchedulerError:()=>''}));
+vi.mock('./scheduler',()=>({runOddsScheduler:vi.fn(),schedulerHealth:vi.fn(),safeSchedulerError:vi.fn(()=>'')}));
 vi.mock('@/database/client',()=>({databaseUrl:()=>'unused-test-database',PostgresDatabaseClient:class{query(){return {rows:[],rowCount:0};}transaction(){}close(){}}}));
+vi.mock('@/ingestion/score-ticker',()=>({runScoreTicker:vi.fn(async()=>({state:'NOT_DUE',providerRequests:0}))}));
+vi.mock('@/ingestion/fixture-ticker',()=>({runFixtureTicker:vi.fn(async()=>({state:'NOT_DUE',providerRequests:0}))}));
 import {authorizedScheduler,schedulerResponse} from './scheduler-server';
 import {runOddsScheduler} from './scheduler';
+import {runFixtureTicker} from '@/ingestion/fixture-ticker';
 afterEach(()=>{vi.unstubAllEnvs();vi.clearAllMocks();});
 describe('protected scheduler boundary',()=>{
   const secret='unit-test-only-not-a-real-secret-value';
@@ -38,5 +41,22 @@ describe('protected scheduler boundary',()=>{
     vi.mocked(runOddsScheduler).mockResolvedValue({...noWork,trigger:'CONTROLLED'});
     await schedulerResponse(new Request('https://example.test/api/internal/odds-refresh',{method:'POST',...auth}));
     expect(runOddsScheduler).toHaveBeenCalledWith(expect.anything(),undefined,'CONTROLLED');
+  });
+  it('answers 200 for a completed tick in every refresh state so the external cron never disables itself (production stall 2026-09-21)',async()=>{
+    vi.stubEnv('CRON_SECRET',secret);vi.stubEnv('ODDS_AUTOMATION_ENABLED','true');vi.stubEnv('VERCEL_ENV','production');
+    for(const state of ['FAILED','BUDGET_STOPPED','PARTIAL'] as const){
+      vi.mocked(runOddsScheduler).mockResolvedValue({...noWork,state:state as never,error:'ODDS_REFRESH_FAILED' as never});
+      const response=await schedulerResponse(new Request('https://example.test/api/internal/odds-refresh',auth));
+      expect(response.status).toBe(200);expect(await response.json()).toMatchObject({state,fixtures:{state:'NOT_DUE'},scores:{state:'NOT_DUE'}});
+    }
+    expect(runFixtureTicker).toHaveBeenCalled();
+  });
+  it('still reports a worker overlap as 409 and infrastructure failure as 503',async()=>{
+    vi.stubEnv('CRON_SECRET',secret);vi.stubEnv('ODDS_AUTOMATION_ENABLED','true');vi.stubEnv('VERCEL_ENV','production');
+    vi.mocked(runOddsScheduler).mockRejectedValueOnce(new Error('ODDS_WORKER_ALREADY_RUNNING'));
+    const {safeSchedulerError}=await import('./scheduler');vi.mocked(safeSchedulerError).mockReturnValueOnce('ODDS_WORKER_ALREADY_RUNNING');
+    expect((await schedulerResponse(new Request('https://example.test/api/internal/odds-refresh',auth))).status).toBe(409);
+    vi.mocked(runOddsScheduler).mockRejectedValueOnce(new Error('ODDS_DATABASE_UNAVAILABLE'));vi.mocked(safeSchedulerError).mockReturnValueOnce('ODDS_DATABASE_UNAVAILABLE');
+    expect((await schedulerResponse(new Request('https://example.test/api/internal/odds-refresh',auth))).status).toBe(503);
   });
 });

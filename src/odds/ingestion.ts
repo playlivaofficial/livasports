@@ -97,7 +97,8 @@ export async function persistSnapshot(db:DatabaseClient,jobId:string,snapshot:Od
       const hours=(Math.min(Date.parse(m.fixture.kickoff),Date.parse(m.raw.kickoff))-Date.parse(snapshot.observedAt))/3600000;
       return [{...q,bookmaker,fixtureId:m.fixture.id,providerKickoff:m.raw.kickoff,freshnessTtlMinutes:freshnessTtlMs(hours,2,snapshot.cadenceScale??1)/60000,
         status:m.fixture.status!=='SCHEDULED'||Date.now()>=Math.min(Date.parse(m.fixture.kickoff),Date.parse(m.raw.kickoff))?'CLOSED':q.status}];});
-    const sourceWrites=await persistNativeSourceBatch(tx,{sourceProvider:'ODDSPAPI',observedAt:snapshot.observedAt,requestCount:0,quotes:quotes.map(q=>({
+    // Only live pregame prices are native-source truth; closes for started fixtures are handled by odds_current below.
+    const sourceWrites=await persistNativeSourceBatch(tx,{sourceProvider:'ODDSPAPI',observedAt:snapshot.observedAt,requestCount:0,quotes:quotes.filter(q=>q.status!=='CLOSED'&&q.freshnessTtlMinutes>0).map(q=>({
       sourceProvider:'ODDSPAPI',fixture:{providerFixtureId:q.providerFixtureId,canonicalFixtureId:q.fixtureId,mappingVerified:true},
       bookmaker:q.bookmaker,providerBookmakerId:snapshot.bookmaker,market:q.market,providerMarketId:q.market,outcome:q.outcome,line:q.line,
       decimalOdds:q.decimalOdds,status:q.status,providerUpdatedAt:q.providerUpdatedAt,observedAt:q.observedAt,providerKickoff:q.providerKickoff,

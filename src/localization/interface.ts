@@ -52,7 +52,7 @@ export function translatedPath(input:string,target:InterfaceLocale):string{
 export const englishDictionary={
   locale:'en',countryName:'Football',timeZone:'UTC',
   navigation:{home:'Home',football:'Football',live:'Live',today:'Today’s matches'},
-  pages:{home:{title:'Football today',description:'Fixtures, scores and match context from the competitions we cover.'},
+  pages:{home:{title:'Football: next 7 days',description:'Fixtures for the next 7 days, scores, odds and match context from the competitions we cover.'},
     football:{title:'Football fixtures',description:'Explore fixtures and results, organised by competition.'},
     live:{title:'Live football',description:'Matches in progress and the latest available scores.'},
     today:{title:'Today’s matches',description:'Today’s football schedule in your selected time zone.'}},

@@ -28,17 +28,29 @@ export function classifyCatalogRows(raw:unknown[]):CatalogRowState[]{
     if(mapped)return {...base,state:'MAPPED' as const,competition:mapped,reason:'Resolved through identity rule or unique registry lookup name'};
     const rule=TOURNAMENT_IDENTITY_RULES.find(x=>x.slug===slug&&x.category===category);
     if(rule&&enabled.get(rule.canonical)===false)return {...base,state:'DISABLED' as const,competition:rule.canonical,reason:'Registry competition is disabled'};
-    if(rule)return {...base,state:'AMBIGUOUS' as const,competition:rule.canonical,reason:idByCanonical.has(rule.canonical)?`Registry competition already resolves to provider row ${idByCanonical.get(rule.canonical)}; this row matches the same identity rule`:'More than one provider row matches this identity rule'};
+    if(rule&&idByCanonical.has(rule.canonical)){
+      // A second row for an already-resolved competition (split-season phase, legacy name): a real candidate only while it carries fixtures.
+      const active=(base.futureFixtures??0)>0;
+      return {...base,state:active?'AMBIGUOUS' as const:'IGNORED_WITH_REASON' as const,competition:rule.canonical,
+        reason:`Registry competition already resolves to provider row ${idByCanonical.get(rule.canonical)}; this row matches the same identity rule${active?'':' and lists no upcoming fixtures'}`};
+    }
+    if(rule)return {...base,state:'AMBIGUOUS' as const,competition:rule.canonical,reason:'More than one provider row matches this identity rule'};
     const relevant=registry.filter(t=>t.enabled&&registryCategoryMatches(t,r));
     if(!relevant.length)return {...base,state:'IGNORED_WITH_REASON' as const,competition:null,reason:'Category outside the enabled registry (no LivaSports competition in this country/scope)'};
+    // Deliberate exclusion: when every enabled registry competition of this category already resolves to a provider row,
+    // the remaining rows are competitions LivaSports does not offer, not mapping gaps. They stay quarantined as evidence.
+    const unmappedInCategory=relevant.filter(t=>!idByCanonical.has(t.slug));
     const name=normalizeName(r.tournamentName);
     const byName=relevant.filter(t=>[t.canonicalName,...t.lookupNames].map(normalizeName).includes(name));
     if(byName.length>1)return {...base,state:'AMBIGUOUS' as const,competition:null,reason:`Name matches ${byName.length} registry competitions`};
     if(byName.length===1){
       const twins=rows.filter(o=>o!==r&&registryCategoryMatches(byName[0],o)&&[byName[0].canonicalName,...byName[0].lookupNames].map(normalizeName).includes(normalizeName(o.tournamentName)));
-      return {...base,state:'AMBIGUOUS' as const,competition:byName[0].slug,reason:twins.length?`Provider lists ${twins.length+1} rows named like ${byName[0].canonicalName}`:'Lookup name matched but the registry already maps this competition to another row'};
+      if(twins.length)return {...base,state:'AMBIGUOUS' as const,competition:byName[0].slug,reason:`Provider lists ${twins.length+1} rows named like ${byName[0].canonicalName}`};
+      const active=(base.futureFixtures??0)>0;
+      return {...base,state:active?'AMBIGUOUS' as const:'IGNORED_WITH_REASON' as const,competition:byName[0].slug,reason:`Lookup name matched but the registry already maps this competition to provider row ${idByCanonical.get(byName[0].slug)}${active?'':'; this row lists no upcoming fixtures'}`};
     }
-    return {...base,state:'UNMATCHED' as const,competition:null,reason:'No identity rule or reviewed lookup name matches this provider row'};
+    if(!unmappedInCategory.length)return {...base,state:'IGNORED_WITH_REASON' as const,competition:null,reason:`Not a LivaSports competition: every enabled registry competition in ${category} already resolves to a provider row`};
+    return {...base,state:'UNMATCHED' as const,competition:null,reason:`No identity rule or reviewed lookup name matches; candidates still unmapped in this category: ${unmappedInCategory.map(t=>t.slug).join(', ')}`};
   });
 }
 

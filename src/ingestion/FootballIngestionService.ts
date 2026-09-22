@@ -128,7 +128,7 @@ export class FootballIngestionService {
     });
   }
 
-  syncFixtures(daysPast = DEFAULT_INGESTION_WINDOW.daysPast, daysFuture = DEFAULT_INGESTION_WINDOW.daysFuture) {
+  syncFixtures(daysPast: number = DEFAULT_INGESTION_WINDOW.daysPast, daysFuture: number = DEFAULT_INGESTION_WINDOW.daysFuture) {
     return this.tracked('FIXTURES', async () => {
       const competitions = this.selected(await this.store.listTargetCompetitions());
       const now = this.now();

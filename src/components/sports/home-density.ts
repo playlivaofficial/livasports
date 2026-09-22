@@ -1,18 +1,15 @@
 import type {CompetitionSectionView} from '@/delivery/types';
-import {matchesView,boardSort} from './board-policy';
+import {boardSort} from './board-policy';
 export type HomePeriod='live'|'upcoming'|'tomorrow'|'results';
-export function usefulToday(sections:readonly CompetitionSectionView[],now:number){return sections.flatMap(s=>s.fixtures).filter(f=>matchesView(f,'live',now)||matchesView(f,'upcoming',now)).length;}
-/** Default home only. Explicit tabs/dates never use this composition. */
-export function denseHomeSections(today:readonly CompetitionSectionView[],tomorrow:readonly CompetitionSectionView[],now:number){
-  const seen=new Set<string>();const result:Array<CompetitionSectionView&{homePeriod?:HomePeriod}>=[];
-  for(const period of ['live','upcoming','tomorrow','results'] as const){
-    if(period==='tomorrow'&&usefulToday(today,now)>=4)continue;
-    const source=period==='tomorrow'?tomorrow:today;
-    for(const section of source){
-      const fixtures=section.fixtures.filter(f=>matchesView(f,period==='tomorrow'?'upcoming':period,now)&&!seen.has(f.id)).sort((a,b)=>boardSort(a,b,now));
-      for(const fixture of fixtures)seen.add(fixture.id);
-      if(fixtures.length)result.push({...section,fixtures,homePeriod:period});
-    }
-  }
-  return result;
+export const HOME_WINDOW_DAYS=7;
+/**
+ * Default home (no explicit view/date/competition): the next seven local calendar days, today included.
+ * Live first, then upcoming chronologically, finished last inside a competition; competitions ordered by first kickoff.
+ * Yesterday's results (part of the football window) are excluded so a first-time visitor lands on what is coming.
+ * Explicit tabs/dates never use this composition.
+ */
+export function weekHomeSections(sections:readonly CompetitionSectionView[],window:{from:number;to:number},now:number){
+  return sections.map(section=>({...section,fixtures:section.fixtures.filter(f=>{const t=Date.parse(f.kickoff);return t>=window.from&&t<window.to;}).sort((a,b)=>boardSort(a,b,now))}))
+    .filter(section=>section.fixtures.length)
+    .sort((a,b)=>Math.min(...a.fixtures.map(f=>Date.parse(f.kickoff)))-Math.min(...b.fixtures.map(f=>Date.parse(f.kickoff)))||a.competition.localeCompare(b.competition));
 }

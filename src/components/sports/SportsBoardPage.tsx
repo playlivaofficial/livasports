@@ -6,7 +6,7 @@ import {requestTimeZone} from '@/localization/time-zone-server';
 import {interfaceDictionary,interfaceRoutes,matchPath,type InterfaceLocale} from '@/localization/interface';
 import {englishSportsData} from '@/localization/sports-copy';
 import {loadM3PageData} from '@/delivery/runtime';
-import {localDateKey} from '@/delivery/time';
+import {localDateKey,localDaysRange} from '@/delivery/time';
 import {commercialLocale,requestCommercialGeo} from '@/odds/commercial-geo';
 import {SponsoredSlot} from '@/components/commercial/SponsoredSlot';
 import {TeamIdentity,ScoreDisplay} from './FixtureCard';
@@ -28,7 +28,7 @@ import {FavoriteButton} from '@/favorites/FavoriteButton';
 import {notFound} from 'next/navigation';
 import {JsonLd} from '@/seo/json-ld';
 import {competitionHubSchema,siteSchema} from '@/seo/structured-data';
-import {denseHomeSections,usefulToday,type HomePeriod} from './home-density';
+import {HOME_WINDOW_DAYS,weekHomeSections,type HomePeriod} from './home-density';
 
 const copy={
   br:{all:'Todos',live:'Ao vivo',upcoming:'Próximos',results:'Resultados',today:'Hoje',calendar:'Data dos jogos',go:'Ver',previous:'Dia anterior',next:'Dia seguinte',period:'Próximos 7 dias',competitions:'Competições',allCompetitions:'Todas as competições',empty:'Nenhum jogo neste filtro.',other:'Ver próximos jogos',odds:'Odds 1 X 2',pending:'Aguardando placar',fresh:'Últimos placares salvos',delayed:'Atualizações atrasadas',unavailable:'Atualizações indisponíveis',matches:'jogos',intro:'Placares, próximos jogos e comparação de odds — monte seu bilhete em um só lugar.'},
@@ -51,17 +51,16 @@ export async function SportsBoardPage({locale,page,searchParams}:{locale:Interfa
   const tab=competitionTab(query.tab),season=sportsSeason(query.season);
   const hub=page==='football'&&requestedCompetition?await loadCompetition(requestedCompetition,locale,season,sportsPage(query.p)).catch(()=>null):null;
   const showListing=!hub;
-  const raw=hub?null:await loadM3PageData(locale==='en'?'br':locale,page,date,timeZone,requestedCompetition);
+  // Default home = next seven days (never an empty 'today' desert): the football window feeds it, trimmed to the local day start.
+  const raw=hub?null:await loadM3PageData(locale==='en'?'br':locale,defaultHome?'football':page,date,timeZone,requestedCompetition);
   const data=raw?(locale==='en'?englishSportsData(raw):raw):null;
   const competition=typeof query.competition==='string'&&data?.sections.some(s=>s.slug===query.competition)?query.competition:undefined;
   const selectedCompetition=data?.sections.find(s=>s.slug===competition);
   const period=competition||hub?(locale==='br'?'Agenda da competição':locale==='mx'?'Calendario de la competición':'Competition schedule'):text.period;
-  const allFixtures=data?data.sections.filter(s=>!competition||s.slug===competition).flatMap(s=>s.fixtures):[];
+  const week=localDaysRange(now,timeZone,HOME_WINDOW_DAYS);const homeWindow={from:week.from.getTime(),to:week.to.getTime()};
+  const allFixtures=data?data.sections.filter(s=>!competition||s.slug===competition).flatMap(s=>s.fixtures).filter(f=>!defaultHome||(Date.parse(f.kickoff)>=homeWindow.from&&Date.parse(f.kickoff)<homeWindow.to)):[];
   const redCards=showListing?await loadRedCards(allFixtures.filter(f=>f.status!=='SCHEDULED').map(f=>f.id)).catch(()=>({} as Record<string,{home:number|null;away:number|null}>)):{};
-  const nextDate=new Date(Date.parse(today+'T12:00:00Z')+86400000).toISOString().slice(0,10);
-  const tomorrowRaw=defaultHome&&data&&usefulToday(data.sections,+now)<4?await loadM3PageData(locale==='en'?'br':locale,'home',nextDate,timeZone):null;
-  const tomorrow=tomorrowRaw?(locale==='en'?englishSportsData(tomorrowRaw):tomorrowRaw):null;
-  const sections:Array<NonNullable<typeof data>['sections'][number]&{homePeriod?:HomePeriod}>=defaultHome&&data?denseHomeSections(data.sections,tomorrow?.sections??[],+now):data?data.sections.filter(s=>!competition||s.slug===competition).map(s=>({...s,fixtures:s.fixtures.filter(f=>matchesView(f,view,now.getTime())).sort((a,b)=>boardSort(a,b,now.getTime()))})).filter(s=>s.fixtures.length):[];
+  const sections:Array<NonNullable<typeof data>['sections'][number]&{homePeriod?:HomePeriod}>=defaultHome&&data?weekHomeSections(data.sections,homeWindow,+now):data?data.sections.filter(s=>!competition||s.slug===competition).map(s=>({...s,fixtures:s.fixtures.filter(f=>matchesView(f,view,now.getTime())).sort((a,b)=>boardSort(a,b,now.getTime()))})).filter(s=>s.fixtures.length):[];
   const periodLabels=locale==='br'?{live:'Ao vivo hoje',upcoming:'Próximos hoje',tomorrow:'Amanhã',results:'Resultados de hoje'}:locale==='mx'?{live:'En vivo hoy',upcoming:'Próximos hoy',tomorrow:'Mañana',results:'Resultados de hoy'}:{live:'Live today',upcoming:'Upcoming today',tomorrow:'Tomorrow',results:'Results today'};
   const navItems=await loadCompetitionNav(locale,timeZone).catch(()=>[]);
   const freshness=data?.sportsData.freshness??'fresh';
@@ -72,7 +71,7 @@ export async function SportsBoardPage({locale,page,searchParams}:{locale:Interfa
     return path+(params.size?'?'+params:'');
   };
   const shift=(day:string,n:number)=>new Date(Date.parse(day+'T12:00:00Z')+n*86400000).toISOString().slice(0,10);
-  const activeDate=date??(page==='football'?undefined:today),calendarDate=date??today;
+  const activeDate=date??(page==='football'||defaultHome?undefined:today),calendarDate=date??today;
   const commercial=commercialLocale(requestCommercialGeo(await headers()));
   const sponsorLocale=locale==='en'?'br':locale;
   const sponsorPath=interfaceRoutes[sponsorLocale][page];
@@ -103,10 +102,10 @@ export async function SportsBoardPage({locale,page,searchParams}:{locale:Interfa
             </div>
           </div>
           <nav className="board-days" aria-label={text.calendar}>
-            <Link href={href({date:null},interfaceRoutes[locale].football)} aria-current={!activeDate?'date':undefined}>{period}</Link>
+            <Link href={page==='home'?href({date:null,view:'all',competition:null},base):href({date:null},interfaceRoutes[locale].football)} aria-current={!activeDate?'date':undefined}>{period}</Link>
             {[-1,0,1,2,3].map(n=>{const d=shift(today,n);return d<calendarBounds.from||d>calendarBounds.to?null:<Link key={d} href={href({date:d})} aria-current={activeDate===d?'date':undefined}>{n===0?text.today:new Intl.DateTimeFormat(dictionary.locale,{weekday:'short',day:'2-digit',month:'2-digit',timeZone:'UTC'}).format(new Date(d+'T12:00:00Z'))}</Link>;})}
           </nav>
-          <p className="board-timezone">{timeZone.replaceAll('_',' ')} · {date??(page==='football'?period:today)}</p>
+          <p className="board-timezone">{timeZone.replaceAll('_',' ')} · {date??(!activeDate?period:today)}</p>
           {data?.sportsData.state==='unavailable'?<p className="provider-notice" role="status">{text.unavailable}</p>:null}
           {!sections.length?<div className="board-empty" role="status"><p>{text.empty}</p><Link href={href({date:null,view:'all'},interfaceRoutes[locale].football)}>{text.other} →</Link></div>:null}
           <div className="fixture-list">{sections.map((section,index)=>{const nav=navItems.find(item=>item.slug===section.slug),mark=competitionMark(nav??{slug:section.slug}),hasOdds=hasPregameOddsLayout(section.fixtures,now.getTime());return <section className="competition-section" data-group={section.group} data-odds-layout={hasOdds?'pregame':'none'} key={`${section.slug}:${section.homePeriod??''}`} aria-label={section.competition}>

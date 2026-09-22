@@ -37,4 +37,11 @@ export function deliveryWindow(locale: SiteLocale, page: PageKey, now: Date, tim
   if (page === 'live') return { from: new Date(now.getTime() - 86_400_000), to: new Date(now.getTime() + 86_400_000) };
   return { from: new Date(day.from.getTime() - 86_400_000), to: new Date(day.to.getTime() + 7 * 86_400_000) };
 }
+/** Calendar window of `days` local days starting at the visitor's local day start (DST/month/year safe). */
+export function localDaysRange(date: Date, timeZone: string, days: number): { from: Date; to: Date } {
+  const local = dateParts(date, timeZone);
+  const probe = new Date(Date.UTC(local.year, local.month - 1, local.day + days));
+  const end = {year:probe.getUTCFullYear(),month:probe.getUTCMonth()+1,day:probe.getUTCDate()};
+  return { from: zonedDateTimeToUtc(local, timeZone), to: zonedDateTimeToUtc(end, timeZone) };
+}
 export function belongsToLocalDay(date: Date, reference: Date, timeZone: string): boolean { return localDateKey(date, timeZone) === localDateKey(reference, timeZone); }

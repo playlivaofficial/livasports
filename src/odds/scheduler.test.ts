@@ -19,8 +19,9 @@ vi.mock('./ingestion',()=>({startOddsJob:mocked.start,persistSnapshot:mocked.per
   {id:'test-only',competition:'brasileirao-serie-a',status:'SCHEDULED',kickoff:new Date(Date.now()+3600000).toISOString()},
   {id:'test-b',competition:'brasileirao-serie-b',status:'SCHEDULED',kickoff:new Date(Date.now()+7200000).toISOString()},
 ]}));
-import {integrityCheck,runOddsScheduler,safeSchedulerError,schedulerPlan} from './scheduler';
-function database(){const query=vi.fn(async(sql:string)=>{
+import {integrityCheck,runOddsScheduler,safeSchedulerError,schedulerPlan,SNAPSHOT_REPLAY_LIMIT} from './scheduler';
+function database(pending:Array<{id:string;payload:unknown;replay_failures:number}>=[]){const query=vi.fn(async(sql:string)=>{
+  if(sql.includes('FROM odds_sync_snapshots WHERE applied_at IS NULL'))return {rows:pending,rowCount:pending.length};
   if(sql.includes('odds_provider_catalog'))return {rows:[{markets:[],tournaments:[]}],rowCount:1};
   if(sql.includes('FROM bookmakers b'))return {rows:['betano.bet.br','betsson'].map(provider_slug=>({provider_slug,tournament_id:'325',public_eligible:true,useful_coverage:true,last_success_at:null})),rowCount:2};
   if(sql.includes('reconciliation_at>'))return {rows:[{}],rowCount:1};
@@ -220,6 +221,25 @@ describe('scheduler independent failure and durable completion',()=>{
       expect(actions.some(a=>a[1]==='URGENT_REFRESH'&&a[6]===1&&a[7]==='SUCCEEDED')).toBe(true);
       expect(result.reliability).toMatchObject({overall:expect.any(String),opened:0,resolved:0});
       expect(query.mock.calls.some(([sql])=>String(sql).includes('DELETE FROM odds_health_rollups'))).toBe(true);
+    });
+    it('a saved snapshot that cannot be persisted is retried a bounded number of times, then quarantined with an incident, and never blocks the refresh (stall of 2026-09-21)',async()=>{
+      const poison={id:'poison',payload:{bookmaker:'betsson',tournamentIds:['155'],fixtures:[{}],quotes:[{},{}]},replay_failures:SNAPSHOT_REPLAY_LIMIT-2};
+      mocked.persist.mockImplementation(async(_db:unknown,_job:unknown,snapshot:{bookmaker?:string})=>{if(snapshot?.bookmaker==='betsson'&&!('provider' in snapshot))throw new Error('INVALID_NATIVE_SOURCE_QUOTE');return {returnedFixtures:1,matchedFixtures:1,quotes:3,history_changes:0,current_writes:3,closed:0};});
+      mocked.snapshot.mockResolvedValue({provider:'oddspapi',bookmaker:'betsson',tournamentIds:['325'],fixtures:[{providerFixtureId:'1'}],quotes:[{}],observedAt:new Date().toISOString()});
+      const first=database([poison]);const result=await runOddsScheduler(first.db,'test-only');
+      expect(result.state).not.toBe('FAILED');expect(result.error).toBeNull();
+      const update=(first.query.mock.calls as unknown as [string,unknown[]][]).find(([sql])=>sql.includes('UPDATE odds_sync_snapshots SET replay_failures'));
+      expect(update![1]).toEqual(['poison',SNAPSHOT_REPLAY_LIMIT-1,'INVALID_NATIVE_SOURCE_QUOTE',false]);
+      const retry=(first.query.mock.calls as unknown as [string,unknown[]][]).map(c=>c[1]).find(a=>Array.isArray(a)&&a[1]==='SNAPSHOT_REPLAY_FAILED');
+      expect(retry).toBeTruthy();expect(retry![7]).toBe(`RETRY_${SNAPSHOT_REPLAY_LIMIT-1}_OF_${SNAPSHOT_REPLAY_LIMIT}`);
+      expect(mocked.snapshot).toHaveBeenCalled();
+      const second=database([{...poison,replay_failures:SNAPSHOT_REPLAY_LIMIT-1}]);const again=await runOddsScheduler(second.db,'test-only');
+      expect(again.error).toBeNull();
+      const quarantined=(second.query.mock.calls as unknown as [string,unknown[]][]).find(([sql])=>sql.includes('UPDATE odds_sync_snapshots SET replay_failures'));
+      expect(quarantined![1]).toEqual(['poison',SNAPSHOT_REPLAY_LIMIT,'INVALID_NATIVE_SOURCE_QUOTE',true]);
+      expect((second.query.mock.calls as unknown as [string,unknown[]][]).map(c=>c[1]).some(a=>Array.isArray(a)&&a[1]==='SNAPSHOT_QUARANTINED')).toBe(true);
+      expect(again.integrity.some(i=>i.classification==='STORE_WRITE_FAILED'&&i.severity==='CRITICAL')).toBe(true);
+      expect(second.query.mock.calls.some(([sql])=>String(sql).includes('INSERT INTO odds_refresh_targets')&&String(sql).includes('FAILED'))).toBe(false);
     });
     it('a ledger stop is logged as a deferred recovery action with the next tick as retry, never as a target failure',async()=>{
       mocked.snapshot.mockRejectedValue(new OddsBudgetStopped('ODDS_BUDGET_UNVERIFIED_OR_EXHAUSTED'));

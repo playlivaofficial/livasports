@@ -35,6 +35,23 @@ describe('P3 catalog self-healing (§11, §30)',()=>{
     expect(classifyCatalogRows(later).find(r=>r.tournamentId==='4242')).toMatchObject({state:'MAPPED',competition:'la-liga-2'});
     expect(classifyCatalogRows(later).find(r=>r.competition==='la-liga-2'&&r.tournamentId!=='4242')).toBeUndefined();
   });
+  it('deterministic exclusion: a split-season twin without upcoming fixtures and non-registry competitions in a fully mapped country are IGNORED_WITH_REASON, never auto-mapped',()=>{
+    const mexico=[{tournamentId:352,tournamentSlug:'liga-mx-apertura',categorySlug:'mexico',categoryName:'Mexico',tournamentName:'Liga MX Apertura',futureFixtures:9},
+      {tournamentId:27466,tournamentSlug:'liga-mx-clausura',categorySlug:'mexico',categoryName:'Mexico',tournamentName:'Liga MX Clausura',futureFixtures:0},
+      {tournamentId:9001,tournamentSlug:'liga-de-expansion',categorySlug:'mexico',categoryName:'Mexico',tournamentName:'Liga de Expansión MX',futureFixtures:12}];
+    const s=Object.fromEntries(classifyCatalogRows(mexico).map(r=>[r.tournamentId,r]));
+    expect(s['352']).toMatchObject({state:'MAPPED',competition:'liga-mx'});
+    expect(s['27466']).toMatchObject({state:'IGNORED_WITH_REASON',competition:'liga-mx'});
+    expect(s['9001']).toMatchObject({state:'IGNORED_WITH_REASON',competition:null});expect(s['9001'].reason).toMatch(/every enabled registry competition in mexico/);
+    const active=classifyCatalogRows(mexico.map(r=>r.tournamentId===27466?{...r,futureFixtures:5}:r)).find(r=>r.tournamentId==='27466');
+    expect(active).toMatchObject({state:'AMBIGUOUS',competition:'liga-mx'});
+    expect(classifyCatalogRows(mexico).filter(r=>r.state==='MAPPED')).toHaveLength(1);
+  });
+  it('keeps UNMATCHED (with the candidate list) while a registry competition of that country is still unmapped',()=>{
+    const brazil=[{tournamentId:325,tournamentSlug:'brasileiro-serie-a',categorySlug:'brazil',categoryName:'Brazil',tournamentName:'Brasileiro Série A',futureFixtures:20},{tournamentId:9002,tournamentSlug:'copa-paulista',categorySlug:'brazil',categoryName:'Brazil',tournamentName:'Copa Paulista',futureFixtures:4}];
+    const row=classifyCatalogRows(brazil).find(r=>r.tournamentId==='9002');
+    expect(row).toMatchObject({state:'UNMATCHED',competition:null});expect(row!.reason).toMatch(/brasileirao-serie-b/);
+  });
   it('persists rows with first/last seen and mapping state (upsert keeps first_seen_at)',async()=>{
     const query=vi.fn(async()=>({rows:[],rowCount:0}));
     const summary=await persistCatalogRows({query:query as unknown as QueryExecutor['query']},rows);

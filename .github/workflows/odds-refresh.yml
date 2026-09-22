@@ -1,8 +1,11 @@
-# Ops-only diagnostic. Production ticker is cron-job.org, not GitHub Actions schedule.
+# Primary ticker: cron-job.org (every 5 minutes). This schedule is the fallback ticker so a disabled or paused external
+# cron can never leave the public site without refreshes; the backend lease (409) de-duplicates overlapping invocations.
 name: Odds scheduler ticker
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: "*/10 * * * *"
 
 concurrency:
   group: livasports-odds-refresh
@@ -43,8 +46,5 @@ jobs:
             echo "scheduler http ${code} state=${state}" >&2
             exit 1
           fi
-          if [ "${state}" != "SUCCEEDED" ] && [ "${state}" != "PARTIAL" ]; then
-            echo "unexpected scheduler state ${state}" >&2
-            exit 1
-          fi
-          echo "healthy tick including no-work requests=0"
+          # A completed tick answers 200 in every refresh state; the state itself is reported through owner health.
+          echo "tick completed state=${state} requests=${requests}"

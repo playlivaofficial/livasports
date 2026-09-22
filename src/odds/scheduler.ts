@@ -33,6 +33,8 @@ async function catalogRowsStale(db:DatabaseClient){
 }
 
 export type SchedulerState='READY'|'RUNNING'|'SUCCEEDED'|'PARTIAL'|'FAILED'|'BUDGET_STOPPED';
+/** Bounded replays of a saved provider response before it is quarantined (a poison snapshot blocked every tick for hours in production). */
+export const SNAPSHOT_REPLAY_LIMIT=3;
 export function safeSchedulerError(error:unknown):string {
   if(error instanceof OddsBudgetStopped)return error.code;
   const message=error instanceof Error?error.message:'';
@@ -154,10 +156,23 @@ export async function runOddsScheduler(db:DatabaseClient,key:string,trigger:'CON
     }
     provider.setCatalog(tournaments);
     await persistCatalogCompetitionMappings(db,tournaments);
-    const pending=(await db.query('SELECT payload FROM odds_sync_snapshots WHERE applied_at IS NULL ORDER BY observed_at LIMIT 3')).rows;
-    for(const row of pending){await persistSnapshot(db,job,row.payload as OddsSnapshot);recovered++;}
+    let replayed=0;const pending=(await db.query('SELECT id,payload,replay_failures FROM odds_sync_snapshots WHERE applied_at IS NULL AND quarantined_at IS NULL ORDER BY observed_at LIMIT 3')).rows;
+    for(const row of pending){
+      // A saved response that cannot be persisted must not poison every later tick: bounded replays, then quarantine + incident.
+      try{await persistSnapshot(db,job,row.payload as OddsSnapshot);recovered++;replayed++;}
+      catch(error){
+        if(error instanceof OddsBudgetStopped||safeSchedulerError(error)==='ODDS_WORKER_LEASE_LOST')throw error;
+        const failures=Number(row.replay_failures??0)+1;const quarantine=failures>=SNAPSHOT_REPLAY_LIMIT;
+        const message=(error instanceof Error?error.message:'REPLAY_FAILED').replace(/postgres(?:ql)?:\/\/\S+/gi,'[REDACTED]').slice(0,200);
+        await db.query(`UPDATE odds_sync_snapshots SET replay_failures=$2,replay_error=$3,quarantined_at=CASE WHEN $4 THEN now() ELSE quarantined_at END WHERE id=$1`,[row.id,failures,message,quarantine]);
+        await logRecoveryAction(db,{trigger:'INTEGRITY',action:quarantine?'SNAPSHOT_QUARANTINED':'SNAPSHOT_REPLAY_FAILED',bookmaker:(row.payload as OddsSnapshot).bookmaker,
+          tournamentId:((row.payload as OddsSnapshot).tournamentIds??[]).join(','),reason:message,outcome:quarantine?'QUARANTINED':`RETRY_${failures}_OF_${SNAPSHOT_REPLAY_LIMIT}`,detail:{snapshotId:row.id,failures}});
+        if(quarantine)integrity.push({bookmaker:(row.payload as OddsSnapshot).bookmaker,tournamentIds:[...((row.payload as OddsSnapshot).tournamentIds??[])],classification:'STORE_WRITE_FAILED',severity:'CRITICAL',
+          reason:`Saved response could not be persisted after ${failures} replays: ${message}`,returnedFixtures:(row.payload as OddsSnapshot).fixtures?.length??0,matchedFixtures:0,quotes:(row.payload as OddsSnapshot).quotes?.length??0,currentWrites:0,closed:0});
+      }
+    }
     recovered+=(await recoverNativeIdentities(db,job)).repaired;
-    if(pending.length===3)throw new Error('ODDS_RECOVERY_PENDING');
+    if(replayed===SNAPSHOT_REPLAY_LIMIT)throw new Error('ODDS_RECOVERY_PENDING');
     if(!(await budgetHealth(db)).verified)await reconcileAccountPeriod(db,await provider.accountPeriod());
     const plan=await schedulerPlan(db,new Date(),tournaments);
     await db.query(`INSERT INTO odds_scheduler_decisions(job_id,targets,budget) VALUES($1,$2::jsonb,$3::jsonb)

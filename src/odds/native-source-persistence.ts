@@ -4,11 +4,12 @@ import type {NativeOddsSourceBatch,NativeSourceQuote} from '@/providers/contract
 import {validateNativeSourceBatch} from '@/providers/contracts/NativeOddsSource';
 
 /** Persist one supplier independently. It never overwrites another supplier or changes public bookmaker identity. */
-export async function persistNativeSourceBatch(db:QueryExecutor,batch:NativeOddsSourceBatch,approvedSources:readonly string[]){
-  validateNativeSourceBatch(batch);
+export async function persistNativeSourceBatch(db:QueryExecutor,input:NativeOddsSourceBatch,approvedSources:readonly string[]){
+  const {batch,rejected}=validateNativeSourceBatch(input);
   if(!approvedSources.includes(batch.sourceProvider))throw new Error('UNAPPROVED_NATIVE_SOURCE');
   const quotes=batch.quotes.map(q=>({...q,bookmaker:canonicalBookmakerSlug(q.bookmaker)??q.bookmaker,metadata:q.metadata??{}}));
-  if(!quotes.length)return {historyChanges:0,currentWrites:0};
+  const rejections={count:rejected.length,reasons:[...new Set(rejected.map(r=>r.reason))]};
+  if(!quotes.length)return {historyChanges:0,currentWrites:0,rejections};
   const rows=JSON.stringify(quotes);
   const result=await db.query(`WITH incoming AS(
     SELECT r.*,b.id AS bookmaker_id FROM jsonb_to_recordset($1::jsonb) AS r(
@@ -44,7 +45,7 @@ export async function persistNativeSourceBatch(db:QueryExecutor,batch:NativeOdds
       OR (odds_native_source_current.observed_at=excluded.observed_at AND odds_native_source_current.status<>excluded.status)
     RETURNING id)
   SELECT (SELECT count(*) FROM history)::int AS history_changes,(SELECT count(*) FROM current)::int AS current_writes`,[rows]);
-  return {historyChanges:Number(result.rows[0]?.history_changes??0),currentWrites:Number(result.rows[0]?.current_writes??0)};
+  return {historyChanges:Number(result.rows[0]?.history_changes??0),currentWrites:Number(result.rows[0]?.current_writes??0),rejections};
 }
 
 export function sourceHealthKey(quote:Pick<NativeSourceQuote,'sourceProvider'|'bookmaker'>){return `${quote.sourceProvider}:${canonicalBookmakerSlug(quote.bookmaker)??quote.bookmaker}`;}

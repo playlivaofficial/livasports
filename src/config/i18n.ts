@@ -23,7 +23,7 @@ const dictionaries: Record<SiteLocale, LocaleDictionary> = {
     locale: 'pt-BR', countryCode: 'BR', countryName: 'Brasil', timeZone: 'America/Sao_Paulo',
     navigation: { home: 'Início', football: 'Futebol', live: 'Ao vivo', today: 'Jogos de hoje' },
     pages: {
-      home: { title: 'Futebol de hoje', description: 'Agenda, placares e contexto das partidas no Brasil.' },
+      home: { title: 'Futebol: próximos 7 dias', description: 'Jogos dos próximos 7 dias, placares, odds e contexto das partidas no Brasil.' },
       football: { title: 'Partidas de futebol', description: 'Calendário organizado por competição, em um só lugar.' },
       live: { title: 'Futebol ao vivo', description: 'Partidas em andamento e placares atualizados.' },
       today: { title: 'Jogos de hoje', description: 'Agenda do dia no horário de Brasília.' },
@@ -63,7 +63,7 @@ const dictionaries: Record<SiteLocale, LocaleDictionary> = {
     locale: 'es-MX', countryCode: 'MX', countryName: 'México', timeZone: 'America/Mexico_City',
     navigation: { home: 'Inicio', football: 'Fútbol', live: 'En vivo', today: 'Partidos de hoy' },
     pages: {
-      home: { title: 'Fútbol de hoy', description: 'Calendario, marcadores y contexto de los partidos en México.' },
+      home: { title: 'Fútbol: próximos 7 días', description: 'Partidos de los próximos 7 días, marcadores, cuotas y contexto en México.' },
       football: { title: 'Partidos de fútbol', description: 'Calendario organizado por torneo, en un solo lugar.' },
       live: { title: 'Fútbol en vivo', description: 'Partidos en curso y marcadores actualizados.' },
       today: { title: 'Partidos de hoy', description: 'Calendario del día en horario de Ciudad de México.' },

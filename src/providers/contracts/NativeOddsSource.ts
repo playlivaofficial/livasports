@@ -18,11 +18,17 @@ export interface NativeOddsSource {
   fetchPregame(request:NativeOddsSourceRequest):Promise<NativeOddsSourceBatch>;
 }
 
-export function validateNativeSourceBatch(batch:NativeOddsSourceBatch){
+export type NativeSourceRejection='UNVERIFIED_NATIVE_SOURCE_IDENTITY'|'INVALID_NATIVE_SOURCE_QUOTE';
+/** One quote that fails the contract is rejected with a reason; it never poisons the batch or the scheduler. */
+export function classifyNativeSourceQuote(quote:NativeSourceQuote,sourceProvider:NativeOddsSourceId):NativeSourceRejection|null{
+  if(quote.sourceProvider!==sourceProvider||!quote.fixture.mappingVerified||!quote.fixture.canonicalFixtureId||!quote.providerBookmakerId)return 'UNVERIFIED_NATIVE_SOURCE_IDENTITY';
+  if(!Number.isFinite(Number(quote.decimalOdds))||Number(quote.decimalOdds)<=1||!Number.isFinite(Date.parse(quote.observedAt))||!(quote.freshnessTtlMinutes>0))return 'INVALID_NATIVE_SOURCE_QUOTE';
+  return null;
+}
+/** Batch-level validation is fatal only for a malformed batch envelope; per-quote defects are separated, counted and reported. */
+export function validateNativeSourceBatch(batch:NativeOddsSourceBatch):{batch:NativeOddsSourceBatch;rejected:Array<{quote:NativeSourceQuote;reason:NativeSourceRejection}>}{
   if(!batch.sourceProvider||!Number.isInteger(batch.requestCount)||batch.requestCount<0)throw new Error('INVALID_NATIVE_SOURCE_BATCH');
-  for(const quote of batch.quotes){
-    if(quote.sourceProvider!==batch.sourceProvider||!quote.fixture.mappingVerified||!quote.fixture.canonicalFixtureId||!quote.providerBookmakerId)throw new Error('UNVERIFIED_NATIVE_SOURCE_IDENTITY');
-    if(!Number.isFinite(Number(quote.decimalOdds))||Number(quote.decimalOdds)<=1||!Number.isFinite(Date.parse(quote.observedAt))||quote.freshnessTtlMinutes<=0)throw new Error('INVALID_NATIVE_SOURCE_QUOTE');
-  }
-  return batch;
+  const rejected:Array<{quote:NativeSourceQuote;reason:NativeSourceRejection}>=[];const quotes:NativeSourceQuote[]=[];
+  for(const quote of batch.quotes){const reason=classifyNativeSourceQuote(quote,batch.sourceProvider);if(reason)rejected.push({quote,reason});else quotes.push(quote);}
+  return {batch:{...batch,quotes},rejected};
 }
