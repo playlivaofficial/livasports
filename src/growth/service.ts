@@ -4,7 +4,7 @@ import {buildShortlist} from './shortlist';
 import {scoreFixture,isProducible} from './scoring';
 import {generatedContent} from './content';
 import {renderGrowthVideo,renderGrowthVideos,type GrowthVideoRenderResult} from './video-renderer';
-import {VIDEO_CHANNELS,type GrowthVideoChannel} from './config';
+import {SHORTLIST,VIDEO_CHANNELS,type GrowthVideoChannel} from './config';
 import {acquireGrowthJob,enrichGrowthStorySignals,finishGrowthJob,persistGrowthItem,readGrowthFixtures,readGrowthItem,readGrowthVideo,readLatestGrowthItems,readV1DraftsForRegeneration,recentGrowthFixtureIds,upsertGrowthSeoPriorities} from './repository';
 import type {GrowthContentPack,GrowthDashboard,RankedGrowthFixture} from './types';
 
@@ -67,7 +67,7 @@ export async function runGrowthGeneration(db:DatabaseClient,trigger:'AUTOMATIC'|
       const recent=await recentGrowthFixtureIds(db,now);
       const shortlist=buildShortlist(ranked.map(row=>row.priority),{excludeFixtureIds:recent});
       skippedDuplicate=shortlist.suppressedAsDuplicate;
-      selected=rowsForPriorities(ranked,shortlist.content);
+      selected=rowsForPriorities(ranked,shortlist.content).slice(0,SHORTLIST.generationBatchSize);
     }
     const enrichedSelected=await enrichGrowthStorySignals(db,selected.filter(row=>!sharedById.has(row.signals.fixtureId)));
     selected=selected.map(row=>sharedById.get(row.signals.fixtureId)??enrichedSelected.find(item=>item.signals.fixtureId===row.signals.fixtureId)??row);

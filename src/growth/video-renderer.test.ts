@@ -14,8 +14,10 @@ describe('Traffic Engine V1.1 MP4 renderer',()=>{
     const repeated=await renderGrowthVideo(draft,fixtureSnapshot(row),{assetLoader:async()=>null});expect(repeated.sha256).toBe(rendered.sha256);
   },120_000);
   it('renders all platform outputs through the bounded-memory batch path',async()=>{
-    const row=rankedFixture(),pack=generateV11ContentPack(row,1,[row]),rendered=await renderGrowthVideos(pack.platforms!,fixtureSnapshot(row),{assetLoader:async()=>null});
+    const base=rankedFixture(),row=rankedFixture({home:{...base.signals.home,imageUrl:'https://cdn.sportmonks.com/football/teams/1.png'},away:{...base.signals.away,imageUrl:'https://cdn.sportmonks.com/football/teams/2.png'}}),pack=generateV11ContentPack(row,1,[row]);
+    const loader=vi.fn(async()=>null),rendered=await renderGrowthVideos(pack.platforms!,fixtureSnapshot(row),{assetLoader:loader});
     expect(rendered).toHaveLength(3);expect(rendered.map(item=>item.channel)).toEqual(['TIKTOK','INSTAGRAM_REELS','YOUTUBE_SHORTS']);
     expect(rendered.every(item=>item.status==='READY'&&item.byteLength>20_000)).toBe(true);
+    expect(loader).toHaveBeenCalledTimes(2);
   },120_000);
 });

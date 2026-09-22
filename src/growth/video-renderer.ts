@@ -103,7 +103,7 @@ export async function renderGrowthVideo(draft:GrowthPlatformDraft,fixture:Growth
       const fade=scene.transition==='FADE'?`,fade=t=in:st=0:d=0.25,fade=t=out:st=${out}:d=0.3`:scene.transition==='SLIDE'?',fade=t=in:st=0:d=0.1':'';
       return `[${index}:v]scale=${VIDEO.width}:${VIDEO.height},zoompan=z='min(zoom+0.00045,1.035)':${motion}:y='ih/2-(ih/zoom/2)':d=1:s=${VIDEO.width}x${VIDEO.height}:fps=${VIDEO.fps}${fade},setsar=1,setpts=PTS-STARTPTS[v${index}]`;});
     filters.push(`${draft.scenes.map((_,index)=>`[v${index}]`).join('')}concat=n=${draft.scenes.length}:v=1:a=0[outv]`);
-    args.push('-filter_complex',filters.join(';'),'-map','[outv]','-an','-c:v','libx264','-preset','veryfast','-crf','25','-pix_fmt','yuv420p','-r',String(VIDEO.fps),'-movflags','+faststart','-y',output);
+    args.push('-filter_threads','1','-filter_complex_threads','1','-filter_complex',filters.join(';'),'-map','[outv]','-an','-c:v','libx264','-preset','ultrafast','-threads','1','-crf','25','-pix_fmt','yuv420p','-r',String(VIDEO.fps),'-movflags','+faststart','-y',output);
     await runFfmpeg(binary,args);const data=await readFile(output);if(!data.length||data.length>VIDEO.maxRenderBytes)throw new Error('VIDEO_SIZE_INVALID');
     return {channel:draft.channel,status:'READY',mimeType:'video/mp4',sha256:createHash('sha256').update(data).digest('hex'),byteLength:data.length,data};
   }finally{await rm(directory,{recursive:true,force:true});}
@@ -112,9 +112,13 @@ export async function renderGrowthVideo(draft:GrowthPlatformDraft,fixture:Growth
 export async function renderGrowthVideos(drafts:Record<GrowthVideoChannel,GrowthPlatformDraft>,fixture:GrowthFixtureSnapshot,options:VideoRendererOptions={}):Promise<GrowthVideoRenderResult[]>{
   const channels=Object.keys(drafts) as GrowthVideoChannel[];
   const results:GrowthVideoRenderResult[]=[];
+  const sourceLoader=options.assetLoader??remoteAsset,assetCache=new Map<string,Promise<string|null>>();
+  const cachedLoader=(url:string)=>{const cached=assetCache.get(url);if(cached)return cached;const pending=sourceLoader(url);assetCache.set(url,pending);return pending;};
+  const batchOptions={...options,assetLoader:cachedLoader};
   // A single 1080×1920 encoder comfortably fits the serverless memory budget; three parallel FFmpeg
-  // processes do not. Keep platform output deterministic while bounding peak memory to one encoder.
-  for(const channel of channels){try{results.push(await renderGrowthVideo(drafts[channel],fixture,options));}catch(error){results.push({channel,status:'FAILED',mimeType:null,sha256:null,byteLength:null,data:null,
+  // processes do not. Keep platform output deterministic, reuse media across platform variants and
+  // bound peak memory to one encoder.
+  for(const channel of channels){try{results.push(await renderGrowthVideo(drafts[channel],fixture,batchOptions));}catch(error){results.push({channel,status:'FAILED',mimeType:null,sha256:null,byteLength:null,data:null,
     errorCode:error instanceof Error&&/^[A-Z0-9_]+$/.test(error.message)?error.message:'VIDEO_RENDER_FAILED'});}}
   return results;
 }
