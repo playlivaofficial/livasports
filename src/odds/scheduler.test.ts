@@ -241,6 +241,12 @@ describe('scheduler independent failure and durable completion',()=>{
       expect(again.integrity.some(i=>i.classification==='STORE_WRITE_FAILED'&&i.severity==='CRITICAL')).toBe(true);
       expect(second.query.mock.calls.some(([sql])=>String(sql).includes('INSERT INTO odds_refresh_targets')&&String(sql).includes('FAILED'))).toBe(false);
     });
+    it('clears a replayed snapshot by its own id, because persistSnapshot marks the hash of the payload it receives',async()=>{
+      const {db,query}=database([{id:'stored-row',payload:{bookmaker:'betsson',tournamentIds:['155'],fixtures:[],quotes:[]},replay_failures:0}]);
+      await runOddsScheduler(db,'test-only');
+      const cleared=(query.mock.calls as unknown as [string,unknown[]][]).find(([sql])=>sql.includes('UPDATE odds_sync_snapshots SET applied_at'));
+      expect(cleared).toBeTruthy();expect(cleared![1]).toEqual(['stored-row']);
+    });
     it('a ledger stop is logged as a deferred recovery action with the next tick as retry, never as a target failure',async()=>{
       mocked.snapshot.mockRejectedValue(new OddsBudgetStopped('ODDS_BUDGET_UNVERIFIED_OR_EXHAUSTED'));
       const {db,query}=database();await runOddsScheduler(db,'test-only');

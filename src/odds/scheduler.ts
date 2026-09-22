@@ -159,7 +159,10 @@ export async function runOddsScheduler(db:DatabaseClient,key:string,trigger:'CON
     let replayed=0;const pending=(await db.query('SELECT id,payload,replay_failures FROM odds_sync_snapshots WHERE applied_at IS NULL AND quarantined_at IS NULL ORDER BY observed_at LIMIT 3')).rows;
     for(const row of pending){
       // A saved response that cannot be persisted must not poison every later tick: bounded replays, then quarantine + incident.
-      try{await persistSnapshot(db,job,row.payload as OddsSnapshot);recovered++;replayed++;}
+      // persistSnapshot marks the row whose id is the hash of the payload it receives; a payload that round-trips
+      // through jsonb can hash differently, so the replayed row is cleared by its own id or it stays pending forever.
+      try{await persistSnapshot(db,job,row.payload as OddsSnapshot);recovered++;replayed++;
+        await db.query('UPDATE odds_sync_snapshots SET applied_at=COALESCE(applied_at,now()) WHERE id=$1',[row.id]);}
       catch(error){
         if(error instanceof OddsBudgetStopped||safeSchedulerError(error)==='ODDS_WORKER_LEASE_LOST')throw error;
         const failures=Number(row.replay_failures??0)+1;const quarantine=failures>=SNAPSHOT_REPLAY_LIMIT;
