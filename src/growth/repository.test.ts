@@ -46,8 +46,10 @@ describe('Traffic Engine V1 persistence',()=>{
     const query=vi.fn(async(sql:string)=>{void sql;return {rows:[],rowCount:0};});await readV1DraftsForRegeneration(database(query as unknown as QueryExecutor['query']));
     const sql=String(query.mock.calls[0][0]);expect(sql).toContain('generator_version<2');expect(sql).toContain("ch.status<>'DRAFT'");expect(sql).toContain('superseded_at IS NULL');
   });
-  it('selects only all-DRAFT non-premium revisions for the additive creative migration',async()=>{
+  it('selects only all-DRAFT legacy or incomplete premium revisions for safe repair',async()=>{
     const query=vi.fn(async(sql:string)=>{void sql;return {rows:[],rowCount:0};});await readPremiumDraftsForRegeneration(database(query as unknown as QueryExecutor['query']));
+    expect(query.mock.calls[0][0]).toContain("a.status<>'READY'");
+    expect(query.mock.calls[0][0]).toContain("{voice,degradedReason}");
     const sql=String(query.mock.calls[0][0]);expect(sql).toContain("<>'PREMIUM_1'");expect(sql).toContain("ch.status<>'DRAFT'");expect(sql).toContain('superseded_at IS NULL');
   });
   it('keeps the predecessor when review changed while a replacement was rendering',async()=>{

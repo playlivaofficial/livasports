@@ -144,8 +144,10 @@ export const SHORTLIST={
   socialSize:5,
   contentSize:10,
   /** Maximum new fixtures rendered by one scheduled serverless invocation. The complete Top 10
-   * still powers SEO; three daily runs advance through duplicate-safe content batches. */
-  generationBatchSize:3,
+   * still powers SEO; three daily runs advance through duplicate-safe content batches.
+   * Premium narration measured 243s for three fixtures on Vercel, and a slower run exhausted the
+   * 250s render deadline. Two fixtures reserve a full third-fixture margin without reducing Top 10. */
+  generationBatchSize:2,
   /** How far ahead a fixture may be and still be shortlisted. */
   horizonHours:168,
   /** Fixtures that kicked off within this many hours stay eligible (a match in play still draws traffic). */

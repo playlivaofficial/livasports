@@ -95,6 +95,18 @@ not weakened. Focused growth: 69 tests plus all six real renderer tests passed.
 
 ## Release checklist
 
+### Production runtime follow-up
+
+PR #9 deployed as a7178b33d555b2365e692ae5f3eb8c3dea347bf8; additive migration 037 applied.
+The real 22:17 UTC cron successfully produced 3 packages / 9 fully voiced videos in 243.25s.
+A subsequent controlled 3-fixture run reached the 250s rendering guard on its final Shorts asset.
+The process returned PARTIAL safely instead of exceeding the 300s function ceiling.
+
+The scheduled batch is therefore reduced to **2 fixtures**, retaining Top 5 / Top 10 selection,
+scoring, three daily schedule times and duplicate prevention. Premium repair also includes active,
+all-DRAFT items with a failed/degraded asset; it retains the same locking and immutable predecessor
+lineage. No approved/published item is eligible. This is a measured runtime correction, not a redesign.
+
 ### Deployed Preview findings
 
 An isolated, owner-authorized same-commit Preview was used without persisting drafts. Preview lacked
