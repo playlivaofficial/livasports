@@ -14,12 +14,21 @@ describe('Traffic Engine V1.1 strategy',()=>{
     expect(intent.canonicalUrl).toBe(row.destinationUrl);expect(intent.queries).toContain('Flamengo x Mirassol odds');expect(seo.level).toBe('TOP_5');
     expect(seo.placements).toEqual(['HOME','DAILY','COMPETITION','HOME_TEAM','AWAY_TEAM']);
   });
-  it('selects players only from defensible current-season evidence and never grants implicit image rights',()=>{
-    const home=player('home'),away=player('away',true);home.evidenceScore=playerEvidenceScore(home.statistics);away.evidenceScore=playerEvidenceScore(away.statistics);
+  it('keeps player-led templates dormant when evidence exists but commercial media rights do not',()=>{
+    const home=player('home'),away=player('away');home.evidenceScore=playerEvidenceScore(home.statistics);away.evidenceScore=playerEvidenceScore(away.statistics);
     const row={...rankedFixture({away:{slug:'palmeiras',name:'Palmeiras',publicId:'b'.repeat(16),imageUrl:null}}),storySignals:{players:{home:[home],away:[away]},form:{home:null,away:null}}};
-    const chosen=selectedPlayers(row),story=selectStory(row,chosen,{rank:2,topSocial:[row]});expect(chosen).toHaveLength(2);expect(story.angle).toBe('PLAYER_VS_PLAYER');
+    const chosen=selectedPlayers(row),story=selectStory(row,chosen,{rank:2,topSocial:[row]});expect(chosen).toHaveLength(2);expect(story).toMatchObject({angle:'TABLE_PRESSURE',template:'MATCH_CLASH'});
     expect(chosen[0].media).toMatchObject({licenseStatus:'UNKNOWN',commercialEligible:false,assetUrl:null});
-    const pack=generateV11ContentPack(row,2,[row]);expect(pack.platforms?.TIKTOK.scenes.flatMap(scene=>scene.assets).some(asset=>asset.kind==='PLAYER_SILHOUETTE')).toBe(true);
+    const pack=generateV11ContentPack(row,2,[row]),assets=pack.platforms?.TIKTOK.scenes.flatMap(scene=>scene.assets)??[];
+    expect(pack.players).toHaveLength(2);expect(pack.readiness?.fallbackApplied).toBe(true);expect(assets.some(asset=>asset.kind==='PLAYER_IMAGE'||asset.kind==='PLAYER_SILHOUETTE')).toBe(false);
+    expect(assets.some(asset=>asset.kind==='TEAM_CREST')).toBe(true);
+  });
+  it('activates Player Clash only when both defensible players have approved commercial media',()=>{
+    const home=player('home',true),away=player('away',true);home.evidenceScore=playerEvidenceScore(home.statistics);away.evidenceScore=playerEvidenceScore(away.statistics);
+    const row={...rankedFixture({away:{slug:'palmeiras',name:'Palmeiras',publicId:'b'.repeat(16),imageUrl:null}}),storySignals:{players:{home:[home],away:[away]},form:{home:null,away:null}}};
+    const chosen=selectedPlayers(row),story=selectStory(row,chosen,{rank:2,topSocial:[row]}),pack=generateV11ContentPack(row,2,[row]);
+    expect(story).toMatchObject({angle:'PLAYER_VS_PLAYER',template:'PLAYER_CLASH'});
+    expect(pack.platforms?.TIKTOK.scenes.flatMap(scene=>scene.assets).filter(asset=>asset.kind==='PLAYER_IMAGE')).toHaveLength(2);
   });
   it('activates Star Focus only with defensible player evidence and explicit commercial media approval',()=>{
     const star=player('home',true);star.evidenceScore=playerEvidenceScore(star.statistics);

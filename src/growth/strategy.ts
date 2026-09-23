@@ -18,15 +18,20 @@ export function selectedPlayers(row:GrowthFixture):GrowthSelectedPlayer[]{
   }));
 }
 
+export function commercialMediaPlayers(players:GrowthSelectedPlayer[]):GrowthSelectedPlayer[]{
+  return players.filter(player=>player.media.commercialEligible&&!!player.media.assetUrl);
+}
+
 const sameBrazilDay=(a:string,b:string)=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(a))===
   new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(b));
 
 export function selectStory(row:RankedGrowthFixture,players:GrowthSelectedPlayer[],options:{rank:number;topSocial?:RankedGrowthFixture[]}):GrowthStorySelection{
+  const licensedPlayers=commercialMediaPlayers(players);
   const topToday=options.rank===1&&(options.topSocial?.filter(item=>sameBrazilDay(item.signals.kickoff,row.signals.kickoff)).length??0)>=3;
   if(topToday)return {angle:'TOP_MATCHES_TODAY',template:'TOP_MATCHES_TODAY',reason:'pelo menos três partidas do Top 5 caem no mesmo dia no Brasil'};
   if(row.priority.rivalry)return {angle:'DERBY_RIVALRY',template:'MATCH_CLASH',reason:`rivalidade verificada na configuração: ${row.priority.rivalry}`};
-  if(players.length===2)return {angle:'PLAYER_VS_PLAYER',template:'PLAYER_CLASH',reason:`os dois times têm evidência de jogador na temporada acima de ${QUALITY.playerEvidenceMinimum}`};
-  if(players.length===1)return {angle:'STAR_FOCUS',template:'STAR_FOCUS',reason:`${players[0].name} tem a evidência individual mais forte e defensável da temporada`};
+  if(licensedPlayers.length===2)return {angle:'PLAYER_VS_PLAYER',template:'PLAYER_CLASH',reason:`os dois times têm jogador com evidência de temporada e mídia comercial aprovada`};
+  if(licensedPlayers.length===1)return {angle:'STAR_FOCUS',template:'STAR_FOCUS',reason:`${licensedPlayers[0].name} tem evidência de temporada e mídia comercial aprovada`};
   const standings=row.priority.lines.find(line=>line.component==='standings');
   if(standings&&standings.strength>0)return {angle:'TABLE_PRESSURE',template:'MATCH_CLASH',reason:'a posição real dos times na tabela dá peso ao confronto'};
   if((row.odds.publicBookmakers?.length??0)>=2&&(row.odds.publicPriceGap??0)>=QUALITY.oddsGapMinimum)
@@ -76,15 +81,17 @@ export function seoPriority(row:RankedGrowthFixture,rank:number):GrowthSeoPriori
 }
 
 export function readiness(row:RankedGrowthFixture,story:GrowthStorySelection,players:GrowthSelectedPlayer[]):GrowthReadiness{
+  const licensedPlayers=commercialMediaPlayers(players),playerLed=story.angle==='PLAYER_VS_PLAYER'||story.angle==='STAR_FOCUS';
+  const rightsFallback=players.length>0&&!licensedPlayers.length&&!playerLed;
   const components={story:story.angle==='WEEKEND_WATCHLIST'?8:story.angle==='BIG_MATCH'?12:16,
     data:Math.round((row.priority.lines.find(line=>line.component==='data')?.strength??0)*20),
     player:players.length?Math.min(18,players.reduce((sum,p)=>sum+(p.evidenceScore>=QUALITY.playerEvidenceMinimum?9:0),0)):8,
-    rights:players.length?players.reduce((sum,p)=>sum+(p.media.commercialEligible?7:3),0):12,
+    rights:playerLed?licensedPlayers.reduce((sum)=>sum+7,0):12,
     odds:Math.min(15,row.signals.oddsBookmakers*5),template:story.template?12:0,duplicate:8};
   const raw=Math.min(100,Object.values(components).reduce((sum,value)=>sum+value,0));
-  const reasons=Object.entries(components).map(([key,value])=>`${key} ${value}`);
-  if(raw>=QUALITY.publishReady)return {score:raw,state:'READY',reasons,fallbackApplied:false};
-  if(raw>=QUALITY.needsReview)return {score:raw,state:'NEEDS_REVIEW',reasons,fallbackApplied:false};
+  const reasons=[...Object.entries(components).map(([key,value])=>`${key} ${value}`),...(rightsFallback?['player media is not commercially approved; rights-safe Match Clash applied']:[])];
+  if(raw>=QUALITY.publishReady)return {score:raw,state:'READY',reasons,fallbackApplied:rightsFallback};
+  if(raw>=QUALITY.needsReview)return {score:raw,state:'NEEDS_REVIEW',reasons,fallbackApplied:rightsFallback};
   return {score:raw,state:'FALLBACK',reasons:[...reasons,'below readiness floor; club-based Match Clash required'],fallbackApplied:true};
 }
 

@@ -50,6 +50,7 @@
     "m5.1:replay": "node --require ./scripts/tsx-windows-preload.cjs --import tsx --env-file=.env.production.local --env-file=.env scripts/m5-1-cli.ts replay",
     "secret:scan": "node scripts/secret-scan.mjs",
     "growth:regenerate-drafts": "node --import ./scripts/growth-cli-preload.mjs --import tsx --env-file=.env.production.local --env-file-if-exists=.env.local src/growth/cli.ts regenerate-v1-drafts",
+    "growth:regenerate-rights-fallbacks": "node --import ./scripts/growth-cli-preload.mjs --import tsx --env-file=.env.production.local --env-file-if-exists=.env.local src/growth/cli.ts regenerate-rights-fallbacks",
     "growth:audit-media": "node --import ./scripts/growth-cli-preload.mjs --import tsx --env-file=.env.production.local --env-file-if-exists=.env.local src/growth/cli.ts audit-media",
     "growth:audit-top10": "node --import ./scripts/growth-cli-preload.mjs --import tsx --env-file=.env.production.local --env-file-if-exists=.env.local src/growth/cli.ts audit-top10",
     "growth:validate-migration": "node --import ./scripts/growth-cli-preload.mjs --import tsx --env-file=.env.production.local --env-file-if-exists=.env.local src/growth/cli.ts validate-migration",

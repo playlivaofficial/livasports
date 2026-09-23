@@ -165,6 +165,8 @@ export const MINIMUM_SCORE=18;
 
 /** Deterministic content/attribution contract shared by generation, persistence and the owner UI. */
 export const CONTENT_GENERATOR_VERSION=2;
+/** Increments when deterministic V1.1 selection/output policy changes without changing the storage schema. */
+export const CONTENT_POLICY_VERSION=2;
 export const GROWTH_CHANNELS=['TIKTOK','INSTAGRAM_REELS','YOUTUBE_SHORTS','EDITORIAL'] as const;
 export type GrowthChannel=typeof GROWTH_CHANNELS[number];
 export const VIDEO_CHANNELS=['TIKTOK','INSTAGRAM_REELS','YOUTUBE_SHORTS'] as const;
