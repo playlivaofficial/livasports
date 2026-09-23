@@ -95,6 +95,22 @@ not weakened. Focused growth: 69 tests plus all six real renderer tests passed.
 
 ## Release checklist
 
+### Deployed Preview findings
+
+An isolated, owner-authorized same-commit Preview was used without persisting drafts. Preview lacked
+both owner credentials and AUTH_SECRET; short-lived branch-only values were created, then removed.
+All temporary deployments and Vercel automation bypasses were deleted/revoked after every test.
+Production owner credential IDs and update timestamps remained unchanged.
+
+Three real Vercel renders passed encoding/narration (25.5–27.7s each, 2.25–3.51 MB, five voiced scenes),
+but visual inspection correctly blocked release: the fontless Linux runtime rendered missing-glyph
+boxes instead of headlines. The local Windows render did not reveal this environment defect.
+
+Liberation Sans 2.1.5 and its SIL OFL license are now bundled in both render routes, with Fontconfig
+aliases preserving the existing Arial-compatible metrics and visual hierarchy. A runtime glyph check
+fails before narration if text is missing. Owner-only failure diagnostics expose bounded machine codes,
+never raw exceptions, SQL or credentials. Corrected deployed visual QA is required before merge.
+
 Before merge: final payload-constrained Top 5 × 3, focused gates, exact commit Preview, three
 owner-only deployed render proofs, owner UI and static asset checks. After merge: exact production
 deployment/alias SHA, additive 037, controlled generation, eligible DRAFT regeneration and retained

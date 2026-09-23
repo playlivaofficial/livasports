@@ -1,4 +1,5 @@
 import 'server-only';
+import './render-fonts';
 import {spawn} from 'node:child_process';
 import {createHash} from 'node:crypto';
 import {mkdtemp,readFile,rm,writeFile} from 'node:fs/promises';
@@ -192,6 +193,14 @@ function runFfmpeg(binary:string,args:string[],deadlineMs=Date.now()+90_000){ret
   const timeout=setTimeout(()=>child.kill(),Math.min(90_000,Math.max(1,deadlineMs-Date.now())));
   child.stderr.on('data',chunk=>{stderr=(stderr+String(chunk)).slice(-8000);});child.on('error',error=>{clearTimeout(timeout);reject(error);});child.on('close',code=>{clearTimeout(timeout);if(code===0)resolve(stderr);else reject(new Error(`FFMPEG_${code}:${stderr}`));});});}
 
+let glyphCheck:Promise<void>|undefined;
+/** Missing fonts can return a successful MP4 made of tofu boxes. Reject that before paid narration. */
+export function verifyGrowthGlyphs(){
+  return glyphCheck??=Promise.all(['WWW','iii'].map(value=>sharp(Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="256" height="96"><text x="4" y="70" fill="white" font-family="Arial,Helvetica,sans-serif" font-size="64" font-weight="800">${value}</text></svg>`)).ensureAlpha().raw().toBuffer())).then(([wide,narrow])=>{
+    if(wide.equals(narrow)||!wide.some(Boolean)||!narrow.some(Boolean))throw new Error('FONT_GLYPHS_UNAVAILABLE');
+  }).catch(error=>{glyphCheck=undefined;throw error;});
+}
+
 interface NarrationAudio {narration:NarrationResult;files:Array<{path:string;delayMs:number;order:number;seconds:number}>;}
 /** Synthesise the draft's own scene voiceovers and stage them as files FFmpeg can delay into place. */
 async function buildNarrationAudio(draft:GrowthPlatformDraft,directory:string,options:VideoRendererOptions):Promise<NarrationAudio>{
@@ -216,6 +225,7 @@ export async function renderGrowthVideo(draft:GrowthPlatformDraft,fixture:Growth
   const started=Date.now();
   options={...options,deadlineMs:options.deadlineMs??started+90_000};
   if(started>=options.deadlineMs!)throw new Error('RENDER_BUDGET_EXCEEDED');
+  await verifyGrowthGlyphs();
   const binary=options.ffmpeg??ffmpegPath;if(!binary)throw new Error('FFMPEG_UNAVAILABLE');
   const directory=await mkdtemp(join(tmpdir(),'livasports-growth-')),output=join(directory,`${draft.channel.toLowerCase()}.mp4`);
   try{
