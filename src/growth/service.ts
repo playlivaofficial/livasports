@@ -1,11 +1,11 @@
 import 'server-only';
 import type {DatabaseClient} from '@/database/client';
-import {buildShortlist} from './shortlist';
+import {buildShortlist,sharedPriorityRanks} from './shortlist';
 import {scoreFixture,isProducible} from './scoring';
 import {generatedContent} from './content';
 import {renderGrowthVideo,renderGrowthVideos,type GrowthVideoRenderResult} from './video-renderer';
 import {SHORTLIST,VIDEO_CHANNELS,type GrowthVideoChannel} from './config';
-import {acquireGrowthJob,enrichGrowthStorySignals,finishGrowthJob,persistGrowthItem,readGrowthFixtures,readGrowthItem,readGrowthVideo,readLatestGrowthItems,readV1DraftsForRegeneration,recentGrowthFixtureIds,upsertGrowthSeoPriorities} from './repository';
+import {acquireGrowthJob,enrichGrowthStorySignals,finishGrowthJob,persistGrowthItem,readGrowthFixtures,readGrowthItem,readGrowthVideo,readLatestGrowthItems,readRightsFallbackDraftsForRegeneration,readV1DraftsForRegeneration,recentGrowthFixtureIds,upsertGrowthSeoPriorities} from './repository';
 import type {GrowthContentPack,GrowthDashboard,RankedGrowthFixture} from './types';
 
 /** Optional future rewrite boundary. V1 intentionally ships only the deterministic implementation. */
@@ -60,6 +60,7 @@ export async function runGrowthGeneration(db:DatabaseClient,trigger:'AUTOMATIC'|
     const sharedShortlist=buildShortlist(ranked.map(row=>row.priority));
     const sharedTopSocial=rowsForPriorities(ranked,sharedShortlist.social);
     const sharedTopTen=await enrichGrowthStorySignals(db,rowsForPriorities(ranked,sharedShortlist.content));
+    const priorityRank=sharedPriorityRanks(sharedShortlist,ranked.map(row=>row.priority));
     const sharedById=new Map(sharedTopTen.map(row=>[row.signals.fixtureId,row]));
     const sharedMaterials=sharedTopTen.map((row,index)=>({row,rank:index+1,material:generatedContent(row,index+1,sharedTopSocial)}));
     await upsertGrowthSeoPriorities(db,sharedMaterials.map(({row,rank,material})=>({fixtureId:row.signals.fixtureId,rank,score:row.priority.total,
@@ -77,8 +78,6 @@ export async function runGrowthGeneration(db:DatabaseClient,trigger:'AUTOMATIC'|
     }
     const enrichedSelected=await enrichGrowthStorySignals(db,selected.filter(row=>!sharedById.has(row.signals.fixtureId)));
     selected=selected.map(row=>sharedById.get(row.signals.fixtureId)??enrichedSelected.find(item=>item.signals.fixtureId===row.signals.fixtureId)??row);
-    const priorityRank=new Map(ranked.slice().sort((a,b)=>b.priority.total-a.priority.total||Date.parse(a.signals.kickoff)-Date.parse(b.signals.kickoff)||a.signals.publicId.localeCompare(b.signals.publicId))
-      .map((row,index)=>[row.signals.fixtureId,index+1]));
     let failed=0;
     for(const row of selected){
       try{
@@ -102,17 +101,15 @@ export async function runGrowthGeneration(db:DatabaseClient,trigger:'AUTOMATIC'|
   }
 }
 
-/** One-time production-safe V1 migration: only unsuperseded items whose every channel is still DRAFT. */
-export async function regenerateV1Drafts(db:DatabaseClient,options:{now?:Date}={}):Promise<GrowthRegenerationResult>{
-  const now=options.now??new Date(),drafts=await readV1DraftsForRegeneration(db),jobId=await acquireGrowthJob(db,'OWNER',now);
+async function regenerateDraftSet(db:DatabaseClient,drafts:Array<{id:string;fixture_id:string}>,now:Date):Promise<GrowthRegenerationResult>{
+  const jobId=await acquireGrowthJob(db,'OWNER',now);
   if(!jobId)return {state:'ALREADY_RUNNING',jobId:null,considered:0,generated:0,skippedDuplicate:0,itemIds:[],providerRequests:0,eligibleDrafts:drafts.length,skippedMissingFixture:0};
   let considered=0,generated=0,failed=0,skippedMissingFixture=0;const itemIds:string[]=[];
   try{
     const ranked=await rankGrowthInventory(db,now),shared=buildShortlist(ranked.map(row=>row.priority));
     const topSocial=rowsForPriorities(ranked,shared.social),byId=new Map(ranked.map(row=>[row.signals.fixtureId,row]));
     const candidates=drafts.flatMap(draft=>{const row=byId.get(String(draft.fixture_id));if(!row){skippedMissingFixture++;return [];}return [{draft,row}];});
-    considered=candidates.length;const enriched=await enrichGrowthStorySignals(db,candidates.map(item=>item.row));
-    const rankMap=new Map(ranked.slice().sort((a,b)=>b.priority.total-a.priority.total||Date.parse(a.signals.kickoff)-Date.parse(b.signals.kickoff)||a.signals.publicId.localeCompare(b.signals.publicId)).map((row,index)=>[row.signals.fixtureId,index+1]));
+    considered=candidates.length;const enriched=await enrichGrowthStorySignals(db,candidates.map(item=>item.row)),rankMap=sharedPriorityRanks(shared,ranked.map(row=>row.priority));
     for(const candidate of candidates){
       const row=enriched.find(item=>item.signals.fixtureId===candidate.row.signals.fixtureId)!;
       try{const material=generatedContent(row,rankMap.get(row.signals.fixtureId)??1,topSocial),videos=await renderGrowthVideos(material.content.platforms!,material.fixture);
@@ -120,7 +117,7 @@ export async function regenerateV1Drafts(db:DatabaseClient,options:{now?:Date}={
           scoreBreakdown:row.priority.lines,reasons:row.priority.reasons,fixture:material.fixture,content:material.content,canonicalUrl:row.destinationUrl,
           tracking:material.tracking,now,force:true,videos,supersedesItemId:String(candidate.draft.id)});
         if(stored){generated++;itemIds.push(stored.id);if(videos.some(video=>video.status==='FAILED'))failed++;}
-      }catch{failed++;}
+      }catch(error){failed++;console.error(`[LivaSports Traffic V1.1] ${JSON.stringify({event:'growth-draft-regeneration-failed',fixtureId:row.signals.fixtureId,code:safeItemFailure(error)})}`);}
     }
     const state=failed||skippedMissingFixture?'PARTIAL':'SUCCEEDED';const error=failed?'DRAFT_REGENERATION_ITEM_FAILED':skippedMissingFixture?'DRAFT_FIXTURE_OUTSIDE_ACTIVE_WINDOW':undefined;
     await finishGrowthJob(db,jobId,state,{considered,generated,skippedDuplicate:0,...(error?{error}:{})},new Date());
@@ -128,6 +125,16 @@ export async function regenerateV1Drafts(db:DatabaseClient,options:{now?:Date}={
   }catch(error){const code=error instanceof Error&&/^[A-Z0-9_]+$/.test(error.message)?error.message:'DRAFT_REGENERATION_FAILED';
     await finishGrowthJob(db,jobId,'FAILED',{considered,generated,skippedDuplicate:0,error:code},new Date()).catch(()=>undefined);
     return {state:'FAILED',jobId,considered,generated,skippedDuplicate:0,itemIds,error:code,providerRequests:0,eligibleDrafts:drafts.length,skippedMissingFixture};}
+}
+
+/** One-time production-safe V1 migration: only unsuperseded items whose every channel is still DRAFT. */
+export async function regenerateV1Drafts(db:DatabaseClient,options:{now?:Date}={}):Promise<GrowthRegenerationResult>{
+  const now=options.now??new Date();return regenerateDraftSet(db,await readV1DraftsForRegeneration(db),now);
+}
+
+/** One-time V1.1 repair: all-DRAFT player stories without commercial media become rights-safe club-led revisions. */
+export async function regenerateRightsFallbackDrafts(db:DatabaseClient,options:{now?:Date}={}):Promise<GrowthRegenerationResult>{
+  const now=options.now??new Date();return regenerateDraftSet(db,await readRightsFallbackDraftsForRegeneration(db),now);
 }
 
 /** Rebuilds one platform plan/video while carrying the other platforms and their review states forward unchanged. */
@@ -138,7 +145,7 @@ export async function regenerateGrowthPlatform(db:DatabaseClient,itemId:string,c
     if(!item||item.supersededAt||!item.content.platforms||!record||!['DRAFT','REJECTED'].includes(record.status))throw new Error('PLATFORM_REGENERATION_NOT_ALLOWED');
     const ranked=await rankGrowthInventory(db,now),row=ranked.find(candidate=>candidate.signals.fixtureId===item.fixtureId);if(!row)throw new Error('FIXTURE_NOT_PRODUCIBLE');
     const shared=buildShortlist(ranked.map(candidate=>candidate.priority)),topSocial=rowsForPriorities(ranked,shared.social);
-    const [enriched]=await enrichGrowthStorySignals(db,[row]);const rank=ranked.slice().sort((a,b)=>b.priority.total-a.priority.total||Date.parse(a.signals.kickoff)-Date.parse(b.signals.kickoff)||a.signals.publicId.localeCompare(b.signals.publicId)).findIndex(candidate=>candidate.signals.fixtureId===row.signals.fixtureId)+1;
+    const [enriched]=await enrichGrowthStorySignals(db,[row]);const rank=sharedPriorityRanks(shared,ranked.map(candidate=>candidate.priority)).get(row.signals.fixtureId)??1;
     const fresh=generatedContent(enriched,Math.max(1,rank),topSocial),freshDraft=fresh.content.platforms![channel];
     const content={...fresh.content,platforms:{...fresh.content.platforms,...item.content.platforms,[channel]:freshDraft},
       captions:{...fresh.content.captions,...item.content.captions,[channel]:freshDraft.caption}};

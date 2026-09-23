@@ -270,3 +270,14 @@ export async function readV1DraftsForRegeneration(db:QueryExecutor){
       AND NOT EXISTS(SELECT 1 FROM growth_content_channels ch WHERE ch.content_item_id=i.id AND ch.status<>'DRAFT')
     ORDER BY i.fixture_id,i.revision DESC`)).rows;
 }
+
+/** One-time rights-policy repair: only current, all-DRAFT V1.1 items whose player-led story has no approved commercial image. */
+export async function readRightsFallbackDraftsForRegeneration(db:QueryExecutor){
+  return (await db.query<{id:string;fixture_id:string}>(`SELECT DISTINCT ON(i.fixture_id) i.id,i.fixture_id FROM growth_content_items i
+    WHERE i.generator_version=2 AND i.superseded_at IS NULL
+      AND i.content_pack->'story'->>'angle' IN('PLAYER_VS_PLAYER','STAR_FOCUS')
+      AND NOT EXISTS(SELECT 1 FROM jsonb_array_elements(COALESCE(i.content_pack->'players','[]'::jsonb)) player
+        WHERE COALESCE((player#>>'{media,commercialEligible}')::boolean,false) AND NULLIF(player#>>'{media,assetUrl}','') IS NOT NULL)
+      AND NOT EXISTS(SELECT 1 FROM growth_content_channels ch WHERE ch.content_item_id=i.id AND ch.status<>'DRAFT')
+    ORDER BY i.fixture_id,i.revision DESC`)).rows;
+}

@@ -6,7 +6,7 @@ import ffmpegPath from 'ffmpeg-static';
 import sharp from 'sharp';
 import {databaseUrl,PostgresDatabaseClient} from '@/database/client';
 import type {GrowthVideoChannel} from './config';
-import {rankGrowthInventory,regenerateV1Drafts} from './service';
+import {rankGrowthInventory,regenerateRightsFallbackDrafts,regenerateV1Drafts} from './service';
 import {buildShortlist} from './shortlist';
 import {generatedContent} from './content';
 import {renderGrowthVideos} from './video-renderer';
@@ -39,7 +39,8 @@ async function createContactSheets(directory:string,videos:QaVideo[]){
   return contactSheets;
 }
 try{
-  if(command==='regenerate-v1-drafts')console.info(JSON.stringify({command,...await regenerateV1Drafts(db)},null,2));
+  if(command==='regenerate-rights-fallbacks')console.info(JSON.stringify({command,...await regenerateRightsFallbackDrafts(db)},null,2));
+  else if(command==='regenerate-v1-drafts')console.info(JSON.stringify({command,...await regenerateV1Drafts(db)},null,2));
   else if(command==='validate-migration'){
     const source=await readFile(new URL('../../db/migrations/036_traffic_engine_v1_1.sql',import.meta.url),'utf8'),dryRun=source.replace(/COMMIT;\s*$/,'ROLLBACK;');
     if(dryRun===source)throw new Error('MIGRATION_COMMIT_NOT_FOUND');await db.query(dryRun);

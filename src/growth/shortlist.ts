@@ -63,3 +63,10 @@ export function buildShortlist(priorities:readonly FixturePriority[],options:Sho
   return {social,content,considered:priorities.length,producible:producible.length,
     suppressedAsDuplicate:producible.length-fresh.length};
 }
+
+/** Canonical content ranks follow the shared diversity-aware Top 10; remaining fixtures continue in raw-score order. */
+export function sharedPriorityRanks(shortlist:Pick<Shortlist,'content'>,priorities:readonly FixturePriority[]):Map<string,number>{
+  const sharedIds=shortlist.content.map(row=>row.fixtureId),shared=new Set(sharedIds);
+  const remaining=rankPriorities(priorities).map(row=>row.fixtureId).filter(id=>!shared.has(id));
+  return new Map([...sharedIds,...remaining].map((id,index)=>[id,index+1]));
+}

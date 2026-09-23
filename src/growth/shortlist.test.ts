@@ -1,6 +1,6 @@
 import {describe,expect,it} from 'vitest';
 import {SHORTLIST} from './config';
-import {buildShortlist,pickWithDiversity,rankPriorities} from './shortlist';
+import {buildShortlist,pickWithDiversity,rankPriorities,sharedPriorityRanks} from './shortlist';
 import type {FixturePriority} from './scoring';
 
 const priority=(id:string,total:number,competitionSlug='brasileirao-serie-a',kickoff='2026-09-23T12:00:00Z'):FixturePriority=>({fixtureId:id,publicId:id.padStart(16,'0').slice(-16),kickoff,competitionSlug,total,
@@ -30,5 +30,10 @@ describe('Traffic Engine V1 shortlist diversity',()=>{
     const result=buildShortlist(rows,{excludeFixtureIds:new Set(['0'])});
     expect(result.social).toHaveLength(5);expect(result.content).toHaveLength(10);
     expect(result.social.every(row=>result.content.includes(row))).toBe(true);expect(result.suppressedAsDuplicate).toBe(1);
+  });
+  it('uses the diversity-aware shared Top 10 order as the canonical rank map',()=>{
+    const rows=[priority('a',100),priority('b',99),priority('c',98),priority('d',97,'copa-libertadores')];
+    const shortlist={content:[rows[0],rows[3]]},ranks=sharedPriorityRanks(shortlist,rows);
+    expect(ranks.get('a')).toBe(1);expect(ranks.get('d')).toBe(2);expect(ranks.get('b')).toBe(3);expect(ranks.get('c')).toBe(4);
   });
 });

@@ -1,7 +1,7 @@
 import {describe,expect,it,vi} from 'vitest';
 vi.mock('server-only',()=>({}));
 import type {DatabaseClient,QueryExecutor} from '@/database/client';
-import {canTransitionGrowthStatus,persistGrowthItem,readV1DraftsForRegeneration,transitionGrowthChannel} from './repository';
+import {canTransitionGrowthStatus,persistGrowthItem,readRightsFallbackDraftsForRegeneration,readV1DraftsForRegeneration,transitionGrowthChannel} from './repository';
 import {generatedContent} from './content';
 import {rankedFixture,testNow} from './fixtures.test-support';
 
@@ -45,6 +45,11 @@ describe('Traffic Engine V1 persistence',()=>{
   it('selects only active legacy items whose every platform remains DRAFT',async()=>{
     const query=vi.fn(async(sql:string)=>{void sql;return {rows:[],rowCount:0};});await readV1DraftsForRegeneration(database(query as unknown as QueryExecutor['query']));
     const sql=String(query.mock.calls[0][0]);expect(sql).toContain('generator_version<2');expect(sql).toContain("ch.status<>'DRAFT'");expect(sql).toContain('superseded_at IS NULL');
+  });
+  it('selects only current all-DRAFT player-led items that lack approved commercial media',async()=>{
+    const query=vi.fn(async(sql:string)=>{void sql;return {rows:[],rowCount:0};});await readRightsFallbackDraftsForRegeneration(database(query as unknown as QueryExecutor['query']));
+    const sql=String(query.mock.calls[0][0]);expect(sql).toContain("IN('PLAYER_VS_PLAYER','STAR_FOCUS')");expect(sql).toContain('commercialEligible');
+    expect(sql).toContain("ch.status<>'DRAFT'");expect(sql).toContain('superseded_at IS NULL');
   });
   it('locks and performs one valid state update, rejecting invalid transitions',async()=>{
     const query=vi.fn(async(sql:string)=>sql.includes('SELECT status')?{rows:[{status:'APPROVED'}],rowCount:1}:{rows:[],rowCount:1});
