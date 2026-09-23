@@ -51,4 +51,13 @@ describe('Traffic Engine V1 owner control plane',()=>{
     expect(dependencies.run).not.toHaveBeenCalled();expect(dependencies.transition).not.toHaveBeenCalled();
     expect((await growthOwnerAction(post({action:'preview',fixtureId:'11111111-1111-4111-8111-111111111111',channel:'TIKTOK'}),dependencies)).status).toBe(401);
   });
+  it('exposes only bounded machine diagnostics to the owner, never exception details',async()=>{
+    const logger=vi.spyOn(console,'error').mockImplementation(()=>undefined);
+    try{
+      const preview=vi.fn<NonNullable<GrowthOwnerDependencies['preview']>>(async()=>{throw Object.assign(new Error('sensitive database URL and query'),{code:'ENOENT'});});
+      const response=await growthOwnerAction(post({action:'preview',fixtureId:'11111111-1111-4111-8111-111111111111',channel:'TIKTOK'},owner()),deps({preview}));
+      expect(response.status).toBe(503);expect(await response.json()).toEqual({error:'GROWTH_ACTION_FAILED',code:'ENOENT'});
+      expect(logger).toHaveBeenCalledWith(JSON.stringify({event:'growth-owner-action-failed',action:'preview',code:'ENOENT'}));
+    }finally{logger.mockRestore();}
+  });
 });

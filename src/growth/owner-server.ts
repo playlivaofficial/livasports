@@ -66,5 +66,12 @@ export async function growthOwnerAction(request:Request,deps:GrowthOwnerDependen
     if(!uuid.test(String(body.itemId??''))||!GROWTH_CHANNELS.includes(channel)||!['APPROVED','REJECTED','PUBLISHED'].includes(status))return reply({error:'INVALID_REQUEST'},400);
     const changed=await deps.transition(db,String(body.itemId),channel,status);
     return changed?reply({updated:true,itemId:body.itemId,channel,status}):reply({error:'INVALID_TRANSITION'},409);
-  }catch{return reply({error:'GROWTH_ACTION_FAILED'},503);}finally{await db.close();}
+  }catch(error){
+    // Owner-only diagnostics: stable machine codes, never raw errors, SQL, paths or credentials.
+    const rawCode=(error as {code?:unknown})?.code;
+    const code=typeof rawCode==='string'&&/^[A-Z0-9_]{2,64}$/.test(rawCode)?rawCode:
+      error instanceof Error?/^([A-Z][A-Z0-9_]{1,63})(?=:|$)/.exec(error.message)?.[1]??'UNCLASSIFIED_ACTION_FAILURE':'UNCLASSIFIED_ACTION_FAILURE';
+    console.error(JSON.stringify({event:'growth-owner-action-failed',action,code}));
+    return reply({error:'GROWTH_ACTION_FAILED',code},503);
+  }finally{await db.close();}
 }

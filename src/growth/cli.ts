@@ -72,7 +72,11 @@ try{
       const response=await fetch(new URL('/api/owner/growth',origin),{method:'POST',headers:{cookie,origin:origin.origin,'sec-fetch-site':'same-origin','content-type':'application/json',
         ...(process.env.VERCEL_AUTOMATION_BYPASS_SECRET?{'x-vercel-protection-bypass':process.env.VERCEL_AUTOMATION_BYPASS_SECRET}:{})},
         body:JSON.stringify({action:'preview',fixtureId:top[0].fixtureId,channel}),signal:AbortSignal.timeout(180_000)});
-      if(!response.ok||!response.headers.get('content-type')?.includes('video/mp4'))throw new Error(`DEPLOYED_PREVIEW_HTTP_${response.status}`);
+      if(!response.ok||!response.headers.get('content-type')?.includes('video/mp4')){
+        const failure=await response.json().catch(()=>({}));
+        const code=typeof failure.code==='string'&&/^[A-Z0-9_]{2,64}$/.test(failure.code)?failure.code:'UNKNOWN';
+        throw new Error(`DEPLOYED_PREVIEW_HTTP_${response.status}_${code}`);
+      }
       const data=Buffer.from(await response.arrayBuffer()),file=join(directory,`${channel.toLowerCase()}.mp4`);await writeFile(file,data);
       console.info(JSON.stringify({command,origin:origin.origin,channel,file,bytes:data.length,voice:response.headers.get('x-growth-voice'),characters:response.headers.get('x-growth-characters'),renderMs:response.headers.get('x-growth-render-ms')}));
     }
