@@ -1,18 +1,32 @@
 import 'server-only';
 import {spawn} from 'node:child_process';
 import {createHash} from 'node:crypto';
-import {mkdtemp,readFile,rm} from 'node:fs/promises';
+import {mkdtemp,readFile,rm,writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import ffmpegPath from 'ffmpeg-static';
 import sharp from 'sharp';
-import {VIDEO,type GrowthVideoChannel} from './config';
+import {CHANNEL_VOICE,VIDEO,VOICE,type GrowthVideoChannel} from './config';
+import {BRAND,brandDefsSvg,livaSportsLockupSvg} from './brand';
+import {narrateScenes,type NarrationResult,type VoiceClip,type VoiceProvider} from './voice';
 import type {GrowthFixtureSnapshot,GrowthPlatformDraft,GrowthVideoScene} from './types';
 
-export interface RenderedGrowthVideo {channel:GrowthVideoChannel;status:'READY';mimeType:'video/mp4';sha256:string;byteLength:number;data:Buffer;}
+export interface RenderedGrowthVideo {channel:GrowthVideoChannel;status:'READY';mimeType:'video/mp4';sha256:string;byteLength:number;data:Buffer;
+  /**
+   * What the owner queue shows about this render's audio: which voice, and why it is silent if it is.
+   * Absent on a video reused from storage, whose narration state was recorded when it was first made.
+   */
+  voice?:{mode:string;provider:string;lines:number;degradedReason:string|null};}
 export interface FailedGrowthVideo {channel:GrowthVideoChannel;status:'FAILED';mimeType:null;sha256:null;byteLength:null;data:null;errorCode:string;}
 export type GrowthVideoRenderResult=RenderedGrowthVideo|FailedGrowthVideo;
-export interface VideoRendererOptions {assetLoader?:(url:string)=>Promise<string|null>;ffmpeg?:string;}
+export interface VideoRendererOptions {
+  assetLoader?:(url:string)=>Promise<string|null>;
+  ffmpeg?:string;
+  /** Injected in tests; production resolves the configured provider itself. */
+  voice?:VoiceProvider;
+  /** Shared across the three platform renders of one fixture so an identical line is synthesised once. */
+  voiceCache?:Map<string,Promise<VoiceClip>>;
+}
 
 const escape=(value:string)=>value.replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[char]!));
 function wrappedLines(value:string,max=27){
@@ -50,11 +64,15 @@ async function remoteAsset(url:string):Promise<string|null>{
 
 async function sceneSvg(scene:GrowthVideoScene,fixture:GrowthFixtureSnapshot,channel:GrowthVideoChannel,load:(url:string)=>Promise<string|null>){
   const assets=await Promise.all(scene.assets.slice(0,2).map(async asset=>({...asset,data:asset.url?await load(asset.url):null})));
-  const accent=channel==='TIKTOK'?'#d5ff48':channel==='INSTAGRAM_REELS'?'#ff4fb8':'#ff365f';
+  // V1.2: one brand accent on every platform. The channels previously carried lime, pink and red —
+  // none of them a LivaSports colour — which is precisely what made the output read as generic
+  // template spam. Platforms differ by composition, pacing and geometry, not by repainting the brand.
+  const accent=BRAND.livasports.accent;
+  const support=channel==='TIKTOK'?BRAND.livasports.mark:channel==='INSTAGRAM_REELS'?BRAND.livasports.tldInk:BRAND.livasports.accentStrong;
   const visualAssets=!['ODDS','CTA','WATCHLIST'].includes(scene.visual),assetY=channel==='TIKTOK'?590:channel==='INSTAGRAM_REELS'?620:600;
-  const geometry=channel==='TIKTOK'?`<path d="M-120 420 L1080 120 L1080 330 L-120 630Z" fill="${accent}" opacity=".08"/><path d="M720 0 L1080 0 L1080 880 L930 920Z" fill="${accent}" opacity=".05"/>`
-    :channel==='INSTAGRAM_REELS'?`<circle cx="900" cy="360" r="330" fill="none" stroke="${accent}" stroke-width="3" opacity=".12"/><circle cx="900" cy="360" r="240" fill="none" stroke="${accent}" stroke-width="2" opacity=".1"/><rect x="34" y="210" width="1012" height="1010" rx="70" fill="none" stroke="#ffffff" stroke-width="2" opacity=".06"/>`
-      :`<rect x="0" width="24" height="1920" fill="${accent}"/><path d="M760 180 H1080 V1030 L930 1120 H760Z" fill="${accent}" opacity=".07"/><path d="M76 190 H1004" stroke="#ffffff" opacity=".08" stroke-width="2"/>`;
+  const geometry=channel==='TIKTOK'?`<path d="M-120 420 L1080 120 L1080 330 L-120 630Z" fill="${accent}" opacity=".08"/><path d="M720 0 L1080 0 L1080 880 L930 920Z" fill="${support}" opacity=".05"/>`
+    :channel==='INSTAGRAM_REELS'?`<circle cx="900" cy="360" r="330" fill="none" stroke="${accent}" stroke-width="3" opacity=".12"/><circle cx="900" cy="360" r="240" fill="none" stroke="${support}" stroke-width="2" opacity=".1"/><rect x="34" y="210" width="1012" height="1010" rx="70" fill="none" stroke="#ffffff" stroke-width="2" opacity=".06"/>`
+      :`<rect x="0" width="24" height="1920" fill="${accent}"/><path d="M760 180 H1080 V1030 L930 1120 H760Z" fill="${support}" opacity=".07"/><path d="M76 190 H1004" stroke="#ffffff" opacity=".08" stroke-width="2"/>`;
   const card=(x:number)=>channel==='TIKTOK'?`<path d="M${x-18} ${assetY+35} L${x+270} ${assetY-10} L${x+318} ${assetY+310} L${x+18} ${assetY+340}Z" fill="#07131ccc" stroke="${accent}" stroke-width="3"/>`
     :channel==='INSTAGRAM_REELS'?`<rect x="${x-25}" y="${assetY-25}" width="350" height="390" rx="54" fill="#ffffff0b" stroke="#ffffff28" stroke-width="3"/>`
       :`<rect x="${x-20}" y="${assetY-20}" width="340" height="380" rx="22" fill="#07131ce6" stroke="${accent}" stroke-width="4"/><rect x="${x-20}" y="${assetY-20}" width="10" height="380" fill="${accent}"/>`;
@@ -79,9 +97,9 @@ async function sceneSvg(scene:GrowthVideoScene,fixture:GrowthFixtureSnapshot,cha
   const subtitleCopy=scene.visual==='WATCHLIST'?'Top 5 priorizado pelo motor de crescimento para a agenda brasileira.':scene.subtitle;
   const footerSize=Math.max(20,Math.min(28,Math.floor(850/Math.max(1,fixture.competition.name.length*.55))));
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${VIDEO.width}" height="${VIDEO.height}" viewBox="0 0 ${VIDEO.width} ${VIDEO.height}">
-  <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="${channel==='INSTAGRAM_REELS'?'#100b20':'#06131c'}"/><stop offset="1" stop-color="${channel==='TIKTOK'?'#123829':channel==='INSTAGRAM_REELS'?'#29142f':'#201421'}"/></linearGradient><radialGradient id="glow"><stop stop-color="${accent}" stop-opacity=".22"/><stop offset="1" stop-color="${accent}" stop-opacity="0"/></radialGradient></defs>
+  <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="${channel==='INSTAGRAM_REELS'?'#100b20':'#06131c'}"/><stop offset="1" stop-color="${channel==='TIKTOK'?'#123829':channel==='INSTAGRAM_REELS'?'#29142f':'#201421'}"/></linearGradient><radialGradient id="glow"><stop stop-color="${accent}" stop-opacity=".22"/><stop offset="1" stop-color="${accent}" stop-opacity="0"/></radialGradient>${brandDefsSvg()}</defs>
   <rect width="1080" height="1920" fill="url(#bg)"/><circle cx="890" cy="340" r="440" fill="url(#glow)"/><circle cx="130" cy="1550" r="380" fill="url(#glow)"/>
-  ${geometry}<text x="76" y="112" fill="${accent}" font-family="Arial" font-size="36" font-weight="900">LivaSports</text><text x="1000" y="112" text-anchor="end" fill="#a8bdc8" font-family="Arial" font-size="21" letter-spacing="4">${topLabel}</text>
+  ${geometry}${livaSportsLockupSvg({x:76,y:78,size:34})}<text x="1000" y="112" text-anchor="end" fill="${BRAND.livasports.muted}" font-family="Arial" font-size="21" letter-spacing="4">${topLabel}</text>
   <rect x="76" y="154" width="928" height="3" fill="#2a4959"/>${fittedBlock(scene.headline,channel==='INSTAGRAM_REELS'?540:76,280,channel==='INSTAGRAM_REELS'?'middle':'start',visualAssets)}
   ${assetMarkup}${assetLabels}${special}${subtitle}
   ${fittedSubtitle(subtitleCopy,channel==='TIKTOK'?112:540,VIDEO.subtitleTop+(channel==='YOUTUBE_SHORTS'?120:105),channel==='TIKTOK'?'start':'middle')}
@@ -93,6 +111,21 @@ async function sceneSvg(scene:GrowthVideoScene,fixture:GrowthFixtureSnapshot,cha
 function runFfmpeg(binary:string,args:string[]){return new Promise<void>((resolve,reject)=>{const child=spawn(binary,args,{windowsHide:true,stdio:['ignore','ignore','pipe']});let stderr='';
   child.stderr.on('data',chunk=>{stderr=(stderr+String(chunk)).slice(-8000);});child.on('error',reject);child.on('close',code=>code===0?resolve():reject(new Error(`FFMPEG_${code}:${stderr}`)));});}
 
+interface NarrationAudio {narration:NarrationResult;files:Array<{path:string;delayMs:number}>;}
+/** Synthesise the draft's own scene voiceovers and stage them as files FFmpeg can delay into place. */
+async function buildNarrationAudio(draft:GrowthPlatformDraft,directory:string,options:VideoRendererOptions):Promise<NarrationAudio>{
+  const mode=CHANNEL_VOICE[draft.channel];
+  const lines=draft.scenes.map(scene=>({order:scene.order,startSeconds:scene.startSeconds,text:scene.voiceover}));
+  const narration=await narrateScenes(lines,mode,{provider:options.voice,cache:options.voiceCache});
+  const files:NarrationAudio['files']=[];
+  for(const line of narration.clips){
+    const path=join(directory,`voice-${line.order}.mp3`);
+    await writeFile(path,line.clip.data);
+    files.push({path,delayMs:Math.max(0,Math.round(line.startSeconds*1000))});
+  }
+  return {narration,files};
+}
+
 export async function renderGrowthVideo(draft:GrowthPlatformDraft,fixture:GrowthFixtureSnapshot,options:VideoRendererOptions={}):Promise<RenderedGrowthVideo>{
   const binary=options.ffmpeg??ffmpegPath;if(!binary)throw new Error('FFMPEG_UNAVAILABLE');
   const directory=await mkdtemp(join(tmpdir(),'livasports-growth-')),output=join(directory,`${draft.channel.toLowerCase()}.mp4`),load=options.assetLoader??remoteAsset;
@@ -103,9 +136,25 @@ export async function renderGrowthVideo(draft:GrowthPlatformDraft,fixture:Growth
       const fade=scene.transition==='FADE'?`,fade=t=in:st=0:d=0.25,fade=t=out:st=${out}:d=0.3`:scene.transition==='SLIDE'?',fade=t=in:st=0:d=0.1':'';
       return `[${index}:v]scale=${VIDEO.width}:${VIDEO.height},zoompan=z='min(zoom+0.00045,1.035)':${motion}:y='ih/2-(ih/zoom/2)':d=1:s=${VIDEO.width}x${VIDEO.height}:fps=${VIDEO.fps}${fade},setsar=1,setpts=PTS-STARTPTS[v${index}]`;});
     filters.push(`${draft.scenes.map((_,index)=>`[v${index}]`).join('')}concat=n=${draft.scenes.length}:v=1:a=0[outv]`);
-    args.push('-filter_threads','1','-filter_complex_threads','1','-filter_complex',filters.join(';'),'-map','[outv]','-an','-c:v','libx264','-preset','ultrafast','-threads','1','-crf','25','-pix_fmt','yuv420p','-r',String(VIDEO.fps),'-movflags','+faststart','-y',output);
+    // Narration is laid against the scene plan the draft already carries, so a line lands with the
+    // frame it describes. A degraded narration still renders: the video is designed to read muted.
+    const totalSeconds=draft.scenes.reduce((sum,scene)=>sum+scene.durationSeconds,0);
+    const audio=await buildNarrationAudio(draft,directory,options);
+    for(const clip of audio.files)args.push('-i',clip.path);
+    if(audio.files.length){
+      const first=draft.scenes.length;
+      audio.files.forEach((clip,index)=>filters.push(`[${first+index}:a]adelay=${clip.delayMs}|${clip.delayMs},volume=${VOICE.voiceGain}[n${index}]`));
+      // Rights-safe ambience: shaped noise generated by FFmpeg itself, never a licensed recording.
+      filters.push(`anoisesrc=d=${totalSeconds.toFixed(2)}:c=pink:a=${VOICE.ambienceGain.toFixed(3)},highpass=f=140,lowpass=f=820[amb]`);
+      filters.push(`${audio.files.map((_,index)=>`[n${index}]`).join('')}[amb]amix=inputs=${audio.files.length+1}:normalize=0:duration=longest[mixed]`);
+      filters.push(`[mixed]alimiter=limit=0.94,aresample=44100[outa]`);
+    }
+    args.push('-filter_threads','1','-filter_complex_threads','1','-filter_complex',filters.join(';'),'-map','[outv]');
+    if(audio.files.length)args.push('-map','[outa]','-c:a','aac','-b:a','128k','-ac','2');else args.push('-an');
+    args.push('-t',totalSeconds.toFixed(2),'-c:v','libx264','-preset','ultrafast','-threads','1','-crf','25','-pix_fmt','yuv420p','-r',String(VIDEO.fps),'-movflags','+faststart','-y',output);
     await runFfmpeg(binary,args);const data=await readFile(output);if(!data.length||data.length>VIDEO.maxRenderBytes)throw new Error('VIDEO_SIZE_INVALID');
-    return {channel:draft.channel,status:'READY',mimeType:'video/mp4',sha256:createHash('sha256').update(data).digest('hex'),byteLength:data.length,data};
+    return {channel:draft.channel,status:'READY',mimeType:'video/mp4',sha256:createHash('sha256').update(data).digest('hex'),byteLength:data.length,data,
+      voice:{mode:audio.narration.mode,provider:audio.narration.provider,lines:audio.files.length,degradedReason:audio.narration.degradedReason}};
   }finally{await rm(directory,{recursive:true,force:true});}
 }
 
@@ -114,7 +163,9 @@ export async function renderGrowthVideos(drafts:Record<GrowthVideoChannel,Growth
   const results:GrowthVideoRenderResult[]=[];
   const sourceLoader=options.assetLoader??remoteAsset,assetCache=new Map<string,Promise<string|null>>();
   const cachedLoader=(url:string)=>{const cached=assetCache.get(url);if(cached)return cached;const pending=sourceLoader(url);assetCache.set(url,pending);return pending;};
-  const batchOptions={...options,assetLoader:cachedLoader};
+  // One synthesis cache for the whole fixture: the three platforms often word a line identically, and
+  // each repeat would otherwise be a redundant provider call paid for and waited on three times.
+  const batchOptions={...options,assetLoader:cachedLoader,voiceCache:options.voiceCache??new Map<string,Promise<VoiceClip>>()};
   // A single 1080×1920 encoder comfortably fits the serverless memory budget; three parallel FFmpeg
   // processes do not. Keep platform output deterministic, reuse media across platform variants and
   // bound peak memory to one encoder.
