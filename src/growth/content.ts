@@ -33,8 +33,8 @@ function oddsContext(fixture:GrowthFixtureSnapshot):string{
 export function fixtureSnapshot(row:RankedGrowthFixture):GrowthFixtureSnapshot{
   const {signals,priority,odds}=row;
   return {fixtureId:signals.fixtureId,publicId:signals.publicId,
-    home:{name:signals.home.name,publicId:signals.home.publicId,imageUrl:signals.home.imageUrl},
-    away:{name:signals.away.name,publicId:signals.away.publicId,imageUrl:signals.away.imageUrl},
+    home:{name:signals.home.name,publicId:signals.home.publicId,imageUrl:signals.home.imageUrl,slug:signals.home.slug},
+    away:{name:signals.away.name,publicId:signals.away.publicId,imageUrl:signals.away.imageUrl,slug:signals.away.slug},
     competition:{name:signals.competitionName,slug:signals.competitionSlug},kickoff:signals.kickoff,
     rivalry:priority.rivalry,stage:priority.stage,standings:signals.standings,odds};
 }

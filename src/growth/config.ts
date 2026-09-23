@@ -166,7 +166,7 @@ export const MINIMUM_SCORE=18;
 /** Deterministic content/attribution contract shared by generation, persistence and the owner UI. */
 export const CONTENT_GENERATOR_VERSION=2;
 /** Increments when deterministic V1.1 selection/output policy changes without changing the storage schema. */
-export const CONTENT_POLICY_VERSION=2;
+export const CONTENT_POLICY_VERSION=3;
 export const GROWTH_CHANNELS=['TIKTOK','INSTAGRAM_REELS','YOUTUBE_SHORTS','EDITORIAL'] as const;
 export type GrowthChannel=typeof GROWTH_CHANNELS[number];
 export const VIDEO_CHANNELS=['TIKTOK','INSTAGRAM_REELS','YOUTUBE_SHORTS'] as const;
@@ -187,7 +187,8 @@ export const PLATFORM_PROFILES={
 } as const satisfies Record<GrowthVideoChannel,{label:string;durationSeconds:number;hookSeconds:number;tone:'CONVERSATIONAL'|'PREMIUM'|'INFORMATIONAL';maxHashtags:number;brandIntro:boolean}>;
 
 export const QUALITY={publishReady:68,needsReview:50,playerEvidenceMinimum:22,oddsGapMinimum:0.18} as const;
-export const VIDEO={width:1080,height:1920,fps:12,subtitleTop:1320,subtitleBottom:1640,maxRenderBytes:8_000_000} as const;
+// Direct owner downloads stay below Vercel's 4.5 MB response ceiling, including transport headroom.
+export const VIDEO={width:1080,height:1920,fps:12,subtitleTop:1320,subtitleBottom:1640,maxRenderBytes:4_000_000} as const;
 
 /** Reserved boundary for future verified Search Console/social-trend inputs. No source means no adjustment. */
 export const VERIFIED_TREND_PROVIDERS=[] as readonly string[];
@@ -211,7 +212,7 @@ export const VOICE={
   outputFormat:'mp3_44100_128',
   requestTimeoutMs:15_000,
   /** Wall-clock ceiling for narrating one video, well inside the render budget. */
-  videoBudgetMs:60_000,
+  videoBudgetMs:30_000,
   concurrency:3,
   maxCharacters:420,
   maxLinesPerVideo:6,

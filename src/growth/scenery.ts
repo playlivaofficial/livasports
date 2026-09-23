@@ -13,7 +13,7 @@ import {BRAND} from './brand';
  * A seed makes each family vary between fixtures while staying deterministic for the same input.
  */
 
-export const SCENERY_FAMILIES=['STADIUM_NIGHT','PITCH_MATCHDAY','TUNNEL_BIGMATCH','EDITORIAL_SPORTS','CHARACTER_WORLD'] as const;
+export const SCENERY_FAMILIES=['STADIUM_NIGHT','PITCH_MATCHDAY','TUNNEL_BIGMATCH','EDITORIAL_SPORTS','CROWD_ATMOSPHERE','CHARACTER_WORLD'] as const;
 export type SceneryFamily=typeof SCENERY_FAMILIES[number];
 
 const W=1080,H=1920;
@@ -154,7 +154,7 @@ export function scenerySvg(family:SceneryFamily,id:string,seed:string):string{
  * real original character artwork exists; until then every fixture falls back to the crest, stadium and
  * editorial treatments rather than shipping placeholder figures.
  */
-const SELECTABLE:readonly SceneryFamily[]=['STADIUM_NIGHT','PITCH_MATCHDAY','TUNNEL_BIGMATCH','EDITORIAL_SPORTS'];
+const SELECTABLE:readonly SceneryFamily[]=['STADIUM_NIGHT','PITCH_MATCHDAY','TUNNEL_BIGMATCH','EDITORIAL_SPORTS','CROWD_ATMOSPHERE'];
 /** Story angles that earn a specific treatment; everything else rotates through the full set. */
 const ANGLE_PREFERENCE:Readonly<Record<string,readonly SceneryFamily[]>>={
   DERBY_RIVALRY:['TUNNEL_BIGMATCH','STADIUM_NIGHT'],
@@ -164,7 +164,7 @@ const ANGLE_PREFERENCE:Readonly<Record<string,readonly SceneryFamily[]>>={
   TOP_MATCHES_TODAY:['STADIUM_NIGHT','EDITORIAL_SPORTS'],
   WEEKEND_WATCHLIST:['PITCH_MATCHDAY','EDITORIAL_SPORTS','STADIUM_NIGHT'],
   // Creative templates, which is what the renderer has on the scene itself.
-  MATCH_CLASH:['TUNNEL_BIGMATCH','STADIUM_NIGHT','PITCH_MATCHDAY','EDITORIAL_SPORTS'],
+  MATCH_CLASH:['TUNNEL_BIGMATCH','STADIUM_NIGHT','PITCH_MATCHDAY','EDITORIAL_SPORTS','CROWD_ATMOSPHERE'],
   ODDS_COMPARISON:['EDITORIAL_SPORTS','PITCH_MATCHDAY'],
   PLAYER_CLASH:['STADIUM_NIGHT','TUNNEL_BIGMATCH'],
   CHARACTER_CLASH:['STADIUM_NIGHT','PITCH_MATCHDAY'],

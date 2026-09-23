@@ -2,9 +2,10 @@
 import type {CSSProperties,ReactElement} from 'react';
 import {formatBrazilKickoff} from './content';
 import type {GrowthContentItem} from './types';
+import {BRAND,LivaSportsLockup} from './brand';
 
 export const socialAssetSize={width:1080,height:1920} as const;
-const colors={ink:'#f7fbff',muted:'#b9cbd8',lime:'#d5ff48',navy:'#07131c',panel:'#102634',line:'#2a4959'} as const;
+const colors={ink:BRAND.livasports.ink,muted:BRAND.livasports.muted,lime:BRAND.livasports.accent,navy:BRAND.livasports.deep,panel:BRAND.livasports.panel,line:BRAND.livasports.line} as const;
 
 function teamNameSize(name:string){return name.length>24?44:name.length>17?50:name.length>11?56:64;}
 function Team({name,imageUrl,align}:{name:string;imageUrl:string|null;align:'left'|'right'}){
@@ -26,7 +27,7 @@ export function createSocialAssetElement(item:GrowthContentItem):ReactElement{
   return <div style={root}>
     <div style={{position:'absolute',display:'flex',width:420,height:420,borderRadius:210,background:'#d5ff4818',right:-150,top:180}}/>
     <header style={{display:'flex',alignItems:'center',justifyContent:'space-between',borderBottom:`2px solid ${colors.line}`,paddingBottom:36}}>
-      <div style={{display:'flex',alignItems:'center',gap:18,fontSize:38,fontWeight:900,letterSpacing:-1}}><span style={{display:'flex',width:26,height:26,borderRadius:13,background:colors.lime}}/>LivaSports</div>
+      <LivaSportsLockup size={38}/>
       <div style={{display:'flex',fontSize:24,color:colors.muted,textTransform:'uppercase',letterSpacing:4}}>Guia da partida</div>
     </header>
     <main style={{display:'flex',flexDirection:'column',flex:1,paddingTop:82}}>
@@ -44,12 +45,11 @@ export function createSocialAssetElement(item:GrowthContentItem):ReactElement{
       </section>
       <section style={{display:'flex',flexDirection:'column',marginTop:48,gap:16}}>
         <div style={{display:'flex',fontSize:26,color:colors.muted,textTransform:'uppercase',letterSpacing:3}}>Comparação de odds</div>
-        <div style={{display:'flex',fontSize:40,fontWeight:800}}>{fixture.odds.label}</div>
-        {fixture.odds.bookmakers.length?<div style={{display:'flex',fontSize:27,color:colors.muted}}>{fixture.odds.bookmakers.map(book=>book.name).join(' · ')}</div>:null}
+        <div style={{display:'flex',fontSize:40,fontWeight:800}}>Compare as odds no LivaSports.com</div>
       </section>
     </main>
     <footer style={{display:'flex',flexDirection:'column',borderTop:`2px solid ${colors.line}`,paddingTop:38,gap:14}}>
-      <div style={{display:'flex',fontSize:46,fontWeight:900,color:colors.lime}}>{item.content.cta}</div>
+      <div style={{display:'flex',fontSize:46,fontWeight:900,color:colors.lime}}>{item.content.cta.replace(/LivaSports(?!\.com)/g,'LivaSports.com')}</div>
       <div style={{display:'flex',fontSize:25,color:colors.muted}}>Dados da partida e comparação responsável de odds.</div>
     </footer>
   </div>;

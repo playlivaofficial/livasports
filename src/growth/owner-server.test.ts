@@ -44,4 +44,11 @@ describe('Traffic Engine V1 owner control plane',()=>{
     expect(response.status).toBe(200);expect(regeneratePlatform).toHaveBeenCalledWith(db,'22222222-2222-4222-8222-222222222222','INSTAGRAM_REELS');
     expect((await growthOwnerAction(post({action:'regenerate-platform',itemId:'22222222-2222-4222-8222-222222222222',channel:'EDITORIAL'},owner()),deps())).status).toBe(400);
   });
+  it('supports an owner-only non-persisting deployed render proof',async()=>{
+    const preview=vi.fn<NonNullable<GrowthOwnerDependencies['preview']>>(async()=>({channel:'TIKTOK',status:'READY',mimeType:'video/mp4',sha256:'a'.repeat(64),byteLength:4,data:Buffer.from('mp4!'),voice:{mode:'ENERGETIC',provider:'elevenlabs',lines:5,degradedReason:null}}));
+    const dependencies=deps({preview}),response=await growthOwnerAction(post({action:'preview',fixtureId:'11111111-1111-4111-8111-111111111111',channel:'TIKTOK'},owner()),dependencies);
+    expect(response.status).toBe(200);expect(response.headers.get('content-type')).toBe('video/mp4');expect(response.headers.get('x-growth-voice')).toBe('elevenlabs:5');
+    expect(dependencies.run).not.toHaveBeenCalled();expect(dependencies.transition).not.toHaveBeenCalled();
+    expect((await growthOwnerAction(post({action:'preview',fixtureId:'11111111-1111-4111-8111-111111111111',channel:'TIKTOK'}),dependencies)).status).toBe(401);
+  });
 });

@@ -65,6 +65,7 @@ export class ElevenLabsVoiceProvider implements VoiceProvider{
     const timer=setTimeout(()=>controller.abort(),VOICE.requestTimeoutMs);
     const abort=()=>controller.abort();
     signal?.addEventListener('abort',abort,{once:true});
+    if(signal?.aborted)controller.abort();
     try{
       const response=await fetch(`${VOICE.baseUrl}/v1/text-to-speech/${encodeURIComponent(voice)}?output_format=${VOICE.outputFormat}`,{
         method:'POST',signal:controller.signal,
@@ -109,24 +110,27 @@ export interface NarrationResult {
  * risking the serverless limit. A caller that receives zero clips still renders a captioned video.
  */
 export async function narrateScenes(lines:readonly NarrationLine[],mode:GrowthVoiceMode,
-  options:{provider?:VoiceProvider;cache?:Map<string,Promise<VoiceClip>>;now?:()=>number}={}):Promise<NarrationResult>{
+  options:{provider?:VoiceProvider;cache?:Map<string,Promise<VoiceClip>>;now?:()=>number;deadlineMs?:number}={}):Promise<NarrationResult>{
   const provider=options.provider??voiceProvider();
   const cache=options.cache??new Map<string,Promise<VoiceClip>>();
   const clock=options.now??(()=>Date.now());
   if(!provider.available())return {mode,provider:provider.id,clips:[],degradedReason:'VOICE_NOT_CONFIGURED'};
   const usable=lines.filter(line=>line.text.trim()).slice(0,VOICE.maxLinesPerVideo);
-  const deadline=clock()+VOICE.videoBudgetMs;
+  const deadline=Math.min(clock()+VOICE.videoBudgetMs,options.deadlineMs??Infinity);
   const produced:NarrationClip[]=[];
   let degraded:string|null=null;
   for(let index=0;index<usable.length;index+=VOICE.concurrency){
     if(clock()>=deadline){degraded??='VOICE_BUDGET_EXCEEDED';break;}
     const batch=usable.slice(index,index+VOICE.concurrency);
+    const controller=new AbortController();
+    const timer=setTimeout(()=>controller.abort(),Math.max(1,deadline-clock()));
     const settled=await Promise.allSettled(batch.map(line=>{
       const key=`${mode}:${createHash('sha256').update(line.text.trim()).digest('hex')}`;
-      const pending=cache.get(key)??provider.synthesize(line.text,mode);
+      const pending=cache.get(key)??provider.synthesize(line.text,mode,controller.signal);
       cache.set(key,pending);
       return pending.then(clip=>({...line,clip}));
     }));
+    clearTimeout(timer);
     for(const [offset,result] of settled.entries()){
       if(result.status==='fulfilled')produced.push(result.value);
       else{

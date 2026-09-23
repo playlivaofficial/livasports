@@ -1,7 +1,7 @@
 import {describe,expect,it,vi} from 'vitest';
 vi.mock('server-only',()=>({}));
 import type {DatabaseClient,QueryExecutor} from '@/database/client';
-import {canTransitionGrowthStatus,persistGrowthItem,readRightsFallbackDraftsForRegeneration,readV1DraftsForRegeneration,transitionGrowthChannel} from './repository';
+import {canTransitionGrowthStatus,persistGrowthItem,readRightsFallbackDraftsForRegeneration,readV1DraftsForRegeneration,readPremiumDraftsForRegeneration,transitionGrowthChannel} from './repository';
 import {generatedContent} from './content';
 import {rankedFixture,testNow} from './fixtures.test-support';
 
@@ -45,6 +45,17 @@ describe('Traffic Engine V1 persistence',()=>{
   it('selects only active legacy items whose every platform remains DRAFT',async()=>{
     const query=vi.fn(async(sql:string)=>{void sql;return {rows:[],rowCount:0};});await readV1DraftsForRegeneration(database(query as unknown as QueryExecutor['query']));
     const sql=String(query.mock.calls[0][0]);expect(sql).toContain('generator_version<2');expect(sql).toContain("ch.status<>'DRAFT'");expect(sql).toContain('superseded_at IS NULL');
+  });
+  it('selects only all-DRAFT non-premium revisions for the additive creative migration',async()=>{
+    const query=vi.fn(async(sql:string)=>{void sql;return {rows:[],rowCount:0};});await readPremiumDraftsForRegeneration(database(query as unknown as QueryExecutor['query']));
+    const sql=String(query.mock.calls[0][0]);expect(sql).toContain("<>'PREMIUM_1'");expect(sql).toContain("ch.status<>'DRAFT'");expect(sql).toContain('superseded_at IS NULL');
+  });
+  it('keeps the predecessor when review changed while a replacement was rendering',async()=>{
+    const query=vi.fn(async()=>({rows:[],rowCount:0}));
+    await expect(persistGrowthItem(database(query as unknown as QueryExecutor['query']),{...input(true),supersedesItemId:'old'})).rejects.toThrow('DRAFT_REGENERATION_NOT_ALLOWED');
+    const calls=query.mock.calls as unknown as Array<[string]>;
+    expect(calls.some(([sql])=>sql.includes('ORDER BY channel FOR UPDATE'))).toBe(true);
+    expect(calls.some(([sql])=>sql.includes('INSERT INTO'))).toBe(false);
   });
   it('selects only current all-DRAFT player-led items that lack approved commercial media',async()=>{
     const query=vi.fn(async(sql:string)=>{void sql;return {rows:[],rowCount:0};});await readRightsFallbackDraftsForRegeneration(database(query as unknown as QueryExecutor['query']));

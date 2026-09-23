@@ -5,11 +5,16 @@ import {rankedFixture} from './fixtures.test-support';
 import {renderGrowthVideo,renderGrowthVideos} from './video-renderer';
 
 describe('Traffic Engine V1.1 MP4 renderer',()=>{
+  it('rejects an expired invocation before starting media or encoding work',async()=>{
+    const row=rankedFixture(),draft=generateV11ContentPack(row).platforms!.TIKTOK,loader=vi.fn(async()=>null);
+    await expect(renderGrowthVideo(draft,fixtureSnapshot(row),{assetLoader:loader,deadlineMs:Date.now()-1})).rejects.toThrow('RENDER_BUDGET_EXCEEDED');
+    expect(loader).not.toHaveBeenCalled();
+  });
   it('renders a deterministic multi-scene H.264-compatible MP4 without remote media',async()=>{
     const row=rankedFixture({home:{slug:'flamengo',name:'Clube de Regatas do Flamengo',publicId:'a'.repeat(16),imageUrl:null},away:{slug:'corinthians',name:'Sport Club Corinthians Paulista',publicId:'b'.repeat(16),imageUrl:null}});
     const draft=generateV11ContentPack(row,1,[row]).platforms!.TIKTOK;
     const rendered=await renderGrowthVideo(draft,fixtureSnapshot(row),{assetLoader:async()=>null});
-    expect(rendered.mimeType).toBe('video/mp4');expect(rendered.byteLength).toBeGreaterThan(20_000);expect(rendered.byteLength).toBeLessThan(8_000_000);
+    expect(rendered.mimeType).toBe('video/mp4');expect(rendered.byteLength).toBeGreaterThan(20_000);expect(rendered.byteLength).toBeLessThan(4_000_000);
     expect(rendered.data.subarray(4,8).toString()).toBe('ftyp');expect(rendered.sha256).toMatch(/^[a-f0-9]{64}$/);
     const repeated=await renderGrowthVideo(draft,fixtureSnapshot(row),{assetLoader:async()=>null});expect(repeated.sha256).toBe(rendered.sha256);
   },120_000);
@@ -32,7 +37,7 @@ describe('Traffic Engine V1.2 narration mux',()=>{
     const dir=await mkdtemp(join(tmpdir(),'liva-voice-test-'));const out=join(dir,'tone.mp3');
     try{
       await new Promise<void>((resolve,reject)=>{
-        const child=spawn(ffmpeg,['-f','lavfi','-i','sine=frequency=320:duration=1.1','-ac','1','-y',out],{windowsHide:true,stdio:['ignore','ignore','ignore']});
+        const child=spawn(ffmpeg,['-f','lavfi','-i','sine=frequency=320:duration=4.1','-ac','1','-y',out],{windowsHide:true,stdio:['ignore','ignore','ignore']});
         child.on('error',reject);child.on('close',code=>code===0?resolve():reject(new Error(`FFMPEG_${code}`)));
       });
       return await readFile(out);
@@ -50,10 +55,16 @@ describe('Traffic Engine V1.2 narration mux',()=>{
     expect(rendered.voice?.lines).toBe(draft.scenes.filter(scene=>scene.voiceover.trim()).length);
     // TikTok narrates with the energetic voice; every scene line was requested.
     expect(rendered.voice?.mode).toBe('ENERGETIC');
+    const timings=rendered.renderMetadata!.sceneTiming;
+    expect(timings[0].durationSeconds).toBeGreaterThan(4.1);
+    for(const [index,timing] of timings.entries()){
+      expect(timing.audioSeconds+.3).toBeLessThanOrEqual(timing.durationSeconds);
+      if(index>0)expect(timing.startSeconds).toBeCloseTo(timings[index-1].startSeconds+timings[index-1].durationSeconds);
+    }
     expect(voice.synthesize).toHaveBeenCalled();
     // An AAC track is present in the container, so the MP4 is genuinely voiced rather than silent.
     expect(rendered.data.includes(Buffer.from('mp4a'))).toBe(true);
-    expect(rendered.byteLength).toBeLessThan(8_000_000);
+    expect(rendered.byteLength).toBeLessThan(4_000_000);
   },180_000);
 
   it('still ships a captioned silent video when no credential is configured',async()=>{

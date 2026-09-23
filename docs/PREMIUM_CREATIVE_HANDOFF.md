@@ -1,5 +1,9 @@
 # Traffic Engine V1.2 — Premium Creative: handoff to Codex
 
+> Historical checkpoint below. The continuation and current release evidence are recorded in
+> [PREMIUM_CREATIVE_RELEASE.md](PREMIUM_CREATIVE_RELEASE.md). The supplied character pack has now
+> been integrated; do not interpret the historical "artwork absent" status as the current code state.
+
 **This is a work-in-progress checkpoint, not a release.** Nothing on this branch has been merged or
 deployed. Production is untouched and still serves the V1.1 baseline.
 

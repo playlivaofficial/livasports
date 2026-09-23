@@ -72,6 +72,18 @@ function VideoChannelReview({item,channel,busy,act}:{item:GrowthContentItem;chan
   const regenerate=()=>act(`platform:${item.id}:${channel}`,{action:'regenerate-platform',itemId:item.id,channel});
   return <article className="owner-growth-platform"><header><div><span>{CHANNEL_UTM[channel].label}</span><strong>{draft.template}</strong></div><b data-status={record.status}>{record.status}</b></header>
     {asset?.status==='READY'?<video controls muted playsInline preload="metadata" src={videoUrl} aria-label={`Vídeo ${CHANNEL_UTM[channel].label} de ${item.content.headline}`}/>:<div className="owner-growth-video-missing">{asset?.status==='FAILED'?`Render falhou: ${asset.errorCode}`:'Vídeo pendente'}</div>}
+      {draft.creative?<details><summary>Direção criativa e narração</summary>
+        <p><b>Família:</b> {draft.creative.family??draft.template} · {draft.creative.historyConsidered??0} escolhas recentes consideradas</p>
+      <p><b>Cenários:</b> {draft.creative.scenery.join(' · ')}</p>
+        <p><b>Personagens:</b> {asset?.renderMetadata?.characterMode??draft.creative.characters} · {draft.creative.poses.join(' / ')}</p>
+        <p><b>Identidades (casa / fora):</b> {draft.creative.identities?.join(' / ')??'—'}</p>
+        {draft.creative.palettes?<p><b>Paletas (casa / fora):</b> {[draft.creative.palettes.home,draft.creative.palettes.away].map(palette=>`${palette.primary} + ${palette.secondary}${palette.known?'':' (neutra Liva)'}`).join(' / ')}</p>:null}
+      <p><b>Promo:</b> PlayLiva.com · {draft.creative.promo}</p>
+      <p><b>Voz:</b> {asset?.renderMetadata?`${asset.renderMetadata.voice.provider} · ${asset.renderMetadata.voice.mode} · ${asset.renderMetadata.voice.lines} cenas`: 'Metadados de áudio indisponíveis'}</p>
+      {asset?.renderMetadata?.voice.degradedReason?<p role="status">Narração requer revisão: {asset.renderMetadata.voice.degradedReason}</p>:null}
+        <p><b>Variedade:</b> {draft.creative.hookFamily} · {draft.creative.ctaFamily}</p>
+        {asset?.renderMetadata?<p><b>Render:</b> {(asset.renderMetadata.renderMs/1000).toFixed(1)}s · vídeo {asset.renderMetadata.durationSeconds.toFixed(1)}s · {asset.byteLength?`${(asset.byteLength/1_000_000).toFixed(1)} MB`:'—'}</p>:null}
+    </details>:null}
     <h4>{draft.title}</h4><p><b>Hook:</b> {draft.hook}</p><p><b>Roteiro:</b> {draft.script}</p><p><b>Legenda:</b> {draft.caption}</p><p><b>Hashtags:</b> {draft.hashtags.join(' ')}</p><p><b>CTA:</b> {draft.cta}</p>
     <details><summary>Plano de cenas e legendas</summary><ol>{draft.scenes.map(scene=><li key={scene.order}><b>{scene.startSeconds}s · {scene.durationSeconds}s · {scene.visual} · {scene.transition}</b><br/>{scene.headline}<br/><small>{scene.subtitle}</small></li>)}</ol></details>
     <div className="owner-growth-platform-links"><a href={record.trackedUrl} target="_blank" rel="noreferrer">Link rastreado</a>{asset?.status==='READY'?<><a href={videoUrl} target="_blank" rel="noreferrer">Prévia MP4</a><a href={`${videoUrl}?download=1`}>Baixar MP4</a></>:null}</div>
