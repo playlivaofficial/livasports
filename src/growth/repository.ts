@@ -305,7 +305,10 @@ export async function readV1DraftsForRegeneration(db:QueryExecutor){
 
 export async function readPremiumDraftsForRegeneration(db:QueryExecutor){
   return (await db.query<{id:string;fixture_id:string}>(`SELECT DISTINCT ON(i.fixture_id) i.id,i.fixture_id FROM growth_content_items i
-    WHERE i.superseded_at IS NULL AND COALESCE(i.content_pack#>>'{platforms,TIKTOK,creative,version}','')<>'PREMIUM_1'
+    WHERE i.superseded_at IS NULL AND (
+      COALESCE(i.content_pack#>>'{platforms,TIKTOK,creative,version}','')<>'PREMIUM_1'
+      OR EXISTS(SELECT 1 FROM growth_platform_assets a WHERE a.content_item_id=i.id
+        AND (a.status<>'READY' OR a.render_metadata#>>'{voice,degradedReason}' IS NOT NULL)))
       AND NOT EXISTS(SELECT 1 FROM growth_content_channels ch WHERE ch.content_item_id=i.id AND ch.status<>'DRAFT')
     ORDER BY i.fixture_id,i.revision DESC`)).rows;
 }
