@@ -7,6 +7,7 @@ import {renderGrowthVideo,renderGrowthVideos,type GrowthVideoRenderResult} from 
 import {SHORTLIST,VIDEO_CHANNELS,type GrowthVideoChannel} from './config';
 import {acquireGrowthJob,enrichGrowthStorySignals,finishGrowthJob,persistGrowthItem,readGrowthFixtures,readGrowthItem,readGrowthVideo,readLatestGrowthItems,readRightsFallbackDraftsForRegeneration,readV1DraftsForRegeneration,recentGrowthFixtureIds,upsertGrowthSeoPriorities} from './repository';
 import type {GrowthContentPack,GrowthDashboard,RankedGrowthFixture} from './types';
+import {readPremiumDraftsForRegeneration} from './repository';
 
 /** Optional future rewrite boundary. V1 intentionally ships only the deterministic implementation. */
 export interface GrowthContentGenerator {
@@ -51,6 +52,7 @@ export async function readGrowthDashboard(db:DatabaseClient,now=new Date()):Prom
 }
 
 export async function runGrowthGeneration(db:DatabaseClient,trigger:'AUTOMATIC'|'OWNER',options:{now?:Date;forceFixtureId?:string}={}):Promise<GrowthRunResult>{
+  const renderDeadline=Date.now()+250_000;
   const now=options.now??new Date(),jobId=await acquireGrowthJob(db,trigger,now);
   if(!jobId)return {state:'ALREADY_RUNNING',jobId:null,considered:0,generated:0,skippedDuplicate:0,itemIds:[],providerRequests:0};
   let considered=0,generated=0,skippedDuplicate=0;
@@ -80,10 +82,11 @@ export async function runGrowthGeneration(db:DatabaseClient,trigger:'AUTOMATIC'|
     selected=selected.map(row=>sharedById.get(row.signals.fixtureId)??enrichedSelected.find(item=>item.signals.fixtureId===row.signals.fixtureId)??row);
     let failed=0;
     for(const row of selected){
+      if(Date.now()+60_000>renderDeadline){failed++;break;}
       try{
         const rank=priorityRank.get(row.signals.fixtureId)??sharedTopTen.length+1;
         const material=generatedContent(row,rank,sharedTopSocial);
-        const videos=material.content.platforms?await renderGrowthVideos(material.content.platforms,material.fixture):[];
+        const videos=material.content.platforms?await renderGrowthVideos(material.content.platforms,material.fixture,{deadlineMs:renderDeadline}):[];
         const stored=await persistGrowthItem(db,{fixtureId:row.signals.fixtureId,sourceHash:material.sourceHash,trigger,
           priorityScore:row.priority.total,scoreBreakdown:row.priority.lines,reasons:row.priority.reasons,
           fixture:material.fixture,content:material.content,canonicalUrl:row.destinationUrl,tracking:material.tracking,now,
@@ -111,12 +114,14 @@ async function regenerateDraftSet(db:DatabaseClient,drafts:Array<{id:string;fixt
     const candidates=drafts.flatMap(draft=>{const row=byId.get(String(draft.fixture_id));if(!row){skippedMissingFixture++;return [];}return [{draft,row}];});
     considered=candidates.length;const enriched=await enrichGrowthStorySignals(db,candidates.map(item=>item.row)),rankMap=sharedPriorityRanks(shared,ranked.map(row=>row.priority));
     for(const candidate of candidates){
+      await db.query(`UPDATE growth_generation_jobs SET heartbeat_at=now(),lease_expires_at=now()+interval '10 minutes' WHERE id=$1 AND status='RUNNING'`,[jobId]);
       const row=enriched.find(item=>item.signals.fixtureId===candidate.row.signals.fixtureId)!;
       try{const material=generatedContent(row,rankMap.get(row.signals.fixtureId)??1,topSocial),videos=await renderGrowthVideos(material.content.platforms!,material.fixture);
+        if(videos.some(video=>video.status==='FAILED'||video.voice?.degradedReason))throw new Error('DRAFT_RENDER_FAILED_KEEP_PREDECESSOR');
         const stored=await persistGrowthItem(db,{fixtureId:row.signals.fixtureId,sourceHash:material.sourceHash,trigger:'OWNER',priorityScore:row.priority.total,
           scoreBreakdown:row.priority.lines,reasons:row.priority.reasons,fixture:material.fixture,content:material.content,canonicalUrl:row.destinationUrl,
           tracking:material.tracking,now,force:true,videos,supersedesItemId:String(candidate.draft.id)});
-        if(stored){generated++;itemIds.push(stored.id);if(videos.some(video=>video.status==='FAILED'))failed++;}
+        if(stored){generated++;itemIds.push(stored.id);console.info(JSON.stringify({event:'growth-draft-regenerated',fixtureId:row.signals.fixtureId,itemId:stored.id,generated,total:considered}));}
       }catch(error){failed++;console.error(`[LivaSports Traffic V1.1] ${JSON.stringify({event:'growth-draft-regeneration-failed',fixtureId:row.signals.fixtureId,code:safeItemFailure(error)})}`);}
     }
     const state=failed||skippedMissingFixture?'PARTIAL':'SUCCEEDED';const error=failed?'DRAFT_REGENERATION_ITEM_FAILED':skippedMissingFixture?'DRAFT_FIXTURE_OUTSIDE_ACTIVE_WINDOW':undefined;
@@ -130,6 +135,20 @@ async function regenerateDraftSet(db:DatabaseClient,drafts:Array<{id:string;fixt
 /** One-time production-safe V1 migration: only unsuperseded items whose every channel is still DRAFT. */
 export async function regenerateV1Drafts(db:DatabaseClient,options:{now?:Date}={}):Promise<GrowthRegenerationResult>{
   const now=options.now??new Date();return regenerateDraftSet(db,await readV1DraftsForRegeneration(db),now);
+}
+
+/** Owner-only stateless proof: uses canonical data and real renderer without creating a draft or job. */
+export async function previewGrowthVideo(db:DatabaseClient,fixtureId:string,channel:GrowthVideoChannel){
+  const ranked=await rankGrowthInventory(db),shared=buildShortlist(ranked.map(row=>row.priority));
+  const row=ranked.find(candidate=>candidate.signals.fixtureId===fixtureId&&isProducible(candidate.priority));
+  if(!row)throw new Error('FIXTURE_NOT_PRODUCIBLE');
+  const [enriched]=await enrichGrowthStorySignals(db,[row]),rank=sharedPriorityRanks(shared,ranked.map(candidate=>candidate.priority)).get(fixtureId)??1;
+  const material=generatedContent(enriched,rank,rowsForPriorities(ranked,shared.social));
+  return renderGrowthVideo(material.content.platforms![channel],material.fixture);
+}
+
+export async function regeneratePremiumDrafts(db:DatabaseClient,options:{now?:Date}={}):Promise<GrowthRegenerationResult>{
+  return regenerateDraftSet(db,await readPremiumDraftsForRegeneration(db),options.now??new Date());
 }
 
 /** One-time V1.1 repair: all-DRAFT player stories without commercial media become rights-safe club-led revisions. */
@@ -151,7 +170,7 @@ export async function regenerateGrowthPlatform(db:DatabaseClient,itemId:string,c
       captions:{...fresh.content.captions,...item.content.captions,[channel]:freshDraft.caption}};
     const videos:GrowthVideoRenderResult[]=[];
     for(const videoChannel of VIDEO_CHANNELS){if(videoChannel===channel){try{videos.push(await renderGrowthVideo(freshDraft,fresh.fixture));}catch{videos.push({channel,status:'FAILED',mimeType:null,sha256:null,byteLength:null,data:null,errorCode:'VIDEO_RENDER_FAILED'});}continue;}
-      const existing=await readGrowthVideo(db,item.id,videoChannel);if(existing)videos.push({channel:videoChannel,status:'READY',mimeType:'video/mp4',sha256:existing.sha256,byteLength:existing.byteLength,data:existing.data});
+      const existing=await readGrowthVideo(db,item.id,videoChannel);if(existing)videos.push({channel:videoChannel,status:'READY',mimeType:'video/mp4',sha256:existing.sha256,byteLength:existing.byteLength,data:existing.data,renderMetadata:existing.renderMetadata});
       else try{videos.push(await renderGrowthVideo(content.platforms![videoChannel],fresh.fixture));}catch{videos.push({channel:videoChannel,status:'FAILED',mimeType:null,sha256:null,byteLength:null,data:null,errorCode:'VIDEO_RENDER_FAILED'});}
     }
     const stored=await persistGrowthItem(db,{fixtureId:row.signals.fixtureId,sourceHash:fresh.sourceHash,trigger:'OWNER',priorityScore:row.priority.total,

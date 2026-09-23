@@ -25,11 +25,13 @@ export interface Shortlist {
 }
 
 /** Highest score first; kickoff then public id break ties so ordering never depends on input order. */
+const byRank=(a:FixturePriority,b:FixturePriority)=>
+  b.total-a.total||
+  Date.parse(a.kickoff)-Date.parse(b.kickoff)||
+  a.publicId.localeCompare(b.publicId);
+
 export function rankPriorities(priorities:readonly FixturePriority[]):FixturePriority[]{
-  return [...priorities].sort((a,b)=>
-    b.total-a.total||
-    Date.parse(a.kickoff)-Date.parse(b.kickoff)||
-    a.publicId.localeCompare(b.publicId));
+  return [...priorities].sort(byRank);
 }
 
 /** Take the highest-scoring fixtures while never exceeding `cap` from any one competition. */
@@ -48,8 +50,30 @@ export function pickWithDiversity(ranked:readonly FixturePriority[],size:number,
     const weakest=chosen.at(-1);
     if(!weakest||priority.total-weakest.total<overrideGap)continue;
     chosen[chosen.length-1]=priority;
-    chosen.sort((a,b)=>b.total-a.total||Date.parse(a.kickoff)-Date.parse(b.kickoff)||a.publicId.localeCompare(b.publicId));
+    chosen.sort(byRank);
   }
+  // A quota the cap could not fill must still be filled. The cap was being applied as a hard veto
+  // while filling, and the override above can only *replace* an entry, never add one — so on a light
+  // calendar the list came back short (production reached `top_social` 4 of 5, and a window holding a
+  // single competition collapsed the Top 10 to 4).
+  //
+  // Diversity is relaxed one step at a time rather than abandoned, so the list stays as varied as the
+  // fixtures allow instead of jumping straight to "whatever scores highest". Nothing here changes a
+  // score or a weight; it only stops the selector discarding fixtures it was asked to return.
+  for(let relaxed=cap+1;chosen.length<size&&relaxed<=size;relaxed++){
+    const taken=new Set(chosen.map(row=>row.fixtureId)),counts=new Map<string,number>();
+    for(const row of chosen)counts.set(row.competitionSlug,(counts.get(row.competitionSlug)??0)+1);
+    for(const priority of ranked){
+      if(chosen.length>=size)break;
+      if(taken.has(priority.fixtureId))continue;
+      const count=counts.get(priority.competitionSlug)??0;
+      if(count>=relaxed)continue;
+      counts.set(priority.competitionSlug,count+1);
+      taken.add(priority.fixtureId);
+      chosen.push(priority);
+    }
+  }
+  chosen.sort(byRank);
   return chosen;
 }
 

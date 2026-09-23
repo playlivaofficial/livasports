@@ -119,8 +119,15 @@ export async function enrichGrowthStorySignals(db:QueryExecutor,fixtures:RankedG
     const maxGoals=Math.max(0,...side.map(candidate=>candidate.statistics.goals??0));
     if(maxGoals>0)for(const candidate of side.filter(item=>item.statistics.goals===maxGoals))candidate.selectionReason=`artilheiro atual do elenco nos dados da temporada (${maxGoals} gols)`;
   }
+  const teamIds=[...new Set(fixtures.flatMap(row=>[row.signals.home.publicId,row.signals.away.publicId]))];
+  const history=(await db.query<{fixture_snapshot:GrowthFixtureSnapshot;content_pack:GrowthContentPack}>(`SELECT fixture_snapshot,content_pack FROM growth_content_items
+    WHERE created_at>=now()-interval '14 days' AND (fixture_snapshot#>>'{home,publicId}'=ANY($1::text[]) OR fixture_snapshot#>>'{away,publicId}'=ANY($1::text[]))
+    ORDER BY created_at DESC,id DESC LIMIT 60`,[teamIds])).rows;
   return fixtures.map(row=>{const players=playerGroups.get(row.signals.fixtureId)??{home:[],away:[]};const rows=formRows.filter(item=>String(item.fixture_id)===row.signals.fixtureId);
-    return {...row,storySignals:{players,form:{home:form(rows,'home'),away:form(rows,'away')}}};});
+    const teams=[row.signals.home.publicId,row.signals.away.publicId];
+    const creativeHistory=history.filter(item=>teams.includes(item.fixture_snapshot.home.publicId)||teams.includes(item.fixture_snapshot.away.publicId))
+      .flatMap(item=>Object.values(item.content_pack.platforms??{}).flatMap(draft=>draft.creative?[{channel:draft.channel,creative:draft.creative}]:[]));
+    return {...row,creativeHistory,storySignals:{players,form:{home:form(rows,'home'),away:form(rows,'away')}}};});
 }
 export async function recentGrowthFixtureIds(db:QueryExecutor,now=new Date()):Promise<Set<string>>{
   const since=new Date(now.getTime()-SHORTLIST.duplicateWindowDays*86_400_000);
@@ -138,8 +145,9 @@ export function canTransitionGrowthStatus(from:GrowthChannelStatus,to:GrowthChan
 
 export async function transitionGrowthChannel(db:DatabaseClient,itemId:string,channel:GrowthChannel,to:GrowthChannelStatus,now=new Date()):Promise<boolean>{
   return db.transaction(async tx=>{
+    await tx.query("SELECT pg_advisory_xact_lock(hashtextextended('growth:'||fixture_id::text,0)) FROM growth_content_items WHERE id=$1",[itemId]);
     const current=(await tx.query<{status:GrowthChannelStatus}>(`SELECT status FROM growth_content_channels
-      WHERE content_item_id=$1 AND channel=$2 FOR UPDATE`,[itemId,channel])).rows[0];
+      WHERE content_item_id=$1 AND channel=$2 AND EXISTS(SELECT 1 FROM growth_content_items i WHERE i.id=$1 AND i.superseded_at IS NULL) FOR UPDATE`,[itemId,channel])).rows[0];
     if(!current||!canTransitionGrowthStatus(current.status,to))return false;
     await tx.query(`UPDATE growth_content_channels SET status=$3,updated_at=$4,
       approved_at=CASE WHEN $3='APPROVED' THEN $4 ELSE approved_at END,
@@ -161,29 +169,47 @@ interface PersistInput {
 export async function persistGrowthItem(db:DatabaseClient,input:PersistInput):Promise<{id:string;revision:number}|null>{
   return db.transaction(async tx=>{
     await tx.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`growth:${input.fixtureId}`]);
+    let carriedChannels=input.channelRecords;
     if(!input.force){
       const since=new Date(input.now.getTime()-SHORTLIST.duplicateWindowDays*86_400_000);
       const duplicate=(await tx.query('SELECT 1 FROM growth_content_items WHERE fixture_id=$1 AND created_at>=$2 LIMIT 1',[input.fixtureId,since])).rowCount;
       if(duplicate)return null;
     }
     if(input.supersedesItemId){
+      // Review may change while a slow render is running. Serialize with per-platform transitions
+      // before rechecking eligibility so an approval cannot race a draft replacement.
+      const locked=(await tx.query<Row>('SELECT channel,status,tracked_url,approved_at,rejected_at,published_at FROM growth_content_channels WHERE content_item_id=$1 ORDER BY channel FOR UPDATE',[input.supersedesItemId])).rows;
+      if(input.regeneratedChannel)carriedChannels=locked.map(row=>({channel:String(row.channel) as GrowthChannel,status:String(row.status) as GrowthChannelStatus,trackedUrl:String(row.tracked_url),
+        approvedAt:row.approved_at?iso(row.approved_at):null,rejectedAt:row.rejected_at?iso(row.rejected_at):null,publishedAt:row.published_at?iso(row.published_at):null}));
       const predecessor=(await tx.query<{id:string}>(`SELECT i.id FROM growth_content_items i
         WHERE i.id=$1 AND i.superseded_at IS NULL AND (($2::text IS NULL AND NOT EXISTS(SELECT 1 FROM growth_content_channels ch WHERE ch.content_item_id=i.id AND ch.status<>'DRAFT'))
           OR ($2::text IS NOT NULL AND EXISTS(SELECT 1 FROM growth_content_channels ch WHERE ch.content_item_id=i.id AND ch.channel=$2 AND ch.status IN('DRAFT','REJECTED')))) FOR UPDATE`,[input.supersedesItemId,input.regeneratedChannel??null])).rows[0];
       if(!predecessor)throw new Error('DRAFT_REGENERATION_NOT_ALLOWED');
     }
     const revision=Number((await tx.query<{revision:number}>('SELECT COALESCE(max(revision),0)+1 AS revision FROM growth_content_items WHERE fixture_id=$1',[input.fixtureId])).rows[0]?.revision??1);
+    const content=structuredClone(input.content);
+    for(const video of input.videos??[]){
+      if(video.status!=='READY'||!video.renderMetadata||!content.platforms)continue;
+      const platform=content.platforms[video.channel];
+      platform.scenes=platform.scenes.map(scene=>{
+        const timing=video.renderMetadata?.sceneTiming.find(row=>row.order===scene.order);
+        return timing?{...scene,startSeconds:timing.startSeconds,durationSeconds:timing.durationSeconds}:scene;
+      });
+      if(video.renderMetadata.voice.degradedReason&&content.readiness){
+        content.readiness.state='NEEDS_REVIEW';content.readiness.reasons.push(`${video.channel}: ${video.renderMetadata.voice.degradedReason}`);
+      }
+    }
     const item=(await tx.query<{id:string}>(`INSERT INTO growth_content_items(fixture_id,revision,generator_version,source_hash,trigger_source,
       priority_score,score_breakdown,ranking_reasons,fixture_snapshot,content_pack,canonical_url,created_at,supersedes_item_id)
       VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb,$9::jsonb,$10::jsonb,$11,$12,$13) RETURNING id`,[
       input.fixtureId,revision,input.content.generatorVersion,input.sourceHash,input.trigger,input.priorityScore,JSON.stringify(input.scoreBreakdown),
-      JSON.stringify(input.reasons),JSON.stringify(input.fixture),JSON.stringify(input.content),input.canonicalUrl,input.now,input.supersedesItemId??null])).rows[0];
-    for(const channel of GROWTH_CHANNELS){const previous=input.channelRecords?.find(record=>record.channel===channel),regenerated=input.regeneratedChannel===channel;
+      JSON.stringify(input.reasons),JSON.stringify(input.fixture),JSON.stringify(content),input.canonicalUrl,input.now,input.supersedesItemId??null])).rows[0];
+    for(const channel of GROWTH_CHANNELS){const previous=carriedChannels?.find(record=>record.channel===channel),regenerated=input.regeneratedChannel===channel;
       await tx.query(`INSERT INTO growth_content_channels(content_item_id,channel,status,tracked_url,approved_at,rejected_at,published_at,updated_at)
         VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,[item.id,channel,regenerated?'DRAFT':previous?.status??'DRAFT',input.tracking[channel],
         regenerated?null:previous?.approvedAt??null,regenerated?null:previous?.rejectedAt??null,regenerated?null:previous?.publishedAt??null,input.now]);}
-    for(const video of input.videos??[])await tx.query(`INSERT INTO growth_platform_assets(content_item_id,channel,status,mime_type,sha256,byte_length,video_data,error_code,generated_at,updated_at)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,CASE WHEN $3='READY' THEN $9::timestamptz ELSE NULL END,$9::timestamptz)`,[item.id,video.channel,video.status,video.mimeType,video.sha256,video.byteLength,video.data,video.status==='FAILED'?video.errorCode:null,input.now]);
+    for(const video of input.videos??[])await tx.query(`INSERT INTO growth_platform_assets(content_item_id,channel,status,mime_type,sha256,byte_length,video_data,error_code,generated_at,updated_at,render_metadata)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,CASE WHEN $3='READY' THEN $9::timestamptz ELSE NULL END,$9::timestamptz,$10::jsonb)`,[item.id,video.channel,video.status,video.mimeType,video.sha256,video.byteLength,video.data,video.status==='FAILED'?video.errorCode:null,input.now,video.status==='READY'&&video.renderMetadata?JSON.stringify(video.renderMetadata):null]);
     if(input.supersedesItemId)await tx.query('UPDATE growth_content_items SET superseded_at=$2 WHERE id=$1',[input.supersedesItemId,input.now]);
     return {id:item.id,revision};
   });
@@ -238,18 +264,24 @@ export async function readGrowthItem(db:QueryExecutor,id:string):Promise<GrowthC
 async function hydrateAssets(db:QueryExecutor,items:GrowthContentItem[]):Promise<GrowthContentItem[]>{
   if(!items.length)return items;
   try{
-    const rows=(await db.query<Row>(`SELECT content_item_id,channel,status,mime_type,sha256,byte_length,error_code,generated_at
-      FROM growth_platform_assets WHERE content_item_id=ANY($1::uuid[]) ORDER BY content_item_id,channel`,[items.map(item=>item.id)])).rows;
+    const ids=items.map(item=>item.id);
+    const sql=(metadata:string)=>`SELECT content_item_id,channel,status,mime_type,sha256,byte_length,error_code,generated_at,${metadata}
+      FROM growth_platform_assets WHERE content_item_id=ANY($1::uuid[]) ORDER BY content_item_id,channel`;
+    let rows:Row[];
+    try{rows=(await db.query<Row>(sql('render_metadata'),[ids])).rows;}
+    catch(error){if((error as {code?:string}).code!=='42703')throw error;rows=(await db.query<Row>(sql('NULL::jsonb AS render_metadata'),[ids])).rows;}
     return items.map(item=>({...item,platformAssets:rows.filter(row=>String(row.content_item_id)===item.id).map((row):GrowthPlatformAsset=>({channel:String(row.channel) as GrowthPlatformAsset['channel'],
-      status:String(row.status) as 'READY'|'FAILED'|'PENDING',mimeType:text(row.mime_type),sha256:text(row.sha256),byteLength:numeric(row.byte_length),generatedAt:row.generated_at?iso(row.generated_at):null,errorCode:text(row.error_code)}))}));
+      status:String(row.status) as 'READY'|'FAILED'|'PENDING',mimeType:text(row.mime_type),sha256:text(row.sha256),byteLength:numeric(row.byte_length),generatedAt:row.generated_at?iso(row.generated_at):null,errorCode:text(row.error_code),renderMetadata:row.render_metadata?asJson(row.render_metadata):undefined}))}));
   }catch(error){const code=(error as {code?:string}).code;if(code==='42P01'||code==='42703')return items;throw error;}
 }
 
 export async function readGrowthVideo(db:QueryExecutor,itemId:string,channel:string){
-  const row=(await db.query<Row>(`SELECT video_data,mime_type,sha256,byte_length FROM growth_platform_assets
-    WHERE content_item_id=$1 AND channel=$2 AND status='READY'`,[itemId,channel])).rows[0];
+  const sql=(metadata:string)=>`SELECT video_data,mime_type,sha256,byte_length,${metadata} FROM growth_platform_assets WHERE content_item_id=$1 AND channel=$2 AND status='READY'`;
+  let row:Row|undefined;
+  try{row=(await db.query<Row>(sql('render_metadata'),[itemId,channel])).rows[0];}
+  catch(error){if((error as {code?:string}).code!=='42703')throw error;row=(await db.query<Row>(sql('NULL::jsonb AS render_metadata'),[itemId,channel])).rows[0];}
   if(!row||!Buffer.isBuffer(row.video_data))return null;
-  return {data:row.video_data as Buffer,mimeType:String(row.mime_type),sha256:String(row.sha256),byteLength:Number(row.byte_length)};
+  return {data:row.video_data as Buffer,mimeType:String(row.mime_type),sha256:String(row.sha256),byteLength:Number(row.byte_length),renderMetadata:row.render_metadata?asJson<GrowthPlatformAsset['renderMetadata']>(row.render_metadata):undefined};
 }
 
 export interface GrowthSeoUpsert {fixtureId:string;rank:number;score:number;topSocial:boolean;canonicalUrl:string;seo:GrowthSeoPriority;sourceHash:string;}
@@ -267,6 +299,13 @@ export async function upsertGrowthSeoPriorities(db:DatabaseClient,rows:GrowthSeo
 export async function readV1DraftsForRegeneration(db:QueryExecutor){
   return (await db.query<{id:string;fixture_id:string}>(`SELECT DISTINCT ON(i.fixture_id) i.id,i.fixture_id FROM growth_content_items i
     WHERE i.generator_version<2 AND i.superseded_at IS NULL
+      AND NOT EXISTS(SELECT 1 FROM growth_content_channels ch WHERE ch.content_item_id=i.id AND ch.status<>'DRAFT')
+    ORDER BY i.fixture_id,i.revision DESC`)).rows;
+}
+
+export async function readPremiumDraftsForRegeneration(db:QueryExecutor){
+  return (await db.query<{id:string;fixture_id:string}>(`SELECT DISTINCT ON(i.fixture_id) i.id,i.fixture_id FROM growth_content_items i
+    WHERE i.superseded_at IS NULL AND COALESCE(i.content_pack#>>'{platforms,TIKTOK,creative,version}','')<>'PREMIUM_1'
       AND NOT EXISTS(SELECT 1 FROM growth_content_channels ch WHERE ch.content_item_id=i.id AND ch.status<>'DRAFT')
     ORDER BY i.fixture_id,i.revision DESC`)).rows;
 }

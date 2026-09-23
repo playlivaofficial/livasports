@@ -4,6 +4,10 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   serverExternalPackages: ['ffmpeg-static'],
+  outputFileTracingIncludes: {
+    '/api/internal/growth-refresh': ['./public/growth/characters/approved-v1/*.png','./public/growth/scenery/v1/*.png','./public/growth/fonts/*'],
+    '/api/owner/growth': ['./public/growth/characters/approved-v1/*.png','./public/growth/scenery/v1/*.png','./public/growth/fonts/*'],
+  },
   async headers(){
     const production=process.env.NODE_ENV==='production';
     const policy=["default-src 'self'",`script-src 'self' 'unsafe-inline'${production?'':" 'unsafe-eval'"}`,

@@ -4,7 +4,7 @@ import {requestOwnerSession} from '@/owner/session';
 import {ownerHeaders} from '@/owner/server';
 import {boundedJson} from '@/slip/server';
 import {GROWTH_CHANNELS,type GrowthChannel} from './config';
-import {readGrowthDashboard,regenerateGrowthPlatform,runGrowthGeneration} from './service';
+import {readGrowthDashboard,regenerateGrowthPlatform,runGrowthGeneration,previewGrowthVideo} from './service';
 import {transitionGrowthChannel} from './repository';
 import type {GrowthChannelStatus} from './types';
 
@@ -16,6 +16,7 @@ export interface GrowthOwnerDependencies {
   run:typeof runGrowthGeneration;
   transition:typeof transitionGrowthChannel;
   regeneratePlatform:typeof regenerateGrowthPlatform;
+  preview?:typeof previewGrowthVideo;
 }
 const productionDependencies:GrowthOwnerDependencies={database:()=>{
   const url=databaseUrl();if(!url)throw new Error('GROWTH_DATABASE_UNAVAILABLE');return new PostgresDatabaseClient(url);
@@ -37,10 +38,18 @@ export async function growthOwnerAction(request:Request,deps:GrowthOwnerDependen
   try{body=await boundedJson(request,2048) as Record<string,unknown>;}catch{return reply({error:'INVALID_REQUEST'},400);}
   if(!body||Array.isArray(body))return reply({error:'INVALID_REQUEST'},400);
   const action=body.action;
-  const allowed=action==='refresh'?['action']:action==='regenerate'?['action','fixtureId']:action==='regenerate-platform'?['action','itemId','channel']:action==='transition'?['action','itemId','channel','status']:[];
+  const allowed=action==='refresh'?['action']:action==='preview'?['action','fixtureId','channel']:action==='regenerate'?['action','fixtureId']:action==='regenerate-platform'?['action','itemId','channel']:action==='transition'?['action','itemId','channel','status']:[];
   if(!allowed.length||Object.keys(body).some(key=>!allowed.includes(key)))return reply({error:'INVALID_REQUEST'},400);
   let db:DatabaseClient;try{db=deps.database();}catch{return reply({error:'GROWTH_DATABASE_UNAVAILABLE'},503);}
   try{
+    if(action==='preview'){
+      const channel=String(body.channel??'') as GrowthChannel;
+      if(!uuid.test(String(body.fixtureId??''))||channel==='EDITORIAL'||!GROWTH_CHANNELS.includes(channel))return reply({error:'INVALID_REQUEST'},400);
+      const video=await (deps.preview??previewGrowthVideo)(db,String(body.fixtureId),channel);
+      return new Response(new Uint8Array(video.data),{headers:{...ownerHeaders,'Content-Type':'video/mp4','Content-Length':String(video.byteLength),
+        'X-Growth-Voice':video.voice?.degradedReason??`${video.voice?.provider}:${video.voice?.lines}`,
+        'X-Growth-Characters':video.renderMetadata?.characterMode??'NONE','X-Growth-Render-Ms':String(video.renderMetadata?.renderMs??0),'ETag':`"${video.sha256}"`}});
+    }
     if(action==='refresh'){
       const result=await deps.run(db,'OWNER');return reply(result,result.state==='FAILED'?409:200);
     }
@@ -57,5 +66,12 @@ export async function growthOwnerAction(request:Request,deps:GrowthOwnerDependen
     if(!uuid.test(String(body.itemId??''))||!GROWTH_CHANNELS.includes(channel)||!['APPROVED','REJECTED','PUBLISHED'].includes(status))return reply({error:'INVALID_REQUEST'},400);
     const changed=await deps.transition(db,String(body.itemId),channel,status);
     return changed?reply({updated:true,itemId:body.itemId,channel,status}):reply({error:'INVALID_TRANSITION'},409);
-  }catch{return reply({error:'GROWTH_ACTION_FAILED'},503);}finally{await db.close();}
+  }catch(error){
+    // Owner-only diagnostics: stable machine codes, never raw errors, SQL, paths or credentials.
+    const rawCode=(error as {code?:unknown})?.code;
+    const code=typeof rawCode==='string'&&/^[A-Z0-9_]{2,64}$/.test(rawCode)?rawCode:
+      error instanceof Error?/^([A-Z][A-Z0-9_]{1,63})(?=:|$)/.exec(error.message)?.[1]??'UNCLASSIFIED_ACTION_FAILURE':'UNCLASSIFIED_ACTION_FAILURE';
+    console.error(JSON.stringify({event:'growth-owner-action-failed',action,code}));
+    return reply({error:'GROWTH_ACTION_FAILED',code},503);
+  }finally{await db.close();}
 }

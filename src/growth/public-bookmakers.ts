@@ -28,7 +28,7 @@ export function publicBookmakerSummary(snapshot:OddsReadSnapshot,now=Date.now())
 }
 
 export function publicBookmakerCopy(summary:PublicBookmakerSummary){
-  if(summary.bookmakers.length<2)return 'Compare as odds no LivaSports.';
+  if(summary.bookmakers.length<2)return 'Compare as odds no LivaSports.com.';
   if(summary.priceGap!==null&&summary.priceGap>=0.18)return 'As casas exibem preços diferentes para o mesmo mercado. Compare antes de montar seu bilhete.';
   return 'Compare os preços disponíveis antes de montar seu bilhete.';
 }

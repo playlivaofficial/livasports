@@ -28,4 +28,9 @@ describe('Traffic Engine V1 social asset',()=>{
     expect(response.headers.get('content-type')).toContain('image/png');expect(bytes.length).toBeGreaterThan(20_000);
     expect([...bytes.slice(1,4)]).toEqual([80,78,71]);
   },15_000);
+  it('uses the governed .com lockup and never exposes stored bookmaker provenance',()=>{
+    const stored=item();stored.fixture.odds.bookmakers=[{slug:'betano',name:'Betano hidden insurance'}];stored.fixture.odds.label='internal native source';
+    const output=renderToStaticMarkup(createSocialAssetElement(stored));
+    expect(output).toContain('>.com</span>');expect(output).not.toMatch(/Betano|hidden insurance|native source/);
+  });
 });

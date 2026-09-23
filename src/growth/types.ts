@@ -21,6 +21,8 @@ export interface GrowthFixture {
   destinationUrl:string;
   odds:GrowthOddsSummary;
   storySignals?:GrowthStorySignals;
+  /** Recent immutable creative choices involving either club; never an acquisition scoring input. */
+  creativeHistory?:Array<{channel:GrowthVideoChannel;creative:GrowthCreativeDirection}>;
 }
 
 export interface RankedGrowthFixture extends GrowthFixture {priority:FixturePriority;}
@@ -35,9 +37,22 @@ export interface GrowthSeoPriority {level:'TOP_5'|'TOP_10'|'STANDARD';rank:numbe
 export interface GrowthSelectedPlayer {id:string;publicId:string;teamId:string;teamName:string;name:string;selectionReason:string;evidenceScore:number;statistics:GrowthPlayerStatistics;media:GrowthMediaRights;}
 export interface GrowthSceneAsset {kind:'TEAM_CREST'|'PLAYER_IMAGE'|'PLAYER_SILHOUETTE'|'NONE';label:string;url:string|null;commercialEligible:boolean;}
 export interface GrowthVideoScene {order:number;startSeconds:number;durationSeconds:number;template:GrowthCreativeTemplate;visual:'HOOK'|'MATCHUP'|'PLAYER'|'CONTEXT'|'ODDS'|'CTA'|'WATCHLIST';assets:GrowthSceneAsset[];headline:string;subtitle:string;voiceover:string;transition:'CUT'|'FADE'|'SLIDE';}
-export interface GrowthPlatformDraft {channel:GrowthVideoChannel;title:string;description:string;hook:string;script:string;caption:string;hashtags:string[];cta:string;template:GrowthCreativeTemplate;scenes:GrowthVideoScene[];}
+export interface GrowthCreativeDirection {
+  version:'PREMIUM_1';scenery:string[];characters:'LIVA_ORIGINAL'|'NONE';poses:string[];
+  promo:'DISCOVER'|'CONTINUE'|'EXPLORE';hookFamily:string;ctaFamily:string;
+  family?:'CHARACTER_FOOTBALL_WORLD'|'CREST_EDITORIAL'|'LICENSED_PLAYER';
+  identities?:Array<'curly'|'fade'>;
+  palettes?:{home:import('./palette').TeamPalette;away:import('./palette').TeamPalette};
+  historyConsidered?:number;
+}
+export interface GrowthRenderMetadata {
+  voice:{mode:string;provider:string;lines:number;degradedReason:string|null};
+  characterMode:'LIVA_ORIGINAL'|'CREST_FALLBACK'|'NONE';scenery:string[];durationSeconds:number;renderMs:number;
+  sceneTiming:Array<{order:number;startSeconds:number;durationSeconds:number;audioSeconds:number}>;
+}
+export interface GrowthPlatformDraft {channel:GrowthVideoChannel;title:string;description:string;hook:string;script:string;caption:string;hashtags:string[];cta:string;template:GrowthCreativeTemplate;scenes:GrowthVideoScene[];creative?:GrowthCreativeDirection;}
 export interface GrowthReadiness {score:number;state:'READY'|'NEEDS_REVIEW'|'FALLBACK';reasons:string[];fallbackApplied:boolean;}
-export interface GrowthPlatformAsset {channel:GrowthVideoChannel;status:'READY'|'FAILED'|'PENDING';mimeType:string|null;sha256:string|null;byteLength:number|null;generatedAt:string|null;errorCode:string|null;}
+export interface GrowthPlatformAsset {channel:GrowthVideoChannel;status:'READY'|'FAILED'|'PENDING';mimeType:string|null;sha256:string|null;byteLength:number|null;generatedAt:string|null;errorCode:string|null;renderMetadata?:GrowthRenderMetadata;}
 export interface GrowthContentPack {
   locale:'pt-BR';
   headline:string;
@@ -60,8 +75,8 @@ export interface GrowthContentPack {
 export interface GrowthFixtureSnapshot {
   fixtureId:string;
   publicId:string;
-  home:{name:string;publicId:string;imageUrl:string|null};
-  away:{name:string;publicId:string;imageUrl:string|null};
+  home:{name:string;publicId:string;imageUrl:string|null;slug?:string};
+  away:{name:string;publicId:string;imageUrl:string|null;slug?:string};
   competition:{name:string;slug:string};
   kickoff:string;
   rivalry:string|null;

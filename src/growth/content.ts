@@ -33,8 +33,8 @@ function oddsContext(fixture:GrowthFixtureSnapshot):string{
 export function fixtureSnapshot(row:RankedGrowthFixture):GrowthFixtureSnapshot{
   const {signals,priority,odds}=row;
   return {fixtureId:signals.fixtureId,publicId:signals.publicId,
-    home:{name:signals.home.name,publicId:signals.home.publicId,imageUrl:signals.home.imageUrl},
-    away:{name:signals.away.name,publicId:signals.away.publicId,imageUrl:signals.away.imageUrl},
+    home:{name:signals.home.name,publicId:signals.home.publicId,imageUrl:signals.home.imageUrl,slug:signals.home.slug},
+    away:{name:signals.away.name,publicId:signals.away.publicId,imageUrl:signals.away.imageUrl,slug:signals.away.slug},
     competition:{name:signals.competitionName,slug:signals.competitionSlug},kickoff:signals.kickoff,
     rivalry:priority.rivalry,stage:priority.stage,standings:signals.standings,odds};
 }
@@ -70,7 +70,7 @@ export function generateV11ContentPack(row:RankedGrowthFixture,rank=1,topSocial:
   const fixture=fixtureSnapshot(row),players=selectedPlayers(row),initialStory=selectStory(row,players,{rank,topSocial});
   const quality=readiness(row,initialStory,players),story={...initialStory,template:safeTemplate(initialStory.template,quality)};
   const creativePlayers=story.angle==='PLAYER_VS_PLAYER'||story.angle==='STAR_FOCUS'?commercialMediaPlayers(players):[];
-  const platforms=platformDrafts(row,story,creativePlayers,topSocial),editorialContext=truthfulMatchContext(row);
+  const platforms=platformDrafts(row,story,creativePlayers,topSocial,rank),editorialContext=truthfulMatchContext(row);
   const primary=platforms.YOUTUBE_SHORTS;
   const captions:Record<GrowthChannel,string>={TIKTOK:platforms.TIKTOK.caption,INSTAGRAM_REELS:platforms.INSTAGRAM_REELS.caption,
     YOUTUBE_SHORTS:platforms.YOUTUBE_SHORTS.caption,EDITORIAL:`${fixture.home.name} x ${fixture.away.name}. ${editorialContext} Acesse ${row.destinationUrl}`};

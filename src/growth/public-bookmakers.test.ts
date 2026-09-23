@@ -11,7 +11,7 @@ const snapshot=(quotes:ReadOddsQuote[]):OddsReadSnapshot=>({quotes,kickoff,fixtu
 describe('Traffic Engine V1.1 public bookmaker gate',()=>{
   it('never exposes Betano hidden insurance or unknown fallback provenance',()=>{
     const result=publicBookmakerSummary(snapshot([...market('betano.bet.br','Betano BR',['2.1','3.2','3.4']),...market('unlisted-source','Internal Source',['2.2','3.1','3.3'])]),now);
-    expect(result.bookmakers).toEqual([]);expect(publicBookmakerCopy(result)).toBe('Compare as odds no LivaSports.');
+    expect(result.bookmakers).toEqual([]);expect(publicBookmakerCopy(result)).toBe('Compare as odds no LivaSports.com.');
   });
   it('exposes only complete current REAL markets from visible identities and computes a truthful gap',()=>{
     const result=publicBookmakerSummary(snapshot([...market('betsson','Betsson',['2.0','3.1','3.8']),...market('sportingbet.bet.br','Sportingbet BR',['2.3','3.0','3.5']),...market('betano.bet.br','Betano BR',['4','4','4'])]),now);

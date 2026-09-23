@@ -166,7 +166,7 @@ export const MINIMUM_SCORE=18;
 /** Deterministic content/attribution contract shared by generation, persistence and the owner UI. */
 export const CONTENT_GENERATOR_VERSION=2;
 /** Increments when deterministic V1.1 selection/output policy changes without changing the storage schema. */
-export const CONTENT_POLICY_VERSION=2;
+export const CONTENT_POLICY_VERSION=3;
 export const GROWTH_CHANNELS=['TIKTOK','INSTAGRAM_REELS','YOUTUBE_SHORTS','EDITORIAL'] as const;
 export type GrowthChannel=typeof GROWTH_CHANNELS[number];
 export const VIDEO_CHANNELS=['TIKTOK','INSTAGRAM_REELS','YOUTUBE_SHORTS'] as const;
@@ -187,7 +187,54 @@ export const PLATFORM_PROFILES={
 } as const satisfies Record<GrowthVideoChannel,{label:string;durationSeconds:number;hookSeconds:number;tone:'CONVERSATIONAL'|'PREMIUM'|'INFORMATIONAL';maxHashtags:number;brandIntro:boolean}>;
 
 export const QUALITY={publishReady:68,needsReview:50,playerEvidenceMinimum:22,oddsGapMinimum:0.18} as const;
-export const VIDEO={width:1080,height:1920,fps:12,subtitleTop:1320,subtitleBottom:1640,maxRenderBytes:8_000_000} as const;
+// Direct owner downloads stay below Vercel's 4.5 MB response ceiling, including transport headroom.
+export const VIDEO={width:1080,height:1920,fps:12,subtitleTop:1320,subtitleBottom:1640,maxRenderBytes:4_000_000} as const;
 
 /** Reserved boundary for future verified Search Console/social-trend inputs. No source means no adjustment. */
 export const VERIFIED_TREND_PROVIDERS=[] as readonly string[];
+
+// ---------------------------------------------------------------------------
+// V1.2 — Brazilian Portuguese narration
+// ---------------------------------------------------------------------------
+export const VOICE_MODES=['ENERGETIC','EDITORIAL'] as const;
+export type GrowthVoiceMode=typeof VOICE_MODES[number];
+/**
+ * Narration settings. Everything here is tuning, never a credential: the ElevenLabs key is read from
+ * `process.env.ELEVENLABS_API_KEY` at call time and never appears in configuration, logs or assets.
+ * The budgets exist so narration can never push a render past the serverless limit V1.1 secured —
+ * a video that runs out of synthesis budget ships with the lines it already has, captions intact.
+ */
+export const VOICE={
+  baseUrl:'https://api.elevenlabs.io',
+  /** Multilingual is the ElevenLabs model with proper Brazilian Portuguese pronunciation. */
+  model:'eleven_multilingual_v2',
+  language:'pt',
+  outputFormat:'mp3_44100_128',
+  requestTimeoutMs:15_000,
+  /** Wall-clock ceiling for narrating one video, well inside the render budget. */
+  videoBudgetMs:30_000,
+  concurrency:3,
+  maxCharacters:420,
+  maxLinesPerVideo:6,
+  maxClipBytes:2_000_000,
+  /**
+   * Pinned voices. A scoped API key may legitimately carry `text_to_speech` without `voices_read`,
+   * so the integration must never need to list the account's library to work. These are ElevenLabs
+   * premade voices addressable by any account; override either with `ELEVENLABS_VOICE_ENERGETIC` /
+   * `ELEVENLABS_VOICE_EDITORIAL` to use a Brazilian voice from your own library.
+   */
+  defaultVoices:{ENERGETIC:'TxGEqnHWrfWFTfGW9XjX',EDITORIAL:'onwK4e9ZLuTAKqWW03F9'},
+  /** Mixing levels; the voice always stays dominant over ambience and effects. */
+  voiceGain:1.0,
+  ambienceGain:0.12,
+  effectGain:0.22,
+  modes:{
+    // Lower stability reads as livelier delivery; higher stability reads as measured and editorial.
+    ENERGETIC:{stability:0.34,similarity:0.78,style:0.55},
+    EDITORIAL:{stability:0.58,similarity:0.80,style:0.22},
+  },
+} as const;
+/** Default narration voice per channel; TikTok wants energy, the other two want authority. */
+export const CHANNEL_VOICE:Readonly<Record<GrowthVideoChannel,GrowthVoiceMode>>={
+  TIKTOK:'ENERGETIC',INSTAGRAM_REELS:'EDITORIAL',YOUTUBE_SHORTS:'EDITORIAL',
+};
