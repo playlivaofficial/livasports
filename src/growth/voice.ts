@@ -40,26 +40,16 @@ const apiKey=()=>process.env.ELEVENLABS_API_KEY?.trim()||null;
 /** Never interpolate the key itself anywhere; only its presence is ever observable. */
 export const voiceConfigured=()=>!!apiKey();
 
-/** Voices may be pinned per mode; otherwise the account's own voice list is used, resolved once. */
-let resolvedVoices:Promise<Record<GrowthVoiceMode,string>>|null=null;
-async function voiceIds(signal?:AbortSignal):Promise<Record<GrowthVoiceMode,string>>{
-  const pinned={ENERGETIC:process.env.ELEVENLABS_VOICE_ENERGETIC?.trim(),EDITORIAL:process.env.ELEVENLABS_VOICE_EDITORIAL?.trim()};
-  if(pinned.ENERGETIC&&pinned.EDITORIAL)return {ENERGETIC:pinned.ENERGETIC,EDITORIAL:pinned.EDITORIAL};
-  resolvedVoices??=(async()=>{
-    const key=apiKey();
-    if(!key)throw new VoiceUnavailableError('VOICE_NOT_CONFIGURED');
-    const response=await fetch(`${VOICE.baseUrl}/v1/voices`,{headers:{'xi-api-key':key},signal});
-    if(!response.ok)throw new VoiceUnavailableError(`VOICE_LIST_${response.status}`);
-    const body=await response.json() as {voices?:Array<{voice_id?:string}>};
-    const ids=(body.voices??[]).map(voice=>voice.voice_id).filter((id):id is string=>!!id);
-    if(!ids.length)throw new VoiceUnavailableError('VOICE_LIST_EMPTY');
-    return {ENERGETIC:pinned.ENERGETIC??ids[0],EDITORIAL:pinned.EDITORIAL??ids[1]??ids[0]};
-  })();
-  try{return await resolvedVoices;}catch(error){resolvedVoices=null;throw error;}
+/**
+ * Which voice speaks each mode. Deliberately resolved without calling the provider: a scoped API key
+ * can legitimately carry `text_to_speech` while withholding `voices_read`, and listing the library
+ * would then 401 even though synthesis works perfectly. Pinned ids are overridable per mode so a
+ * Brazilian voice from the account's own library can be swapped in without a code change.
+ */
+function voiceId(mode:GrowthVoiceMode):string{
+  const override=(mode==='ENERGETIC'?process.env.ELEVENLABS_VOICE_ENERGETIC:process.env.ELEVENLABS_VOICE_EDITORIAL)?.trim();
+  return override||VOICE.defaultVoices[mode];
 }
-
-/** Reset between tests and after a credential change; the voice list is otherwise cached per process. */
-export function resetVoiceCache(){resolvedVoices=null;}
 
 export class ElevenLabsVoiceProvider implements VoiceProvider{
   readonly id='elevenlabs';
@@ -70,7 +60,7 @@ export class ElevenLabsVoiceProvider implements VoiceProvider{
     const trimmed=text.trim();
     if(!trimmed)throw new VoiceUnavailableError('VOICE_EMPTY_TEXT');
     if(trimmed.length>VOICE.maxCharacters)throw new VoiceUnavailableError('VOICE_TEXT_TOO_LONG');
-    const voice=(await voiceIds(signal))[mode],settings=VOICE.modes[mode];
+    const voice=voiceId(mode),settings=VOICE.modes[mode];
     const controller=new AbortController();
     const timer=setTimeout(()=>controller.abort(),VOICE.requestTimeoutMs);
     const abort=()=>controller.abort();

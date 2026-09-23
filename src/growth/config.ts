@@ -216,6 +216,13 @@ export const VOICE={
   maxCharacters:420,
   maxLinesPerVideo:6,
   maxClipBytes:2_000_000,
+  /**
+   * Pinned voices. A scoped API key may legitimately carry `text_to_speech` without `voices_read`,
+   * so the integration must never need to list the account's library to work. These are ElevenLabs
+   * premade voices addressable by any account; override either with `ELEVENLABS_VOICE_ENERGETIC` /
+   * `ELEVENLABS_VOICE_EDITORIAL` to use a Brazilian voice from your own library.
+   */
+  defaultVoices:{ENERGETIC:'TxGEqnHWrfWFTfGW9XjX',EDITORIAL:'onwK4e9ZLuTAKqWW03F9'},
   /** Mixing levels; the voice always stays dominant over ambience and effects. */
   voiceGain:1.0,
   ambienceGain:0.12,

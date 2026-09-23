@@ -8,6 +8,7 @@ import ffmpegPath from 'ffmpeg-static';
 import sharp from 'sharp';
 import {CHANNEL_VOICE,VIDEO,VOICE,type GrowthVideoChannel} from './config';
 import {BRAND,brandDefsSvg,livaSportsLockupSvg} from './brand';
+import {pickScenery,sceneryDefs,scenerySvg} from './scenery';
 import {narrateScenes,type NarrationResult,type VoiceClip,type VoiceProvider} from './voice';
 import type {GrowthFixtureSnapshot,GrowthPlatformDraft,GrowthVideoScene} from './types';
 
@@ -42,15 +43,26 @@ function fittedBlock(value:string,x:number,y:number,anchor:'start'|'middle',asse
   const rows=wrappedLines(value,46),size=Math.max(24,Math.min(38,Math.floor(230/(rows.length*1.13))));
   return block(rows,x,y,size,anchor,900);
 }
-function fittedLabel(value:string,x:number,y:number){
-  for(const [size,max,limit] of [[42,17,3],[36,20,3],[30,24,4]]){const rows=wrappedLines(value,max);if(rows.length<=limit)return block(rows,x,y,size,'middle',800);}
-  return block(wrappedLines(value,28),x,y,27,'middle',800);
-}
 function fittedSubtitle(value:string,x:number,y:number,anchor:'start'|'middle'){
   for(const [size,max,limit] of [[48,29,3],[43,33,4],[37,39,5],[32,46,6]]){const rows=wrappedLines(value,max);if(rows.length<=limit)return block(rows,x,y,size,anchor,800);}
   const rows=wrappedLines(value,52),size=Math.max(25,Math.min(31,Math.floor(225/(rows.length*1.13))));
   return block(rows,x,y,size,anchor,800);
 }
+
+/** Team names on their nameplate: two lines maximum, sized down only as far as the longest club needs. */
+function fittedTeamName(value:string,cx:number,y:number){
+  for(const [size,max,limit] of [[54,13,1],[47,16,1],[41,19,2],[35,23,2]]){
+    const rows=wrappedLines(value,max);
+    if(rows.length<=limit)return block(rows,cx,y-(rows.length-1)*size*0.55,size,'middle',900);
+  }
+  const rows=wrappedLines(value,26).slice(0,2);
+  return block(rows,cx,y-(rows.length-1)*16,29,'middle',900);
+}
+const brazilKickoffFormatter=new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo',weekday:'short',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false});
+const brazilKickoff=(value:string)=>{
+  const at=new Date(value);
+  return Number.isFinite(at.getTime())?`${brazilKickoffFormatter.format(at).replace(',',' ·')} · horário de Brasília`:'';
+};
 
 async function remoteAsset(url:string):Promise<string|null>{
   let parsed:URL;try{parsed=new URL(url);}catch{return null;}
@@ -69,20 +81,50 @@ async function sceneSvg(scene:GrowthVideoScene,fixture:GrowthFixtureSnapshot,cha
   // template spam. Platforms differ by composition, pacing and geometry, not by repainting the brand.
   const accent=BRAND.livasports.accent;
   const support=channel==='TIKTOK'?BRAND.livasports.mark:channel==='INSTAGRAM_REELS'?BRAND.livasports.tldInk:BRAND.livasports.accentStrong;
-  const visualAssets=!['ODDS','CTA','WATCHLIST'].includes(scene.visual),assetY=channel==='TIKTOK'?590:channel==='INSTAGRAM_REELS'?620:600;
+  // V1.2: a real football background per scene, chosen deterministically from the fixture, its creative
+  // template and the channel. Character mode is excluded inside pickScenery until the original
+  // character artwork exists, so fixtures fall back to stadium, pitch, tunnel and editorial treatments.
+  const sceneSeed=`${fixture.fixtureId}:${scene.order}`;
+  const family=pickScenery(fixture.fixtureId,scene.template,channel,scene.order);
+  const visualAssets=!["ODDS","CTA","WATCHLIST"].includes(scene.visual);
   const geometry=channel==='TIKTOK'?`<path d="M-120 420 L1080 120 L1080 330 L-120 630Z" fill="${accent}" opacity=".08"/><path d="M720 0 L1080 0 L1080 880 L930 920Z" fill="${support}" opacity=".05"/>`
     :channel==='INSTAGRAM_REELS'?`<circle cx="900" cy="360" r="330" fill="none" stroke="${accent}" stroke-width="3" opacity=".12"/><circle cx="900" cy="360" r="240" fill="none" stroke="${support}" stroke-width="2" opacity=".1"/><rect x="34" y="210" width="1012" height="1010" rx="70" fill="none" stroke="#ffffff" stroke-width="2" opacity=".06"/>`
       :`<rect x="0" width="24" height="1920" fill="${accent}"/><path d="M760 180 H1080 V1030 L930 1120 H760Z" fill="${support}" opacity=".07"/><path d="M76 190 H1004" stroke="#ffffff" opacity=".08" stroke-width="2"/>`;
-  const card=(x:number)=>channel==='TIKTOK'?`<path d="M${x-18} ${assetY+35} L${x+270} ${assetY-10} L${x+318} ${assetY+310} L${x+18} ${assetY+340}Z" fill="#07131ccc" stroke="${accent}" stroke-width="3"/>`
-    :channel==='INSTAGRAM_REELS'?`<rect x="${x-25}" y="${assetY-25}" width="350" height="390" rx="54" fill="#ffffff0b" stroke="#ffffff28" stroke-width="3"/>`
-      :`<rect x="${x-20}" y="${assetY-20}" width="340" height="380" rx="22" fill="#07131ce6" stroke="${accent}" stroke-width="4"/><rect x="${x-20}" y="${assetY-20}" width="10" height="380" fill="${accent}"/>`;
-  const assetMarkup=visualAssets?assets.map((asset,index)=>{const x=index?690:90;
-    const picture=asset.data?`<image href="${asset.data}" x="${x}" y="${assetY}" width="300" height="300" preserveAspectRatio="xMidYMid meet"/>`
-      :asset.kind==='PLAYER_SILHOUETTE'?`<circle cx="${x+150}" cy="${assetY+100}" r="82" fill="#294451"/><path d="M${x+35} ${assetY+300} Q${x+150} ${assetY+155} ${x+265} ${assetY+300}Z" fill="#294451"/>`
-        :`<circle cx="${x+150}" cy="${assetY+150}" r="132" fill="#102634" stroke="#39596a" stroke-width="4"/><text x="${x+150}" y="${assetY+175}" text-anchor="middle" fill="${accent}" font-size="72" font-family="Arial" font-weight="900">${escape(asset.label.slice(0,2).toUpperCase())}</text>`;
-    return `${card(x)}${picture}`;
+  /**
+   * V1.2 matchup composition. The old layout floated two 300px badges high on the canvas and left a
+   * ~380px dead band between the team names and the caption box, which is what made every frame look
+   * unfinished. Crests are now 396px inside a deliberate plate, names sit on their own nameplate
+   * directly beneath, a versus medallion anchors the centre, and a context strip closes the gap.
+   */
+  const CREST=396,CREST_Y=508,CREST_X=[78,606] as const,NAME_Y=CREST_Y+CREST+92;
+  const sideInk=(index:number)=>index?support:accent;
+  const plate=(x:number,index:number)=>channel==='TIKTOK'
+    ?`<path d="M${x-16} ${CREST_Y+30} L${x+CREST+12} ${CREST_Y-16} L${x+CREST+26} ${CREST_Y+CREST+4} L${x-2} ${CREST_Y+CREST+46}Z" fill="#06131cd9" stroke="${sideInk(index)}" stroke-width="4"/>`
+    :channel==='INSTAGRAM_REELS'
+      ?`<rect x="${x-18}" y="${CREST_Y-18}" width="${CREST+36}" height="${CREST+36}" rx="70" fill="#ffffff0f" stroke="#ffffff33" stroke-width="3"/>`
+      :`<rect x="${x-16}" y="${CREST_Y-16}" width="${CREST+32}" height="${CREST+32}" rx="28" fill="#06131cec" stroke="${sideInk(index)}" stroke-width="4"/><rect x="${x-16}" y="${CREST_Y-16}" width="13" height="${CREST+32}" fill="${sideInk(index)}"/>`;
+  const assetMarkup=visualAssets?assets.map((asset,index)=>{
+    const x=CREST_X[index]??CREST_X[0];
+    const picture=asset.data
+      ?`<image href="${asset.data}" x="${x+44}" y="${CREST_Y+44}" width="${CREST-88}" height="${CREST-88}" preserveAspectRatio="xMidYMid meet"/>`
+      :asset.kind==='PLAYER_SILHOUETTE'
+        ?`<circle cx="${x+CREST/2}" cy="${CREST_Y+150}" r="104" fill="#27454f"/><path d="M${x+52} ${CREST_Y+CREST-30} Q${x+CREST/2} ${CREST_Y+196} ${x+CREST-52} ${CREST_Y+CREST-30}Z" fill="#27454f"/>`
+        :`<circle cx="${x+CREST/2}" cy="${CREST_Y+CREST/2}" r="${CREST/2-54}" fill="#0f2a38" stroke="${sideInk(index)}" stroke-width="5"/><text x="${x+CREST/2}" y="${CREST_Y+CREST/2+38}" text-anchor="middle" fill="${sideInk(index)}" font-size="112" font-family="Arial,Helvetica,sans-serif" font-weight="900">${escape(asset.label.slice(0,2).toUpperCase())}</text>`;
+    return `${plate(x,index)}${picture}`;
   }).join(''):'';
-  const assetLabels=visualAssets?assets.map((asset,index)=>fittedLabel(asset.label,index?840:240,assetY+350)).join(''):'';
+  // Versus medallion sits in the 132px channel between the two plates, so the centre is never empty.
+  const versus=visualAssets?`<circle cx="540" cy="${CREST_Y+CREST/2}" r="52" fill="#06131cf0" stroke="${accent}" stroke-width="4"/>`+
+    `<text x="540" y="${CREST_Y+CREST/2+19}" text-anchor="middle" fill="${accent}" font-family="Arial,Helvetica,sans-serif" font-size="48" font-weight="900">×</text>`:'';
+  const assetLabels=visualAssets?assets.map((asset,index)=>{
+    const x=CREST_X[index]??CREST_X[0];
+    return `<rect x="${x-16}" y="${NAME_Y-62}" width="${CREST+32}" height="92" rx="${channel==='INSTAGRAM_REELS'?46:16}" fill="#06131cdd" stroke="${sideInk(index)}" stroke-width="2"/>`+
+      fittedTeamName(asset.label,x+CREST/2,NAME_Y);
+  }).join(''):'';
+  // Context strip: competition and Brazil kickoff, closing the old dead band above the caption box.
+  const contextStrip=visualAssets?`<rect x="76" y="1118" width="928" height="116" rx="${channel==='INSTAGRAM_REELS'?58:20}" fill="#06131cd2" stroke="#ffffff22" stroke-width="2"/>`+
+    `<rect x="76" y="1118" width="12" height="116" rx="6" fill="${accent}"/>`+
+    `<text x="126" y="1164" fill="${BRAND.livasports.muted}" font-family="Arial,Helvetica,sans-serif" font-size="23" letter-spacing="3">${escape(fixture.competition.name.toUpperCase().slice(0,42))}</text>`+
+    `<text x="126" y="1210" fill="${BRAND.livasports.ink}" font-family="Arial,Helvetica,sans-serif" font-size="32" font-weight="800">${escape(brazilKickoff(fixture.kickoff))}</text>`:'';
   const watchlistItems=scene.visual==='WATCHLIST'?scene.subtitle.split(/\s+•\s+/).slice(0,5):[];
   const special=scene.visual==='WATCHLIST'?`<g>${watchlistItems.map((item,index)=>{const size=Math.max(22,Math.min(34,Math.floor(810/Math.max(1,item.length*.57))));return `<rect x="76" y="${520+index*135}" width="928" height="104" rx="${channel==='INSTAGRAM_REELS'?38:18}" fill="#ffffff0b" stroke="${index===0?accent:'#ffffff20'}" stroke-width="${index===0?3:2}"/><circle cx="126" cy="${572+index*135}" r="27" fill="${index===0?accent:'#183442'}"/><text x="126" y="${582+index*135}" text-anchor="middle" fill="${index===0?'#07131c':'#f7fbff'}" font-family="Arial" font-size="26" font-weight="900">${index+1}</text><text x="174" y="${582+index*135}" fill="#f7fbff" font-family="Arial" font-size="${size}" font-weight="800">${escape(item.replace(/^\d+\.\s*/,''))}</text>`;}).join('')}</g>`:scene.visual==='ODDS'?`<g><text x="76" y="650" fill="#a8bdc8" font-family="Arial" font-size="27" font-weight="800" letter-spacing="5">COMPARAÇÃO 1 X 2</text>
     ${[0,1,2].map((_,index)=>`<rect x="76" y="${725+index*115}" width="${580+index*125}" height="62" rx="31" fill="${index===1?'#ffffff24':accent}" opacity="${index===1?'.55':'.78'}"/><text x="${96+index*5}" y="${767+index*115}" fill="#f7fbff" font-family="Arial" font-size="28" font-weight="900">${['CASA','EMPATE','FORA'][index]}</text>`).join('')}
@@ -97,11 +139,11 @@ async function sceneSvg(scene:GrowthVideoScene,fixture:GrowthFixtureSnapshot,cha
   const subtitleCopy=scene.visual==='WATCHLIST'?'Top 5 priorizado pelo motor de crescimento para a agenda brasileira.':scene.subtitle;
   const footerSize=Math.max(20,Math.min(28,Math.floor(850/Math.max(1,fixture.competition.name.length*.55))));
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${VIDEO.width}" height="${VIDEO.height}" viewBox="0 0 ${VIDEO.width} ${VIDEO.height}">
-  <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="${channel==='INSTAGRAM_REELS'?'#100b20':'#06131c'}"/><stop offset="1" stop-color="${channel==='TIKTOK'?'#123829':channel==='INSTAGRAM_REELS'?'#29142f':'#201421'}"/></linearGradient><radialGradient id="glow"><stop stop-color="${accent}" stop-opacity=".22"/><stop offset="1" stop-color="${accent}" stop-opacity="0"/></radialGradient>${brandDefsSvg()}</defs>
-  <rect width="1080" height="1920" fill="url(#bg)"/><circle cx="890" cy="340" r="440" fill="url(#glow)"/><circle cx="130" cy="1550" r="380" fill="url(#glow)"/>
+  <defs>${sceneryDefs('sc',family)}<radialGradient id="glow"><stop stop-color="${accent}" stop-opacity=".18"/><stop offset="1" stop-color="${accent}" stop-opacity="0"/></radialGradient>${brandDefsSvg()}</defs>
+  ${scenerySvg(family,'sc',sceneSeed)}
   ${geometry}${livaSportsLockupSvg({x:76,y:78,size:34})}<text x="1000" y="112" text-anchor="end" fill="${BRAND.livasports.muted}" font-family="Arial" font-size="21" letter-spacing="4">${topLabel}</text>
   <rect x="76" y="154" width="928" height="3" fill="#2a4959"/>${fittedBlock(scene.headline,channel==='INSTAGRAM_REELS'?540:76,280,channel==='INSTAGRAM_REELS'?'middle':'start',visualAssets)}
-  ${assetMarkup}${assetLabels}${special}${subtitle}
+  ${assetMarkup}${versus}${assetLabels}${contextStrip}${special}${subtitle}
   ${fittedSubtitle(subtitleCopy,channel==='TIKTOK'?112:540,VIDEO.subtitleTop+(channel==='YOUTUBE_SHORTS'?120:105),channel==='TIKTOK'?'start':'middle')}
   <text x="540" y="1770" text-anchor="middle" fill="${accent}" font-family="Arial" font-size="${footerSize}" font-weight="800">${escape(fixture.competition.name)} · ${scene.order}</text>
   <rect x="76" y="1830" width="${Math.round(928*(scene.order/5))}" height="10" rx="5" fill="${accent}"/><rect x="76" y="1830" width="928" height="10" rx="5" fill="none" stroke="#345463" stroke-width="2"/>
