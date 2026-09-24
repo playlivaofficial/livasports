@@ -140,7 +140,9 @@ export async function recordServerEvent(input:ServerEventInput,db?:DatabaseClien
     const ids=analyticsIds(input.headers);
     const anonymousId=ids.anonymousId&&ID_PATTERN.test(ids.anonymousId)?ids.anonymousId:`noid_${cryptoId()}`;
     const sessionId=ids.sessionId&&ID_PATTERN.test(ids.sessionId)?ids.sessionId:`nosess_${cryptoId()}`;
-    const traffic=input.trafficClass??classifyTraffic(input.headers);
+    // The redirect path labels every trusted click HUMAN; an owner cookie on the same request is still the owner.
+    const detected=classifyTraffic(input.headers);
+    const traffic=input.trafficClass&&!(input.trafficClass==='HUMAN'&&detected==='OWNER')?input.trafficClass:detected;
     const path=(input.canonicalPath??'/').slice(0,240);const page=classifyPage(path);const utm=parseUtm(path.includes('?')?path.slice(path.indexOf('?')):'');
     const ref=classifyReferrer(input.headers.get('referer'),'livasports.com',utm.medium,utm.source);
     const geo=requestCommercialGeo(input.headers);
