@@ -81,8 +81,11 @@ export async function persistSnapshot(db:DatabaseClient,jobId:string,snapshot:Od
       ON CONFLICT(provider,entity_type,provider_entity_id) DO UPDATE SET metadata=provider_entity_mappings.metadata||excluded.metadata
       WHERE provider_entity_mappings.livasports_entity_id=excluded.livasports_entity_id
         AND provider_entity_mappings.entity_type='FIXTURE'
-        AND (NOT(provider_entity_mappings.metadata ? 'canonicalKickoff')
-          OR abs(extract(epoch from ((provider_entity_mappings.metadata->>'canonicalKickoff')::timestamptz - (excluded.metadata->>'canonicalKickoff')::timestamptz))) <= 600)`,[JSON.stringify(distinct)]);
+        -- The matcher only produces a FIXTURE row after revalidating the provider event, both team identities and the
+        -- canonical fixture, so a moved kickoff is a reschedule of the same match. Refusing to store it left the
+        -- mapping permanently stale and the matcher rejecting every later price for that fixture.
+        AND provider_entity_mappings.metadata->>'homeProviderId' IS NOT DISTINCT FROM excluded.metadata->>'homeProviderId'
+        AND provider_entity_mappings.metadata->>'awayProviderId' IS NOT DISTINCT FROM excluded.metadata->>'awayProviderId'`,[JSON.stringify(distinct)]);
     await rememberTeamAliases(tx,matches);
     const reviews=matches.map(m=>({provider_fixture_id:m.raw.providerId,fixture_id:m.fixture?.id??null,state:m.state,reason:m.reason,evidence:m.raw,observed_at:snapshot.observedAt}));
     await tx.query(`INSERT INTO odds_mapping_reviews(provider_fixture_id,fixture_id,state,reason,evidence,observed_at)

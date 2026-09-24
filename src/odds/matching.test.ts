@@ -217,11 +217,27 @@ describe('safe odds fixture matching',()=>{
     expect(matchOddsFixture({...raw,competition:'championship',kickoff:'2026-09-12T18:00:00Z',homeNames:['Leicester City','Leicester'],awayNames:['Coventry City','Coventry']},[{...derby,kickoff:'2026-09-12T18:00:00Z'}],[]).state).toBe('HIGH_CONFIDENCE');
     expect(planUtcParseDefectRepair({...raw,competition:'championship',kickoff:'2026-09-12T18:00:00Z',homeNames:['Leicester City'],awayNames:['Coventry City']},[derby])).toEqual({fixtureId:'lei-cov',before:'2026-09-12T14:00:00Z',after:'2026-09-12T18:00:00Z'});
   });
-  it('uses tolerance only for discovery, never to hide a change to an established kickoff',()=>{
+  it('reconciles a rescheduled fixture instead of dropping every price for it (production: 4 Liga MX fixtures × 4 books)',()=>{
     const saved={providerId:'provider',fixtureId:'canonical',homeProviderId:'10',awayProviderId:'20',canonicalKickoff:canonical.kickoff,providerKickoff:raw.kickoff};
     expect(matchOddsFixture(raw,[canonical],[saved]).state).toBe('EXACT');
-    expect(matchOddsFixture({...raw,kickoff:'2026-09-12T19:05:00Z'},[canonical],[saved]).state).toBe('TIME_MISMATCH');
-    expect(matchOddsFixture(raw,[{...canonical,kickoff:'2026-09-12T19:05:00Z'}],[saved]).state).toBe('TIME_MISMATCH');
+    // Provider and canonical now agree on a new time; only the stored mapping is historical.
+    const moved='2026-09-12T19:05:00Z';
+    const both=matchOddsFixture({...raw,kickoff:moved},[{...canonical,kickoff:moved}],[saved]);
+    expect(both.state).toBe('EXACT');expect(both.fixture?.id).toBe('canonical');
+    expect(both.reason).toMatch(/reconciled/);
+    // One side alone still resolves, because the two times stay inside the discovery tolerance.
+    expect(matchOddsFixture({...raw,kickoff:moved},[canonical],[saved]).fixture?.id).toBe('canonical');
+    expect(matchOddsFixture(raw,[{...canonical,kickoff:moved}],[saved]).fixture?.id).toBe('canonical');
+  });
+  it('still refuses a move beyond the kickoff tolerance and never follows a changed team identity',()=>{
+    const saved={providerId:'provider',fixtureId:'canonical',homeProviderId:'10',awayProviderId:'20',canonicalKickoff:canonical.kickoff,providerKickoff:raw.kickoff};
+    const far='2026-09-12T22:00:00Z';
+    expect(matchOddsFixture({...raw,kickoff:far},[canonical],[saved]).state).toBe('TIME_MISMATCH');
+    expect(matchOddsFixture({...raw,kickoff:far},[canonical],[saved]).fixture).toBeNull();
+    expect(matchOddsFixture({...raw,homeProviderId:'99'},[canonical],[saved]).state).toBe('TEAM_MISMATCH');
+    // A reschedule must not let a provider event steal a fixture another identity already owns.
+    const other={providerId:'other',fixtureId:'canonical',homeProviderId:'10',awayProviderId:'20'};
+    expect(matchOddsFixture({...raw,kickoff:'2026-09-12T19:05:00Z'},[canonical],[saved,other]).state).toBe('AMBIGUOUS');
   });
   it('maps a later matchweek automatically when names and kickoff uniquely match, and never maps ambiguous twins',()=>{
     const later={...canonical,id:'week2',kickoff:'2026-10-12T19:00:00Z'};

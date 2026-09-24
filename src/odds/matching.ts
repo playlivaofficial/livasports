@@ -191,10 +191,14 @@ export function matchOddsFixture(raw: ProviderOddsFixture, fixtures: readonly Ca
   const timed=teams.filter(f=>Number.isFinite(Date.parse(raw.kickoff))&&Math.abs(Date.parse(f.kickoff)-Date.parse(raw.kickoff))<=KICKOFF_TOLERANCE_MS);
   if(!timed.length) return fail('TIME_MISMATCH','Kickoff differs by more than ten minutes; no auto-correction');
   if(timed.length!==1) return fail('AMBIGUOUS','Multiple canonical fixtures inside kickoff tolerance');
-  if(saved.length&&((saved[0].canonicalKickoff&&Date.parse(saved[0].canonicalKickoff)!==Date.parse(timed[0].kickoff))||
-    (saved[0].providerKickoff&&Date.parse(saved[0].providerKickoff)!==Date.parse(raw.kickoff))))return fail('TIME_MISMATCH','Persisted kickoff changed; requires explicit source reconciliation, not discovery tolerance');
   // A second provider event must not take over an existing canonical identity.
   if(mappings.some(m=>m.fixtureId===timed[0].id&&m.providerId!==raw.providerId)) return fail('AMBIGUOUS','Canonical fixture already has another provider identity');
+  // A rescheduled fixture keeps its identity: the provider event, both team identities and the canonical fixture are
+  // unchanged, and the provider's kickoff still agrees with ours. Only the stored timestamps are historical, so this
+  // is the explicit reconciliation the stored mapping needs — not a reason to drop every price for the fixture.
+  const rescheduled=saved.length>0&&((!!saved[0].canonicalKickoff&&Date.parse(saved[0].canonicalKickoff)!==Date.parse(timed[0].kickoff))||
+    (!!saved[0].providerKickoff&&Date.parse(saved[0].providerKickoff)!==Date.parse(raw.kickoff)));
+  if(rescheduled)return {state:'EXACT',fixture:timed[0],reason:'Persisted identity revalidated; stored kickoff reconciled to the current provider and canonical kickoff'};
   return {state:saved.length?'EXACT':'HIGH_CONFIDENCE',fixture:timed[0],reason:saved.length?'Persisted identity and all signals revalidated':'Unique sport, competition, explicit names, roles and UTC kickoff'};
 }
 
