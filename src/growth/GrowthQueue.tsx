@@ -21,7 +21,7 @@ export function GrowthQueue({dashboard}:{dashboard:GrowthDashboard}){
   return <main className="owner-health owner-growth">
     <header className="owner-health-header"><div><p className="owner-growth-kicker">Traffic Engine V1.1</p><h1>Fila de crescimento</h1>
       <p>Uma prioridade compartilhada para SEO e social, com rascunhos nativos e vídeos verticais em PT-BR.</p></div>
-      <div className="owner-health-actions"><Link href="/owner/health">Saúde</Link><Link href="/owner/analytics">Analytics</Link>
+      <div className="owner-health-actions"><Link href="/owner/health">Saúde</Link><Link href="/owner/analytics">Analytics</Link><Link href="/owner/growth/dashboard">Growth dashboard</Link><Link href="/owner/growth/scorecard">Scorecard semanal</Link>
         <button disabled={!!busy} onClick={()=>act('refresh',{action:'refresh'})}>{busy==='refresh'?'Atualizando…':'Atualizar e gerar'}</button></div></header>
     {message?<p className="owner-health-notice" role="alert">{message}</p>:null}
     <section className="owner-health-cards"><article className="owner-health-card"><span>Considerados</span><strong>{dashboard.considered}</strong></article>
@@ -32,7 +32,7 @@ export function GrowthQueue({dashboard}:{dashboard:GrowthDashboard}){
       social={dashboard.social.some(item=>item.signals.fixtureId===row.signals.fixtureId)} item={latest.get(row.signals.fixtureId)} busy={busy} act={act}/>)}</div>
       {!dashboard.content.length?<p className="owner-health-notice">Nenhuma partida elegível no horizonte atual.</p>:null}</section>
     <section><h2>Histórico de produção</h2><div className="owner-health-scroll"><table className="owner-health-table"><thead><tr><th>Partida</th><th>Revisão</th><th>Origem</th><th>Criado</th><th>Canais</th></tr></thead>
-      <tbody>{dashboard.items.map(item=><tr key={item.id}><td>{item.fixture.home.name} × {item.fixture.away.name}</td><td>v{item.revision}</td><td>{item.trigger}</td>
+      <tbody>{dashboard.items.map(item=><tr key={item.id}><td>{item.fixture.home.name} vs {item.fixture.away.name}</td><td>v{item.revision}</td><td>{item.trigger}</td>
         <td>{new Intl.DateTimeFormat('pt-BR',{dateStyle:'short',timeStyle:'short',timeZone:'America/Sao_Paulo'}).format(new Date(item.createdAt))}</td><td>{item.channels.map(c=>`${CHANNEL_UTM[c.channel].label}: ${c.status}`).join(' · ')}</td></tr>)}</tbody></table></div></section>
   </main>;
 }
@@ -41,7 +41,7 @@ function FixtureOpportunity({row,rank,social,item,busy,act}:{row:RankedGrowthFix
   const {signals,priority}=row;
   return <article className="owner-growth-item">
     <div className="owner-growth-rank"><span>#{rank}</span><strong>{priority.total}</strong><small>pontos</small>{social?<b>Top 5 social</b>:null}</div>
-    <div className="owner-growth-main"><header><div><small>{signals.competitionName}</small><h3>{signals.home.name} × {signals.away.name}</h3><time>{new Intl.DateTimeFormat('pt-BR',{dateStyle:'medium',timeStyle:'short',timeZone:'America/Sao_Paulo'}).format(new Date(signals.kickoff))}</time></div>
+    <div className="owner-growth-main"><header><div><small>{signals.competitionName}</small><h3>{signals.home.name} vs {signals.away.name}</h3><time>{new Intl.DateTimeFormat('pt-BR',{dateStyle:'medium',timeStyle:'short',timeZone:'America/Sao_Paulo'}).format(new Date(signals.kickoff))}</time></div>
       <div className="owner-health-actions"><a href={row.destinationUrl} target="_blank" rel="noreferrer">Abrir destino</a>
         {item?<button disabled={!!busy} onClick={()=>act(`regen:${signals.fixtureId}`,{action:'regenerate',fixtureId:signals.fixtureId})}>{busy===`regen:${signals.fixtureId}`?'Gerando…':'Regenerar'}</button>:null}</div></header>
       <ul className="owner-growth-reasons">{priority.reasons.map(reason=><li key={reason}>{reason}</li>)}</ul>
@@ -81,6 +81,9 @@ function VideoChannelReview({item,channel,busy,act}:{item:GrowthContentItem;chan
       <p><b>Promo:</b> PlayLiva.com · {draft.creative.promo}</p>
       <p><b>Voz:</b> {asset?.renderMetadata?`${asset.renderMetadata.voice.provider} · ${asset.renderMetadata.voice.mode} · ${asset.renderMetadata.voice.lines} cenas`: 'Metadados de áudio indisponíveis'}</p>
       {asset?.renderMetadata?.voice.degradedReason?<p role="status">Narração requer revisão: {asset.renderMetadata.voice.degradedReason}</p>:null}
+      {asset?.renderMetadata?.voice.cache?<p><b>Cache de voz:</b> {asset.renderMetadata.voice.cache.storeHits+asset.renderMetadata.voice.cache.memoryHits} reutilizadas · {asset.renderMetadata.voice.cache.synthesized} novas ({asset.renderMetadata.voice.cache.characters} caracteres)</p>:null}
+      {asset?.renderMetadata?.motion?<p><b>Movimento:</b> {asset.renderMetadata.motion.grammar} · {asset.renderMetadata.motion.fps} fps · {asset.renderMetadata.motion.transitions.join(' → ')}</p>:null}
+      {asset?.renderMetadata?.audio?<p><b>Som:</b> {asset.renderMetadata.audio.direction.music} · {asset.renderMetadata.audio.direction.ambience} · kit {asset.renderMetadata.audio.direction.sfxKit} · {asset.renderMetadata.audio.mix.outputLufs??'—'} LUFS · pico {asset.renderMetadata.audio.mix.outputTruePeakDb??'—'} dBTP · trilhas originais LivaSports</p>:null}
         <p><b>Variedade:</b> {draft.creative.hookFamily} · {draft.creative.ctaFamily}</p>
         {asset?.renderMetadata?<p><b>Render:</b> {(asset.renderMetadata.renderMs/1000).toFixed(1)}s · vídeo {asset.renderMetadata.durationSeconds.toFixed(1)}s · {asset.byteLength?`${(asset.byteLength/1_000_000).toFixed(1)} MB`:'—'}</p>:null}
     </details>:null}

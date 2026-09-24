@@ -5,11 +5,13 @@ import {clashPoses} from './characters';
 import {pickScenery} from './scenery';
 import {PROMO_VARIANTS} from './promo';
 import {matchPalettes} from './palette';
+import {selectAudioDirection} from './audio-design';
 import type {GrowthPlatformDraft,GrowthSelectedPlayer,GrowthStoryAngle,GrowthStorySelection,GrowthVideoScene,RankedGrowthFixture} from './types';
 
 const kickoffFormatter=new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo',weekday:'short',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false});
 const kickoff=(value:string)=>kickoffFormatter.format(new Date(value)).replace(',',' ·');
-const matchup=(row:RankedGrowthFixture)=>`${row.signals.home.name} x ${row.signals.away.name}`;
+/** Creative matchup label. Always "vs" — never "x" — as the team separator (SEO search intents keep their own wording). */
+export const matchup=(row:RankedGrowthFixture)=>`${row.signals.home.name} vs ${row.signals.away.name}`;
 const hash=(value:string)=>'#'+value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9]/g,'');
 const variantIndex=(seed:string,length:number)=>{let value=2166136261;for(let index=0;index<seed.length;index++)value=Math.imul(value^seed.charCodeAt(index),16777619);return (value>>>0)%length;};
 /**
@@ -275,7 +277,7 @@ function plan(channel:GrowthVideoChannel,row:RankedGrowthFixture,story:GrowthSto
     'Veja a comparação do jogo antes de montar seu bilhete.',
     'Consulte as odds disponíveis na página desta partida.',
   ],rank);
-  const watchlist=topSocial.slice(0,5).map((item,index)=>`${index+1}. ${item.signals.home.name} x ${item.signals.away.name}`).join('  •  ');
+  const watchlist=topSocial.slice(0,5).map((item,index)=>`${index+1}. ${item.signals.home.name} vs ${item.signals.away.name}`).join('  •  ');
   const transitions=channel==='TIKTOK'?['CUT','SLIDE','CUT','SLIDE','CUT'] as const:channel==='INSTAGRAM_REELS'?['FADE','FADE','SLIDE','FADE','FADE'] as const:['CUT','SLIDE','CUT','FADE','CUT'] as const;
   const contextHeads=channel==='TIKTOK'?['O detalhe que pesa','Olha esse recorte','Antes do apito','O dado por trás do jogo','Esse é o cenário','Vale olhar de perto']
     :channel==='INSTAGRAM_REELS'?['O que está em jogo','O retrato do confronto','Contexto para a rodada','Além do placar','O momento dos dois lados','A leitura antes do jogo']
@@ -330,6 +332,9 @@ function platformText(channel:GrowthVideoChannel,row:RankedGrowthFixture,story:G
       family:players.length?'LICENSED_PLAYER':characterMode?'CHARACTER_FOOTBALL_WORLD':'CREST_EDITORIAL',
       identities:rank%2?['curly','fade']:['fade','curly'],palettes:matchPalettes(row.signals.home,row.signals.away),historyConsidered:row.creativeHistory?.length??0,
       promo:PROMO_VARIANTS[(rank+(['TIKTOK','INSTAGRAM_REELS','YOUTUBE_SHORTS'].indexOf(channel)))%PROMO_VARIANTS.length],
+      // Premium Motion V1: sound is chosen with the creative so the same history that rotates hooks rotates beds.
+      audio:selectAudioDirection({channel,angle:story.angle,family:players.length?'LICENSED_PLAYER':characterMode?'CHARACTER_FOOTBALL_WORLD':'CREST_EDITORIAL',
+        fixtureSeed:row.signals.fixtureId,rank,recent:(row.creativeHistory??[]).filter(item=>item.channel===channel).map(item=>item.creative.audio)}),
       hookFamily:`${story.angle}:${opening}`,ctaFamily:cta.headline}};
 }
 

@@ -43,7 +43,7 @@ export function fixtureSnapshot(row:RankedGrowthFixture):GrowthFixtureSnapshot{
 export function generateContentPack(row:RankedGrowthFixture):GrowthContentPack{
   const fixture=fixtureSnapshot(row),kickoff=formatBrazilKickoff(fixture.kickoff);
   const context=tableContext(fixture),odds=oddsContext(fixture);
-  const matchup=`${fixture.home.name} x ${fixture.away.name}`;
+  const matchup=`${fixture.home.name} vs ${fixture.away.name}`;
   const hook=fixture.rivalry?`${fixture.rivalry}: ${matchup}`
     :fixture.stage?`${fixture.stage} de ${fixture.competition.name}: ${matchup}`
       :`${matchup} pela ${fixture.competition.name}`;
@@ -73,8 +73,8 @@ export function generateV11ContentPack(row:RankedGrowthFixture,rank=1,topSocial:
   const platforms=platformDrafts(row,story,creativePlayers,topSocial,rank),editorialContext=truthfulMatchContext(row);
   const primary=platforms.YOUTUBE_SHORTS;
   const captions:Record<GrowthChannel,string>={TIKTOK:platforms.TIKTOK.caption,INSTAGRAM_REELS:platforms.INSTAGRAM_REELS.caption,
-    YOUTUBE_SHORTS:platforms.YOUTUBE_SHORTS.caption,EDITORIAL:`${fixture.home.name} x ${fixture.away.name}. ${editorialContext} Acesse ${row.destinationUrl}`};
-  return {locale:'pt-BR',headline:`${fixture.home.name} x ${fixture.away.name}`,hook:primary.hook,script:primary.script,
+    YOUTUBE_SHORTS:platforms.YOUTUBE_SHORTS.caption,EDITORIAL:`${fixture.home.name} vs ${fixture.away.name}. ${editorialContext} Acesse ${row.destinationUrl}`};
+  return {locale:'pt-BR',headline:`${fixture.home.name} vs ${fixture.away.name}`,hook:primary.hook,script:primary.script,
     screens:primary.scenes.map(scene=>({order:scene.order,durationSeconds:scene.durationSeconds,headline:scene.headline,body:scene.subtitle})),
     cta:primary.cta,captions,facts:[{label:'Competição',value:fixture.competition.name},{label:'Início',value:formatBrazilKickoff(fixture.kickoff)},
       {label:'História',value:story.reason},{label:'Contexto',value:editorialContext||'Dados da partida disponíveis no LivaSports.'}],
