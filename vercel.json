@@ -8,6 +8,10 @@
     {
       "path": "/api/internal/growth-refresh",
       "schedule": "17 10,16,22 * * *"
+    },
+    {
+      "path": "/api/internal/seo-refresh",
+      "schedule": "40 5 * * *"
     }
   ],
   "git": {

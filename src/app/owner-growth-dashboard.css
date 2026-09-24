@@ -19,3 +19,9 @@
 .growth-rules{font-size:12px;color:#a9b8c1}.growth-rules li{margin:2px 0}
 .growth-nav{display:flex;gap:10px;flex-wrap:wrap}
 @media (max-width:640px){.growth-funnel li{grid-template-columns:1fr;gap:2px}.growth-funnel small{text-align:left}}
+
+/* SEO monitoring: reuses the owner health card/table language; only the list needs its own rule. */
+.owner-seo-list { margin:.4rem 0 1rem; padding-left:1.1rem; display:grid; gap:.35rem; }
+.owner-seo-list li { font-size:.82rem; line-height:1.5; }
+.owner-seo .owner-health-note { color:var(--color-text-muted); font-size:.75rem; line-height:1.55; }
+.owner-seo .owner-health-critical { color:#ff8f8f; }

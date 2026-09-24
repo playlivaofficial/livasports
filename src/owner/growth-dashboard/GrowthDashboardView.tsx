@@ -40,7 +40,7 @@ function Nav({parsed,current}:{parsed:ParsedGrowthQuery;current:'dashboard'|'wee
   return <nav className="growth-nav" aria-label="Growth views">
     <Link className={current==='dashboard'?'owner-analytics-active':''} href={`/owner/growth/dashboard?${q}`}>Dashboard</Link>
     <Link className={current==='weekly'?'owner-analytics-active':''} href={`/owner/growth/scorecard?${q}`}>Weekly scorecard</Link>
-    <Link href="/owner/growth">Growth queue</Link><Link href="/owner/analytics">Product analytics</Link></nav>;
+    <Link href="/owner/growth/seo">SEO</Link><Link href="/owner/growth">Growth queue</Link><Link href="/owner/analytics">Product analytics</Link></nav>;
 }
 
 /** Owner Growth Dashboard. Server-rendered from SQL aggregates; HUMAN traffic only; no provider calls. */
