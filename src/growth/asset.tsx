@@ -35,7 +35,7 @@ export function createSocialAssetElement(item:GrowthContentItem):ReactElement{
       {context?<div style={{display:'flex',alignSelf:'flex-start',background:'#d5ff4822',border:`2px solid ${colors.lime}`,borderRadius:999,padding:'12px 24px',fontSize:27,fontWeight:800,marginBottom:56}}>{context}</div>:null}
       <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:24,minHeight:500}}>
         <Team name={fixture.home.name} imageUrl={fixture.home.imageUrl} align="left"/>
-        <div style={{display:'flex',alignItems:'center',justifyContent:'center',width:'12%',paddingTop:82,fontSize:40,fontWeight:800,color:colors.muted}}>×</div>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'center',width:'12%',paddingTop:82,fontSize:40,fontWeight:900,color:colors.muted}}>VS</div>
         <Team name={fixture.away.name} imageUrl={fixture.away.imageUrl} align="right"/>
       </div>
       <section style={{display:'flex',flexDirection:'column',background:'#07131cbb',border:`2px solid ${colors.line}`,borderRadius:32,padding:'40px 42px',gap:18,marginTop:36}}>

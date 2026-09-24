@@ -190,7 +190,14 @@ export const PLATFORM_PROFILES={
 
 export const QUALITY={publishReady:68,needsReview:50,playerEvidenceMinimum:22,oddsGapMinimum:0.18} as const;
 // Direct owner downloads stay below Vercel's 4.5 MB response ceiling, including transport headroom.
-export const VIDEO={width:1080,height:1920,fps:12,subtitleTop:1320,subtitleBottom:1640,maxRenderBytes:4_000_000} as const;
+/**
+ * Premium Motion V1: fps, x264 preset and CRF were chosen from measured renders (see
+ * docs/PREMIUM_MOTION_V1.md): the layered motion pipeline keeps a single encoder inside the serverless
+ * budget with the headroom recorded there. Runtime safety beats vanity specs.
+ */
+export const VIDEO={width:1080,height:1920,fps:15,subtitleTop:1320,subtitleBottom:1640,maxRenderBytes:4_000_000,preset:'superfast',crf:28} as const;
+/** Motion language version persisted with each render, so QA can tell motion generations apart. */
+export const MOTION_VERSION='PREMIUM_MOTION_1' as const;
 
 /** Reserved boundary for future verified Search Console/social-trend inputs. No source means no adjustment. */
 export const VERIFIED_TREND_PROVIDERS=[] as readonly string[];
@@ -230,12 +237,26 @@ export const VOICE={
   voiceGain:1.0,
   ambienceGain:0.12,
   effectGain:0.22,
+  /**
+   * Natural Voice V1. Lower stability reads livelier; very low stability (and high style) is where
+   * multilingual voices start to drift into an English accent and odd emphasis, so ENERGETIC now
+   * stops at .40/.40 and gets its pace from `speed` instead. EDITORIAL is steadier and slower.
+   */
   modes:{
-    // Lower stability reads as livelier delivery; higher stability reads as measured and editorial.
-    ENERGETIC:{stability:0.34,similarity:0.78,style:0.55},
-    EDITORIAL:{stability:0.58,similarity:0.80,style:0.22},
+    ENERGETIC:{stability:0.40,similarity:0.80,style:0.40,speed:1.06},
+    EDITORIAL:{stability:0.56,similarity:0.82,style:0.16,speed:0.97},
   },
+  /** Cache contract version: bump when anything that changes the produced audio changes. */
+  cacheVersion:2,
 } as const;
+/**
+ * Natural Voice V1 — how each mode breathes on the timeline. ENERGETIC starts on the cut and moves on
+ * quickly; EDITORIAL lets a beat land before the picture changes. Seconds.
+ */
+export const VOICE_PACING:Readonly<Record<GrowthVoiceMode,{leadSeconds:number;tailSeconds:number}>>={
+  ENERGETIC:{leadSeconds:.08,tailSeconds:.28},
+  EDITORIAL:{leadSeconds:.16,tailSeconds:.42},
+};
 /** Default narration voice per channel; TikTok wants energy, the other two want authority. */
 export const CHANNEL_VOICE:Readonly<Record<GrowthVideoChannel,GrowthVoiceMode>>={
   TIKTOK:'ENERGETIC',INSTAGRAM_REELS:'EDITORIAL',YOUTUBE_SHORTS:'EDITORIAL',

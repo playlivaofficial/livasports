@@ -8,6 +8,7 @@ import {SHORTLIST,VIDEO_CHANNELS,type GrowthVideoChannel} from './config';
 import {acquireGrowthJob,enrichGrowthStorySignals,finishGrowthJob,persistGrowthItem,readGrowthFixtures,readGrowthItem,readGrowthVideo,readLatestGrowthItems,readRightsFallbackDraftsForRegeneration,readV1DraftsForRegeneration,recentGrowthFixtureIds,upsertGrowthSeoPriorities} from './repository';
 import type {GrowthContentPack,GrowthDashboard,RankedGrowthFixture} from './types';
 import {readPremiumDraftsForRegeneration} from './repository';
+import {databaseVoiceStore} from './voice-store';
 
 /** Optional future rewrite boundary. V1 intentionally ships only the deterministic implementation. */
 export interface GrowthContentGenerator {
@@ -86,7 +87,7 @@ export async function runGrowthGeneration(db:DatabaseClient,trigger:'AUTOMATIC'|
       try{
         const rank=priorityRank.get(row.signals.fixtureId)??sharedTopTen.length+1;
         const material=generatedContent(row,rank,sharedTopSocial);
-        const videos=material.content.platforms?await renderGrowthVideos(material.content.platforms,material.fixture,{deadlineMs:renderDeadline}):[];
+        const videos=material.content.platforms?await renderGrowthVideos(material.content.platforms,material.fixture,{deadlineMs:renderDeadline,voiceStore:databaseVoiceStore(db)}):[];
         const stored=await persistGrowthItem(db,{fixtureId:row.signals.fixtureId,sourceHash:material.sourceHash,trigger,
           priorityScore:row.priority.total,scoreBreakdown:row.priority.lines,reasons:row.priority.reasons,
           fixture:material.fixture,content:material.content,canonicalUrl:row.destinationUrl,tracking:material.tracking,now,
@@ -116,7 +117,7 @@ async function regenerateDraftSet(db:DatabaseClient,drafts:Array<{id:string;fixt
     for(const candidate of candidates){
       await db.query(`UPDATE growth_generation_jobs SET heartbeat_at=now(),lease_expires_at=now()+interval '10 minutes' WHERE id=$1 AND status='RUNNING'`,[jobId]);
       const row=enriched.find(item=>item.signals.fixtureId===candidate.row.signals.fixtureId)!;
-      try{const material=generatedContent(row,rankMap.get(row.signals.fixtureId)??1,topSocial),videos=await renderGrowthVideos(material.content.platforms!,material.fixture);
+      try{const material=generatedContent(row,rankMap.get(row.signals.fixtureId)??1,topSocial),videos=await renderGrowthVideos(material.content.platforms!,material.fixture,{voiceStore:databaseVoiceStore(db)});
         if(videos.some(video=>video.status==='FAILED'||video.voice?.degradedReason))throw new Error('DRAFT_RENDER_FAILED_KEEP_PREDECESSOR');
         const stored=await persistGrowthItem(db,{fixtureId:row.signals.fixtureId,sourceHash:material.sourceHash,trigger:'OWNER',priorityScore:row.priority.total,
           scoreBreakdown:row.priority.lines,reasons:row.priority.reasons,fixture:material.fixture,content:material.content,canonicalUrl:row.destinationUrl,
@@ -144,7 +145,7 @@ export async function previewGrowthVideo(db:DatabaseClient,fixtureId:string,chan
   if(!row)throw new Error('FIXTURE_NOT_PRODUCIBLE');
   const [enriched]=await enrichGrowthStorySignals(db,[row]),rank=sharedPriorityRanks(shared,ranked.map(candidate=>candidate.priority)).get(fixtureId)??1;
   const material=generatedContent(enriched,rank,rowsForPriorities(ranked,shared.social));
-  return renderGrowthVideo(material.content.platforms![channel],material.fixture);
+  return renderGrowthVideo(material.content.platforms![channel],material.fixture,{voiceStore:databaseVoiceStore(db)});
 }
 
 export async function regeneratePremiumDrafts(db:DatabaseClient,options:{now?:Date}={}):Promise<GrowthRegenerationResult>{
@@ -169,9 +170,9 @@ export async function regenerateGrowthPlatform(db:DatabaseClient,itemId:string,c
     const content={...fresh.content,platforms:{...fresh.content.platforms,...item.content.platforms,[channel]:freshDraft},
       captions:{...fresh.content.captions,...item.content.captions,[channel]:freshDraft.caption}};
     const videos:GrowthVideoRenderResult[]=[];
-    for(const videoChannel of VIDEO_CHANNELS){if(videoChannel===channel){try{videos.push(await renderGrowthVideo(freshDraft,fresh.fixture));}catch{videos.push({channel,status:'FAILED',mimeType:null,sha256:null,byteLength:null,data:null,errorCode:'VIDEO_RENDER_FAILED'});}continue;}
+    for(const videoChannel of VIDEO_CHANNELS){if(videoChannel===channel){try{videos.push(await renderGrowthVideo(freshDraft,fresh.fixture,{voiceStore:databaseVoiceStore(db)}));}catch{videos.push({channel,status:'FAILED',mimeType:null,sha256:null,byteLength:null,data:null,errorCode:'VIDEO_RENDER_FAILED'});}continue;}
       const existing=await readGrowthVideo(db,item.id,videoChannel);if(existing)videos.push({channel:videoChannel,status:'READY',mimeType:'video/mp4',sha256:existing.sha256,byteLength:existing.byteLength,data:existing.data,renderMetadata:existing.renderMetadata});
-      else try{videos.push(await renderGrowthVideo(content.platforms![videoChannel],fresh.fixture));}catch{videos.push({channel:videoChannel,status:'FAILED',mimeType:null,sha256:null,byteLength:null,data:null,errorCode:'VIDEO_RENDER_FAILED'});}
+      else try{videos.push(await renderGrowthVideo(content.platforms![videoChannel],fresh.fixture,{voiceStore:databaseVoiceStore(db)}));}catch{videos.push({channel:videoChannel,status:'FAILED',mimeType:null,sha256:null,byteLength:null,data:null,errorCode:'VIDEO_RENDER_FAILED'});}
     }
     const stored=await persistGrowthItem(db,{fixtureId:row.signals.fixtureId,sourceHash:fresh.sourceHash,trigger:'OWNER',priorityScore:row.priority.total,
       scoreBreakdown:row.priority.lines,reasons:row.priority.reasons,fixture:fresh.fixture,content,canonicalUrl:row.destinationUrl,tracking:fresh.tracking,now,force:true,

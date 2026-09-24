@@ -11,6 +11,8 @@ import {enrichGrowthStorySignals,readLatestGrowthItems,readGrowthVideo} from './
 import {buildShortlist} from './shortlist';
 import {generatedContent} from './content';
 import {renderGrowthVideos,growthSceneSvg} from './video-renderer';
+import {databaseVoiceStore} from './voice-store';
+import {voiceConfigured,voicesPinned} from './voice';
 import type {GrowthRenderMetadata} from './types';
 import {newOwnerSession,ownerCookie,signOwnerSession} from '@/owner/session';
 
@@ -152,7 +154,7 @@ try{
         }
         manifest.push({rank:index+1,fixture:material.fixture,platforms:material.content.platforms});continue;
       }
-      const videos=await renderGrowthVideos(material.content.platforms!,material.fixture);
+      const videos=await renderGrowthVideos(material.content.platforms!,material.fixture,{voiceStore:databaseVoiceStore(db)});
       for(const video of videos)if(video.status==='READY'){const file=join(directory,`${index+1}-${row.signals.publicId}-${video.channel.toLowerCase()}.mp4`);await writeFile(file,video.data);qaVideos.push({rank:index+1,channel:video.channel,file});
         qaVideos[qaVideos.length-1].metadata=video.renderMetadata;
         qaVideos[qaVideos.length-1].visuals=material.content.platforms![video.channel].scenes.map(scene=>scene.visual);
@@ -174,6 +176,7 @@ try{
     const videos=(await db.query<Record<string,unknown>>(`SELECT a.content_item_id,a.channel,a.byte_length,a.sha256,i.fixture_id,i.revision
       FROM growth_platform_assets a JOIN growth_content_items i ON i.id=a.content_item_id WHERE a.status='READY' ORDER BY a.generated_at DESC,a.channel LIMIT 30`)).rows;
     const vercel=JSON.parse(await readFile(new URL('../../vercel.json',import.meta.url),'utf8')) as {crons?:Array<{path:string;schedule:string}>};
-    console.info(JSON.stringify({command,migration036:migration,summary,videos,scheduler:vercel.crons?.filter(cron=>cron.path==='/api/internal/growth-refresh')??[]},null,2));
+    const voiceCache=await db.query<Record<string,unknown>>(`SELECT count(*)::int AS clips,coalesce(sum(characters),0)::int AS characters,coalesce(sum(use_count-1),0)::int AS reuses FROM growth_voice_clips`).then(result=>result.rows[0]).catch(()=>({clips:null,note:'migration 038 not applied'}));
+    console.info(JSON.stringify({command,migration036:migration,summary,videos,voice:{configured:voiceConfigured(),brazilianVoicesPinned:voicesPinned(),cache:voiceCache},scheduler:vercel.crons?.filter(cron=>cron.path==='/api/internal/growth-refresh')??[]},null,2));
   }else throw new Error('UNKNOWN_GROWTH_COMMAND');
 }finally{await db.close();}

@@ -44,11 +44,24 @@ export interface GrowthCreativeDirection {
   identities?:Array<'curly'|'fade'>;
   palettes?:{home:import('./palette').TeamPalette;away:import('./palette').TeamPalette};
   historyConsidered?:number;
+  /** Premium Motion V1 sound direction, chosen with the rest of the creative so history can rotate it. */
+  audio?:import('./audio-design').AudioDirection;
 }
+export interface GrowthRenderVoice {mode:string;provider:string;lines:number;degradedReason:string|null;voiceId?:string;
+  cache?:{memoryHits:number;storeHits:number;synthesized:number;characters:number};}
+export interface GrowthAudioSource {id:string;file:string;sha256:string|null;origin:'ORIGINAL_PROCEDURAL';license:string;}
 export interface GrowthRenderMetadata {
-  voice:{mode:string;provider:string;lines:number;degradedReason:string|null};
+  voice:GrowthRenderVoice;
   characterMode:'LIVA_ORIGINAL'|'CREST_FALLBACK'|'NONE';scenery:string[];durationSeconds:number;renderMs:number;
-  sceneTiming:Array<{order:number;startSeconds:number;durationSeconds:number;audioSeconds:number}>;
+  /** Wall-clock per render stage, so serverless headroom is measured in production, not guessed. */
+  stages?:{narrationMs:number;layersMs:number;audioMs:number;encodeMs:number};
+  sceneTiming:Array<{order:number;startSeconds:number;durationSeconds:number;audioSeconds:number;voiceStartSeconds?:number}>;
+  /** Premium Motion V1 (absent on older renders). */
+  motion?:{version:string;grammar:string;fps:number;transitions:string[];atmosphere:string[][];bleed:number;encoder:{preset:string;crf:number;maxVideoKbps:number}};
+  audio?:{library:string;direction:import('./audio-design').AudioDirection;music:GrowthAudioSource|null;ambience:GrowthAudioSource|null;
+    effects:Array<{id:string;atSeconds:number;gainDb:number}>;
+    mix:{hierarchy:'VOICE>MUSIC>AMBIENCE';targetLufs:number;truePeakCeilingDb:number;musicDb:number;ambienceDb:number;sfxDb:number;
+      ducking:{threshold:number;ratio:number;attackMs:number;releaseMs:number};measuredInputLufs:number|null;outputLufs:number|null;outputTruePeakDb:number|null;loudnessRange:number|null}};
 }
 export interface GrowthPlatformDraft {channel:GrowthVideoChannel;title:string;description:string;hook:string;script:string;caption:string;hashtags:string[];cta:string;template:GrowthCreativeTemplate;scenes:GrowthVideoScene[];creative?:GrowthCreativeDirection;}
 export interface GrowthReadiness {score:number;state:'READY'|'NEEDS_REVIEW'|'FALLBACK';reasons:string[];fallbackApplied:boolean;}

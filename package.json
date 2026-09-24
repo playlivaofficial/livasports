@@ -58,6 +58,8 @@
     "growth:validate-migration": "node --import ./scripts/growth-cli-preload.mjs --import tsx --env-file=.env.production.local --env-file-if-exists=.env.local src/growth/cli.ts validate-migration",
     "growth:verify": "node --import ./scripts/growth-cli-preload.mjs --import tsx --env-file=.env.production.local --env-file-if-exists=.env.local src/growth/cli.ts verify",
     "growth:render-top5": "node --import ./scripts/growth-cli-preload.mjs --import tsx --env-file=.env.production.local --env-file-if-exists=.env.local src/growth/cli.ts render-top5",
+    "growth:voice-audition": "node --import ./scripts/growth-audition-preload.mjs --import tsx --env-file-if-exists=.env.production.local --env-file-if-exists=.env.local src/growth/voice-audition.ts",
+    "growth:audio-library": "node scripts/growth-audio-generate.mjs",
     "qa:g1:publisher": "node --require ./scripts/tsx-windows-preload.cjs --import ./scripts/g1-qa-preload.mjs --import tsx --env-file=.env.local scripts/g1-publisher-db-qa.ts",
     "qa:g1:commercial": "node --require ./scripts/tsx-windows-preload.cjs --import ./scripts/g1-qa-preload.mjs --import tsx --env-file=.env.local scripts/g1-commercial-qa.ts",
     "cache:warm": "tsx src/cache/warmup-cli.ts",

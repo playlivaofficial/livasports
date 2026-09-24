@@ -44,7 +44,7 @@ describe('Traffic Engine V1.2 narration mux',()=>{
     }finally{await rm(dir,{recursive:true,force:true});}
   }
   const stubVoice=(data:Buffer)=>({id:'stub',available:()=>true,
-    synthesize:vi.fn(async(_text:string,mode:'ENERGETIC'|'EDITORIAL')=>({mode,mimeType:'audio/mpeg' as const,data,sha256:'a'.repeat(64)}))});
+    synthesize:vi.fn(async(...call:[text:string,mode:'ENERGETIC'|'EDITORIAL',signal?:AbortSignal,request?:unknown])=>({mode:call[1],mimeType:'audio/mpeg' as const,data,sha256:'a'.repeat(64)}))});
 
   it('lays narration against the scene plan and encodes a real audio track',async()=>{
     const row=rankedFixture(),draft=generateV11ContentPack(row,1,[row]).platforms!.TIKTOK;
@@ -55,12 +55,25 @@ describe('Traffic Engine V1.2 narration mux',()=>{
     expect(rendered.voice?.lines).toBe(draft.scenes.filter(scene=>scene.voiceover.trim()).length);
     // TikTok narrates with the energetic voice; every scene line was requested.
     expect(rendered.voice?.mode).toBe('ENERGETIC');
-    const timings=rendered.renderMetadata!.sceneTiming;
+    const timings=rendered.renderMetadata!.sceneTiming,transitions=rendered.renderMetadata!.motion!.transitions;
     expect(timings[0].durationSeconds).toBeGreaterThan(4.1);
+    expect(transitions).toHaveLength(timings.length-1);
     for(const [index,timing] of timings.entries()){
-      expect(timing.audioSeconds+.3).toBeLessThanOrEqual(timing.durationSeconds);
-      if(index>0)expect(timing.startSeconds).toBeCloseTo(timings[index-1].startSeconds+timings[index-1].durationSeconds);
+      // Every line lives inside its own scene's clean window: it starts after the scene begins and ends
+      // before the next scene starts to overlap it, so a voice is never heard over the wrong picture.
+      expect(timing.voiceStartSeconds!).toBeGreaterThanOrEqual(timing.startSeconds);
+      const next=timings[index+1];
+      if(next){
+        expect(next.startSeconds).toBeLessThan(timing.startSeconds+timing.durationSeconds);
+        expect(timing.voiceStartSeconds!+timing.audioSeconds).toBeLessThanOrEqual(next.startSeconds+1e-6);
+      }
     }
+    // Voice-led, loudness-normalised mix with a rights-safe bed and recorded provenance.
+    const audio=rendered.renderMetadata!.audio!;
+    expect(audio.mix.hierarchy).toBe('VOICE>MUSIC>AMBIENCE');
+    expect(audio.music?.origin).toBe('ORIGINAL_PROCEDURAL');expect(audio.music?.sha256).toMatch(/^[a-f0-9]{64}$/);
+    expect(Math.abs(audio.mix.outputLufs!-audio.mix.targetLufs)).toBeLessThan(1.5);
+    expect(audio.mix.outputTruePeakDb!).toBeLessThanOrEqual(-.5);
     expect(voice.synthesize).toHaveBeenCalled();
     // An AAC track is present in the container, so the MP4 is genuinely voiced rather than silent.
     expect(rendered.data.includes(Buffer.from('mp4a'))).toBe(true);
@@ -74,7 +87,9 @@ describe('Traffic Engine V1.2 narration mux',()=>{
     expect(rendered.status).toBe('READY');
     expect(rendered.voice?.degradedReason).toBe('VOICE_NOT_CONFIGURED');
     expect(rendered.voice?.lines).toBe(0);
-    expect(rendered.data.includes(Buffer.from('mp4a'))).toBe(false);
+    // Unvoiced renders still carry the rights-safe music and ambience bed rather than silence.
+    expect(rendered.data.includes(Buffer.from('mp4a'))).toBe(true);
+    expect(rendered.renderMetadata?.audio?.music).not.toBeNull();
     expect(rendered.byteLength).toBeGreaterThan(20_000);
   },180_000);
 
@@ -84,8 +99,9 @@ describe('Traffic Engine V1.2 narration mux',()=>{
     const rendered=await renderGrowthVideos(pack.platforms!,fixtureSnapshot(row),{assetLoader:async()=>null,voice});
     expect(rendered).toHaveLength(3);
     expect(rendered.every(item=>item.status==='READY')).toBe(true);
-    // Distinct lines only: the shared cache must collapse any line the platforms word identically.
-    const requested=voice.synthesize.mock.calls.map(call=>`${call[1]}:${call[0]}`);
+    // Distinct requests only: the shared cache collapses any line the platforms speak identically in
+    // the same context (neighbouring lines are part of the take, so they are part of the identity).
+    const requested=voice.synthesize.mock.calls.map(call=>JSON.stringify([call[1],call[0],call[3]]));
     expect(new Set(requested).size).toBe(requested.length);
   },240_000);
 });
