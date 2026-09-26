@@ -1,0 +1,56 @@
+import {describe,it,expect,vi} from 'vitest';
+vi.mock('server-only',()=>({}));
+import {validCreative,campaignDestination,isSponsorPlacement} from './policy';
+import {resolveOffer} from './service';
+import {campaign,dependencies} from './fixtures.test-support';
+import type {Campaign,CommercialContext,Creative} from './types';
+
+const now=Date.now();
+// Mirrors migration 044: the official static 970x90 leaderboard on the free match_inline slot.
+const inlineCreative=(overrides:Partial<Creative>={}):Creative=>({
+  id:'1xbet-match-inline-br',placement:'match_inline',locale:'br',
+  imageUrl:'/sponsors/1xbet/match-inline-970x90.webp',
+  imageAlt:'1xBet: apostas esportivas. Proibido para menores de 18 anos. Jogue com responsabilidade.',
+  width:970,height:90,approved:true,enabled:true,
+  startsAt:new Date(now-60000).toISOString(),endsAt:new Date(now+3600000).toISOString(),
+  delivery:'IMAGE',embedSourceUrl:null,...overrides,
+});
+const onexbet=(overrides:Partial<Campaign>={}):Campaign=>({...campaign(now),
+  id:'cccccccc-cccc-4ccc-8ccc-cccccccccccc',bookmaker:'1xbet',operatorCampaignId:'7035424',
+  destination:'https://1xaff.com.br/L?tag=d_6128686m_134462c_&site=6128686&ad=134462',
+  domains:['1xaff.com.br'],placements:['match_odds_table','match_slip_comparison','slip_bookmaker_comparison','match_inline'],
+  creatives:[inlineCreative()],...overrides});
+const inlineContext:CommercialContext={locale:'br',pagePath:'/br/partida/x',placement:'match_inline'};
+
+describe('1xBet match_inline placement',()=>{
+  it('serves the official static leaderboard through the local IMAGE path',()=>{
+    expect(isSponsorPlacement('match_inline')).toBe(true);
+    expect(validCreative(inlineCreative(),inlineContext,now,'7035424')).toBe(true);
+  });
+  it('rejects an animated or remote source, so library GIFs can never be wired in',()=>{
+    // Only /sponsors/ paths with a still image extension pass; .gif and absolute URLs do not.
+    expect(validCreative(inlineCreative({imageUrl:'/sponsors/1xbet/banner.gif'}),inlineContext,now)).toBe(false);
+    expect(validCreative(inlineCreative({imageUrl:'https://partners.1xbet.bet.br/x.jpg'}),inlineContext,now)).toBe(false);
+    expect(validCreative(inlineCreative({embedSourceUrl:'https://c.bannerflow.net/a/'+'a'.repeat(24)}),inlineContext,now)).toBe(false);
+  });
+  it('sends clicks only to the verified 1xAff tracking host',()=>{
+    expect(campaignDestination(onexbet(),inlineContext,now)).toBe('https://1xaff.com.br/L?tag=d_6128686m_134462c_&site=6128686&ad=134462');
+    // An operator domain outside the campaign allowlist is refused even with a valid destination.
+    expect(campaignDestination(onexbet({domains:['1xbet.com']}),inlineContext,now)).toBeNull();
+  });
+  it('is Brazil only',()=>{
+    expect(campaignDestination(onexbet({locale:'mx'}),{...inlineContext,locale:'mx'},now)).toBeNull();
+  });
+  it('never competes with Betsson, which holds no inline slot',async()=>{
+    const betsson=campaign(now);
+    expect(betsson.placements).not.toContain('match_inline');
+    const offer=await resolveOffer(inlineContext,dependencies(onexbet()),now);
+    expect(offer?.campaign.bookmaker).toBe('1xbet');
+    expect(offer?.creative?.imageUrl).toBe('/sponsors/1xbet/match-inline-970x90.webp');
+  });
+  it('still fails closed if a second campaign ever claims the same slot',async()=>{
+    const rival=onexbet({id:'dddddddd-dddd-4ddd-8ddd-dddddddddddd'});
+    const deps={...dependencies(onexbet()),campaigns:async()=>[onexbet(),rival]};
+    expect(await resolveOffer(inlineContext,deps,now)).toBeNull();
+  });
+});
