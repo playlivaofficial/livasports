@@ -95,6 +95,9 @@ describe('sitemap metadata',()=>{
     const list=await listSitemaps('tok','p',fetcher);
     expect(list[0]).toMatchObject({submitted:510,indexed:null,errors:0});
     expect(list[1]).toMatchObject({submitted:14000,indexed:900,warnings:1});
+    // Google deprecated this field and now returns 0; a literal 0 must not read as 'nothing is indexed'.
+    const deprecated=await listSitemaps('tok','p',(async()=>json({sitemap:[{path:'s',contents:[{submitted:'14580',indexed:'0'}]}]})) as unknown as typeof fetch);
+    expect(deprecated[0]).toMatchObject({submitted:14580,indexed:null});
   });
   it('surfaces a denied property rather than an empty list',async()=>{
     const fetcher=vi.fn(async()=>json({},403)) as unknown as typeof fetch;

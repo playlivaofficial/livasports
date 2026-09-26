@@ -120,6 +120,9 @@ export async function listSitemaps(token:string,property:string,fetcher:Fetcher=
       lastDownloaded:entry.lastDownloaded?String(entry.lastDownloaded):null,
       isPending:entry.isPending===undefined?null:Boolean(entry.isPending),
       warnings:Number(entry.warnings??0),errors:Number(entry.errors??0),
-      submitted,indexed:contents.some(row=>row.indexed!==undefined)?indexed:null};
+      // Google deprecated the sitemap `indexed` count: it is absent, or present and always 0. Reporting a
+      // literal 0 would read as "nothing is indexed", which is false, so an absent-or-zero value stays null
+      // and the dashboard says "not reported" instead of inventing a number.
+      submitted,indexed:indexed>0?indexed:null};
   });
 }
