@@ -75,15 +75,18 @@ export function SeoDashboard({report,search}:{report:SeoReport;search:SeoSearchR
 
     <section aria-labelledby="seo-gsc">
       <h2 id="seo-gsc">Search performance</h2>
-      {gsc.state==='CONNECTED'&&search?<SeoSearchPerformance search={search}/>:
-        <div className="owner-health-card" role="status">
-          <span>Search Console</span><strong>{gsc.state}</strong>
-          <small>Property {gsc.property}</small>
-          {gsc.missing?<p className="owner-health-evidence">Missing: {gsc.missing}</p>:null}
-          {gsc.remedy?<p className="owner-health-note">Remedy: {gsc.remedy}</p>:null}
-          <p className="owner-health-note">Clicks, impressions, CTR, average position, query and page reports stay
-            unavailable until a property-scoped credential exists. No placeholder numbers are shown.</p>
-        </div>}
+      {/* Stored history is shown whenever it exists. Gating it on the live credential would blank a real
+          report the moment a token expired, which is exactly when an owner needs to see the last known data. */}
+      {gsc.state!=='CONNECTED'?<div className="owner-health-card" role="status">
+        <span>Search Console credential</span><strong>{gsc.state}</strong>
+        <small>Property {gsc.property}</small>
+        {gsc.missing?<p className="owner-health-evidence">Missing: {gsc.missing}</p>:null}
+        {gsc.remedy?<p className="owner-health-note">Remedy: {gsc.remedy}</p>:null}
+        <p className="owner-health-note">{search?.hasData
+          ?'The figures below are the last successfully ingested data; they are not being refreshed while the credential is unavailable.'
+          :'No Search Console data has been ingested yet. No placeholder numbers are shown.'}</p>
+      </div>:null}
+      {search?.hasData?<SeoSearchPerformance search={search}/>:null}
     </section>
 
     {history.length>1?<section aria-labelledby="seo-trend">
