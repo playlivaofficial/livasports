@@ -15,6 +15,11 @@ const ALIASES: Record<string, CanonicalBookmaker> = {
   'www.betsson.com': 'betsson',
   'betsson.bet.br': 'betsson',
   'www.betsson.bet.br': 'betsson',
+  '1xbet': '1xbet',
+  '1xbet.com': '1xbet',
+  'www.1xbet.com': '1xbet',
+  '1xbet.bet.br': '1xbet',
+  'www.1xbet.bet.br': '1xbet',
 };
 
 export function canonicalBookmakerSlug(value: unknown): CanonicalBookmaker | null {

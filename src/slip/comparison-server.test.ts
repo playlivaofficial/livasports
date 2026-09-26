@@ -6,6 +6,7 @@ import {parseComparisonEvent,recordComparisonEvent} from './comparison-analytics
 import {readSlipComparison} from '@/odds/read-repository';
 import {comparisonFixture} from './comparison-fixtures.test-support';
 import {campaign,dependencies,key} from '@/affiliate/fixtures.test-support';
+import {ACTIVE_BOOKMAKER_IDS} from '@/odds/registry';
 
 afterEach(()=>vi.restoreAllMocks());
 const payload=()=>({locale:'br',selections:comparisonFixture().selections});
@@ -64,7 +65,7 @@ describe('M7 request/security boundary',()=>{
       {provider_slug:'betano.bet.br',display_name:'Betano BR',affiliate_status:'PENDING',verification_state:'VERIFIED_BR',destination:'https://betano.bet.br/?partner=test-only',active_campaigns:[]},
       {provider_slug:'betsson',display_name:'Betsson',affiliate_status:'ACTIVE',verification_state:'VERIFIED_BR',destination:'https://betsson.bet.br/?partner=test-only',active_campaigns:[{type:'HOMEPAGE',placements:['slip_bookmaker_comparison'],domains:['betsson.bet.br']}]}]});
     const r=await readSlipComparison({query},comparisonFixture(2).selections.map(s=>s.fixturePublicId),null);
-    expect(query.mock.calls[1][1]).toEqual(['BR',['betsson','sportingbet.bet.br','betboo.bet.br','betano.bet.br']]);
+    expect(query.mock.calls[1][1]).toEqual(['BR',[...ACTIVE_BOOKMAKER_IDS]]);
     expect(r.destinations).toEqual({});
     expect(r.bookmakers).toEqual([
       {bookmakerId:'betano.bet.br',displayName:'Betano BR',geoEligibility:{locale:'br',eligible:true},affiliateEligibility:{approved:false,destinationConfigured:false}},

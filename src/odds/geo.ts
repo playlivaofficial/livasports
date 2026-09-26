@@ -14,5 +14,9 @@ export function eligibleSource(bookmaker:string,geo:CommercialGeo|null,state:unk
   // M7 owner-confirmed BR eligibility includes the generic Betsson OddsPapi feed.
   // Mexico still requires its own verification AND its jurisdiction-specific source.
   if(bookmaker==='betsson')return geo==='BR'?['betsson.bet.br','betsson.com'].includes(host):host==='betsson.mx';
+  // Owner-confirmed on the same basis as Betsson: OddsPapi publishes a single 1xBet feed with no
+  // .bet.br clone, and it reports the generic 1xbet.com host on every fixture. BR only — the feed
+  // carries no Mexico evidence, so Mexico stays ineligible rather than inheriting this decision.
+  if(bookmaker==='1xbet')return geo==='BR'&&['1xbet.com','1xbet.bet.br'].includes(host);
   return false;
 }

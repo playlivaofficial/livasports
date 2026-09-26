@@ -5,12 +5,19 @@ export const GATED_AFFILIATE={affiliateEnabled:false,affiliateCampaignId:null,af
 const IDENTITIES = [
   {canonicalId:'betsson',providerSlug:'betsson',displayName:'Betsson',shortLabel:'Betsson',countries:['BR','MX'],displayRole:'VISIBLE_PRIMARY',displayOrder:1,insurancePriority:1,logoAsset:'/bookmakers/betsson.webp'},
   {canonicalId:'sportingbet.bet.br',providerSlug:'sportingbet.bet.br',displayName:'Sportingbet BR',shortLabel:'Sportingbet',countries:['BR'],displayRole:'VISIBLE_PRIMARY',displayOrder:2,insurancePriority:2,logoAsset:'/bookmakers/sportingbet.webp'},
-  // Slated for replacement by 1xBet. Betboo holds the third public slot until that swap lands in one
-  // commit: Brazil's alternate-insurance path needs three visible books, so retiring it on its own
-  // would ship a two-book product. When 1xBet takes the slot this becomes displayRole:'RETIRED',
-  // which keeps the identity for historical odds rows, analytics and audit exports while removing it
-  // from display, comparison, affiliate links and — via ACTIVE_BOOKMAKER_IDS — provider demand.
-  {canonicalId:'betboo.bet.br',providerSlug:'betboo.bet.br',displayName:'betboo BR',shortLabel:'betboo',countries:['BR'],displayRole:'VISIBLE_PRIMARY',displayOrder:3,insurancePriority:3,logoAsset:'/bookmakers/betboo.webp'},
+  // Took Betboo's third public slot. OddsPapi exposes one 1xBet feed (slug '1xbet', cloneOf null)
+  // and no .bet.br clone, so this is the generic feed — the same shape as Betsson, and owner-approved
+  // for Brazil on that basis. Its provider flags are honest (bookmakerIsActive/suspended/active all
+  // report truthfully), so it stays on the STRICT policy below rather than Betsson's relaxation.
+  // logoAsset stays null until an official 1xBet mark is supplied: the Partners media library holds
+  // banner creative only, and BookmakerLogo renders the shortLabel when there is no asset, so this
+  // shows a correct "1xBet" label instead of 404ing on artwork we would have had to invent.
+  {canonicalId:'1xbet',providerSlug:'1xbet',displayName:'1xBet',shortLabel:'1xBet',countries:['BR'],displayRole:'VISIBLE_PRIMARY',displayOrder:3,insurancePriority:3,logoAsset:null},
+  // Retired when 1xBet replaced it, and simultaneously dropped from our OddsPapi subscription, so it
+  // can no longer be priced at all. The identity stays so historical odds rows, analytics events and
+  // audit exports still normalize, but a RETIRED book is never displayed, never comparable, never
+  // affiliate-linked and — via ACTIVE_BOOKMAKER_IDS — never requested from the provider again.
+  {canonicalId:'betboo.bet.br',providerSlug:'betboo.bet.br',displayName:'betboo BR',shortLabel:'betboo',countries:['BR'],displayRole:'RETIRED',displayOrder:99,insurancePriority:99,logoAsset:'/bookmakers/betboo.webp'},
   {canonicalId:'betano.bet.br',providerSlug:'betano.bet.br',displayName:'Betano BR',shortLabel:'Betano',countries:['BR'],displayRole:'HIDDEN_INSURANCE',displayOrder:4,insurancePriority:0,logoAsset:null},
 ] as const;
 /** A public card, the hidden insurance source, or an operator kept only so history still resolves. */

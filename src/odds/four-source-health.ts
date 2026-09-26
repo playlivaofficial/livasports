@@ -5,7 +5,10 @@ import {BOOKMAKER_REGISTRY,VISIBLE_BOOKMAKERS} from './registry';
 import {SELECTIONS,type OddsMarket,type OddsReadSnapshot} from './types';
 
 export function summarizeFourSources(snapshots:readonly OddsReadSnapshot[],now:number){
-  const sources=BOOKMAKER_REGISTRY.map(book=>({bookmaker:book.canonicalId,name:book.displayName,role:book.displayRole,fixtures:0,currentFixtures:0,staleOrSuspended:0,markets:{MATCH_WINNER:0,TOTAL_GOALS:0,BTTS:0}}));
+  // Retired operators are excluded: we no longer request them, so they would report a permanent zero
+  // and misrepresent live source health.
+  const sources=BOOKMAKER_REGISTRY.filter(book=>book.displayRole!=='RETIRED')
+    .map(book=>({bookmaker:book.canonicalId,name:book.displayName,role:book.displayRole,fixtures:0,currentFixtures:0,staleOrSuspended:0,markets:{MATCH_WINNER:0,TOTAL_GOALS:0,BTTS:0}}));
   const targets=VISIBLE_BOOKMAKERS.map(book=>({bookmaker:book.canonicalId,real:0,proxy:0,unavailable:0,BETANO_INSURANCE_USED:0,BETANO_INSURANCE_FAILED:0,ALTERNATE_INSURANCE_USED:0,NO_INSURANCE_AVAILABLE:0}));
   const visibleReal={three:0,two:0,one:0,none:0};
   for(const snapshot of snapshots){

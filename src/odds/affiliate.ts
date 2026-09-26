@@ -8,9 +8,11 @@ const hosts:Record<string,readonly string[]>={
   'betsson:br':['betsson.bet.br','www.betsson.bet.br','record.betsson.bet.br'],
   'betsson:mx':['betsson.mx','www.betsson.mx'],
   'sportingbet.bet.br:br':['sportingbet.bet.br','www.sportingbet.bet.br','sports.sportingbet.bet.br'],
-  // Removed in the same commit that retires Betboo in favour of 1xBet: while Betboo is still a public
-  // card its approved destination must keep resolving.
-  'betboo.bet.br:br':['betboo.bet.br','www.betboo.bet.br','sports.betboo.bet.br'],
+  // Verified in the authenticated 1xBet Partners dashboard (Aff ID 4841984, campaign "DirectLink
+  // USD"): generated links resolve to the 1xaff.com.br tracking host, not to the operator domain.
+  '1xbet:br':['1xaff.com.br','www.1xaff.com.br'],
+  // Betboo is retired and `isVisibleBookmaker` already refuses it, so its destination is removed
+  // rather than left as a dormant allowlist entry a later change could re-enable.
 };
 export const ODDS_PLACEMENT='match-odds';
 export function validOutboundRequest(bookmaker:string,query:URLSearchParams){

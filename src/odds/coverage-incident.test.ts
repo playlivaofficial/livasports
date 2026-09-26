@@ -69,11 +69,11 @@ describe('C/D/E/G — real-first resolution with disclosed proxy fallback',()=>{
   });
   it('C: independent Betano and Betsson prices both reach the read model as REAL',()=>{
     const c=buildComparison(snapshot([quote(),quote({bookmaker:'betsson',bookmakerName:'Betsson',bookmakerId:'s',decimalOdds:'2.05'})]),'MATCH_WINNER',now.getTime());
-    expect(c.rows.map(r=>[r.bookmaker,r.cells[0].priceKind,r.cells[0].decimalOdds])).toEqual([['betsson','REAL','2.05'],['sportingbet.bet.br','PROXY','2.10'],['betboo.bet.br','PROXY','2.10']]);
+    expect(c.rows.map(r=>[r.bookmaker,r.cells[0].priceKind,r.cells[0].decimalOdds])).toEqual([['betsson','REAL','2.05'],['sportingbet.bet.br','PROXY','2.10'],['1xbet','PROXY','2.10']]);
   });
   it('D: one bookmaker only → the other side shows a disclosed PROXY, never blank',()=>{
     const c=buildComparison(snapshot([quote({bookmaker:'betsson',bookmakerName:'Betsson',bookmakerId:'s',decimalOdds:'2.05'})]),'MATCH_WINNER',now.getTime());
-    expect(c.rows.map(r=>[r.bookmaker,r.cells[0].priceKind,r.cells[0].decimalOdds])).toEqual([['betsson','REAL','2.05'],['sportingbet.bet.br','PROXY','2.05'],['betboo.bet.br','PROXY','2.05']]);
+    expect(c.rows.map(r=>[r.bookmaker,r.cells[0].priceKind,r.cells[0].decimalOdds])).toEqual([['betsson','REAL','2.05'],['sportingbet.bet.br','PROXY','2.05'],['1xbet','PROXY','2.05']]);
   });
   it('E: neither bookmaker → unavailable, never invented',()=>{
     const listing=listingMatchWinnerOdds(snapshot([]),now.getTime());
