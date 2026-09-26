@@ -2,7 +2,7 @@ import {headers} from 'next/headers';
 import {ownerConfigured,requestOwnerSession} from '@/owner/session';
 import {OwnerHealthLogin} from '@/owner/HealthDashboard';
 import {databaseUrl,PostgresDatabaseClient} from '@/database/client';
-import {readSeoReport} from '@/seo/report';
+import {readSeoReport,readSeoSearchReport} from '@/seo/report';
 import {SeoDashboard} from '@/owner/SeoDashboard';
 import '../../../owner-health.css';
 import '../../../owner-growth-dashboard.css';
@@ -17,7 +17,9 @@ export default async function OwnerSeoPage(){
   const url=databaseUrl();
   if(!url)return <main className="owner-health"><h1>SEO monitoring</h1><p role="alert">Database is not configured.</p></main>;
   const db=new PostgresDatabaseClient(url,()=>undefined,{statementTimeoutMs:25_000});
-  const report=await readSeoReport(db).catch(()=>null).finally(()=>db.close());
+  // The Search Console side is read separately so a query failure there cannot blank the technical report.
+  const report=await readSeoReport(db).catch(()=>null);
+  const search=await readSeoSearchReport(db).catch(()=>null).finally(()=>db.close());
   if(!report)return <main className="owner-health"><h1>SEO monitoring</h1><p role="alert">The SEO report could not be read. Try again shortly.</p></main>;
-  return <SeoDashboard report={report}/>;
+  return <SeoDashboard report={report} search={search}/>;
 }

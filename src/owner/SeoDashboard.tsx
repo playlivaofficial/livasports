@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import type {SeoReport} from '@/seo/report';
+import type {SeoReport,SeoSearchReport} from '@/seo/report';
+import {SeoSearchPerformance} from './SeoSearchPerformance';
 
 const pctText=(value:number)=>`${Math.round(value*1000)/10}%`;
 const delta=(current:number,baseline:number|null|undefined)=>{
@@ -9,7 +10,7 @@ const delta=(current:number,baseline:number|null|undefined)=>{
 };
 
 /** Owner-only SEO monitoring. Server-rendered, noindex, no public exposure of Search Console data. */
-export function SeoDashboard({report}:{report:SeoReport}){
+export function SeoDashboard({report,search}:{report:SeoReport;search:SeoSearchReport|null}){
   const {latest,previous,alerts,scorecard,gsc,history,thresholds,unsubmitted}=report;
   const critical=alerts.filter(a=>a.severity==='CRITICAL');
   const families=Object.entries(latest?.families??{}).sort((a,b)=>b[1]-a[1]);
@@ -74,7 +75,7 @@ export function SeoDashboard({report}:{report:SeoReport}){
 
     <section aria-labelledby="seo-gsc">
       <h2 id="seo-gsc">Search performance</h2>
-      {gsc.state==='CONNECTED'?<p className="owner-health-note">Connected to {gsc.property}.</p>:
+      {gsc.state==='CONNECTED'&&search?<SeoSearchPerformance search={search}/>:
         <div className="owner-health-card" role="status">
           <span>Search Console</span><strong>{gsc.state}</strong>
           <small>Property {gsc.property}</small>

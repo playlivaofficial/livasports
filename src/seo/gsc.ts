@@ -13,10 +13,20 @@
  *     `https://www.googleapis.com/auth/webmasters.readonly`, in `GSC_REFRESH_TOKEN`.
  * Only then does this module read the Search Analytics API. Nothing here writes placeholder rows.
  */
-export const GSC_PROPERTY='sc-domain:livasports.com';
+const DEFAULT_PROPERTY='sc-domain:livasports.com';
+/** Domain property by default; an account that only holds the URL-prefix property sets GSC_PROPERTY. */
+export function gscProperty(env:{GSC_PROPERTY?:string}=process.env as {GSC_PROPERTY?:string}){
+  const value=(env.GSC_PROPERTY??'').trim();
+  return value||DEFAULT_PROPERTY;
+}
+export const GSC_PROPERTY=DEFAULT_PROPERTY;
 export const GSC_SCOPE='https://www.googleapis.com/auth/webmasters.readonly';
 
-export type GscState='CONNECTED'|'NOT_CONNECTED'|'MISCONFIGURED';
+export type GscState='CONNECTED'|'NOT_CONNECTED'|'MISCONFIGURED'|'AUTH_ERROR'|'PROPERTY_DENIED'|'API_ERROR';
+/** Parsed credential. Values live only in memory and are never logged or rendered. */
+export type GscCredential=
+  {kind:'SERVICE_ACCOUNT';clientEmail:string;privateKey:string}|
+  {kind:'OAUTH';clientId:string;clientSecret:string;refreshToken:string};
 export interface GscStatus {
   state:GscState;
   property:string;
@@ -33,7 +43,7 @@ export interface GscReport {status:GscStatus;totals:GscTotals|null;previous:GscT
   countries:Array<{country:string;clicks:number;impressions:number}>;
   devices:Array<{device:string;clicks:number;impressions:number}>;}
 
-type Env={GSC_SERVICE_ACCOUNT_JSON?:string;GSC_REFRESH_TOKEN?:string;GSC_CLIENT_ID?:string;GSC_CLIENT_SECRET?:string};
+type Env={GSC_SERVICE_ACCOUNT_JSON?:string;GSC_REFRESH_TOKEN?:string;GSC_CLIENT_ID?:string;GSC_CLIENT_SECRET?:string;GSC_PROPERTY?:string};
 
 export function gscStatus(env:Env=process.env as Env,now=new Date()):GscStatus{
   const checkedAt=now.toISOString();
@@ -73,4 +83,22 @@ export async function readGscReport(env:Env=process.env as Env,now=new Date()):P
   return EMPTY_GSC_REPORT({...status,state:'MISCONFIGURED',
     missing:'A credential is configured but the Search Analytics client is not implemented yet',
     remedy:'Implement readGscReport against the configured credential'});
+}
+
+/**
+ * Parse whichever credential is configured, without ever throwing its contents. Returns null when nothing
+ * is configured, which the caller renders as NOT_CONNECTED rather than as an error.
+ */
+export function gscCredential(env:Env=process.env as Env):GscCredential|null{
+  if(env.GSC_SERVICE_ACCOUNT_JSON){
+    try{
+      const parsed=JSON.parse(env.GSC_SERVICE_ACCOUNT_JSON) as {client_email?:string;private_key?:string};
+      if(parsed.client_email&&parsed.private_key)
+        return {kind:'SERVICE_ACCOUNT',clientEmail:parsed.client_email,privateKey:parsed.private_key};
+    }catch{/* Reported as MISCONFIGURED by gscStatus; never echo the value. */}
+    return null;
+  }
+  if(env.GSC_REFRESH_TOKEN&&env.GSC_CLIENT_ID&&env.GSC_CLIENT_SECRET)
+    return {kind:'OAUTH',clientId:env.GSC_CLIENT_ID,clientSecret:env.GSC_CLIENT_SECRET,refreshToken:env.GSC_REFRESH_TOKEN};
+  return null;
 }

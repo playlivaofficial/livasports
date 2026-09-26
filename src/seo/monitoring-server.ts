@@ -3,6 +3,7 @@ import type {QueryExecutor} from '@/database/client';
 import {siteOrigin} from './policy';
 import {deriveSeoAlerts,type SeoAlert,type SeoProblem,type SeoSnapshot,type SubmittedFamily} from './monitoring';
 import {gscStatus} from './gsc';
+import {ingestGscSearchAnalytics} from './gsc-ingest';
 
 /**
  * Daily technical SEO snapshot. Fetches our own sitemaps, counts the submitted inventory by family and
@@ -85,7 +86,8 @@ export async function collectSeoSnapshot(fetcher:Fetcher=fetch,now=new Date(),or
     sampled:Math.min(urls.length,SEO_SAMPLE_SIZE),problems,robotsOk};
 }
 
-export interface SeoRunResult {state:'SUCCEEDED'|'FAILED';day:string;submittedTotal:number;problems:number;alerts:number;providerRequests:0;error?:string}
+export interface SeoRunResult {state:'SUCCEEDED'|'FAILED';day:string;submittedTotal:number;problems:number;alerts:number;providerRequests:0;error?:string;
+  gsc?:{state:string;days:number;rows:number;error?:string}}
 
 const day=(date:Date)=>date.toISOString().slice(0,10);
 
@@ -126,7 +128,15 @@ export async function runSeoMonitor(db:QueryExecutor,fetcher:Fetcher=fetch,now=n
           severity=excluded.severity,reason=excluded.reason,current_value=excluded.current_value,baseline_value=excluded.baseline_value`,
         [snapshotId,alert.code,alert.severity,alert.urlFamily??'',alert.reason.slice(0,400),alert.current.slice(0,120),alert.baseline.slice(0,120)]);
     }
-    return {state:'SUCCEEDED',day:today,submittedTotal:snapshot.submittedTotal,problems:snapshot.problems.length,alerts:alerts.length,providerRequests:0};
+    // Search Console is ingested after the technical snapshot is safely stored, and its failures are
+    // contained here: one Search Console outage must not cost us the day's technical monitoring.
+    let gsc:SeoRunResult['gsc'];
+    try{
+      const ingest=await ingestGscSearchAnalytics(db,{now});
+      gsc={state:ingest.state,days:ingest.days,rows:ingest.rows,...(ingest.error?{error:ingest.error}:{})};
+      await db.query('UPDATE seo_snapshots SET gsc_state=$2 WHERE id=$1',[snapshotId,ingest.state]).catch(()=>undefined);
+    }catch(error){gsc={state:'API_ERROR',days:0,rows:0,error:error instanceof Error?error.message.slice(0,120):'GSC_INGEST_FAILED'};}
+    return {state:'SUCCEEDED',day:today,submittedTotal:snapshot.submittedTotal,problems:snapshot.problems.length,alerts:alerts.length,providerRequests:0,gsc};
   }catch(error){
     return {state:'FAILED',day:today,submittedTotal:0,problems:0,alerts:0,providerRequests:0,
       error:error instanceof Error?error.message.slice(0,120):'SEO_MONITOR_FAILED'};
