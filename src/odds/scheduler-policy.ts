@@ -1,10 +1,12 @@
 import {isStableOddsTournament} from '@/providers/oddspapi/tournament-catalog';
 import {MAX_TOURNAMENTS_PER_ODDSPAPI_REQUEST} from '@/providers/oddspapi/request-limits';
-import {SOURCE_BOOKMAKER_IDS} from './registry';
+import {ACTIVE_BOOKMAKER_IDS} from './registry';
 import {NORMAL_FORECAST_FRACTION,NORMAL_STOP_FRACTION,quotaPressure} from './quota-policy';
 import {effectiveBackoffAt} from './backoff-policy';
 
-export const SCHEDULER_BOOKMAKERS=SOURCE_BOOKMAKER_IDS;
+// Provider demand follows the ACTIVE set: a retired operator stops costing requests the moment it is
+// retired, while its historical rows stay readable.
+export const SCHEDULER_BOOKMAKERS=ACTIVE_BOOKMAKER_IDS;
 export const SCHEDULER_TICK_MINUTES=5;
 export {MAX_TOURNAMENTS_PER_ODDSPAPI_REQUEST};
 export interface RefreshTarget {

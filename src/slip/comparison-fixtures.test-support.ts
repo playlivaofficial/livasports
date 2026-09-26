@@ -1,6 +1,7 @@
 // Synthetic unit/replay data only. Never imported by a production entry point.
 import type {ReadOddsQuote} from '@/odds/types';
 import type {SlipComparisonRead} from '@/odds/read-repository';
+import {VISIBLE_BOOKMAKERS} from '@/odds/registry';
 import {SLIP_SCOPE,type CanonicalSelection} from './types';
 export function comparisonFixture(count=3,now=Date.parse('2026-09-12T15:00:00Z')){
   const selections:CanonicalSelection[]=Array.from({length:count},(_,i)=>({fixturePublicId:(i+1).toString(16).padStart(16,'0'),scope:SLIP_SCOPE,
@@ -18,4 +19,16 @@ export function comparisonFixture(count=3,now=Date.parse('2026-09-12T15:00:00Z')
     data.fixtures.set(s.fixturePublicId,{fixture,snapshot:{kickoff,fixtureStatus:'SCHEDULED',quotes}});
   }
   return {selections,data,now};
+}
+/** Every public card the registry currently exposes, in display order. Tests that assert the Brazil
+ * line-up read this instead of naming operators, so adding or retiring one needs no test edit. */
+export const PUBLIC_CARD_IDS=VISIBLE_BOOKMAKERS.map(book=>book.canonicalId);
+/** Widens a fixture from its two priced books to the full set of public cards. The extra cards carry
+ * no quotes of their own, which is exactly how a book that has not priced a leg reaches the slip. */
+export function withPublicCards<T extends ReturnType<typeof comparisonFixture>>(fixture:T):T{
+  fixture.data.bookmakers=VISIBLE_BOOKMAKERS.map((book,i)=>fixture.data.bookmakers.find(b=>b.bookmakerId===book.canonicalId)??{
+    bookmakerId:book.canonicalId,displayName:book.shortLabel,geoEligibility:{locale:'br' as const,eligible:true},
+    affiliateEligibility:{approved:i===0,destinationConfigured:i===0},
+  });
+  return fixture;
 }

@@ -6,7 +6,7 @@ import {eligibleSource,verifiedGeo} from './geo';
 import type {QueryResultRow} from 'pg';
 import type {BookmakerConfig} from '@/slip/comparison-types';
 import {commercialIso2,commercialLocale,type CommercialGeo} from './commercial-geo';
-import {SOURCE_BOOKMAKER_IDS} from './registry';
+import {ACTIVE_BOOKMAKER_IDS} from './registry';
 import {APPROVED_NATIVE_SOURCE_IDS,NATIVE_SOURCE_REGISTRY} from './source-registry';
 
 export interface InternalOddsRead extends OddsReadSnapshot { destinations:Record<string,string>; }
@@ -134,7 +134,7 @@ export async function readSlipComparison(db:QueryExecutor,publicIds:readonly str
     LEFT JOIN affiliate_links al ON al.bookmaker_id=b.id AND al.country_id=c.id
     WHERE c.iso2=$1 AND b.enabled AND b.comparison_enabled AND g.odds_enabled AND g.comparison_enabled
       AND g.verified_at IS NOT NULL AND b.provider_slug=ANY($2::text[])
-    ORDER BY b.provider_slug LIMIT 4`,[comparisonGeo,SOURCE_BOOKMAKER_IDS]);
+    ORDER BY b.provider_slug LIMIT ${ACTIVE_BOOKMAKER_IDS.length}`,[comparisonGeo,ACTIVE_BOOKMAKER_IDS]);
   const destinations:Record<string,string>={};const bookmakers:BookmakerConfig[]=[];
   for(const row of rows){
     const slug=canonicalBookmakerSlug(row.provider_slug)??row.provider_slug;

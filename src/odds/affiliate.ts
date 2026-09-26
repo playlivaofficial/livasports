@@ -8,6 +8,8 @@ const hosts:Record<string,readonly string[]>={
   'betsson:br':['betsson.bet.br','www.betsson.bet.br','record.betsson.bet.br'],
   'betsson:mx':['betsson.mx','www.betsson.mx'],
   'sportingbet.bet.br:br':['sportingbet.bet.br','www.sportingbet.bet.br','sports.sportingbet.bet.br'],
+  // Removed in the same commit that retires Betboo in favour of 1xBet: while Betboo is still a public
+  // card its approved destination must keep resolving.
   'betboo.bet.br:br':['betboo.bet.br','www.betboo.bet.br','sports.betboo.bet.br'],
 };
 export const ODDS_PLACEMENT='match-odds';

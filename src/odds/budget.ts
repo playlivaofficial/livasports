@@ -1,5 +1,5 @@
 import type {DatabaseClient,QueryExecutor} from '@/database/client';
-import {SOURCE_BOOKMAKER_IDS} from './registry';
+import {ACTIVE_BOOKMAKER_IDS} from './registry';
 import {NORMAL_STOP_FRACTION,CONTROLLED_STOP_FRACTION,quotaPressure} from './quota-policy';
 
 // 250 calls remain untouched for reconciliation lag/out-of-band usage; 100 more for controlled recovery/catalog work.
@@ -17,7 +17,7 @@ export function verifiedAccountPeriod(value:unknown,now=new Date()):AccountPerio
   const s=active[0];const start=Date.parse(s.valid_from??'');const end=Date.parse(s.valid_until??'');
   if(!Number.isFinite(start)||!Number.isFinite(end)||start>now.getTime()||end<=now.getTime()||end<=start||end-start>32*86400000||
     !Number.isInteger(s.request_count)||s.request_count!<0||s.request_limit!==5000||!s.sport_ids?.includes(10)||
-    SOURCE_BOOKMAKER_IDS.some(book=>s.bookmakers?.[book]?.has_live_odds!==false||s.bookmakers?.[book]?.has_player_props!==false))
+    ACTIVE_BOOKMAKER_IDS.some(book=>s.bookmakers?.[book]?.has_live_odds!==false||s.bookmakers?.[book]?.has_player_props!==false))
     throw new OddsBudgetStopped('ACCOUNT_PERIOD_OR_SCOPE_UNVERIFIED');
   return {start:new Date(start).toISOString(),end:new Date(end).toISOString(),limit:s.request_limit,used:s.request_count!};
 }
