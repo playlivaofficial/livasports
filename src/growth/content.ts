@@ -86,7 +86,30 @@ export function contentSourceHash(row:RankedGrowthFixture):string{
   return createHash('sha256').update(JSON.stringify(value)).digest('hex');
 }
 
+/**
+ * What the creative actually renders, and nothing else.
+ *
+ * `contentSourceHash` also mixes in the live priority score and its breakdown, which move on almost every
+ * run as kickoff approaches. That is fine for provenance, but using it to decide regeneration would rerender
+ * unchanged videos three times a day. This identity deliberately covers only facts a viewer can see on
+ * screen — teams, competition, kickoff, the chosen story angle and the standings/form the scenes quote —
+ * so it changes when the video would genuinely differ and stays still otherwise.
+ */
+export function contentIdentity(row:RankedGrowthFixture):string{
+  const fixture=fixtureSnapshot(row);
+  const value={
+    generatorVersion:CONTENT_GENERATOR_VERSION,policyVersion:CONTENT_POLICY_VERSION,
+    fixtureId:fixture.fixtureId,home:fixture.home.name,away:fixture.away.name,
+    competition:fixture.competition.slug,kickoff:fixture.kickoff,
+    stage:fixture.stage??null,rivalry:fixture.rivalry??null,
+    standings:fixture.standings??null,
+    story:row.storySignals??null,
+  };
+  return createHash('sha256').update(JSON.stringify(value)).digest('hex');
+}
+
 export function generatedContent(row:RankedGrowthFixture,rank=1,topSocial:RankedGrowthFixture[]=[row]){
   return {content:generateV11ContentPack(row,rank,topSocial),fixture:fixtureSnapshot(row),sourceHash:contentSourceHash(row),
+    contentIdentity:contentIdentity(row),
     tracking:growthTrackingUrls(row.destinationUrl,row.signals.publicId)};
 }

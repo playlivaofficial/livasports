@@ -1,6 +1,7 @@
 import 'server-only';
 import type {DatabaseClient,QueryExecutor} from '@/database/client';
 import {absoluteUrl} from '@/seo/policy';
+import {CREATIVE_VERSION} from './creative-version';
 import {matchPath} from '@/localization/interface';
 import {slugifyProfileName} from '@/profiles/routes';
 import {readListingOddsSnapshots} from '@/odds/read-repository';
@@ -162,6 +163,8 @@ interface PersistInput {
   fixtureId:string;sourceHash:string;trigger:'AUTOMATIC'|'OWNER';priorityScore:number;
   scoreBreakdown:unknown;reasons:string[];fixture:GrowthFixtureSnapshot;content:GrowthContentPack;
   canonicalUrl:string;tracking:Record<GrowthChannel,string>;now:Date;force:boolean;
+  /** Churn-free fingerprint of the rendered facts; decides regeneration together with the creative version. */
+  contentIdentity?:string;
   videos?:GrowthVideoRenderResult[];supersedesItemId?:string|null;
   regeneratedChannel?:GrowthChannel|null;channelRecords?:GrowthChannelRecord[];
 }
@@ -171,8 +174,13 @@ export async function persistGrowthItem(db:DatabaseClient,input:PersistInput):Pr
     await tx.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`growth:${input.fixtureId}`]);
     let carriedChannels=input.channelRecords;
     if(!input.force){
+      // Duplicate means "already produced from the same facts by the creative stack we ship today". Keying on
+      // fixture + recency alone made an older stack's output suppress its own replacement forever.
       const since=new Date(input.now.getTime()-SHORTLIST.duplicateWindowDays*86_400_000);
-      const duplicate=(await tx.query('SELECT 1 FROM growth_content_items WHERE fixture_id=$1 AND created_at>=$2 LIMIT 1',[input.fixtureId,since])).rowCount;
+      const duplicate=(await tx.query(`SELECT 1 FROM growth_content_items
+        WHERE fixture_id=$1 AND created_at>=$2 AND creative_version=$3
+          AND ($4::text IS NULL OR content_identity IS NULL OR content_identity=$4) LIMIT 1`,
+        [input.fixtureId,since,CREATIVE_VERSION,input.contentIdentity??null])).rowCount;
       if(duplicate)return null;
     }
     if(input.supersedesItemId){
@@ -200,16 +208,17 @@ export async function persistGrowthItem(db:DatabaseClient,input:PersistInput):Pr
       }
     }
     const item=(await tx.query<{id:string}>(`INSERT INTO growth_content_items(fixture_id,revision,generator_version,source_hash,trigger_source,
-      priority_score,score_breakdown,ranking_reasons,fixture_snapshot,content_pack,canonical_url,created_at,supersedes_item_id)
-      VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb,$9::jsonb,$10::jsonb,$11,$12,$13) RETURNING id`,[
+      priority_score,score_breakdown,ranking_reasons,fixture_snapshot,content_pack,canonical_url,created_at,supersedes_item_id,creative_version,content_identity)
+      VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb,$9::jsonb,$10::jsonb,$11,$12,$13,$14,$15) RETURNING id`,[
       input.fixtureId,revision,input.content.generatorVersion,input.sourceHash,input.trigger,input.priorityScore,JSON.stringify(input.scoreBreakdown),
-      JSON.stringify(input.reasons),JSON.stringify(input.fixture),JSON.stringify(content),input.canonicalUrl,input.now,input.supersedesItemId??null])).rows[0];
+      JSON.stringify(input.reasons),JSON.stringify(input.fixture),JSON.stringify(content),input.canonicalUrl,input.now,input.supersedesItemId??null,
+      CREATIVE_VERSION,input.contentIdentity??null])).rows[0];
     for(const channel of GROWTH_CHANNELS){const previous=carriedChannels?.find(record=>record.channel===channel),regenerated=input.regeneratedChannel===channel;
       await tx.query(`INSERT INTO growth_content_channels(content_item_id,channel,status,tracked_url,approved_at,rejected_at,published_at,updated_at)
         VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,[item.id,channel,regenerated?'DRAFT':previous?.status??'DRAFT',input.tracking[channel],
         regenerated?null:previous?.approvedAt??null,regenerated?null:previous?.rejectedAt??null,regenerated?null:previous?.publishedAt??null,input.now]);}
-    for(const video of input.videos??[])await tx.query(`INSERT INTO growth_platform_assets(content_item_id,channel,status,mime_type,sha256,byte_length,video_data,error_code,generated_at,updated_at,render_metadata)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,CASE WHEN $3='READY' THEN $9::timestamptz ELSE NULL END,$9::timestamptz,$10::jsonb)`,[item.id,video.channel,video.status,video.mimeType,video.sha256,video.byteLength,video.data,video.status==='FAILED'?video.errorCode:null,input.now,video.status==='READY'&&video.renderMetadata?JSON.stringify(video.renderMetadata):null]);
+    for(const video of input.videos??[])await tx.query(`INSERT INTO growth_platform_assets(content_item_id,channel,status,mime_type,sha256,byte_length,video_data,error_code,generated_at,updated_at,render_metadata,creative_version)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,CASE WHEN $3='READY' THEN $9::timestamptz ELSE NULL END,$9::timestamptz,$10::jsonb,$11)`,[item.id,video.channel,video.status,video.mimeType,video.sha256,video.byteLength,video.data,video.status==='FAILED'?video.errorCode:null,input.now,video.status==='READY'&&video.renderMetadata?JSON.stringify(video.renderMetadata):null,CREATIVE_VERSION]);
     if(input.supersedesItemId)await tx.query('UPDATE growth_content_items SET superseded_at=$2 WHERE id=$1',[input.supersedesItemId,input.now]);
     return {id:item.id,revision};
   });
@@ -225,7 +234,7 @@ export async function acquireGrowthJob(db:DatabaseClient,trigger:'AUTOMATIC'|'OW
   });}catch(error){return (error as {code?:string}).code==='23505'?null:Promise.reject(error);}
 }
 
-export async function finishGrowthJob(db:QueryExecutor,id:string,state:'SUCCEEDED'|'PARTIAL'|'FAILED',result:{considered:number;generated:number;skippedDuplicate:number;error?:string},now=new Date()){
+export async function finishGrowthJob(db:QueryExecutor,id:string,state:'SUCCEEDED'|'PARTIAL'|'FAILED',result:{considered:number;generated:number;skippedDuplicate:number;staleRegenerated?:number;error?:string},now=new Date()){
   await db.query(`UPDATE growth_generation_jobs SET status=$2,considered=$3,generated=$4,skipped_duplicate=$5,
     result=$6::jsonb,error_code=$7,completed_at=$8,heartbeat_at=$8 WHERE id=$1`,[id,state,result.considered,result.generated,result.skippedDuplicate,
     JSON.stringify(result),result.error??null,now]);
@@ -251,7 +260,9 @@ const itemSelect=`SELECT i.*,COALESCE(jsonb_agg(jsonb_build_object('channel',ch.
 
 export async function readLatestGrowthItems(db:QueryExecutor,limit=100):Promise<GrowthContentItem[]>{
   let rows:Row[];
-  try{rows=(await db.query<Row>(`${itemSelect} WHERE i.superseded_at IS NULL GROUP BY i.id ORDER BY i.created_at DESC,i.id DESC LIMIT $1`,[limit])).rows;}
+  // Current queue first, in this run's ranking order; everything else stays reachable behind it as history.
+  try{rows=(await db.query<Row>(`${itemSelect} WHERE i.superseded_at IS NULL GROUP BY i.id
+    ORDER BY (i.current_rank IS NULL),i.current_rank ASC,i.created_at DESC,i.id DESC LIMIT $1`,[limit])).rows;}
   catch(error){if((error as {code?:string}).code!=='42703')throw error;rows=(await db.query<Row>(`${itemSelect} GROUP BY i.id ORDER BY i.created_at DESC,i.id DESC LIMIT $1`,[limit])).rows;}
   return await hydrateAssets(db,rows.map(hydrateItem));
 }
@@ -322,4 +333,45 @@ export async function readRightsFallbackDraftsForRegeneration(db:QueryExecutor){
         WHERE COALESCE((player#>>'{media,commercialEligible}')::boolean,false) AND NULLIF(player#>>'{media,assetUrl}','') IS NOT NULL)
       AND NOT EXISTS(SELECT 1 FROM growth_content_channels ch WHERE ch.content_item_id=i.id AND ch.status<>'DRAFT')
     ORDER BY i.fixture_id,i.revision DESC`)).rows;
+}
+
+/**
+ * Rebuild the CURRENT queue from the ranking just computed. History is every row we have ever written;
+ * "current" is only the latest Top 10, so a fixture leaving the Top 10 simply stops being current — its
+ * item, its metadata and its media all stay exactly where they are.
+ *
+ * One statement per run inside a transaction, so a retry or an overlapping run cannot leave two queues.
+ */
+export async function rebuildCurrentGrowthQueue(db:DatabaseClient,
+  entries:ReadonlyArray<{fixtureId:string;rank:number;topSocial:boolean}>,now=new Date()):Promise<{current:number}>{
+  return db.transaction(async tx=>{
+    await tx.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',['growth:current-queue']);
+    await tx.query('UPDATE growth_content_items SET current_rank=NULL,current_shortlist=false WHERE current_rank IS NOT NULL');
+    if(!entries.length)return {current:0};
+    // Newest non-superseded item per fixture carries the rank, so the queue points at what the owner should see.
+    const updated=await tx.query(`WITH wanted AS (
+        SELECT * FROM jsonb_to_recordset($1::jsonb) AS r(fixture_id uuid,rank integer,top_social boolean)
+      ), newest AS (
+        SELECT DISTINCT ON (i.fixture_id) i.id,i.fixture_id FROM growth_content_items i
+        JOIN wanted w ON w.fixture_id=i.fixture_id
+        WHERE i.superseded_at IS NULL ORDER BY i.fixture_id,i.created_at DESC,i.id DESC
+      )
+      UPDATE growth_content_items SET current_rank=w.rank,current_shortlist=w.top_social,current_at=$2
+      FROM wanted w JOIN newest n ON n.fixture_id=w.fixture_id WHERE growth_content_items.id=n.id`,
+      [JSON.stringify(entries.map(e=>({fixture_id:e.fixtureId,rank:e.rank,top_social:e.topSocial}))),now]);
+    return {current:updated.rowCount??0};
+  });
+}
+
+/**
+ * Active items whose creative stack is older than today's. Each earns exactly one regeneration: once the
+ * replacement is stored with the current version the predecessor is superseded, so the next run sees
+ * nothing stale and skips again. Ordered so the social shortlist is refreshed before the wider list.
+ */
+export async function staleCreativeGrowthItems(db:QueryExecutor,limit:number,creativeVersion:string):Promise<Array<{id:string;fixture_id:string}>>{
+  return (await db.query<{id:string;fixture_id:string}>(`SELECT i.id,i.fixture_id FROM growth_content_items i
+    WHERE i.superseded_at IS NULL AND i.current_rank IS NOT NULL
+      AND (i.creative_version IS DISTINCT FROM $2)
+      AND NOT EXISTS(SELECT 1 FROM growth_content_channels ch WHERE ch.content_item_id=i.id AND ch.status NOT IN('DRAFT','REJECTED'))
+    ORDER BY i.current_shortlist DESC,i.current_rank ASC LIMIT $1`,[limit,creativeVersion])).rows;
 }

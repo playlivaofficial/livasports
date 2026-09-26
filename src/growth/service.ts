@@ -7,7 +7,8 @@ import {renderGrowthVideo,renderGrowthVideos,type GrowthVideoRenderResult} from 
 import {SHORTLIST,VIDEO_CHANNELS,type GrowthVideoChannel} from './config';
 import {acquireGrowthJob,enrichGrowthStorySignals,finishGrowthJob,persistGrowthItem,readGrowthFixtures,readGrowthItem,readGrowthVideo,readLatestGrowthItems,readRightsFallbackDraftsForRegeneration,readV1DraftsForRegeneration,recentGrowthFixtureIds,upsertGrowthSeoPriorities} from './repository';
 import type {GrowthContentPack,GrowthDashboard,RankedGrowthFixture} from './types';
-import {readPremiumDraftsForRegeneration} from './repository';
+import {readPremiumDraftsForRegeneration,rebuildCurrentGrowthQueue,staleCreativeGrowthItems} from './repository';
+import {CREATIVE_VERSION} from './creative-version';
 import {databaseVoiceStore} from './voice-store';
 
 /** Optional future rewrite boundary. V1 intentionally ships only the deterministic implementation. */
@@ -68,6 +69,11 @@ export async function runGrowthGeneration(db:DatabaseClient,trigger:'AUTOMATIC'|
     const sharedMaterials=sharedTopTen.map((row,index)=>({row,rank:index+1,material:generatedContent(row,index+1,sharedTopSocial)}));
     await upsertGrowthSeoPriorities(db,sharedMaterials.map(({row,rank,material})=>({fixtureId:row.signals.fixtureId,rank,score:row.priority.total,
       topSocial:sharedShortlist.social.some(item=>item.fixtureId===row.signals.fixtureId),canonicalUrl:row.destinationUrl,seo:material.content.seo!,sourceHash:material.sourceHash})),now);
+    // The CURRENT queue is exactly this run's Top 10, with the Top 5 social shortlist flagged inside it.
+    // Rebuilding it every run is what makes the owner page show today's ranking instead of an append-only history.
+    const currentEntries=sharedMaterials.map(({row,rank})=>({fixtureId:row.signals.fixtureId,rank,
+      topSocial:sharedShortlist.social.some(item=>item.fixtureId===row.signals.fixtureId)}));
+    await rebuildCurrentGrowthQueue(db,currentEntries,now);
     let selected:RankedGrowthFixture[];
     if(options.forceFixtureId){
       const row=ranked.find(candidate=>candidate.signals.fixtureId===options.forceFixtureId&&isProducible(candidate.priority));
@@ -88,15 +94,41 @@ export async function runGrowthGeneration(db:DatabaseClient,trigger:'AUTOMATIC'|
         const rank=priorityRank.get(row.signals.fixtureId)??sharedTopTen.length+1;
         const material=generatedContent(row,rank,sharedTopSocial);
         const videos=material.content.platforms?await renderGrowthVideos(material.content.platforms,material.fixture,{deadlineMs:renderDeadline,voiceStore:databaseVoiceStore(db)}):[];
-        const stored=await persistGrowthItem(db,{fixtureId:row.signals.fixtureId,sourceHash:material.sourceHash,trigger,
+        const stored=await persistGrowthItem(db,{fixtureId:row.signals.fixtureId,sourceHash:material.sourceHash,contentIdentity:material.contentIdentity,trigger,
           priorityScore:row.priority.total,scoreBreakdown:row.priority.lines,reasons:row.priority.reasons,
           fixture:material.fixture,content:material.content,canonicalUrl:row.destinationUrl,tracking:material.tracking,now,
           force:!!options.forceFixtureId,videos});
         if(stored){generated++;itemIds.push(stored.id);if(videos.some(video=>video.status==='FAILED'))failed++;}else skippedDuplicate++;
       }catch(error){failed++;console.error(`[LivaSports Traffic V1.1] ${JSON.stringify({event:'growth-item-failed',fixtureId:row.signals.fixtureId,code:safeItemFailure(error)})}`);}
     }
+    // Active items in the CURRENT queue that an older creative stack produced earn exactly one regeneration
+    // each. The replacement supersedes the predecessor, so the next run finds nothing stale and skips again.
+    // Nothing is deleted: the superseded item and its media stay as history.
+    let staleRegenerated=0;
+    const stale=await staleCreativeGrowthItems(db,SHORTLIST.generationBatchSize,CREATIVE_VERSION);
+    for(const item of stale){
+      if(Date.now()+60_000>renderDeadline)break;
+      const row=sharedById.get(String(item.fixture_id));
+      if(!row)continue;
+      try{
+        const rank=priorityRank.get(row.signals.fixtureId)??sharedTopTen.length+1;
+        const material=generatedContent(row,rank,sharedTopSocial);
+        const videos=material.content.platforms?await renderGrowthVideos(material.content.platforms,material.fixture,{deadlineMs:renderDeadline,voiceStore:databaseVoiceStore(db)}):[];
+        if(videos.some(video=>video.status==='FAILED'))throw new Error('STALE_RENDER_FAILED_KEEP_PREDECESSOR');
+        const stored=await persistGrowthItem(db,{fixtureId:row.signals.fixtureId,sourceHash:material.sourceHash,contentIdentity:material.contentIdentity,
+          trigger,priorityScore:row.priority.total,scoreBreakdown:row.priority.lines,reasons:row.priority.reasons,
+          fixture:material.fixture,content:material.content,canonicalUrl:row.destinationUrl,tracking:material.tracking,now,
+          // A refreshed creative has not been reviewed: it must not inherit an approval, so every channel
+          // restarts as DRAFT rather than silently carrying the predecessor's decision.
+          force:true,videos,supersedesItemId:String(item.id),regeneratedChannel:null});
+        if(stored){staleRegenerated++;generated++;itemIds.push(stored.id);
+          console.info(JSON.stringify({event:'growth-stale-creative-regenerated',fixtureId:row.signals.fixtureId,itemId:stored.id,creativeVersion:CREATIVE_VERSION}));}
+      }catch(error){failed++;console.error(`[LivaSports Traffic V1.1] ${JSON.stringify({event:'growth-stale-regeneration-failed',fixtureId:row.signals.fixtureId,code:safeItemFailure(error)})}`);}
+    }
+    // Re-point the current queue at the replacements this run produced.
+    if(staleRegenerated)await rebuildCurrentGrowthQueue(db,currentEntries,now);
     const state=failed?'PARTIAL':'SUCCEEDED';
-    await finishGrowthJob(db,jobId,state,{considered,generated,skippedDuplicate,...(failed?{error:'ITEM_GENERATION_FAILED'}:{})},new Date());
+    await finishGrowthJob(db,jobId,state,{considered,generated,skippedDuplicate,staleRegenerated,...(failed?{error:'ITEM_GENERATION_FAILED'}:{})},new Date());
     return {state,jobId,considered,generated,skippedDuplicate,itemIds,...(failed?{error:'ITEM_GENERATION_FAILED'}:{}),providerRequests:0};
   }catch(error){
     const code=error instanceof Error&&/^[A-Z0-9_]+$/.test(error.message)?error.message:'GROWTH_GENERATION_FAILED';
@@ -119,7 +151,7 @@ async function regenerateDraftSet(db:DatabaseClient,drafts:Array<{id:string;fixt
       const row=enriched.find(item=>item.signals.fixtureId===candidate.row.signals.fixtureId)!;
       try{const material=generatedContent(row,rankMap.get(row.signals.fixtureId)??1,topSocial),videos=await renderGrowthVideos(material.content.platforms!,material.fixture,{voiceStore:databaseVoiceStore(db)});
         if(videos.some(video=>video.status==='FAILED'||video.voice?.degradedReason))throw new Error('DRAFT_RENDER_FAILED_KEEP_PREDECESSOR');
-        const stored=await persistGrowthItem(db,{fixtureId:row.signals.fixtureId,sourceHash:material.sourceHash,trigger:'OWNER',priorityScore:row.priority.total,
+        const stored=await persistGrowthItem(db,{fixtureId:row.signals.fixtureId,sourceHash:material.sourceHash,contentIdentity:material.contentIdentity,trigger:'OWNER',priorityScore:row.priority.total,
           scoreBreakdown:row.priority.lines,reasons:row.priority.reasons,fixture:material.fixture,content:material.content,canonicalUrl:row.destinationUrl,
           tracking:material.tracking,now,force:true,videos,supersedesItemId:String(candidate.draft.id)});
         if(stored){generated++;itemIds.push(stored.id);console.info(JSON.stringify({event:'growth-draft-regenerated',fixtureId:row.signals.fixtureId,itemId:stored.id,generated,total:considered}));}
@@ -174,7 +206,7 @@ export async function regenerateGrowthPlatform(db:DatabaseClient,itemId:string,c
       const existing=await readGrowthVideo(db,item.id,videoChannel);if(existing)videos.push({channel:videoChannel,status:'READY',mimeType:'video/mp4',sha256:existing.sha256,byteLength:existing.byteLength,data:existing.data,renderMetadata:existing.renderMetadata});
       else try{videos.push(await renderGrowthVideo(content.platforms![videoChannel],fresh.fixture,{voiceStore:databaseVoiceStore(db)}));}catch{videos.push({channel:videoChannel,status:'FAILED',mimeType:null,sha256:null,byteLength:null,data:null,errorCode:'VIDEO_RENDER_FAILED'});}
     }
-    const stored=await persistGrowthItem(db,{fixtureId:row.signals.fixtureId,sourceHash:fresh.sourceHash,trigger:'OWNER',priorityScore:row.priority.total,
+    const stored=await persistGrowthItem(db,{fixtureId:row.signals.fixtureId,sourceHash:fresh.sourceHash,contentIdentity:fresh.contentIdentity,trigger:'OWNER',priorityScore:row.priority.total,
       scoreBreakdown:row.priority.lines,reasons:row.priority.reasons,fixture:fresh.fixture,content,canonicalUrl:row.destinationUrl,tracking:fresh.tracking,now,force:true,
       videos,supersedesItemId:item.id,regeneratedChannel:channel,channelRecords:item.channels});
     const state=videos.some(video=>video.status==='FAILED')?'PARTIAL':'SUCCEEDED';await finishGrowthJob(db,jobId,state,{considered:1,generated:stored?1:0,skippedDuplicate:0,...(state==='PARTIAL'?{error:'VIDEO_RENDER_FAILED'}:{})},new Date());
