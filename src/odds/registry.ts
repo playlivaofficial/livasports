@@ -9,10 +9,7 @@ const IDENTITIES = [
   // and no .bet.br clone, so this is the generic feed — the same shape as Betsson, and owner-approved
   // for Brazil on that basis. Its provider flags are honest (bookmakerIsActive/suspended/active all
   // report truthfully), so it stays on the STRICT policy below rather than Betsson's relaxation.
-  // logoAsset stays null until an official 1xBet mark is supplied: the Partners media library holds
-  // banner creative only, and BookmakerLogo renders the shortLabel when there is no asset, so this
-  // shows a correct "1xBet" label instead of 404ing on artwork we would have had to invent.
-  {canonicalId:'1xbet',providerSlug:'1xbet',displayName:'1xBet',shortLabel:'1xBet',countries:['BR'],displayRole:'VISIBLE_PRIMARY',displayOrder:3,insurancePriority:3,logoAsset:null},
+  {canonicalId:'1xbet',providerSlug:'1xbet',displayName:'1xBet',shortLabel:'1xBet',countries:['BR'],displayRole:'VISIBLE_PRIMARY',displayOrder:3,insurancePriority:3,logoAsset:'/bookmakers/1xbet.webp'},
   // Retired when 1xBet replaced it, and simultaneously dropped from our OddsPapi subscription, so it
   // can no longer be priced at all. The identity stays so historical odds rows, analytics events and
   // audit exports still normalize, but a RETIRED book is never displayed, never comparable, never

@@ -6,7 +6,7 @@ BEGIN;
 -- it reports the generic 1xbet.com host on every fixture. Owner-approved for BR on the same basis as
 -- the generic Betsson feed. No affiliate approval or destination is inferred here.
 INSERT INTO bookmakers(provider_slug,display_name,enabled,comparison_enabled,affiliate_status,logo_ref)
-VALUES ('1xbet','1xBet',true,true,'NOT_APPLIED',NULL)
+VALUES ('1xbet','1xBet',true,true,'NOT_APPLIED','/bookmakers/1xbet.webp')
 ON CONFLICT(provider_slug) DO UPDATE SET enabled=true,comparison_enabled=true,updated_at=now();
 
 INSERT INTO bookmaker_geo_availability(bookmaker_id,country_id,odds_enabled,comparison_enabled,affiliate_enabled,verified_at,verification_state)
