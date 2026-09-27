@@ -15,6 +15,7 @@ import {recordClick,recordImpression,recordOperationalError} from './analytics';
 import {uuid,type CommercialContext,type TrafficClass,type VerifiedOffer} from './types';
 import {embedDocument} from './embed-document';
 import {safeBetssonEmbed} from './embed-policy';
+import {isVisibleBookmaker} from '@/odds/registry';
 export const commercialHeaders={'Cache-Control':'private, no-store','X-Robots-Tag':'noindex, nofollow','Referrer-Policy':'no-referrer','Vary':'Cookie'};
 type Deferred=(work:()=>Promise<void>)=>void;
 export interface CommercialServices {deps:OfferDependencies;key:string|null;geo:(request:Request,locale:'br'|'mx')=>boolean;defer:Deferred;
@@ -84,7 +85,10 @@ export async function embedClickRequest(request:Request,body:Record<string,unkno
 }
 export async function outboundRequest(request:Request,bookmaker:string,placement:string,provided?:CommercialServices):Promise<Response>{
   if(request.method==='HEAD')return response(204);if(request.method!=='GET')return response(405);
-  const url=new URL(request.url);if(url.href.length>8192||!sameOrigin(request)||!['betsson','betano.bet.br'].includes(bookmaker))return response(400);
+  // Any public card may be linked. The real gate is downstream: the signed token must match, the
+  // campaign must resolve, and safeAffiliateDestination must accept the host. Naming operators here
+  // silently 400'd every card added after Betsson.
+  const url=new URL(request.url);if(url.href.length>8192||!sameOrigin(request)||!isVisibleBookmaker(bookmaker))return response(400);
   const keys=[...url.searchParams.keys()];if(keys.some(k=>!['offer','qa'].includes(k)||url.searchParams.getAll(k).length!==1)||url.searchParams.has('qa')&&url.searchParams.get('qa')!=='1')return response(400);
   if(request.headers.get('purpose')||request.headers.get('sec-purpose')||request.headers.get('next-router-prefetch')||/bot|crawler|spider/i.test(request.headers.get('user-agent')??''))return response(204);
   try{const s=provided??services();if(!s.key)return response(404);const token=verifyOffer(url.searchParams.get('offer'),s.key,Date.now(),true);
@@ -97,10 +101,14 @@ export async function outboundRequest(request:Request,bookmaker:string,placement
     if(analyticsAllowed(request)&&traffic!=='UNKNOWN')deferred(s,async()=>{const clickId=await s.click(offer,token.viewId,traffic,s.key!);
       // A replay rejected by the click ledger is not a second funnel outcome. The shared UUID makes reconciliation exact.
       if(typeof clickId!=='string'||!uuid.test(clickId))return;
-      await recordServerEvent({name:'outbound_redirect_completed',eventId:clickId,headers:request.headers,locale:token.context.locale,canonicalPath:token.context.pagePath,bookmaker:bookmaker as 'betsson'|'betano.bet.br',placement,campaignId:offer.campaign.id,
+      await recordServerEvent({name:'outbound_redirect_completed',eventId:clickId,headers:request.headers,locale:token.context.locale,canonicalPath:token.context.pagePath,bookmaker:bookmaker as CommercialContext['bookmaker'],placement,campaignId:offer.campaign.id,
         market:token.context.market,slipLegCount:token.context.selections?.length,trafficClass:traffic==='QA_TEST'?'QA':'HUMAN'});});
     console.info(`[LivaSports M8] ${JSON.stringify({event:'redirect-issued',placement,locale:token.context.locale,bookmaker,traffic,providerRequests:0})}`);
-    return new Response(null,{status:303,headers:{...commercialHeaders,Location:qaRequest(request,token)&&bookmaker!=='betsson'?qaDestination(request):destination}});
+    // Owner QA reaches the real operator so the partner link can be verified end to end; the click is
+    // still classified QA_TEST above, so human attribution is untouched. Only a campaign without
+    // commercial approval is parked on the internal QA page — previously every book except Betsson
+    // was, which made an approved 1xBet CTA look broken to the owner.
+    return new Response(null,{status:303,headers:{...commercialHeaders,Location:qaRequest(request,token)&&!offer.campaign.affiliateApproved?qaDestination(request):destination}});
   }catch{console.warn('[LivaSports M8] {"event":"redirect-config-failed","providerRequests":0}');configurationFailure(provided);return response(503);}
 }
 export async function impressionRequest(request:Request,body:Record<string,unknown>,provided?:CommercialServices):Promise<Response>{
@@ -124,12 +132,14 @@ export async function legacyOutbound(request:Request,context:CommercialContext,p
   if(request.headers.get('purpose')||request.headers.get('sec-purpose')||/bot|crawler|spider/i.test(request.headers.get('user-agent')??''))return response(204);
   try{const s=provided??services();if(!s.geo(request,context.locale))return decline(request,context);
     const offer=await resolveOffer(context,s.deps);const destination=offer?campaignDestination(offer.campaign,offer.context,Date.now()):null;
+    // Unsigned legacy links carry no render/activation proof, so an owner preview stays first-party
+    // here even for an approved campaign. Only the signed offer path completes outbound under QA.
     return destination?new Response(null,{status:303,headers:{...commercialHeaders,Location:qaRequest(request)?qaDestination(request):destination}}):decline(request,context);
   }catch{return decline(request,context);}
 }
 export async function legacySlipRequest(request:Request,bookmaker:string,provided?:CommercialServices):Promise<Response>{
   const url=new URL(request.url);let selections;try{selections=JSON.parse(url.searchParams.get('selections')??'null');}catch{selections=null;}
   const parsed=parseResolutionRequest({locale:url.searchParams.get('locale'),selections});
-  if(url.href.length>4096||!parsed||!['betsson','betano.bet.br'].includes(bookmaker)||[...url.searchParams.keys()].some(k=>!['locale','selections'].includes(k)||url.searchParams.getAll(k).length!==1))return response(400);
-  return legacyOutbound(request,{...parsed,bookmaker:bookmaker as 'betsson'|'betano.bet.br',pagePath:`/${parsed.locale}`,placement:'slip_bookmaker_comparison'},provided);
+  if(url.href.length>4096||!parsed||!isVisibleBookmaker(bookmaker)||[...url.searchParams.keys()].some(k=>!['locale','selections'].includes(k)||url.searchParams.getAll(k).length!==1))return response(400);
+  return legacyOutbound(request,{...parsed,bookmaker:bookmaker as CommercialContext['bookmaker'],pagePath:`/${parsed.locale}`,placement:'slip_bookmaker_comparison'},provided);
 }

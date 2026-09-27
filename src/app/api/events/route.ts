@@ -6,6 +6,7 @@ import {embedClickRequest,impressionRequest} from '@/affiliate/server';
 import {ownerPreview} from '@/owner/session';
 import {classifyTraffic,ingestClientBatch} from '@/analytics/server';
 import {requestLimit} from '@/security/request-limit';
+import {SOURCE_BOOKMAKER_IDS} from '@/odds/registry';
 
 const names = new Set(['match_open','match_tab_view','odds_module_view','odds_market_view','odds_bookmaker_click','odds_unavailable_view','affiliate_outbound_click','match_share']);
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -43,7 +44,8 @@ export async function POST(request: Request): Promise<Response> {
     !names.has(String(body.eventName??''))||!['br','mx'].includes(String(body.locale??''))) return new Response(null,{status:400});
   const connectionString=databaseUrl(); if(!connectionString) return new Response(null,{status:503});
   if(body.market!==undefined&&!['MATCH_WINNER','TOTAL_GOALS','BTTS'].includes(String(body.market)))return new Response(null,{status:400});
-  if(body.bookmaker!==undefined&&!['betano.bet.br','betsson'].includes(String(body.bookmaker)))return new Response(null,{status:400});
+  // Every identity the system has ever priced, retired ones included, so historical events still post.
+  if(body.bookmaker!==undefined&&!(SOURCE_BOOKMAKER_IDS as readonly string[]).includes(String(body.bookmaker)))return new Response(null,{status:400});
   const database=new PostgresDatabaseClient(connectionString);
   try {
     await database.query(`INSERT INTO product_events(event_id,event_name,fixture_id,competition_id,locale,placement,bookmaker,market)
