@@ -130,7 +130,7 @@ export async function enrichGrowthStorySignals(db:QueryExecutor,fixtures:RankedG
   return fixtures.map(row=>{const players=playerGroups.get(row.signals.fixtureId)??{home:[],away:[]};const rows=formRows.filter(item=>String(item.fixture_id)===row.signals.fixtureId);
     const teams=[row.signals.home.publicId,row.signals.away.publicId];
     const creativeHistory=history.filter(item=>teams.includes(item.fixture_snapshot.home.publicId)||teams.includes(item.fixture_snapshot.away.publicId))
-      .flatMap(item=>Object.values(item.content_pack.platforms??{}).flatMap(draft=>draft.creative?[{channel:draft.channel,creative:draft.creative}]:[]));
+      .flatMap(item=>(item.content_pack.masterSocial?[item.content_pack.masterSocial]:Object.values(item.content_pack.platforms??{})).flatMap(draft=>draft.creative?[{channel:draft.channel,creative:draft.creative}]:[]));
     return {...row,creativeHistory,storySignals:{players,form:{home:form(rows,'home'),away:form(rows,'away')}}};});
 }
 export async function recentGrowthFixtureIds(db:QueryExecutor,now=new Date()):Promise<Set<string>>{
