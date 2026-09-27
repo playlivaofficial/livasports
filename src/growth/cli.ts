@@ -10,7 +10,8 @@ import {rankGrowthInventory,regenerateRightsFallbackDrafts,regenerateV1Drafts,re
 import {enrichGrowthStorySignals,readLatestGrowthItems,readGrowthVideo} from './repository';
 import {buildShortlist} from './shortlist';
 import {generatedContent} from './content';
-import {renderGrowthVideos,growthSceneSvg} from './video-renderer';
+import {renderGrowthVideo,growthSceneSvg} from './video-renderer';
+import {renderCanonicalStatics} from './canonical-renderer';
 import {databaseVoiceStore} from './voice-store';
 import {voiceConfigured,voicesPinned} from './voice';
 import type {GrowthRenderMetadata} from './types';
@@ -147,20 +148,20 @@ try{
     for(const [index,row] of top.entries()){
       const material=generatedContent(row,index+1,top);
       if(command==='render-frames'){
-        for(const draft of Object.values(material.content.platforms!))for(const [phase,sceneIndex] of [['hook',0],['context',2],['cta',4]] as const){
+        for(const draft of [material.content.masterSocial!])for(const [phase,sceneIndex] of [['hook',0],['context',1],['cta',3]] as const){
           const file=join(directory,`${index+1}-${draft.channel}-${phase}.png`);
-          const svg=await growthSceneSvg(draft.scenes[sceneIndex],material.fixture,draft);
+          const svg=await growthSceneSvg(draft.scenes[sceneIndex],material.fixture,draft,{master:true});
           await sharp(Buffer.from(svg)).png().toFile(file);
         }
-        manifest.push({rank:index+1,fixture:material.fixture,platforms:material.content.platforms});continue;
+        manifest.push({rank:index+1,fixture:material.fixture,master:material.content.masterSocial});continue;
       }
-      const videos=await renderGrowthVideos(material.content.platforms!,material.fixture,{voiceStore:databaseVoiceStore(db)});
+      const videos=[await renderGrowthVideo(material.content.masterSocial!,material.fixture,{master:true,requireNarration:true,voiceStore:databaseVoiceStore(db)})];
+      for(const asset of await renderCanonicalStatics(material.content.masterSocial!,material.fixture))await writeFile(join(directory,`${index+1}-${asset.kind}.png`),asset.data);
       for(const video of videos)if(video.status==='READY'){const file=join(directory,`${index+1}-${row.signals.publicId}-${video.channel.toLowerCase()}.mp4`);await writeFile(file,video.data);qaVideos.push({rank:index+1,channel:video.channel,file});
         qaVideos[qaVideos.length-1].metadata=video.renderMetadata;
-        qaVideos[qaVideos.length-1].visuals=material.content.platforms![video.channel].scenes.map(scene=>scene.visual);
-        manifest.push({rank:index+1,fixtureId:row.signals.fixtureId,publicId:row.signals.publicId,competition:row.signals.competitionName,home:row.signals.home.name,away:row.signals.away.name,channel:video.channel,file,sha256:video.sha256,bytes:video.byteLength,story:material.content.story,creative:material.content.platforms![video.channel].creative,renderMetadata:video.renderMetadata,platform:material.content.platforms![video.channel]});}
-      else manifest.push({rank:index+1,fixtureId:row.signals.fixtureId,channel:video.channel,status:'FAILED',errorCode:video.errorCode});
-      console.info(JSON.stringify({event:'fixture-rendered',rank:index+1,statuses:videos.map(video=>({channel:video.channel,status:video.status,...(video.status==='FAILED'?{error:video.errorCode}:{voice:video.voice,renderMs:video.renderMetadata?.renderMs})}))}));
+        qaVideos[qaVideos.length-1].visuals=material.content.masterSocial!.scenes.map(scene=>scene.visual);
+        manifest.push({rank:index+1,fixtureId:row.signals.fixtureId,publicId:row.signals.publicId,competition:row.signals.competitionName,home:row.signals.home.name,away:row.signals.away.name,file,sha256:video.sha256,bytes:video.byteLength,story:material.content.story,creative:material.content.masterSocial!.creative,renderMetadata:video.renderMetadata,master:material.content.masterSocial});}
+      console.info(JSON.stringify({event:'fixture-rendered',rank:index+1,statuses:videos.map(video=>({status:video.status,voice:video.voice,renderMs:video.renderMetadata?.renderMs}))}));
     }
     const manifestFile=join(directory,'manifest.json'),contactSheets=qaVideos.length?await createContactSheets(directory,qaVideos):{};
     await writeFile(manifestFile,JSON.stringify(manifest,null,2));console.info(JSON.stringify({command,directory,manifestFile,contactSheets,outputs:manifest.length,elapsedMs:Date.now()-started,nodePeakRssMb:Math.round(process.resourceUsage().maxRSS/1024)},null,2));

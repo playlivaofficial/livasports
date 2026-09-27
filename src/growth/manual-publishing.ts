@@ -1,6 +1,7 @@
 import {CHANNEL_UTM,type GrowthVideoChannel} from './config';
 import {CREATIVE_VERSION} from './creative-version';
 import type {GrowthContentItem} from './types';
+import {canonicalAssetUrl} from './master-model';
 
 export type PublishingState='DRAFT'|'READY_TO_POST'|'POSTED'|'REJECTED'|'SUPERSEDED';
 export interface PostSnapshot {
@@ -57,6 +58,7 @@ export function matchingPost(item:GrowthContentItem,channel:GrowthVideoChannel,p
 }
 export function currentVideoUrl(item:GrowthContentItem,channel:GrowthVideoChannel,download=false):string|null {
   if(!currentAssetReady(item,channel))return null;
+  if(item.content.assetModel==='MASTER_V1')return canonicalAssetUrl(item,'MASTER_VIDEO',download);
   const asset=item.platformAssets!.find(a=>a.channel===channel)!;
   const query=new URLSearchParams({current:'1',version:item.creativeVersion!,sha:asset.sha256!});
   if(download)query.set('download','1');

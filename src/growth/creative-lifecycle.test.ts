@@ -34,7 +34,7 @@ function world(existing:Array<{creativeVersion:string;contentIdentity:string|nul
 
 describe('creative version identity',()=>{
   it('composes an explicit, queryable version from the shipped stack',()=>{
-    expect(CREATIVE_VERSION).toMatch(/^cs\d+\.PREMIUM_MOTION_1\.1080x1920@15\.audio-v1$/);
+    expect(CREATIVE_VERSION).toMatch(/^cs2\.master-story-feed\.STABLE_MOTION_2\.1080x1920@18\.audio-v1\.voice-cache2$/);
     expect(isCurrentCreative(CREATIVE_VERSION)).toBe(true);
     expect(isStaleCreative(LEGACY_CREATIVE_VERSION)).toBe(true);
     expect(isStaleCreative(null)).toBe(true);

@@ -1,11 +1,11 @@
 'use client';
-/* eslint-disable @next/next/no-img-element */
 import {useState} from 'react';
 import Link from 'next/link';
 import {CHANNEL_UTM,VIDEO_CHANNELS} from './config';
 import type {GrowthContentItem,GrowthDashboard,RankedGrowthFixture} from './types';
 import {PublishingCard,PublishingCounts,PublishingHistory,publishingDate} from './ManualPublishing';
 import type {PublishingOverview} from './manual-publishing';
+import {MasterSocial} from './MasterSocial';
 
 type Action=(key:string,body:Record<string,unknown>)=>Promise<void>;
 export function latestQueueItems(items:GrowthContentItem[]){
@@ -58,15 +58,14 @@ function FixtureOpportunity({row,rank,social,item,overview,busy,act}:{row:Ranked
         <div className="owner-growth-score">{priority.lines.map(line=><span key={line.component}><b>{line.component}</b><em>{line.points}/{line.weight}</em><small>{line.reason}</small></span>)}</div>
         <p>{row.odds.label} — {row.odds.bookmakers.map(book=>book.name).join(', ')}</p>
         {item?.content.seo?<><p>{item.content.seo.level} · {item.content.seo.context}</p><p>{item.content.seo.intent.queries.join(' · ')}</p><p>{item.content.seo.placements.join(' · ')}</p></>:null}
-        {item?<button disabled={!!busy} onClick={()=>act(`regen:${signals.fixtureId}`,{action:'regenerate',fixtureId:signals.fixtureId})}>Regenerar pacote</button>:null}</details>
-      {social?review:<details><summary>Abrir oportunidades e plataformas</summary>{review}</details>}
+        {item&&social?<button disabled={!!busy} onClick={()=>act(`regen:${signals.fixtureId}`,{action:'regenerate',fixtureId:signals.fixtureId})}>Atualizar pacote se necessário</button>:null}</details>
+      {social?review:<p>SEO / oportunidade · sem geração de vídeo, voz ou imagens. Histórico preservado abaixo.</p>}
     </div></article>;
 }
 function ContentReview({item,overview,busy,act}:{item:GrowthContentItem;overview?:PublishingOverview;busy:string;act:Action}){
   const content=item.content,editorial=item.channels.find(c=>c.channel==='EDITORIAL');
   return <div className="owner-growth-copy">
-    {content.platforms?<div className="owner-growth-platforms">{VIDEO_CHANNELS.map(channel=><PublishingCard key={`${item.id}:${channel}`} item={item} channel={channel} overview={overview} busy={busy} act={act}/>)}</div>:<p>Pacote legado sem vídeo por plataforma.</p>}
-    <details><summary>Fallback PNG · imagem estática, não é o vídeo</summary><img className="manual-fallback" src={`/api/owner/growth/items/${item.id}/asset`} width="270" height="480" alt={`Fallback de ${content.headline}`}/><a href={`/api/owner/growth/items/${item.id}/asset`} target="_blank" rel="noreferrer">Abrir PNG 1080×1920</a></details>
+    {content.assetModel==='MASTER_V1'?<><MasterSocial item={item}/><details><summary>Publicação por plataforma · estados independentes</summary><div className="owner-growth-platforms">{VIDEO_CHANNELS.map(channel=><PublishingCard compact key={`${item.id}:${channel}`} item={item} channel={channel} overview={overview} busy={busy} act={act}/>)}</div></details></>:<p>Versão anterior preservada no histórico. Master e imagens serão preparados na próxima geração elegível.</p>}
     {editorial?<details><summary>Social editorial · {editorial.status}</summary><p>{content.captions.EDITORIAL}</p><a href={editorial.trackedUrl} target="_blank" rel="noreferrer">Link editorial</a>
       {editorial.status!=='PUBLISHED'?<div className="manual-copy-actions">{['APPROVED','REJECTED',...(editorial.status==='APPROVED'?['PUBLISHED']:[])].map(status=><button key={status} disabled={!!busy||editorial.status===status} onClick={()=>act(`editorial:${item.id}`,{action:'transition',itemId:item.id,channel:'EDITORIAL',status})}>{status}</button>)}</div>:null}</details>:null}
     <details><summary>Jogadores e direitos</summary>{content.players?.length?content.players.map(p=><p key={p.id}>{p.name}: {p.selectionReason} · {p.media.licenseStatus} · {p.media.commercialEligible?'uso comercial aprovado':'fallback sem retrato'}</p>):<p>Fallback seguro com clubes e personagens Liva.</p>}</details>

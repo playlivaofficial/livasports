@@ -93,8 +93,8 @@ export function buildMotionGraph(input:MotionGraphInput):{inputs:string[][];filt
     if(scene.headline)stream=overlayLayer(stream,scene.headline,frames,motion.foreground,anchored);
     const hero={driftX:motion.heroDrift.dx,driftY:motion.heroDrift.dy,exitX:motion.exit.dx,exitSeconds:motion.exit.seconds,duration};
     // Matchup push: left and right heroes travel toward each other, drifting opposite to the camera.
-    if(scene.left)stream=overlayLayer(stream,scene.left,frames,motion.left,{...hero,driftX:hero.driftX+6});
-    if(scene.right)stream=overlayLayer(stream,scene.right,frames,motion.right,{...hero,driftX:hero.driftX-6});
+    if(scene.left)stream=overlayLayer(stream,scene.left,frames,motion.left,hero);
+    if(scene.right)stream=overlayLayer(stream,scene.right,frames,motion.right,hero);
     scene.center.forEach((layer,piece)=>{
       const stagger=plan.grammar==='PUNCH'?.07:plan.grammar==='EDITORIAL_FLOW'?.12:.05;
       stream=overlayLayer(stream,layer,frames,{...motion.center,delay:motion.center.delay+piece*stagger},hero);
@@ -131,7 +131,7 @@ export function buildMotionGraph(input:MotionGraphInput):{inputs:string[][];filt
           ?{width:240,colors:['0xe9fff600','0xe9fff670','0xffffffd0','0xe9fff670','0xe9fff600']}
           :{width:44,colors:['0x00000000','0x00000050','0xf4fff9f0','0x00000050','0x00000000']};
         const src=next('t'),out=next('o'),seconds=f(incoming/fps);
-        filters.push(`gradients=s=${band.width}x${H}:r=${fps}:d=${seconds}:nb_colors=${band.colors.length}:${band.colors.map((color,i)=>`c${i}=${color}`).join(':')}:x0=0:y0=0:x1=${band.width-1}:y1=0:speed=0,format=yuva420p[${src}]`);
+        filters.push(`gradients=s=${band.width}x${H}:r=${fps}:d=${seconds}:nb_colors=${band.colors.length}:${band.colors.map((color,i)=>`c${i}=${color}`).join(':')}:x0=0:y0=0:x1=${band.width-1}:y1=0:speed=0.00001,format=yuva420p[${src}]`);
         filters.push(`[${segment}][${src}]overlay=x='${f(W)}*(1-t/${seconds})-${f(band.width/2)}':y=0:format=yuv420[${out}]`);
         segment=out;
       }
@@ -159,6 +159,7 @@ export function buildMotionGraph(input:MotionGraphInput):{inputs:string[][];filt
   filters.push(`[${split[0]}][${grown}]overlay=x=${p.x}:y=${p.y}:format=yuv420[${withProgress}]`);
   let video=withProgress;
   if(plan.opening.fadeFromBlack>0){const faded=next('o');filters.push(`[${video}]fade=t=in:st=0:d=${f(plan.opening.fadeFromBlack)}[${faded}]`);video=faded;}
-  const final=next('v');filters.push(`[${video}]format=yuv420p[${final}]`);
+  // Concatenated segments use integer frame numbering, not accumulated rounded microsecond PTS.
+  const final=next('v');filters.push(`[${video}]settb=1/${fps},setpts=N,format=yuv420p[${final}]`);
   return {inputs,filter:filters.join(';'),videoLabel:final,transitionOffsets};
 }

@@ -17,7 +17,7 @@ import {loadCharacterArt} from './character-art';
 import {matchPalettes,type TeamPalette} from './palette';
 import {playLivaPromoSvg} from './promo';
 import {loadSceneryArt} from './scenery-art';
-import {alignTransitions,planMotion,sceneTimeline} from './motion';
+import {alignTransitions,planMotion,planMasterMotion,sceneTimeline} from './motion';
 import {buildMotionGraph,type PlacedLayer,type PreparedScene,type SharedLayers} from './motion-graph';
 import {AUDIO_FILES,AUDIO_LIBRARY_VERSION,MIX,placeEffects,selectAudioDirection} from './audio-design';
 import {buildMixGraph,loudnormFilter,parseLoudnorm} from './audio-mix';
@@ -32,6 +32,8 @@ export interface RenderedGrowthVideo {channel:GrowthVideoChannel;status:'READY';
 export interface FailedGrowthVideo {channel:GrowthVideoChannel;status:'FAILED';mimeType:null;sha256:null;byteLength:null;data:null;errorCode:string;}
 export type GrowthVideoRenderResult=RenderedGrowthVideo|FailedGrowthVideo;
 export interface VideoRendererOptions {
+  master?:boolean;
+  requireNarration?:boolean;
   /** Shared invocation deadline; checked before work and enforced on every external process. */
   deadlineMs?:number;
   assetLoader?:(url:string)=>Promise<string|null>;
@@ -114,7 +116,7 @@ const svgDocument=(content:string,defs='',size:{width:number;height:number}={wid
  * its own. `growthSceneSvg` flattens these same layers, so a still frame and a video frame at rest
  * are pixel-for-pixel the same design.
  */
-async function sceneLayerSvgs(scene:GrowthVideoScene,fixture:GrowthFixtureSnapshot,draft:GrowthPlatformDraft,options:VideoRendererOptions={}):Promise<SceneLayerSvgs>{
+export async function sceneLayerSvgs(scene:GrowthVideoScene,fixture:GrowthFixtureSnapshot,draft:GrowthPlatformDraft,options:VideoRendererOptions={}):Promise<SceneLayerSvgs>{
   const channel=draft.channel,load=options.assetLoader??remoteAsset;
   const assets=await Promise.all(scene.assets.slice(0,2).map(async asset=>({...asset,data:asset.url?await load(asset.url):null})));
   // V1.2: one brand accent on every platform. Platforms differ by composition, pacing and geometry.
@@ -202,6 +204,7 @@ async function sceneLayerSvgs(scene:GrowthVideoScene,fixture:GrowthFixtureSnapsh
   const subtitleCopy=scene.visual==='WATCHLIST'?'Cinco confrontos para acompanhar. Veja a agenda completa no LivaSports.com.':scene.subtitle;
   const footerSize=Math.max(20,Math.min(28,Math.floor(850/Math.max(1,fixture.competition.name.length*.55))));
   const foreground=`${contextStrip}${characterMode?`<text x="540" y="1158" text-anchor="middle" fill="#cadbd5" font-family="Arial" font-size="17" letter-spacing="2">PERSONAGENS LIVA · ARTE ORIGINAL</text>`:''}`+
+    `${options.master&&scene.visual==='HOOK'?`<text x="540" y="1302" text-anchor="middle" fill="#edf5f1" font-family="Arial" font-size="25">${escape(brazilKickoff(fixture.kickoff))}</text>`:''}`+
     `${scene.visual==='CTA'?playLivaPromoSvg(draft.creative?.promo??'DISCOVER'):''}${subtitle}`+
     `${fittedSubtitle(subtitleCopy,channel==='TIKTOK'?112:540,VIDEO.subtitleTop+(channel==='YOUTUBE_SHORTS'?120:105),channel==='TIKTOK'?'start':'middle')}`+
     `<text x="540" y="1770" text-anchor="middle" fill="${accent}" font-family="Arial" font-size="${footerSize}" font-weight="800">${escape(fixture.competition.name)} · ${scene.order}</text>`;
@@ -231,13 +234,13 @@ function sceneFamily(scene:GrowthVideoScene,fixture:GrowthFixtureSnapshot,draft:
 
 const PROGRESS={x:76,y:1830,width:928,height:10} as const;
 /** Static pieces that persist across every cut: lockup and label, top rule, progress track, Shorts edge bar. */
-function chromeSvgs(channel:GrowthVideoChannel):string[]{
-  const topLabel=channel==='TIKTOK'?'RÁPIDO E DIRETO':channel==='INSTAGRAM_REELS'?'EM CAMPO':'GUIA EM 5 CENAS';
+function chromeSvgs(channel:GrowthVideoChannel,master=false):string[]{
+  const topLabel=master?'FUTEBOL · DADOS · ODDS':channel==='TIKTOK'?'RÁPIDO E DIRETO':channel==='INSTAGRAM_REELS'?'EM CAMPO':'GUIA EM 5 CENAS';
   const pieces=[
     `${livaSportsLockupSvg({x:76,y:78,size:34})}<text x="1000" y="112" text-anchor="end" fill="${BRAND.livasports.muted}" font-family="Arial" font-size="21" letter-spacing="4">${topLabel}</text><rect x="76" y="154" width="928" height="3" fill="#2a4959"/>`,
     `<rect x="${PROGRESS.x}" y="${PROGRESS.y}" width="${PROGRESS.width}" height="${PROGRESS.height}" rx="5" fill="#06131c" fill-opacity=".55" stroke="#345463" stroke-width="2"/>`,
   ];
-  if(channel==='YOUTUBE_SHORTS')pieces.push(`<rect x="0" width="24" height="1920" fill="${BRAND.livasports.accent}"/>`);
+  if(channel==='YOUTUBE_SHORTS'&&!master)pieces.push(`<rect x="0" width="24" height="1920" fill="${BRAND.livasports.accent}"/>`);
   return pieces.map(piece=>svgDocument(piece));
 }
 
@@ -249,7 +252,7 @@ export async function growthSceneSvg(scene:GrowthVideoScene,fixture:GrowthFixtur
   const staticProgress=`<rect x="${PROGRESS.x}" y="${PROGRESS.y}" width="${Math.round(PROGRESS.width*(scene.order/5))}" height="${PROGRESS.height}" rx="5" fill="${BRAND.livasports.accent}"/>`;
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${VIDEO.width}" height="${VIDEO.height}" viewBox="0 0 ${VIDEO.width} ${VIDEO.height}"><defs>${defs}</defs>`+
     [layers.background,layers.headline,layers.left,layers.right,...layers.center,layers.foreground].map(inner).join('')+
-    chromeSvgs(draft.channel).map(inner).join('')+staticProgress+'</svg>';
+    chromeSvgs(draft.channel,options.master).map(inner).join('')+staticProgress+'</svg>';
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -304,12 +307,12 @@ function sharedArtwork(){
     return out;
   })().catch(error=>{sharedArt=undefined;throw error;});
 }
-async function writeShared(directory:string,channel:GrowthVideoChannel):Promise<SharedLayers>{
+async function writeShared(directory:string,channel:GrowthVideoChannel,master=false):Promise<SharedLayers>{
   const art=await sharedArtwork(),place=async(key:string)=>{const item=art.get(key)!,path=join(directory,`shared-${key.toLowerCase()}.png`);await writeFile(path,item.png);return {path,x:item.x,y:item.y,width:item.width,height:item.height};};
   const atmosphere:SharedLayers['atmosphere']={};
   for(const key of ['LIGHT_SWEEP','HAZE','CROWD_SHIMMER','CROWD_SHIMMER_B','TUNNEL_GLOW','EDITORIAL_LINES','PITCH_GLIDE'] as const)atmosphere[key]=await place(key);
   const chrome:PlacedLayer[]=[];
-  for(const [index,svg] of chromeSvgs(channel).entries()){const layer=await rasterLayer(svg,join(directory,`chrome-${index}.png`));if(layer)chrome.push(layer);}
+  for(const [index,svg] of chromeSvgs(channel,master).entries()){const layer=await rasterLayer(svg,join(directory,`chrome-${index}.png`));if(layer)chrome.push(layer);}
   return {chrome,progressFill:(await place('PROGRESS_FILL')).path,atmosphere};
 }
 
@@ -368,8 +371,9 @@ export async function renderGrowthVideo(draft:GrowthPlatformDraft,fixture:Growth
   const lap=(stage:keyof typeof stages)=>{const now=Date.now();stages[stage]+=now-mark;mark=now;};
   try{
     const audio=await buildNarrationAudio(draft,directory,options);lap('narrationMs');
+    if(options.requireNarration&&(audio.narration.degradedReason||audio.files.length!==draft.scenes.length))throw new Error('NARRATION_INCOMPLETE_KEEP_PREDECESSOR');
     const families=draft.scenes.map(scene=>sceneFamily(scene,fixture,draft));
-    const plan=alignTransitions(planMotion(draft.channel,draft.scenes,fixture.fixtureId,families),fps);
+    const plan=alignTransitions(options.master?planMasterMotion(draft.scenes,fixture.fixtureId,families):planMotion(draft.channel,draft.scenes,fixture.fixtureId,families),fps);
     const mode=CHANNEL_VOICE[draft.channel],pacing=VOICE_PACING[mode];
     const timeline=sceneTimeline(draft.scenes,plan.transitions,new Map(audio.files.map(file=>[file.order,file.seconds])),{fps,lead:pacing.leadSeconds,tail:pacing.tailSeconds});
     const totalSeconds=timeline.totalSeconds;
@@ -389,7 +393,7 @@ export async function renderGrowthVideo(draft:GrowthPlatformDraft,fixture:Growth
         rasterLayer(layers.foreground,`${base}-fg.png`),...layers.center.map((svg,index)=>rasterLayer(svg,`${base}-center-${index}.png`))]);
       prepared.push({order:scene.order,background,headline:headline??null,left:left??null,right:right??null,foreground:foreground??null,center:center.filter((layer):layer is PlacedLayer=>!!layer)});
     }
-    const shared=await writeShared(directory,draft.channel);lap('layersMs');
+    const shared=await writeShared(directory,draft.channel,options.master);lap('layersMs');
     const graph=buildMotionGraph({width:VIDEO.width,height:VIDEO.height,fps,bleed:BLEED,plan,timeline:timeline.scenes,totalSeconds,scenes:prepared,shared,progress:PROGRESS});
     // Sound: deterministic direction, voice placed inside each scene's clean window, beds ducked under it.
     const direction=draft.creative?.audio??selectAudioDirection({channel:draft.channel,angle:draft.template,family:draft.creative?.family??null,fixtureSeed:fixture.fixtureId});
@@ -421,11 +425,13 @@ export async function renderGrowthVideo(draft:GrowthPlatformDraft,fixture:Growth
     lap('audioMs');
     const args:string[]=['-hide_banner','-nostdin'];for(const input of graph.inputs)args.push(...input);
     if(mixed)args.push('-i',mixed);
-    args.push('-filter_threads','1','-filter_complex_threads','1','-filter_complex',graph.filter,'-map',`[${graph.videoLabel}]`);
+    // File input avoids Windows command-line limits and keeps the identical graph on Vercel.
+    const graphFile=join(directory,'video-filter.txt');await writeFile(graphFile,graph.filter);
+    args.push('-filter_threads','1','-filter_complex_threads','1','-filter_complex_script',graphFile,'-map',`[${graph.videoLabel}]`);
     if(mixed)args.push('-map',`${graph.inputs.length}:a`,'-c:a','copy');else args.push('-an');
     const maxVideoKbps=Math.floor(VIDEO.maxRenderBytes*8*.88/totalSeconds/1000-128);
     args.push('-t',totalSeconds.toFixed(3),'-c:v','libx264','-preset',VIDEO.preset,'-threads','1','-crf',String(VIDEO.crf),'-maxrate',`${maxVideoKbps}k`,'-bufsize',`${maxVideoKbps*2}k`,
-      '-pix_fmt','yuv420p','-r',String(fps),'-movflags','+faststart','-y',output);
+      '-pix_fmt','yuv420p','-r',String(fps),'-fps_mode','cfr','-movflags','+faststart','-y',output);
     await runFfmpeg(binary,args,options.deadlineMs);lap('encodeMs');const data=await readFile(output);if(!data.length||data.length>VIDEO.maxRenderBytes)throw new Error('VIDEO_SIZE_INVALID');
     const voiceState={mode:audio.narration.mode,provider:audio.narration.provider,lines:audio.files.length,degradedReason:audio.narration.degradedReason,
       ...(audio.narration.voiceId?{voiceId:audio.narration.voiceId}:{}),...(audio.narration.cache?{cache:audio.narration.cache}:{})};

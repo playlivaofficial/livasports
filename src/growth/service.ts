@@ -1,221 +1,111 @@
 import 'server-only';
 import type {DatabaseClient} from '@/database/client';
-import {buildShortlist,sharedPriorityRanks} from './shortlist';
-import {scoreFixture,isProducible} from './scoring';
+import {buildShortlist} from './shortlist';
+import {scoreFixture} from './scoring';
 import {generatedContent} from './content';
-import {renderGrowthVideo,renderGrowthVideos,type GrowthVideoRenderResult} from './video-renderer';
-import {SHORTLIST,VIDEO_CHANNELS,type GrowthVideoChannel} from './config';
-import {acquireGrowthJob,enrichGrowthStorySignals,finishGrowthJob,persistGrowthItem,readGrowthFixtures,readGrowthItem,readGrowthVideo,readLatestGrowthItems,readRightsFallbackDraftsForRegeneration,readV1DraftsForRegeneration,recentGrowthFixtureIds,upsertGrowthSeoPriorities} from './repository';
+import {renderCanonicalPackage,renderCanonicalStatics} from './canonical-renderer';
+import {SHORTLIST,type GrowthVideoChannel} from './config';
+import {acquireGrowthJob,enrichGrowthStorySignals,finishGrowthJob,persistGrowthItem,readGrowthFixtures,readGrowthItem,readGrowthVideo,readLatestGrowthItems,upsertGrowthSeoPriorities,rebuildCurrentGrowthQueue} from './repository';
 import type {GrowthContentPack,GrowthDashboard,RankedGrowthFixture} from './types';
-import {readPremiumDraftsForRegeneration,rebuildCurrentGrowthQueue,staleCreativeGrowthItems} from './repository';
 import {CREATIVE_VERSION} from './creative-version';
 import {databaseVoiceStore} from './voice-store';
+import type {RenderedGrowthVideo} from './video-renderer';
 import {readPublishingOverview,readCurrentPostingReceipts} from './manual-repository';
 
-/** Optional future rewrite boundary. V1 intentionally ships only the deterministic implementation. */
-export interface GrowthContentGenerator {
-  kind:'DETERMINISTIC_TEMPLATE'|'OPTIONAL_AI_REWRITE';
-  generate(fixture:RankedGrowthFixture):GrowthContentPack;
-}
-export interface GrowthRunResult {
-  state:'SUCCEEDED'|'PARTIAL'|'FAILED'|'ALREADY_RUNNING';
-  jobId:string|null;
-  considered:number;
-  generated:number;
-  skippedDuplicate:number;
-  itemIds:string[];
-  error?:string;
-  providerRequests:0;
-}
+export interface GrowthContentGenerator {kind:'DETERMINISTIC_TEMPLATE'|'OPTIONAL_AI_REWRITE';generate(fixture:RankedGrowthFixture):GrowthContentPack;}
+export interface GrowthRunResult {state:'SUCCEEDED'|'PARTIAL'|'FAILED'|'ALREADY_RUNNING';jobId:string|null;considered:number;generated:number;skippedDuplicate:number;pending?:number;itemIds:string[];error?:string;providerRequests:0;}
 export interface GrowthRegenerationResult extends GrowthRunResult {eligibleDrafts:number;skippedMissingFixture:number;}
-
 export async function rankGrowthInventory(db:DatabaseClient,now=new Date()):Promise<RankedGrowthFixture[]>{
-  const fixtures=await readGrowthFixtures(db,now);
-  return fixtures.map(fixture=>({...fixture,priority:scoreFixture(fixture.signals,now)}));
+  return (await readGrowthFixtures(db,now)).map(fixture=>({...fixture,priority:scoreFixture(fixture.signals,now)}));
 }
-
 function rowsForPriorities(rows:RankedGrowthFixture[],priorities:ReturnType<typeof buildShortlist>['content']){
-  const byId=new Map(rows.map(row=>[row.signals.fixtureId,row]));
-  return priorities.flatMap(priority=>{const row=byId.get(priority.fixtureId);return row?[row]:[];});
+  const byId=new Map(rows.map(row=>[row.signals.fixtureId,row]));return priorities.flatMap(p=>byId.has(p.fixtureId)?[byId.get(p.fixtureId)!]:[]);
 }
-
-function safeItemFailure(error:unknown){
-  const databaseCode=typeof (error as {code?:unknown})?.code==='string'?(error as {code:string}).code:null;
-  const message=error instanceof Error&&/^[A-Z0-9_]+$/.test(error.message)?error.message:null;
-  return databaseCode??message??'UNCLASSIFIED_ITEM_FAILURE';
-}
-
 export async function readGrowthDashboard(db:DatabaseClient,now=new Date()):Promise<GrowthDashboard>{
-  const ranked=await rankGrowthInventory(db,now);
-  const shortlist=buildShortlist(ranked.map(row=>row.priority));
-  const byId=new Map(ranked.map(row=>[row.signals.fixtureId,row]));
+  const ranked=await rankGrowthInventory(db,now),shortlist=buildShortlist(ranked.map(row=>row.priority));
   let publishing:GrowthDashboard['publishing'];
-  try{publishing=await readPublishingOverview(db);publishing.currentPosts=await readCurrentPostingReceipts(db,shortlist.content.map(row=>row.fixtureId));}catch(error){if((error as {code?:string}).code!=='42P01')throw error;}
-  return {generatedAt:now.toISOString(),social:shortlist.social.flatMap(priority=>{const row=byId.get(priority.fixtureId);return row?[row]:[];}),
-    publishing,
-    content:rowsForPriorities(ranked,shortlist.content),items:await readLatestGrowthItems(db),
-    considered:shortlist.considered,producible:shortlist.producible};
+  try{publishing=await readPublishingOverview(db);publishing.currentPosts=await readCurrentPostingReceipts(db,shortlist.content.map(row=>row.fixtureId));}
+  catch(error){if((error as {code?:string}).code!=='42P01')throw error;}
+  return {generatedAt:now.toISOString(),social:rowsForPriorities(ranked,shortlist.social),content:rowsForPriorities(ranked,shortlist.content),
+    publishing,items:await readLatestGrowthItems(db),considered:shortlist.considered,producible:shortlist.producible};
 }
-
+/** A single lease covers selection, cache lookup, synthesis, rendering and commit. No duplicate work
+ * is started by a concurrent scheduler/owner invocation. The DB uniqueness guard is the final backstop. */
 export async function runGrowthGeneration(db:DatabaseClient,trigger:'AUTOMATIC'|'OWNER',options:{now?:Date;forceFixtureId?:string}={}):Promise<GrowthRunResult>{
-  const renderDeadline=Date.now()+250_000;
-  const now=options.now??new Date(),jobId=await acquireGrowthJob(db,trigger,now);
+  const deadline=Date.now()+250_000,now=options.now??new Date(),jobId=await acquireGrowthJob(db,trigger,now);
   if(!jobId)return {state:'ALREADY_RUNNING',jobId:null,considered:0,generated:0,skippedDuplicate:0,itemIds:[],providerRequests:0};
-  let considered=0,generated=0,skippedDuplicate=0;
-  const itemIds:string[]=[];
+  let considered=0,generated=0,skippedDuplicate=0,failed=0;const itemIds:string[]=[];
   try{
-    const ranked=await rankGrowthInventory(db,now);considered=ranked.length;
-    const sharedShortlist=buildShortlist(ranked.map(row=>row.priority));
-    const sharedTopSocial=rowsForPriorities(ranked,sharedShortlist.social);
-    const sharedTopTen=await enrichGrowthStorySignals(db,rowsForPriorities(ranked,sharedShortlist.content));
-    const priorityRank=sharedPriorityRanks(sharedShortlist,ranked.map(row=>row.priority));
-    const sharedById=new Map(sharedTopTen.map(row=>[row.signals.fixtureId,row]));
-    const sharedMaterials=sharedTopTen.map((row,index)=>({row,rank:index+1,material:generatedContent(row,index+1,sharedTopSocial)}));
-    await upsertGrowthSeoPriorities(db,sharedMaterials.map(({row,rank,material})=>({fixtureId:row.signals.fixtureId,rank,score:row.priority.total,
-      topSocial:sharedShortlist.social.some(item=>item.fixtureId===row.signals.fixtureId),canonicalUrl:row.destinationUrl,seo:material.content.seo!,sourceHash:material.sourceHash})),now);
-    // The CURRENT queue is exactly this run's Top 10, with the Top 5 social shortlist flagged inside it.
-    // Rebuilding it every run is what makes the owner page show today's ranking instead of an append-only history.
-    const currentEntries=sharedMaterials.map(({row,rank})=>({fixtureId:row.signals.fixtureId,rank,
-      topSocial:sharedShortlist.social.some(item=>item.fixtureId===row.signals.fixtureId)}));
-    await rebuildCurrentGrowthQueue(db,currentEntries,now);
-    let selected:RankedGrowthFixture[];
-    if(options.forceFixtureId){
-      const row=ranked.find(candidate=>candidate.signals.fixtureId===options.forceFixtureId&&isProducible(candidate.priority));
-      if(!row)throw new Error('FIXTURE_NOT_PRODUCIBLE');
-      selected=[row];
-    }else{
-      const recent=await recentGrowthFixtureIds(db,now);
-      const shortlist=buildShortlist(ranked.map(row=>row.priority),{excludeFixtureIds:recent});
-      skippedDuplicate=shortlist.suppressedAsDuplicate;
-      selected=rowsForPriorities(ranked,shortlist.content).slice(0,SHORTLIST.generationBatchSize);
-    }
-    const enrichedSelected=await enrichGrowthStorySignals(db,selected.filter(row=>!sharedById.has(row.signals.fixtureId)));
-    selected=selected.map(row=>sharedById.get(row.signals.fixtureId)??enrichedSelected.find(item=>item.signals.fixtureId===row.signals.fixtureId)??row);
-    let failed=0;
-    for(const row of selected){
-      if(Date.now()+60_000>renderDeadline){failed++;break;}
+    const inventory=await rankGrowthInventory(db,now);considered=inventory.length;
+    const shortlist=buildShortlist(inventory.map(row=>row.priority));
+    const topTen=await enrichGrowthStorySignals(db,rowsForPriorities(inventory,shortlist.content)),topFive=topTen.slice(0,5);
+    if(options.forceFixtureId&&!topFive.some(row=>row.signals.fixtureId===options.forceFixtureId))throw Error('FIXTURE_NOT_SOCIAL_TOP_FIVE');
+    const materials=topTen.map((row,index)=>({row,rank:index+1,material:generatedContent(row,index+1,topFive)}));
+    await upsertGrowthSeoPriorities(db,materials.map(({row,rank,material})=>({fixtureId:row.signals.fixtureId,rank,score:row.priority.total,
+      topSocial:rank<=5,canonicalUrl:row.destinationUrl,seo:material.content.seo!,sourceHash:material.sourceHash})),now);
+    const entries=materials.map(({row,rank})=>({fixtureId:row.signals.fixtureId,rank,topSocial:rank<=5}));
+    await rebuildCurrentGrowthQueue(db,entries,now);
+    const items=await readLatestGrowthItems(db,1000);
+    let attempted=0;
+    for(const {row,rank,material} of materials){
+      if(rank>5)continue; // Absolute cost boundary, including forced/manual runs.
+      if(options.forceFixtureId&&row.signals.fixtureId!==options.forceFixtureId)continue;
+      const previous=items.filter(item=>item.fixtureId===row.signals.fixtureId&&!item.supersededAt).sort((a,b)=>b.revision-a.revision)[0];
+      const same=previous?.creativeVersion===CREATIVE_VERSION&&previous.contentIdentity===material.contentIdentity&&previous.content.assetModel==='MASTER_V1';
+      if(same&&previous.canonicalAssets?.some(a=>a.kind==='MASTER_VIDEO')){
+        // Images can be repaired independently: never re-buy narration or re-render the master.
+        const missing=['STORY_IMAGE','FEED_IMAGE'].filter(kind=>!previous.canonicalAssets?.some(a=>a.kind===kind));
+        if(missing.length){
+          const images=await renderCanonicalStatics(previous.content.masterSocial!,previous.fixture);
+          await db.transaction(async tx=>{for(const asset of images.filter(a=>missing.includes(a.kind)))await tx.query(
+            'INSERT INTO growth_canonical_assets(content_item_id,kind,creative_version,mime_type,width,height,sha256,byte_length,asset_data,generated_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT(content_item_id,kind) DO NOTHING',
+            [previous.id,asset.kind,CREATIVE_VERSION,asset.mimeType,asset.width,asset.height,asset.sha256,asset.byteLength,asset.data,now]);});
+        }
+        skippedDuplicate++;continue;
+      }
+      if(attempted>=SHORTLIST.generationBatchSize||Date.now()+65_000>deadline)continue;
+      attempted++;
       try{
-        const rank=priorityRank.get(row.signals.fixtureId)??sharedTopTen.length+1;
-        const material=generatedContent(row,rank,sharedTopSocial);
-        const videos=material.content.platforms?await renderGrowthVideos(material.content.platforms,material.fixture,{deadlineMs:renderDeadline,voiceStore:databaseVoiceStore(db)}):[];
+        const assets=await renderCanonicalPackage(material.content.masterSocial!,material.fixture,{deadlineMs:deadline,voiceStore:databaseVoiceStore(db)});
         const stored=await persistGrowthItem(db,{fixtureId:row.signals.fixtureId,sourceHash:material.sourceHash,contentIdentity:material.contentIdentity,trigger,
-          priorityScore:row.priority.total,scoreBreakdown:row.priority.lines,reasons:row.priority.reasons,
-          fixture:material.fixture,content:material.content,canonicalUrl:row.destinationUrl,tracking:material.tracking,now,
-          force:!!options.forceFixtureId,videos});
-        if(stored){generated++;itemIds.push(stored.id);if(videos.some(video=>video.status==='FAILED'))failed++;}else skippedDuplicate++;
-      }catch(error){failed++;console.error(`[LivaSports Traffic V1.1] ${JSON.stringify({event:'growth-item-failed',fixtureId:row.signals.fixtureId,code:safeItemFailure(error)})}`);}
+          priorityScore:row.priority.total,scoreBreakdown:row.priority.lines,reasons:row.priority.reasons,fixture:material.fixture,content:material.content,
+          canonicalUrl:row.destinationUrl,tracking:material.tracking,now,force:false,canonicalAssets:assets,supersedesItemId:previous?.id});
+        if(stored){generated++;itemIds.push(stored.id);}else skippedDuplicate++;
+      }catch(error){
+        failed++;const code=error instanceof Error&&/^[A-Z0-9_]+$/.test(error.message)?error.message:'MASTER_GENERATION_FAILED';
+        console.error(JSON.stringify({event:'growth-master-failed',fixtureId:row.signals.fixtureId,code}));
+        // Do not spend more narration credits after a voice failure or create degraded replacements.
+        if(code.includes('VOICE')||code.includes('NARRATION'))break;
+      }
     }
-    // Active items in the CURRENT queue that an older creative stack produced earn exactly one regeneration
-    // each. The replacement supersedes the predecessor, so the next run finds nothing stale and skips again.
-    // Nothing is deleted: the superseded item and its media stay as history.
-    let staleRegenerated=0;
-    const stale=await staleCreativeGrowthItems(db,SHORTLIST.generationBatchSize,CREATIVE_VERSION);
-    for(const item of stale){
-      if(Date.now()+60_000>renderDeadline)break;
-      const row=sharedById.get(String(item.fixture_id));
-      if(!row)continue;
-      try{
-        const rank=priorityRank.get(row.signals.fixtureId)??sharedTopTen.length+1;
-        const material=generatedContent(row,rank,sharedTopSocial);
-        const videos=material.content.platforms?await renderGrowthVideos(material.content.platforms,material.fixture,{deadlineMs:renderDeadline,voiceStore:databaseVoiceStore(db)}):[];
-        if(videos.some(video=>video.status==='FAILED'))throw new Error('STALE_RENDER_FAILED_KEEP_PREDECESSOR');
-        const stored=await persistGrowthItem(db,{fixtureId:row.signals.fixtureId,sourceHash:material.sourceHash,contentIdentity:material.contentIdentity,
-          trigger,priorityScore:row.priority.total,scoreBreakdown:row.priority.lines,reasons:row.priority.reasons,
-          fixture:material.fixture,content:material.content,canonicalUrl:row.destinationUrl,tracking:material.tracking,now,
-          // A refreshed creative has not been reviewed: it must not inherit an approval, so every channel
-          // restarts as DRAFT rather than silently carrying the predecessor's decision.
-          force:true,videos,supersedesItemId:String(item.id),regeneratedChannel:null});
-        if(stored){staleRegenerated++;generated++;itemIds.push(stored.id);
-          console.info(JSON.stringify({event:'growth-stale-creative-regenerated',fixtureId:row.signals.fixtureId,itemId:stored.id,creativeVersion:CREATIVE_VERSION}));}
-      }catch(error){failed++;console.error(`[LivaSports Traffic V1.1] ${JSON.stringify({event:'growth-stale-regeneration-failed',fixtureId:row.signals.fixtureId,code:safeItemFailure(error)})}`);}
-    }
-    // Re-point the current queue at the replacements this run produced.
-    if(staleRegenerated)await rebuildCurrentGrowthQueue(db,currentEntries,now);
-    const state=failed?'PARTIAL':'SUCCEEDED';
-    await finishGrowthJob(db,jobId,state,{considered,generated,skippedDuplicate,staleRegenerated,...(failed?{error:'ITEM_GENERATION_FAILED'}:{})},new Date());
-    return {state,jobId,considered,generated,skippedDuplicate,itemIds,...(failed?{error:'ITEM_GENERATION_FAILED'}:{}),providerRequests:0};
+    await rebuildCurrentGrowthQueue(db,entries,now);
+    const pending=Math.max(0,(options.forceFixtureId?1:topFive.length)-generated-skippedDuplicate);
+    const state=failed||pending?'PARTIAL':'SUCCEEDED';
+    await finishGrowthJob(db,jobId,state,{considered,generated,skippedDuplicate,pending,...(failed?{error:'MASTER_GENERATION_FAILED'}:{})});
+    return {state,jobId,considered,generated,skippedDuplicate,pending,itemIds,...(failed?{error:'MASTER_GENERATION_FAILED'}:{}),providerRequests:0};
   }catch(error){
     const code=error instanceof Error&&/^[A-Z0-9_]+$/.test(error.message)?error.message:'GROWTH_GENERATION_FAILED';
-    await finishGrowthJob(db,jobId,'FAILED',{considered,generated,skippedDuplicate,error:code},new Date()).catch(()=>undefined);
+    await finishGrowthJob(db,jobId,'FAILED',{considered,generated,skippedDuplicate,error:code}).catch(()=>undefined);
     return {state:'FAILED',jobId,considered,generated,skippedDuplicate,itemIds,error:code,providerRequests:0};
   }
 }
-
-async function regenerateDraftSet(db:DatabaseClient,drafts:Array<{id:string;fixture_id:string}>,now:Date):Promise<GrowthRegenerationResult>{
-  const jobId=await acquireGrowthJob(db,'OWNER',now);
-  if(!jobId)return {state:'ALREADY_RUNNING',jobId:null,considered:0,generated:0,skippedDuplicate:0,itemIds:[],providerRequests:0,eligibleDrafts:drafts.length,skippedMissingFixture:0};
-  let considered=0,generated=0,failed=0,skippedMissingFixture=0;const itemIds:string[]=[];
-  try{
-    const ranked=await rankGrowthInventory(db,now),shared=buildShortlist(ranked.map(row=>row.priority));
-    const topSocial=rowsForPriorities(ranked,shared.social),byId=new Map(ranked.map(row=>[row.signals.fixtureId,row]));
-    const candidates=drafts.flatMap(draft=>{const row=byId.get(String(draft.fixture_id));if(!row){skippedMissingFixture++;return [];}return [{draft,row}];});
-    considered=candidates.length;const enriched=await enrichGrowthStorySignals(db,candidates.map(item=>item.row)),rankMap=sharedPriorityRanks(shared,ranked.map(row=>row.priority));
-    for(const candidate of candidates){
-      await db.query(`UPDATE growth_generation_jobs SET heartbeat_at=now(),lease_expires_at=now()+interval '10 minutes' WHERE id=$1 AND status='RUNNING'`,[jobId]);
-      const row=enriched.find(item=>item.signals.fixtureId===candidate.row.signals.fixtureId)!;
-      try{const material=generatedContent(row,rankMap.get(row.signals.fixtureId)??1,topSocial),videos=await renderGrowthVideos(material.content.platforms!,material.fixture,{voiceStore:databaseVoiceStore(db)});
-        if(videos.some(video=>video.status==='FAILED'||video.voice?.degradedReason))throw new Error('DRAFT_RENDER_FAILED_KEEP_PREDECESSOR');
-        const stored=await persistGrowthItem(db,{fixtureId:row.signals.fixtureId,sourceHash:material.sourceHash,contentIdentity:material.contentIdentity,trigger:'OWNER',priorityScore:row.priority.total,
-          scoreBreakdown:row.priority.lines,reasons:row.priority.reasons,fixture:material.fixture,content:material.content,canonicalUrl:row.destinationUrl,
-          tracking:material.tracking,now,force:true,videos,supersedesItemId:String(candidate.draft.id)});
-        if(stored){generated++;itemIds.push(stored.id);console.info(JSON.stringify({event:'growth-draft-regenerated',fixtureId:row.signals.fixtureId,itemId:stored.id,generated,total:considered}));}
-      }catch(error){failed++;console.error(`[LivaSports Traffic V1.1] ${JSON.stringify({event:'growth-draft-regeneration-failed',fixtureId:row.signals.fixtureId,code:safeItemFailure(error)})}`);}
-    }
-    const state=failed||skippedMissingFixture?'PARTIAL':'SUCCEEDED';const error=failed?'DRAFT_REGENERATION_ITEM_FAILED':skippedMissingFixture?'DRAFT_FIXTURE_OUTSIDE_ACTIVE_WINDOW':undefined;
-    await finishGrowthJob(db,jobId,state,{considered,generated,skippedDuplicate:0,...(error?{error}:{})},new Date());
-    return {state,jobId,considered,generated,skippedDuplicate:0,itemIds,...(error?{error}:{}),providerRequests:0,eligibleDrafts:drafts.length,skippedMissingFixture};
-  }catch(error){const code=error instanceof Error&&/^[A-Z0-9_]+$/.test(error.message)?error.message:'DRAFT_REGENERATION_FAILED';
-    await finishGrowthJob(db,jobId,'FAILED',{considered,generated,skippedDuplicate:0,error:code},new Date()).catch(()=>undefined);
-    return {state:'FAILED',jobId,considered,generated,skippedDuplicate:0,itemIds,error:code,providerRequests:0,eligibleDrafts:drafts.length,skippedMissingFixture};}
+/** Old controls remain API-compatible, but can no longer create platform-specific or out-of-Top-5 renders. */
+export async function regenerateGrowthPlatform(db:DatabaseClient,itemId:string,_channel:GrowthVideoChannel,now=new Date()):Promise<GrowthRunResult>{
+  const item=await readGrowthItem(db,itemId);if(!item||item.supersededAt)throw Error('PLATFORM_REGENERATION_NOT_ALLOWED');
+  return runGrowthGeneration(db,'OWNER',{now,forceFixtureId:item.fixtureId});
 }
-
-/** One-time production-safe V1 migration: only unsuperseded items whose every channel is still DRAFT. */
-export async function regenerateV1Drafts(db:DatabaseClient,options:{now?:Date}={}):Promise<GrowthRegenerationResult>{
-  const now=options.now??new Date();return regenerateDraftSet(db,await readV1DraftsForRegeneration(db),now);
+async function regenerateCurrent(db:DatabaseClient,options:{now?:Date}={}):Promise<GrowthRegenerationResult>{
+  const result=await runGrowthGeneration(db,'OWNER',options);return {...result,eligibleDrafts:result.generated,skippedMissingFixture:0};
 }
-
-/** Owner-only stateless proof: uses canonical data and real renderer without creating a draft or job. */
-export async function previewGrowthVideo(db:DatabaseClient,fixtureId:string,channel:GrowthVideoChannel){
-  const ranked=await rankGrowthInventory(db),shared=buildShortlist(ranked.map(row=>row.priority));
-  const row=ranked.find(candidate=>candidate.signals.fixtureId===fixtureId&&isProducible(candidate.priority));
-  if(!row)throw new Error('FIXTURE_NOT_PRODUCIBLE');
-  const [enriched]=await enrichGrowthStorySignals(db,[row]),rank=sharedPriorityRanks(shared,ranked.map(candidate=>candidate.priority)).get(fixtureId)??1;
-  const material=generatedContent(enriched,rank,rowsForPriorities(ranked,shared.social));
-  return renderGrowthVideo(material.content.platforms![channel],material.fixture,{voiceStore:databaseVoiceStore(db)});
-}
-
-export async function regeneratePremiumDrafts(db:DatabaseClient,options:{now?:Date}={}):Promise<GrowthRegenerationResult>{
-  return regenerateDraftSet(db,await readPremiumDraftsForRegeneration(db),options.now??new Date());
-}
-
-/** One-time V1.1 repair: all-DRAFT player stories without commercial media become rights-safe club-led revisions. */
-export async function regenerateRightsFallbackDrafts(db:DatabaseClient,options:{now?:Date}={}):Promise<GrowthRegenerationResult>{
-  const now=options.now??new Date();return regenerateDraftSet(db,await readRightsFallbackDraftsForRegeneration(db),now);
-}
-
-/** Rebuilds one platform plan/video while carrying the other platforms and their review states forward unchanged. */
-export async function regenerateGrowthPlatform(db:DatabaseClient,itemId:string,channel:GrowthVideoChannel,now=new Date()):Promise<GrowthRunResult>{
-  const jobId=await acquireGrowthJob(db,'OWNER',now);if(!jobId)return {state:'ALREADY_RUNNING',jobId:null,considered:0,generated:0,skippedDuplicate:0,itemIds:[],providerRequests:0};
-  try{
-    const item=await readGrowthItem(db,itemId),record=item?.channels.find(row=>row.channel===channel);
-    if(!item||item.supersededAt||!item.content.platforms||!record||!['DRAFT','REJECTED'].includes(record.status))throw new Error('PLATFORM_REGENERATION_NOT_ALLOWED');
-    const ranked=await rankGrowthInventory(db,now),row=ranked.find(candidate=>candidate.signals.fixtureId===item.fixtureId);if(!row)throw new Error('FIXTURE_NOT_PRODUCIBLE');
-    const shared=buildShortlist(ranked.map(candidate=>candidate.priority)),topSocial=rowsForPriorities(ranked,shared.social);
-    const [enriched]=await enrichGrowthStorySignals(db,[row]);const rank=sharedPriorityRanks(shared,ranked.map(candidate=>candidate.priority)).get(row.signals.fixtureId)??1;
-    const fresh=generatedContent(enriched,Math.max(1,rank),topSocial),freshDraft=fresh.content.platforms![channel];
-    const content={...fresh.content,platforms:{...fresh.content.platforms,...item.content.platforms,[channel]:freshDraft},
-      captions:{...fresh.content.captions,...item.content.captions,[channel]:freshDraft.caption}};
-    const videos:GrowthVideoRenderResult[]=[];
-    for(const videoChannel of VIDEO_CHANNELS){if(videoChannel===channel){try{videos.push(await renderGrowthVideo(freshDraft,fresh.fixture,{voiceStore:databaseVoiceStore(db)}));}catch{videos.push({channel,status:'FAILED',mimeType:null,sha256:null,byteLength:null,data:null,errorCode:'VIDEO_RENDER_FAILED'});}continue;}
-      const existing=await readGrowthVideo(db,item.id,videoChannel);if(existing)videos.push({channel:videoChannel,status:'READY',mimeType:'video/mp4',sha256:existing.sha256,byteLength:existing.byteLength,data:existing.data,renderMetadata:existing.renderMetadata});
-      else try{videos.push(await renderGrowthVideo(content.platforms![videoChannel],fresh.fixture,{voiceStore:databaseVoiceStore(db)}));}catch{videos.push({channel:videoChannel,status:'FAILED',mimeType:null,sha256:null,byteLength:null,data:null,errorCode:'VIDEO_RENDER_FAILED'});}
-    }
-    const stored=await persistGrowthItem(db,{fixtureId:row.signals.fixtureId,sourceHash:fresh.sourceHash,contentIdentity:fresh.contentIdentity,trigger:'OWNER',priorityScore:row.priority.total,
-      scoreBreakdown:row.priority.lines,reasons:row.priority.reasons,fixture:fresh.fixture,content,canonicalUrl:row.destinationUrl,tracking:fresh.tracking,now,force:true,
-      videos,supersedesItemId:item.id,regeneratedChannel:channel,channelRecords:item.channels});
-    const state=videos.some(video=>video.status==='FAILED')?'PARTIAL':'SUCCEEDED';await finishGrowthJob(db,jobId,state,{considered:1,generated:stored?1:0,skippedDuplicate:0,...(state==='PARTIAL'?{error:'VIDEO_RENDER_FAILED'}:{})},new Date());
-    return {state,jobId,considered:1,generated:stored?1:0,skippedDuplicate:0,itemIds:stored?[stored.id]:[],...(state==='PARTIAL'?{error:'VIDEO_RENDER_FAILED'}:{}),providerRequests:0};
-  }catch(error){const code=error instanceof Error&&/^[A-Z0-9_]+$/.test(error.message)?error.message:'PLATFORM_REGENERATION_FAILED';
-    await finishGrowthJob(db,jobId,'FAILED',{considered:1,generated:0,skippedDuplicate:0,error:code},new Date()).catch(()=>undefined);
-    return {state:'FAILED',jobId,considered:1,generated:0,skippedDuplicate:0,itemIds:[],error:code,providerRequests:0};}
+export const regenerateV1Drafts=regenerateCurrent;
+export const regeneratePremiumDrafts=regenerateCurrent;
+export const regenerateRightsFallbackDrafts=regenerateCurrent;
+/** Preview is a read of committed bytes, never an implicit paid synthesis endpoint. */
+export async function previewGrowthVideo(db:DatabaseClient,fixtureId:string,channel:GrowthVideoChannel):Promise<RenderedGrowthVideo>{
+  const dashboard=await readGrowthDashboard(db);
+  if(!dashboard.social.some(row=>row.signals.fixtureId===fixtureId))throw Error('FIXTURE_NOT_SOCIAL_TOP_FIVE');
+  const item=dashboard.items.find(i=>i.fixtureId===fixtureId&&!i.supersededAt&&i.creativeVersion===CREATIVE_VERSION);
+  if(!item)throw Error('MASTER_NOT_READY');
+  const video=await readGrowthVideo(db,item.id,channel);if(!video)throw Error('MASTER_NOT_READY');
+  return {...video,channel,status:'READY',mimeType:'video/mp4',voice:video.renderMetadata?.voice};
 }

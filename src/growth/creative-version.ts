@@ -14,13 +14,13 @@ import {AUDIO_LIBRARY_VERSION} from './audio-design';
  * a new narration style. The next ordinary scheduler run then sees active current content as stale and
  * regenerates it exactly once; nothing has to be cleaned up by hand.
  */
-export const CREATIVE_STACK_REVISION=1 as const;
+export const CREATIVE_STACK_REVISION=2 as const;
 
 /**
  * Composed so a change to any tracked part of the stack changes the identity on its own. Everything in
  * here is rendered into the video, so a difference here is a difference the owner can see.
  */
-export const CREATIVE_VERSION=`cs${CREATIVE_STACK_REVISION}.${MOTION_VERSION}.${VIDEO.width}x${VIDEO.height}@${VIDEO.fps}.audio-${AUDIO_LIBRARY_VERSION}` as const;
+export const CREATIVE_VERSION=`cs${CREATIVE_STACK_REVISION}.master-story-feed.${MOTION_VERSION}.${VIDEO.width}x${VIDEO.height}@${VIDEO.fps}.audio-${AUDIO_LIBRARY_VERSION}.voice-cache2` as const;
 
 /**
  * Everything produced before the creative version existed. Historical rows are backfilled with this and
