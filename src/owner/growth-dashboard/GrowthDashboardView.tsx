@@ -87,7 +87,7 @@ export function GrowthDashboardView({report,parsed}:{report:GrowthReport;parsed:
     </section>
 
     <section aria-labelledby="engine"><h2 id="engine">Traffic Engine performance</h2>
-      <p className="growth-rules">Current (unsuperseded) growth items made in or up to 14 days before the period, joined to the HUMAN sessions their tracked links brought (utm_campaign traffic_engine_v1, utm_content match_&lt;id&gt;). Publishing is manual; status is the owner queue status.</p>
+      <p className="growth-rules">Current (unsuperseded) growth items made in or up to 14 days before the period, joined to the HUMAN sessions their tracked links brought (campaign traffic_engine_v1; legacy match links and exact manual creative links). Publishing is manual; status is the owner queue status. <a href="/owner/growth">Posting receipts, version history and exact-post performance →</a></p>
       {tables(['engine'])}</section>
 
     <section aria-labelledby="seo"><h2 id="seo">SEO / organic</h2>

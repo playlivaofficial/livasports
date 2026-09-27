@@ -213,7 +213,11 @@ export async function persistGrowthItem(db:DatabaseClient,input:PersistInput):Pr
       input.fixtureId,revision,input.content.generatorVersion,input.sourceHash,input.trigger,input.priorityScore,JSON.stringify(input.scoreBreakdown),
       JSON.stringify(input.reasons),JSON.stringify(input.fixture),JSON.stringify(content),input.canonicalUrl,input.now,input.supersedesItemId??null,
       CREATIVE_VERSION,input.contentIdentity??null])).rows[0];
-    for(const channel of GROWTH_CHANNELS){const previous=carriedChannels?.find(record=>record.channel===channel),regenerated=input.regeneratedChannel===channel;
+    const inheritedAssets=input.supersedesItemId?(await tx.query<{channel:string;sha256:string;creative_version:string}>(
+      'SELECT channel,sha256,creative_version FROM growth_platform_assets WHERE content_item_id=$1',[input.supersedesItemId])).rows:[];
+    for(const channel of GROWTH_CHANNELS){const previous=carriedChannels?.find(record=>record.channel===channel);
+      const before=inheritedAssets.find(a=>a.channel===channel),after=input.videos?.find(a=>a.channel===channel);
+      const regenerated=input.regeneratedChannel===channel||(channel!=='EDITORIAL'&&!!previous&&(!before||before.sha256!==after?.sha256||before.creative_version!==CREATIVE_VERSION));
       await tx.query(`INSERT INTO growth_content_channels(content_item_id,channel,status,tracked_url,approved_at,rejected_at,published_at,updated_at)
         VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,[item.id,channel,regenerated?'DRAFT':previous?.status??'DRAFT',input.tracking[channel],
         regenerated?null:previous?.approvedAt??null,regenerated?null:previous?.rejectedAt??null,regenerated?null:previous?.publishedAt??null,input.now]);}
@@ -247,6 +251,7 @@ function hydrateItem(row:Row):GrowthContentItem{
     publishedAt:channel.published_at?iso(channel.published_at):null,
   }));
   return {id:String(row.id),fixtureId:String(row.fixture_id),revision:Number(row.revision),sourceHash:String(row.source_hash),
+    creativeVersion:text(row.creative_version),contentIdentity:text(row.content_identity),
     trigger:String(row.trigger_source) as GrowthContentItem['trigger'],priorityScore:Number(row.priority_score),
     scoreBreakdown:asJson(row.score_breakdown),reasons:asJson(row.ranking_reasons),canonicalUrl:String(row.canonical_url),
     fixture:asJson(row.fixture_snapshot),content:asJson(row.content_pack),channels,supersedesItemId:text(row.supersedes_item_id),
@@ -261,7 +266,7 @@ const itemSelect=`SELECT i.*,COALESCE(jsonb_agg(jsonb_build_object('channel',ch.
 export async function readLatestGrowthItems(db:QueryExecutor,limit=100):Promise<GrowthContentItem[]>{
   let rows:Row[];
   // Current queue first, in this run's ranking order; everything else stays reachable behind it as history.
-  try{rows=(await db.query<Row>(`${itemSelect} WHERE i.superseded_at IS NULL GROUP BY i.id
+  try{rows=(await db.query<Row>(`${itemSelect} GROUP BY i.id
     ORDER BY (i.current_rank IS NULL),i.current_rank ASC,i.created_at DESC,i.id DESC LIMIT $1`,[limit])).rows;}
   catch(error){if((error as {code?:string}).code!=='42703')throw error;rows=(await db.query<Row>(`${itemSelect} GROUP BY i.id ORDER BY i.created_at DESC,i.id DESC LIMIT $1`,[limit])).rows;}
   return await hydrateAssets(db,rows.map(hydrateItem));
@@ -276,13 +281,13 @@ async function hydrateAssets(db:QueryExecutor,items:GrowthContentItem[]):Promise
   if(!items.length)return items;
   try{
     const ids=items.map(item=>item.id);
-    const sql=(metadata:string)=>`SELECT content_item_id,channel,status,mime_type,sha256,byte_length,error_code,generated_at,${metadata}
+    const sql=(metadata:string)=>`SELECT content_item_id,channel,status,mime_type,sha256,byte_length,error_code,generated_at,creative_version,${metadata}
       FROM growth_platform_assets WHERE content_item_id=ANY($1::uuid[]) ORDER BY content_item_id,channel`;
     let rows:Row[];
     try{rows=(await db.query<Row>(sql('render_metadata'),[ids])).rows;}
     catch(error){if((error as {code?:string}).code!=='42703')throw error;rows=(await db.query<Row>(sql('NULL::jsonb AS render_metadata'),[ids])).rows;}
     return items.map(item=>({...item,platformAssets:rows.filter(row=>String(row.content_item_id)===item.id).map((row):GrowthPlatformAsset=>({channel:String(row.channel) as GrowthPlatformAsset['channel'],
-      status:String(row.status) as 'READY'|'FAILED'|'PENDING',mimeType:text(row.mime_type),sha256:text(row.sha256),byteLength:numeric(row.byte_length),generatedAt:row.generated_at?iso(row.generated_at):null,errorCode:text(row.error_code),renderMetadata:row.render_metadata?asJson(row.render_metadata):undefined}))}));
+      creativeVersion:text(row.creative_version),status:String(row.status) as 'READY'|'FAILED'|'PENDING',mimeType:text(row.mime_type),sha256:text(row.sha256),byteLength:numeric(row.byte_length),generatedAt:row.generated_at?iso(row.generated_at):null,errorCode:text(row.error_code),renderMetadata:row.render_metadata?asJson(row.render_metadata):undefined}))}));
   }catch(error){const code=(error as {code?:string}).code;if(code==='42P01'||code==='42703')return items;throw error;}
 }
 

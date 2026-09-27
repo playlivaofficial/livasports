@@ -65,7 +65,7 @@ export interface GrowthRenderMetadata {
 }
 export interface GrowthPlatformDraft {channel:GrowthVideoChannel;title:string;description:string;hook:string;script:string;caption:string;hashtags:string[];cta:string;template:GrowthCreativeTemplate;scenes:GrowthVideoScene[];creative?:GrowthCreativeDirection;}
 export interface GrowthReadiness {score:number;state:'READY'|'NEEDS_REVIEW'|'FALLBACK';reasons:string[];fallbackApplied:boolean;}
-export interface GrowthPlatformAsset {channel:GrowthVideoChannel;status:'READY'|'FAILED'|'PENDING';mimeType:string|null;sha256:string|null;byteLength:number|null;generatedAt:string|null;errorCode:string|null;renderMetadata?:GrowthRenderMetadata;}
+export interface GrowthPlatformAsset {channel:GrowthVideoChannel;creativeVersion?:string|null;status:'READY'|'FAILED'|'PENDING';mimeType:string|null;sha256:string|null;byteLength:number|null;generatedAt:string|null;errorCode:string|null;renderMetadata?:GrowthRenderMetadata;}
 export interface GrowthContentPack {
   locale:'pt-BR';
   headline:string;
@@ -109,6 +109,8 @@ export interface GrowthChannelRecord {
 }
 
 export interface GrowthContentItem {
+  creativeVersion?:string|null;
+  contentIdentity?:string|null;
   id:string;
   fixtureId:string;
   revision:number;
@@ -128,6 +130,7 @@ export interface GrowthContentItem {
 }
 
 export interface GrowthDashboard {
+  publishing?:import('./manual-publishing').PublishingOverview;
   generatedAt:string;
   social:RankedGrowthFixture[];
   content:RankedGrowthFixture[];

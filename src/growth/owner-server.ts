@@ -7,6 +7,9 @@ import {GROWTH_CHANNELS,type GrowthChannel} from './config';
 import {readGrowthDashboard,regenerateGrowthPlatform,runGrowthGeneration,previewGrowthVideo} from './service';
 import {transitionGrowthChannel} from './repository';
 import type {GrowthChannelStatus} from './types';
+import {markGrowthPosted,readPublishingOverview,type MarkPostedInput} from './manual-repository';
+import {VIDEO_CHANNELS} from './config';
+import {validExternalPostUrl} from './manual-publishing';
 
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const reply=(body:unknown,status=200)=>Response.json(body,{status,headers:ownerHeaders});
@@ -17,6 +20,7 @@ export interface GrowthOwnerDependencies {
   transition:typeof transitionGrowthChannel;
   regeneratePlatform:typeof regenerateGrowthPlatform;
   preview?:typeof previewGrowthVideo;
+  markPosted?:typeof markGrowthPosted;
 }
 const productionDependencies:GrowthOwnerDependencies={database:()=>{
   const url=databaseUrl();if(!url)throw new Error('GROWTH_DATABASE_UNAVAILABLE');return new PostgresDatabaseClient(url);
@@ -38,10 +42,18 @@ export async function growthOwnerAction(request:Request,deps:GrowthOwnerDependen
   try{body=await boundedJson(request,2048) as Record<string,unknown>;}catch{return reply({error:'INVALID_REQUEST'},400);}
   if(!body||Array.isArray(body))return reply({error:'INVALID_REQUEST'},400);
   const action=body.action;
-  const allowed=action==='refresh'?['action']:action==='preview'?['action','fixtureId','channel']:action==='regenerate'?['action','fixtureId']:action==='regenerate-platform'?['action','itemId','channel']:action==='transition'?['action','itemId','channel','status']:[];
+  const allowed=action==='mark-posted'?['action','itemId','channel','sha256','creativeVersion','externalPostUrl','notes']:action==='refresh'?['action']:action==='preview'?['action','fixtureId','channel']:action==='regenerate'?['action','fixtureId']:action==='regenerate-platform'?['action','itemId','channel']:action==='transition'?['action','itemId','channel','status']:[];
   if(!allowed.length||Object.keys(body).some(key=>!allowed.includes(key)))return reply({error:'INVALID_REQUEST'},400);
   let db:DatabaseClient;try{db=deps.database();}catch{return reply({error:'GROWTH_DATABASE_UNAVAILABLE'},503);}
   try{
+    if(action==='mark-posted'){
+      if(!uuid.test(String(body.itemId??''))||!VIDEO_CHANNELS.includes(body.channel as MarkPostedInput['channel'])
+        ||typeof body.sha256!=='string'||!/^[a-f0-9]{64}$/.test(body.sha256)||typeof body.creativeVersion!=='string'||body.creativeVersion.length>150
+        ||(body.notes!==undefined&&(typeof body.notes!=='string'||body.notes.length>500)))return reply({error:'INVALID_REQUEST'},400);
+      try{validExternalPostUrl(body.externalPostUrl);}catch{return reply({error:'INVALID_POST_URL'},400);}
+      try{return reply(await (deps.markPosted??markGrowthPosted)(db,body as unknown as MarkPostedInput,requestOwnerSession(request.headers)!.id));}
+      catch(error){const code=error instanceof Error?error.message:'';if(['ALREADY_POSTED','STALE_OR_UNREADY_ASSET','POSTING_NOT_ALLOWED'].includes(code))return reply({error:code},409);throw error;}
+    }
     if(action==='preview'){
       const channel=String(body.channel??'') as GrowthChannel;
       if(!uuid.test(String(body.fixtureId??''))||channel==='EDITORIAL'||!GROWTH_CHANNELS.includes(channel))return reply({error:'INVALID_REQUEST'},400);
@@ -64,6 +76,7 @@ export async function growthOwnerAction(request:Request,deps:GrowthOwnerDependen
     }
     const channel=String(body.channel??'') as GrowthChannel,status=String(body.status??'') as GrowthChannelStatus;
     if(!uuid.test(String(body.itemId??''))||!GROWTH_CHANNELS.includes(channel)||!['APPROVED','REJECTED','PUBLISHED'].includes(status))return reply({error:'INVALID_REQUEST'},400);
+    if(channel!=='EDITORIAL'&&status==='PUBLISHED')return reply({error:'USE_MARK_POSTED'},400);
     const changed=await deps.transition(db,String(body.itemId),channel,status);
     return changed?reply({updated:true,itemId:body.itemId,channel,status}):reply({error:'INVALID_TRANSITION'},409);
   }catch(error){
@@ -74,4 +87,16 @@ export async function growthOwnerAction(request:Request,deps:GrowthOwnerDependen
     console.error(JSON.stringify({event:'growth-owner-action-failed',action,code}));
     return reply({error:'GROWTH_ACTION_FAILED',code},503);
   }finally{await db.close();}
+}
+
+export async function growthPublishingHistory(request:Request){
+  if(!requestOwnerSession(request.headers))return reply({error:'UNAUTHORIZED'},401);
+  const query=new URL(request.url).searchParams;
+  if([...query.keys()].some(k=>!['channel','fixture','version','date','offset'].includes(k)))return reply({error:'INVALID_REQUEST'},400);
+  const channel=query.get('channel')||undefined,fixture=query.get('fixture')||undefined,version=query.get('version')||undefined,date=query.get('date')||undefined,offset=Number(query.get('offset')??0);
+  if((channel&&!VIDEO_CHANNELS.includes(channel as MarkPostedInput['channel']))||(fixture?.length??0)>100||(version?.length??0)>150
+    ||(date&&(!/^\d{4}-\d{2}-\d{2}$/.test(date)||Number.isNaN(Date.parse(date))))||!Number.isSafeInteger(offset)||offset<0||offset>100000)return reply({error:'INVALID_REQUEST'},400);
+  const db=productionDependencies.database();
+  try{return reply(await readPublishingOverview(db,{channel,fixture,version,date,offset}));}
+  catch{return reply({error:'PUBLISHING_READ_FAILED'},503);}finally{await db.close();}
 }
