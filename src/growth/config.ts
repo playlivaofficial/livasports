@@ -143,10 +143,9 @@ export const ODDS_FULL_COVERAGE=2;
 export const SHORTLIST={
   socialSize:5,
   contentSize:10,
-  /** Maximum new fixtures rendered by one scheduled serverless invocation. The complete Top 10
-   * still powers SEO; three daily runs advance through duplicate-safe content batches.
-   * Premium narration measured 243s for three fixtures on Vercel, and a slower run exhausted the
-   * 250s render deadline. Two fixtures reserve a full third-fixture margin without reducing Top 10. */
+  /** One master per social fixture: five complete packages measured 110s on production Vercel.
+   * The complete Top 10 still powers SEO. The service also enforces its 250s deadline and
+   * 65s next-item reserve; this count is never permission to render ranks 6–10. */
   generationBatchSize:5,
   /** How far ahead a fixture may be and still be shortlisted. */
   horizonHours:168,
