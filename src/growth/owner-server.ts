@@ -92,11 +92,12 @@ export async function growthOwnerAction(request:Request,deps:GrowthOwnerDependen
 export async function growthPublishingHistory(request:Request){
   if(!requestOwnerSession(request.headers))return reply({error:'UNAUTHORIZED'},401);
   const query=new URL(request.url).searchParams;
-  if([...query.keys()].some(k=>!['channel','fixture','version','date','offset'].includes(k)))return reply({error:'INVALID_REQUEST'},400);
+  if([...query.keys()].some(k=>!['channel','fixture','version','date','state','offset'].includes(k)))return reply({error:'INVALID_REQUEST'},400);
   const channel=query.get('channel')||undefined,fixture=query.get('fixture')||undefined,version=query.get('version')||undefined,date=query.get('date')||undefined,offset=Number(query.get('offset')??0);
   if((channel&&!VIDEO_CHANNELS.includes(channel as MarkPostedInput['channel']))||(fixture?.length??0)>100||(version?.length??0)>150
     ||(date&&(!/^\d{4}-\d{2}-\d{2}$/.test(date)||Number.isNaN(Date.parse(date))))||!Number.isSafeInteger(offset)||offset<0||offset>100000)return reply({error:'INVALID_REQUEST'},400);
-  const db=productionDependencies.database();
-  try{return reply(await readPublishingOverview(db,{channel,fixture,version,date,offset}));}
+  const state=query.get('state')||'POSTED';if(!['POSTED','SUPERSEDED'].includes(state))return reply({error:'INVALID_REQUEST'},400);
+  let db:DatabaseClient;try{db=productionDependencies.database();}catch{return reply({error:'GROWTH_DATABASE_UNAVAILABLE'},503);}
+  try{return reply(await readPublishingOverview(db,{channel,fixture,version,date,state:state as 'POSTED'|'SUPERSEDED',offset}));}
   catch{return reply({error:'PUBLISHING_READ_FAILED'},503);}finally{await db.close();}
 }

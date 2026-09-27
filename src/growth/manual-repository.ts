@@ -37,7 +37,7 @@ export async function markGrowthPosted(db:DatabaseClient,input:MarkPostedInput,s
   });
 }
 
-export interface PublishingFilters {channel?:string;fixture?:string;version?:string;date?:string;offset?:number;}
+export interface PublishingFilters {channel?:string;fixture?:string;version?:string;date?:string;state?:'POSTED'|'SUPERSEDED';offset?:number;}
 /** Duplicate status must not disappear just because its receipt moved beyond the first history page. */
 export async function readCurrentPostingReceipts(db:QueryExecutor,fixtureIds:string[]):Promise<PostingReceipt[]>{
   if(!fixtureIds.length)return [];
@@ -51,9 +51,10 @@ export async function readCurrentPostingReceipts(db:QueryExecutor,fixtureIds:str
 }
 /** Paginated, owner-only ledger. Events stay in the existing first-party analytics tables. */
 export async function readPublishingOverview(db:QueryExecutor,filters:PublishingFilters={}):Promise<PublishingOverview>{
-  const params:unknown[]=[filters.channel||null,filters.fixture||null,filters.version||null,filters.date||null];
+  const params:unknown[]=[filters.channel||null,filters.fixture||null,filters.version||null,filters.date||null,filters.state||'POSTED'];
   const where=`($1::text IS NULL OR p.channel=$1) AND ($2::text IS NULL OR i.fixture_snapshot->'home'->>'name' ILIKE '%'||$2||'%' OR i.fixture_snapshot->'away'->>'name' ILIKE '%'||$2||'%')
-    AND ($3::text IS NULL OR p.creative_version=$3) AND ($4::date IS NULL OR (p.posted_at AT TIME ZONE 'America/Sao_Paulo')::date=$4::date)`;
+    AND ($3::text IS NULL OR p.creative_version=$3) AND ($4::date IS NULL OR (p.posted_at AT TIME ZONE 'America/Sao_Paulo')::date=$4::date)
+    AND ($5<>'SUPERSEDED' OR i.superseded_at IS NOT NULL OR EXISTS(SELECT 1 FROM growth_content_items newer WHERE newer.fixture_id=i.fixture_id AND (newer.created_at,newer.id)>(i.created_at,i.id)))`;
   const [counts,rows]=await Promise.all([
     db.query(`SELECT count(*)::int AS total,
       count(*) FILTER(WHERE (p.posted_at AT TIME ZONE 'America/Sao_Paulo')::date=(now() AT TIME ZONE 'America/Sao_Paulo')::date)::int AS today,
@@ -63,7 +64,7 @@ export async function readPublishingOverview(db:QueryExecutor,filters:Publishing
     db.query(`WITH page AS (SELECT p.*,i.fixture_snapshot,i.revision,i.superseded_at,
       EXISTS(SELECT 1 FROM growth_content_items newer WHERE newer.fixture_id=i.fixture_id AND (newer.created_at,newer.id)>(i.created_at,i.id)) AS newer_exists
       FROM growth_manual_posts p JOIN growth_content_items i ON i.id=p.content_item_id WHERE ${where}
-      ORDER BY p.posted_at DESC,p.id DESC LIMIT 50 OFFSET $5)
+      ORDER BY p.posted_at DESC,p.id DESC LIMIT 50 OFFSET $6)
       SELECT page.*,m.* FROM page LEFT JOIN LATERAL (
         SELECT count(DISTINCT s.session_id)::int AS sessions,count(e.id) FILTER(WHERE e.event_name='match_viewed')::int AS match_views,
           count(e.id) FILTER(WHERE e.event_name='odds_selected')::int AS odds,count(e.id) FILTER(WHERE e.event_name='slip_leg_added')::int AS slip_adds,

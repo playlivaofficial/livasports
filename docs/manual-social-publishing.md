@@ -32,6 +32,8 @@ Owner routes retain signed authentication, no-store/noindex, request limits, sam
 
 `scripts/manual-publishing-db-qa.ts --rollback` validates migration and real SQL persistence/duplicate/history/new-revision behavior in a transaction that always rolls back. It reuses existing bytes and never renders/synthesizes. It must be launched with its restricted QA preload. It is not an external publishing operation. Production UI QA is a separate deliberate owner-authorized receipt labeled as release QA, not a real social post.
 
-Unrelated baseline: the unchanged odds scheduler budget test exceeds its 5-second timeout on this Windows host (also reproduced on a detached `9189207` baseline). No timeout or assertion was weakened. Render-heavy tests are run separately to avoid contention.
+Unrelated baseline: the unchanged odds scheduler budget test exceeds its 5-second timeout on this Windows host (also reproduced on a detached `9189207` baseline). The unchanged renderer's long ffmpeg filter graph also fails with `Result too large` on both this branch and the detached baseline. No timeout, assertion or renderer was weakened. Render-heavy tests were run separately: motion/premium tests passed; the renderer file retained its three existing Windows failures.
+
+Pre-release browser QA on the local production build and real persisted data: 320/390/430px document widths 305/375/415px (no horizontal overflow), 44px minimum action targets, desktop three-platform layout, cancellable confirmation, and three browser download events for São Paulo vs Santos. No local test posting was committed. The original PR Preview built successfully and preserved the owner-auth boundary (owner access is not configured in ordinary Preview environment).
 
 Auto-publishing, OAuth, scheduling external posts and billing changes are explicitly deferred.

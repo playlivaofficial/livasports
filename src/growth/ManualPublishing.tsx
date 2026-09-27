@@ -8,7 +8,7 @@ export const publishingDate=(value:string)=>new Intl.DateTimeFormat('pt-BR',{dat
 export function CopyButton({label,value}:{label:string;value:string}){
   const [copied,setCopied]=useState(false),[fallback,setFallback]=useState(false);
   async function copy(){try{await navigator.clipboard.writeText(value);setCopied(true);setFallback(false);}catch{setFallback(true);setCopied(false);}}
-  return <><button type="button" onClick={copy}>{copied?'✓ Copiado':label}</button><span className="sr-only" role="status">{copied?`${label}: copiado`:''}</span>
+  return <><button type="button" aria-label={label} onClick={copy}>{copied?`✓ ${label.replace('Copiar ','')}`:label}</button><span className="sr-only" role="status">{copied?`${label}: copiado`:''}</span>
     {fallback?<label className="manual-copy-fallback">Não foi possível copiar automaticamente. Selecione e copie:
       <textarea readOnly value={value} onFocus={e=>e.currentTarget.select()} aria-label={`Texto para ${label}`}/></label>:null}</>;
 }
@@ -16,12 +16,12 @@ export function PublishingCard({item,channel,overview,busy,act}:{item:GrowthCont
   const [confirm,setConfirm]=useState(false),[external,setExternal]=useState(''),[notes,setNotes]=useState('');
   const draft=item.content.platforms![channel],asset=item.platformAssets?.find(a=>a.channel===channel),record=item.channels.find(c=>c.channel===channel)!;
   const post=matchingPost(item,channel,overview?.currentPosts??overview?.posts??[]),state=publishingState(item,channel,post);
-  const copy=asset?.sha256?post?.snapshot??postSnapshot(item,channel):null;
   const video=currentVideoUrl(item,channel),download=currentVideoUrl(item,channel,true);
+  const copy=video?post?.snapshot??postSnapshot(item,channel):null;
   async function submit(event:FormEvent){event.preventDefault();await act(`posted:${item.id}:${channel}`,{action:'mark-posted',itemId:item.id,channel,sha256:asset!.sha256,creativeVersion:item.creativeVersion,externalPostUrl:external,notes});setConfirm(false);}
   return <article className="owner-growth-platform manual-platform" aria-label={`${CHANNEL_UTM[channel].label} · ${item.content.headline}`}>
     <header><div><span>{CHANNEL_UTM[channel].label}</span><strong>{draft.template}</strong></div><b data-status={state}>{state.replaceAll('_',' ')}</b></header>
-    {video?<video controls playsInline preload="metadata" src={video} aria-label={`Vídeo ${CHANNEL_UTM[channel].label} de ${item.content.headline}`}/>:<p className="owner-health-notice">Vídeo atual indisponível para publicação. Consulte o histórico para versões anteriores.</p>}
+    {video?<video controls playsInline preload="none" src={video} aria-label={`Vídeo ${CHANNEL_UTM[channel].label} de ${item.content.headline}`}/>:<p className="owner-health-notice">Vídeo atual indisponível para publicação. Consulte o histórico para versões anteriores.</p>}
     <p className="manual-meta">{asset?.renderMetadata?.durationSeconds.toFixed(1)??'—'} s · {asset?.generatedAt?publishingDate(asset.generatedAt):'Pendente'} (Brasília)<br/>Revisão {item.revision} · {item.creativeVersion??'Legado'}<br/>{item.content.story?.angle} · Aprovação: {record.status==='PUBLISHED'?'aprovado e publicado':record.status}</p>
     <h4>{draft.title}</h4><p><b>Hook:</b> {draft.hook}</p>
     {copy?<><p className="manual-caption">{copy.caption}</p><p>{copy.hashtags}</p>
@@ -62,10 +62,10 @@ export function PublishingHistory({overview}:{overview?:PublishingOverview}){
   const [result,setResult]=useState<PublishingOverview|null>(null),[message,setMessage]=useState(''),[loading,setLoading]=useState(false);
   const [channel,setChannel]=useState(''),[fixture,setFixture]=useState(''),[version,setVersion]=useState(''),[date,setDate]=useState(''),[state,setState]=useState('POSTED'),[offset,setOffset]=useState(0);
   const current=result??overview;
-  async function filter(nextOffset=0){setLoading(true);setMessage('');try{const query=new URLSearchParams({channel,fixture,version,date,offset:String(nextOffset)});
+  async function filter(nextOffset=0){setLoading(true);setMessage('');try{const query=new URLSearchParams({channel,fixture,version,date,state,offset:String(nextOffset)});
     const response=await fetch(`/api/owner/growth/publishing?${query}`);if(!response.ok)throw Error();setResult(await response.json() as PublishingOverview);setOffset(nextOffset);
   }catch{setMessage('Não foi possível carregar o histórico. Tente novamente.');}finally{setLoading(false);}}
-  const posts=(current?.posts??[]).filter(p=>state!=='SUPERSEDED'||p.superseded);
+  const posts=current?.posts??[];
   return <section className="manual-history"><h2>Histórico de publicação manual</h2><p>Registro imutável do que foi confirmado pelo owner. Métricas: tráfego HUMAN no analytics existente; não representam depósitos ou receita.</p>
     <form className="manual-filters" onSubmit={e=>{e.preventDefault();void filter();}}>
       <label>Plataforma<select value={channel} onChange={e=>setChannel(e.target.value)}><option value="">Todas</option>{VIDEO_CHANNELS.map(c=><option key={c} value={c}>{CHANNEL_UTM[c].label}</option>)}</select></label>

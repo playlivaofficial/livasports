@@ -19,7 +19,10 @@ export function GrowthQueue({dashboard:initial}:{dashboard:GrowthDashboard}){
   const act:Action=async(key,body)=>{
     setBusy(key);setMessage('');
     try{const response=await fetch('/api/owner/growth',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
-      const result=await response.json() as {error?:string};if(!response.ok)throw new Error(result.error??'ACTION_FAILED');
+      const result=await response.json() as {error?:string};if(!response.ok){
+        const errors:Record<string,string>={ALREADY_POSTED:'Esta versão já foi registrada. Consulte o histórico; não publique novamente por engano.',STALE_OR_UNREADY_ASSET:'O vídeo mudou ou ainda não está pronto. Recarregue a fila antes de continuar.',POSTING_NOT_ALLOWED:'Este conteúdo precisa de revisão antes da publicação.',INVALID_POST_URL:'Use uma URL HTTPS válida, sem usuário ou senha.',RATE_LIMITED:'Muitas ações em sequência. Aguarde um minuto e tente novamente.'};
+        throw new Error(errors[result.error??'']??result.error??'Não foi possível concluir a ação.');
+      }
       const fresh=await fetch('/api/owner/growth');if(!fresh.ok)throw new Error('Registro salvo; recarregue para atualizar a fila.');
       setDashboard(await fresh.json() as GrowthDashboard);setMessage(body.action==='mark-posted'?'Publicação registrada. Histórico preservado.':'Atualizado.');
     }catch(error){setMessage(error instanceof Error?error.message:'ACTION_FAILED');}finally{setBusy('');}
