@@ -8,7 +8,9 @@ const priority=(id:string,total:number,competitionSlug='brasileirao-serie-a',kic
 
 describe('Traffic Engine V1 shortlist diversity',()=>{
   it('bounds one serverless generation run while retaining the broader shared Top 10',()=>{
-    expect(SHORTLIST.contentSize).toBe(10);expect(SHORTLIST.generationBatchSize).toBe(2);expect(SHORTLIST.generationBatchSize).toBeLessThan(SHORTLIST.contentSize);
+    expect(SHORTLIST.contentSize).toBe(10);expect(SHORTLIST.generationBatchSize).toBe(5);
+    expect(SHORTLIST.generationBatchSize).toBe(SHORTLIST.socialSize);
+    expect(SHORTLIST.generationBatchSize).toBeLessThan(SHORTLIST.contentSize);
   });
   it('is deterministic for multiple top fixtures on the same day regardless of input order',()=>{
     const rows=[priority('3',70),priority('1',70,'copa-libertadores'),priority('2',70,'champions-league')];
