@@ -31,7 +31,7 @@ export function GrowthQueue({dashboard:initial}:{dashboard:GrowthDashboard}){
     <header className="owner-health-header"><div><p className="owner-growth-kicker">LivaSports · publicação manual</p><h1>Fila de crescimento</h1>
       <p>Revise → baixe o vídeo → copie os textos → publique na rede social → registre aqui. Nenhuma publicação automática.</p></div>
       <div className="owner-health-actions"><Link href="/owner/health">Saúde</Link><Link href="/owner/analytics">Analytics</Link><Link href="/owner/growth/dashboard">Growth dashboard</Link><Link href="/owner/growth/scorecard">Scorecard semanal</Link>
-        <button disabled={!!busy} onClick={()=>act('refresh',{action:'refresh'})}>{busy==='refresh'?'Atualizando…':'Atualizar e gerar'}</button></div></header>
+        <Link href="/owner/growth/authority">Autoridade editorial</Link><button disabled={!!busy} onClick={()=>act('refresh',{action:'refresh'})}>{busy==='refresh'?'Atualizando…':'Atualizar e gerar'}</button></div></header>
     <p className="manual-notice" role="status" aria-live="polite">{busy?'Salvando…':message}</p>
     <PublishingCounts dashboard={dashboard} latest={latest}/>
     <p>{dashboard.considered} considerados · {dashboard.producible} produzíveis · leitura {publishingDate(dashboard.generatedAt)} (Brasília).</p>
