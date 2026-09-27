@@ -7,19 +7,19 @@ import {absoluteUrl,helpPaths,localizedAlternates,openGraphLocale} from '@/seo/p
 import {openGraphImages} from '@/seo/open-graph';
 import {interfaceRoutes,languageTags,type InterfaceLocale} from './interface';
 import {helpKind,helpKinds,helpPath,type HelpKind} from './help-routes';
-import {helpContent,helpCopy,helpReviewedAt} from './help-content';
+import {helpContent,helpCopy,helpReviewDate} from './help-content';
 import {SafetyNotice} from './LegalPage';
 
 export function helpMetadata(locale:InterfaceLocale,slug:string):Metadata{
   const kind=helpKind(locale,slug);if(!kind)return {title:'LivaSports',robots:{index:false,follow:false}};
-  const content=helpContent[locale][kind],paths=helpPaths(kind);
+  const content=helpContent[locale][kind],paths=helpPaths(kind),helpReviewedAt=helpReviewDate(locale,kind);
   return {title:content.title,description:content.intro,alternates:localizedAlternates(locale,paths),
     openGraph:{type:'article',siteName:'LivaSports',title:content.title,description:content.intro,url:paths[locale],locale:openGraphLocale(locale),modifiedTime:helpReviewedAt,images:openGraphImages()},
     other:{'content-language':languageTags[locale]}};
 }
 export function HelpPage({locale,slug}:{locale:InterfaceLocale;slug:string}){
   const kind=helpKind(locale,slug);if(!kind)notFound();
-  const content=helpContent[locale][kind],text=helpCopy[locale],canonical=absoluteUrl(helpPath(locale,kind));
+  const content=helpContent[locale][kind],text=helpCopy[locale],canonical=absoluteUrl(helpPath(locale,kind)),helpReviewedAt=helpReviewDate(locale,kind);
   const breadcrumbs={'@context':'https://schema.org','@type':'BreadcrumbList',itemListElement:[
     {'@type':'ListItem',position:1,name:'LivaSports',item:absoluteUrl(interfaceRoutes[locale].home)},
     {'@type':'ListItem',position:2,name:content.title,item:canonical}]};

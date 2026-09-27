@@ -10,6 +10,10 @@
       "schedule": "17 10,16,22 * * *"
     },
     {
+      "path": "/api/internal/authority-refresh",
+      "schedule": "15 6 * * *"
+    },
+    {
       "path": "/api/internal/seo-refresh",
       "schedule": "40 5 * * *"
     }

@@ -2,7 +2,7 @@ import type {MetadataRoute} from 'next';
 import {legalKinds} from '@/localization/legal-routes';
 import {legalReviewedAt} from '@/localization/legal-content';
 import {helpKinds} from '@/localization/help-routes';
-import {helpReviewedAt} from '@/localization/help-content';
+import {helpReviewDate} from '@/localization/help-content';
 import {xml,type CompetitionSitemapSummary} from '@/sports/sitemap';
 import {competitionCanonical} from './policy';
 import {absoluteUrl,alternateCluster,competitionPaths,enabledCompetitionSlugs,helpPaths,legalPaths,locales,staticPages,staticPaths} from './policy';
@@ -39,7 +39,7 @@ export function primarySitemap(summaries:readonly CompetitionSitemapSummary[]|nu
   return [
     ...staticPages.flatMap(page=>localized({paths:staticPaths(page)})),
     ...legalKinds.flatMap(kind=>localized({paths:legalPaths(kind),lastModified:new Date(legalReviewedAt)})),
-    ...helpKinds.flatMap(kind=>localized({paths:helpPaths(kind),lastModified:new Date(helpReviewedAt)})),
+    ...helpKinds.flatMap(kind=>localized({paths:helpPaths(kind)}).map((row,i)=>({...row,lastModified:new Date(helpReviewDate(locales[i],kind))}))),
     ...competitionClusters(summaries).flatMap(localized),
   ];
 }
