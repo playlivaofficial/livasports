@@ -54,3 +54,42 @@ describe('1xBet match_inline placement',()=>{
     expect(await resolveOffer(inlineContext,deps,now)).toBeNull();
   });
 });
+
+// Mirrors migration 045: the desktop home top banner moves from Betsson to 1xBet.
+const topCreative=(overrides:Partial<Creative>={}):Creative=>({...inlineCreative(),
+  id:'1xbet-home-top-banner-br',placement:'home_top_banner',
+  imageUrl:'/sponsors/1xbet/top-banner-970x90.webp',...overrides});
+const topContext:CommercialContext={locale:'br',pagePath:'/br',placement:'home_top_banner'};
+const betssonAfter=():Campaign=>({...campaign(now),
+  placements:['match_odds_table','match_slip_comparison','slip_bookmaker_comparison','home_right_rail',
+    'match_right_rail','team_right_rail','player_right_rail','mobile_inline','profile_mobile_inline'],creatives:[]});
+
+describe('1xBet desktop home top banner',()=>{
+  it('serves the official 970x90 leaderboard from the local IMAGE path',()=>{
+    expect(validCreative(topCreative(),topContext,now,'7035424')).toBe(true);
+  });
+  it('resolves uniquely, because Betsson no longer claims home_top_banner',async()=>{
+    const onex=onexbet({placements:[...onexbet().placements,'home_top_banner'] as Campaign['placements'],creatives:[topCreative()]});
+    const deps={...dependencies(onex),campaigns:async()=>[onex,betssonAfter()]};
+    const offer=await resolveOffer(topContext,deps,now);
+    expect(offer?.campaign.bookmaker).toBe('1xbet');
+    expect(offer?.creative?.imageUrl).toBe('/sponsors/1xbet/top-banner-970x90.webp');
+  });
+  it('would blank the slot if Betsson still competed, which is why the slot was reallocated',async()=>{
+    const onex=onexbet({placements:[...onexbet().placements,'home_top_banner'] as Campaign['placements'],creatives:[topCreative()]});
+    const rival={...betssonAfter(),placements:[...betssonAfter().placements,'home_top_banner'] as Campaign['placements'],
+      creatives:[{...topCreative(),id:'betsson-br-home-top-banner'}]};
+    expect(await resolveOffer(topContext,{...dependencies(onex),campaigns:async()=>[onex,rival]},now)).toBeNull();
+  });
+  it('leaves every other Betsson placement untouched',()=>{
+    const p=betssonAfter().placements;
+    for(const kept of ['home_right_rail','match_right_rail','team_right_rail','player_right_rail','mobile_inline','profile_mobile_inline'])
+      expect(p).toContain(kept);
+    expect(p).not.toContain('home_top_banner');
+  });
+  it('sends banner clicks to the verified 1xAff host only',()=>{
+    const onex=onexbet({placements:[...onexbet().placements,'home_top_banner'] as Campaign['placements']});
+    expect(campaignDestination(onex,topContext,now)).toBe('https://1xaff.com.br/L?tag=d_6128686m_134462c_&site=6128686&ad=134462');
+    expect(campaignDestination({...onex,locale:'mx'},{...topContext,locale:'mx',pagePath:'/mx'},now)).toBeNull();
+  });
+});
