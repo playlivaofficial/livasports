@@ -207,12 +207,13 @@ export async function readGrowthReport(db:QueryExecutor,filters:GrowthFilters,no
         coalesce(sum(slip_adds),0)::int AS slip_adds,coalesce(sum(outbound),0)::int AS clicks FROM sm WHERE utm_campaign='traffic_engine_v1' GROUP BY 1,2)
       SELECT d.fixture_public_id,d.home_name||' vs '||d.away_name AS fixture,d.competition_slug,d.channel,d.utm_source,ch.status,ch.published_at,d.created_at,d.story_angle,
         h.creative->>'family' AS family,h.creative->'scenery'->>0 AS scenery,coalesce(h.render_metadata->>'characterMode',h.creative->>'characters') AS characters,h.hook_family,h.cta_family,
-        coalesce(a.sessions,0) AS sessions,coalesce(a.match_views,0) AS match_views,coalesce(a.slip_adds,0) AS slip_adds,coalesce(a.clicks,0) AS clicks
+        coalesce(sum(a.sessions),0)::int AS sessions,coalesce(sum(a.match_views),0)::int AS match_views,coalesce(sum(a.slip_adds),0)::int AS slip_adds,coalesce(sum(a.clicks),0)::int AS clicks
       FROM growth_content_attribution_dimensions d JOIN growth_content_channels ch ON ch.content_item_id=d.content_item_id AND ch.channel=d.channel
       LEFT JOIN growth_creative_history h ON h.content_item_id=d.content_item_id AND h.channel=d.channel
       LEFT JOIN attributed a ON a.utm_source=d.utm_source AND a.utm_content=d.utm_content
       WHERE d.superseded_at IS NULL AND d.created_at>=$${params.length} AND d.created_at<$2
-      ORDER BY coalesce(a.sessions,0) DESC,coalesce(a.clicks,0) DESC,d.created_at DESC LIMIT 200`;}),
+      GROUP BY 1,2,3,4,5,6,7,8,9,10,11,12,13,14
+      ORDER BY coalesce(sum(a.sessions),0) DESC,coalesce(sum(a.clicks),0) DESC,d.created_at DESC LIMIT 200`;}),
     q(cur,params=>{params.push([...ORGANIC_BUCKETS]);return `SELECT landing_path AS key,landing_path AS label,count(*)::int AS sessions,coalesce(sum(match_views),0)::int AS match_views,coalesce(sum(slip_adds),0)::int AS slip_adds,
       coalesce(sum(outbound),0)::int AS clicks,count(*) FILTER (WHERE outbound>0)::int AS click_sessions FROM sm WHERE bucket=ANY($${params.length}::text[]) GROUP BY 1,2 ORDER BY sessions DESC LIMIT 15`;}),
     q(cur,params=>{params.push([...ORGANIC_BUCKETS]);return `, touched AS (SELECT DISTINCT ev.session_id,c.slug AS key,c.name AS label FROM ev JOIN competitions c ON c.id=ev.competition_id)

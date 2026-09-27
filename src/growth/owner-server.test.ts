@@ -17,6 +17,19 @@ beforeEach(()=>{vi.stubEnv('OWNER_QA_SESSION_SECRET','s'.repeat(43));vi.stubEnv(
 afterEach(()=>vi.unstubAllEnvs());
 
 describe('Traffic Engine V1 owner control plane',()=>{
+  it('records manual posts without invoking any renderer/generator and keeps auth/CSRF/version guards',async()=>{
+    const body={action:'mark-posted',itemId:'22222222-2222-4222-8222-222222222222',channel:'TIKTOK',sha256:'a'.repeat(64),creativeVersion:'current-stack'};
+    const markPosted=vi.fn(async()=>({id:'receipt',postedAt:'2026-09-27T10:00:00Z'})),dependencies=deps({markPosted});
+    expect((await growthOwnerAction(post(body),dependencies)).status).toBe(401);
+    expect((await growthOwnerAction(post(body,{...owner(),origin:'https://evil.example'}),dependencies)).status).toBe(403);
+    expect((await growthOwnerAction(post({...body,externalPostUrl:'javascript:alert(1)'},owner()),dependencies)).status).toBe(400);
+    expect(markPosted).not.toHaveBeenCalled();
+    expect((await growthOwnerAction(post(body,owner()),dependencies)).status).toBe(200);
+    expect(markPosted).toHaveBeenCalledOnce();expect(dependencies.run).not.toHaveBeenCalled();expect(dependencies.regeneratePlatform).not.toHaveBeenCalled();expect(dependencies.transition).not.toHaveBeenCalled();
+    markPosted.mockRejectedValue(new Error('ALREADY_POSTED'));
+    expect((await growthOwnerAction(post(body,owner()),dependencies)).status).toBe(409);
+    expect((await growthOwnerAction(post({action:'transition',itemId:body.itemId,channel:'TIKTOK',status:'PUBLISHED'},owner()),dependencies)).status).toBe(400);
+  });
   it('keeps ranking, generation and mutation owner-only and no-store',async()=>{
     expect((await growthOwnerStatus(get(),deps())).status).toBe(401);expect((await growthOwnerAction(post({action:'refresh'}),deps())).status).toBe(401);
     const response=await growthOwnerStatus(get(owner()),deps());expect(response.status).toBe(200);expect(response.headers.get('x-robots-tag')).toBe('noindex, nofollow');

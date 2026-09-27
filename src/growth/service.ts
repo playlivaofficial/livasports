@@ -10,6 +10,7 @@ import type {GrowthContentPack,GrowthDashboard,RankedGrowthFixture} from './type
 import {readPremiumDraftsForRegeneration,rebuildCurrentGrowthQueue,staleCreativeGrowthItems} from './repository';
 import {CREATIVE_VERSION} from './creative-version';
 import {databaseVoiceStore} from './voice-store';
+import {readPublishingOverview,readCurrentPostingReceipts} from './manual-repository';
 
 /** Optional future rewrite boundary. V1 intentionally ships only the deterministic implementation. */
 export interface GrowthContentGenerator {
@@ -48,7 +49,10 @@ export async function readGrowthDashboard(db:DatabaseClient,now=new Date()):Prom
   const ranked=await rankGrowthInventory(db,now);
   const shortlist=buildShortlist(ranked.map(row=>row.priority));
   const byId=new Map(ranked.map(row=>[row.signals.fixtureId,row]));
+  let publishing:GrowthDashboard['publishing'];
+  try{publishing=await readPublishingOverview(db);publishing.currentPosts=await readCurrentPostingReceipts(db,shortlist.content.map(row=>row.fixtureId));}catch(error){if((error as {code?:string}).code!=='42P01')throw error;}
   return {generatedAt:now.toISOString(),social:shortlist.social.flatMap(priority=>{const row=byId.get(priority.fixtureId);return row?[row]:[];}),
+    publishing,
     content:rowsForPriorities(ranked,shortlist.content),items:await readLatestGrowthItems(db),
     considered:shortlist.considered,producible:shortlist.producible};
 }

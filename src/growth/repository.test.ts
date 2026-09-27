@@ -11,6 +11,23 @@ function input(force=false){const row=rankedFixture(),material=generatedContent(
   canonicalUrl:row.destinationUrl,tracking:material.tracking,now:testNow,force};}
 
 describe('Traffic Engine V1 persistence',()=>{
+  it('never carries a posted decision onto a different creative stack or changed asset',async()=>{
+    const calls:Array<{sql:string;params:unknown[]}>=[];
+    const query=vi.fn(async(sql:string,params:unknown[]=[])=>{calls.push({sql,params});
+      if(sql.includes('ORDER BY channel FOR UPDATE'))return {rows:[{channel:'TIKTOK',status:'PUBLISHED',tracked_url:'https://livasports.com',approved_at:testNow,published_at:testNow},{channel:'INSTAGRAM_REELS',status:'DRAFT',tracked_url:'https://livasports.com'}],rowCount:2};
+      if(sql.includes('SELECT i.id FROM growth_content_items'))return {rows:[{id:'old'}],rowCount:1};
+      if(sql.includes('COALESCE(max(revision)'))return {rows:[{revision:2}],rowCount:1};
+      if(sql.includes('INSERT INTO growth_content_items'))return {rows:[{id:'new'}],rowCount:1};
+      if(sql.startsWith('SELECT channel,sha256,creative_version'))return {rows:[{channel:'TIKTOK',sha256:'a'.repeat(64),creative_version:'PREVIOUS_STACK'}],rowCount:1};
+      return {rows:[],rowCount:1};
+    });
+    await persistGrowthItem(database(query as unknown as QueryExecutor['query']),{...input(true),supersedesItemId:'old',regeneratedChannel:'INSTAGRAM_REELS',
+      videos:[{channel:'TIKTOK',status:'READY',mimeType:'video/mp4',sha256:'b'.repeat(64),byteLength:4,data:Buffer.from('mp4!')}]});
+    const inserted=calls.find(c=>c.sql.includes('INSERT INTO growth_content_channels')&&c.params[1]==='TIKTOK')!;
+    expect(inserted.params[2]).toBe('DRAFT');expect(inserted.params[4]).toBeNull();expect(inserted.params[6]).toBeNull();
+    expect(calls.some(c=>c.sql.startsWith('DELETE'))).toBe(false);
+    expect(calls.some(c=>c.sql.startsWith('UPDATE growth_content_channels'))).toBe(false);
+  });
   it('enforces approval/rejection/published transitions',()=>{
     expect(canTransitionGrowthStatus('DRAFT','APPROVED')).toBe(true);expect(canTransitionGrowthStatus('DRAFT','REJECTED')).toBe(true);
     expect(canTransitionGrowthStatus('APPROVED','PUBLISHED')).toBe(true);expect(canTransitionGrowthStatus('REJECTED','APPROVED')).toBe(true);
