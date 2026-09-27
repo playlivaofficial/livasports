@@ -16,6 +16,7 @@ import {uuid,type CommercialContext,type TrafficClass,type VerifiedOffer} from '
 import {embedDocument} from './embed-document';
 import {safeBetssonEmbed} from './embed-policy';
 import {isVisibleBookmaker} from '@/odds/registry';
+import {deviceClass,revenueContext} from './attribution';
 export const commercialHeaders={'Cache-Control':'private, no-store','X-Robots-Tag':'noindex, nofollow','Referrer-Policy':'no-referrer','Vary':'Cookie'};
 type Deferred=(work:()=>Promise<void>)=>void;
 export interface CommercialServices {deps:OfferDependencies;key:string|null;geo:(request:Request,locale:'br'|'mx')=>boolean;defer:Deferred;
@@ -31,6 +32,18 @@ function sameOrigin(r:Request){const origin=r.headers.get('origin');return !orig
 function configurationFailure(provided?:CommercialServices){if(provided)return;try{after(async()=>{try{await recordOperationalError(affiliateDatabase(),'CONFIG_READ_FAILED');}catch{/* No private diagnostics. */}});}catch{/* Outside a request, logging is unavailable. */}}
 function deferred(s:CommercialServices,work:()=>Promise<unknown>){
   try{s.defer(async()=>{try{await work();}catch{console.warn('[LivaSports M8] {"event":"attribution-write-failed","providerRequests":0}');try{await recordOperationalError(affiliateDatabase(),'ATTRIBUTION_WRITE_FAILED');}catch{/* Optional reporting never leaks details. */}}});}catch{/* Failure to schedule telemetry never blocks a verified redirect. */}
+}
+async function recordOutcome(request:Request,offer:VerifiedOffer,clickId:unknown,traffic:TrafficClass,embed=false){
+  if(typeof clickId!=='string'||!uuid.test(clickId))return;
+  const {context,page,campaign}=offer;
+  await recordServerEvent({name:embed?'affiliate_embed_activated':'outbound_redirect_completed',eventId:clickId,headers:request.headers,
+    locale:context.locale,canonicalPath:context.pagePath,bookmaker:campaign.bookmaker,placement:context.placement,campaignId:campaign.id,
+    fixtureId:page.fixtureId,competitionId:page.competitionId,teamId:page.teamId,
+    market:context.market,slipLegCount:context.selections?.length??(context.market?1:undefined),trafficClass:traffic==='QA_TEST'?'QA':'HUMAN',
+    props:{...revenueContext(context),deviceClass:deviceClass(request.headers),activation:embed?'EMBED_ACTIVATION':'ISSUED_303',
+      ...(context.selections?{selectionFixtures:[...new Set(context.selections.map(s=>s.fixturePublicId))].join(','),
+        selectionMarkets:[...new Set(context.selections.map(s=>s.market))].join(',')}:{}),
+    }});
 }
 export async function offersRequest(request:Request,provided?:CommercialServices):Promise<Response>{
   if(!sameOrigin(request))return response(403);if(new URL(request.url).search||request.headers.get('content-type')?.split(';')[0]!=='application/json')return response(400);
@@ -79,7 +92,8 @@ export async function embedClickRequest(request:Request,body:Record<string,unkno
     // That route alone records the click, including for an older mounted creative.
     if(token.context.bookmaker==='betsson'&&qaRequest(request,token))return response(204);
     const offer=await resolveOffer(token.context,s.deps,Date.now(),token.campaignId);if(offer?.creative?.delivery!=='BETSSON_EMBED')return response(204);
-    deferred(s,()=>s.click(offer,token.viewId,qaRequest(request,token)||body.qa||request.headers.get('x-livasports-qa')==='1'?'QA_TEST':'HUMAN_CLICK',s.key!,'EMBED_ACTIVATION'));
+    const traffic=qaRequest(request,token)||body.qa||request.headers.get('x-livasports-qa')==='1'?'QA_TEST':'HUMAN_CLICK';
+    deferred(s,async()=>{const clickId=await s.click(offer,token.viewId,traffic,s.key!,'EMBED_ACTIVATION');await recordOutcome(request,offer,clickId,traffic,true);});
     return response(204);
   }catch{return response(204);}
 }
@@ -100,9 +114,7 @@ export async function outboundRequest(request:Request,bookmaker:string,placement
     // One deferred task: the click ledger (commercial source of truth) followed by the P4 server-authoritative funnel event. Both honour DNT/GPC.
     if(analyticsAllowed(request)&&traffic!=='UNKNOWN')deferred(s,async()=>{const clickId=await s.click(offer,token.viewId,traffic,s.key!);
       // A replay rejected by the click ledger is not a second funnel outcome. The shared UUID makes reconciliation exact.
-      if(typeof clickId!=='string'||!uuid.test(clickId))return;
-      await recordServerEvent({name:'outbound_redirect_completed',eventId:clickId,headers:request.headers,locale:token.context.locale,canonicalPath:token.context.pagePath,bookmaker:bookmaker as CommercialContext['bookmaker'],placement,campaignId:offer.campaign.id,
-        market:token.context.market,slipLegCount:token.context.selections?.length,trafficClass:traffic==='QA_TEST'?'QA':'HUMAN'});});
+      await recordOutcome(request,offer,clickId,traffic);});
     console.info(`[LivaSports M8] ${JSON.stringify({event:'redirect-issued',placement,locale:token.context.locale,bookmaker,traffic,providerRequests:0})}`);
     // Owner QA reaches the real operator so the partner link can be verified end to end; the click is
     // still classified QA_TEST above, so human attribution is untouched. Only a campaign without

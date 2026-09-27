@@ -21,7 +21,7 @@ export const CLIENT_EVENTS=[
   'my_matches_viewed',
 ] as const;
 /** Authoritative outcomes: recorded by the server only. A client batch naming one of these is rejected. */
-export const SERVER_EVENTS=['outbound_redirect_completed','sign_in_completed','sign_out_completed','favorite_added','favorite_removed'] as const;
+export const SERVER_EVENTS=['outbound_redirect_completed','affiliate_embed_activated','sign_in_completed','sign_out_completed','favorite_added','favorite_removed'] as const;
 export const EVENT_NAMES=[...CLIENT_EVENTS,...SERVER_EVENTS] as const;
 export type ClientEventName=typeof CLIENT_EVENTS[number];
 export type ServerEventName=typeof SERVER_EVENTS[number];
@@ -138,7 +138,7 @@ const SOCIAL_HOSTS=/(^|\.)(facebook\.com|fb\.com|instagram\.com|twitter\.com|x\.
 export function classifyReferrer(referrer:string|null|undefined,ownHost:string,utmMedium?:string|null,utmSource?:string|null):{referrerClass:ReferrerClass;referrerHost?:string}{
   const medium=(utmMedium??'').toLowerCase(),source=(utmSource??'').toLowerCase();
   if(/^(cpc|ppc|paid|display|paidsocial|cpm)$/.test(medium))return {referrerClass:'paid'};
-  if(medium==='social'||/(facebook|instagram|twitter|tiktok|x\.com)/.test(source))return {referrerClass:'social'};
+  if(medium==='social'||/^(facebook|instagram|twitter|tiktok|youtube|youtu\.be|x|x\.com)(\.com)?$/.test(source))return {referrerClass:'social'};
   let host='';try{host=referrer?new URL(referrer).hostname.toLowerCase():'';}catch{host='';}
   if(!host)return {referrerClass:utmSource?'referral':'direct'};
   if(host===ownHost.toLowerCase()||host.endsWith('.'+ownHost.toLowerCase()))return {referrerClass:'internal',referrerHost:host};

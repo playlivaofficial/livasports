@@ -29,7 +29,7 @@ SELECT '1xbet-match-inline-br',ac.id,true,'br','match_inline','Publicidade',
   '/sponsors/1xbet/match-inline-970x90.webp',
   '1xBet: apostas esportivas. Proibido para menores de 18 anos. Jogue com responsabilidade.',
   now(),
-  '1xBet Partners media library / static 970x90 JPEG 00741448-206e-484a-a5b3-89515edef881 / Aff ID 4841984 / campaign DirectLink USD',
+  'Owner-approved 1xBet static 970x90 creative; private approval evidence held in production configuration',
   970,90,ac.valid_from,ac.valid_until,'IMAGE',NULL
 FROM affiliate_campaigns ac
 JOIN affiliate_links al ON al.id=ac.affiliate_link_id

@@ -12,11 +12,17 @@ BEGIN;
 UPDATE affiliate_campaigns SET placement_allowlist=array_remove(placement_allowlist,'home_top_banner'),updated_at=now()
 WHERE affiliate_link_id=(SELECT al.id FROM affiliate_links al JOIN bookmakers b ON b.id=al.bookmaker_id
     JOIN countries c ON c.id=al.country_id WHERE b.provider_slug='betsson' AND c.iso2='BR')
-  AND 'home_top_banner'=ANY(placement_allowlist);
+  AND 'home_top_banner'=ANY(placement_allowlist)
+  AND EXISTS(SELECT 1 FROM affiliate_campaigns ac JOIN affiliate_links al ON al.id=ac.affiliate_link_id
+    JOIN bookmakers b ON b.id=al.bookmaker_id JOIN countries c ON c.id=al.country_id
+    WHERE b.provider_slug='1xbet' AND c.iso2='BR' AND ac.enabled AND ac.approved_at IS NOT NULL);
 
 -- The Betsson creative row is disabled, not deleted, so its historical impressions and clicks keep
 -- resolving. Re-enabling it would require putting the placement back on the Betsson campaign too.
-UPDATE profile_sponsor_campaigns SET enabled=false,updated_at=now() WHERE id='betsson-br-home-top-banner';
+UPDATE profile_sponsor_campaigns SET enabled=false,updated_at=now() WHERE id='betsson-br-home-top-banner'
+  AND EXISTS(SELECT 1 FROM affiliate_campaigns ac JOIN affiliate_links al ON al.id=ac.affiliate_link_id
+    JOIN bookmakers b ON b.id=al.bookmaker_id JOIN countries c ON c.id=al.country_id
+    WHERE b.provider_slug='1xbet' AND c.iso2='BR' AND ac.enabled AND ac.approved_at IS NOT NULL);
 
 UPDATE affiliate_campaigns SET placement_allowlist=placement_allowlist||ARRAY['home_top_banner']::text[],updated_at=now()
 WHERE affiliate_link_id=(SELECT al.id FROM affiliate_links al JOIN bookmakers b ON b.id=al.bookmaker_id
@@ -33,7 +39,7 @@ SELECT '1xbet-home-top-banner-br',ac.id,true,'br','home_top_banner','Publicidade
   '/sponsors/1xbet/top-banner-970x90.webp',
   '1xBet: apostas esportivas. Proibido para menores de 18 anos. Jogue com responsabilidade.',
   now(),
-  '1xBet Partners media library / static 970x90 JPEG 00741448-206e-484a-a5b3-89515edef881 / Aff ID 4841984 / campaign DirectLink USD',
+  'Owner-approved 1xBet static 970x90 creative; private approval evidence held in production configuration',
   970,90,ac.valid_from,ac.valid_until,'IMAGE',NULL
 FROM affiliate_campaigns ac
 JOIN affiliate_links al ON al.id=ac.affiliate_link_id

@@ -16,8 +16,8 @@ const inlineCreative=(overrides:Partial<Creative>={}):Creative=>({
   delivery:'IMAGE',embedSourceUrl:null,...overrides,
 });
 const onexbet=(overrides:Partial<Campaign>={}):Campaign=>({...campaign(now),
-  id:'cccccccc-cccc-4ccc-8ccc-cccccccccccc',bookmaker:'1xbet',operatorCampaignId:'7035424',
-  destination:'https://1xaff.com.br/L?tag=d_6128686m_134462c_&site=6128686&ad=134462',
+  id:'cccccccc-cccc-4ccc-8ccc-cccccccccccc',bookmaker:'1xbet',operatorCampaignId:'SYNTHETIC_CAMPAIGN',
+  destination:'https://1xaff.com.br/L?tag=synthetic-test-only&site=test-only&ad=test-only',
   domains:['1xaff.com.br'],placements:['match_odds_table','match_slip_comparison','slip_bookmaker_comparison','match_inline'],
   creatives:[inlineCreative()],...overrides});
 const inlineContext:CommercialContext={locale:'br',pagePath:'/br/partida/x',placement:'match_inline'};
@@ -25,7 +25,7 @@ const inlineContext:CommercialContext={locale:'br',pagePath:'/br/partida/x',plac
 describe('1xBet match_inline placement',()=>{
   it('serves the official static leaderboard through the local IMAGE path',()=>{
     expect(isSponsorPlacement('match_inline')).toBe(true);
-    expect(validCreative(inlineCreative(),inlineContext,now,'7035424')).toBe(true);
+    expect(validCreative(inlineCreative(),inlineContext,now,'SYNTHETIC_CAMPAIGN')).toBe(true);
   });
   it('rejects an animated or remote source, so library GIFs can never be wired in',()=>{
     // Only /sponsors/ paths with a still image extension pass; .gif and absolute URLs do not.
@@ -34,7 +34,7 @@ describe('1xBet match_inline placement',()=>{
     expect(validCreative(inlineCreative({embedSourceUrl:'https://c.bannerflow.net/a/'+'a'.repeat(24)}),inlineContext,now)).toBe(false);
   });
   it('sends clicks only to the verified 1xAff tracking host',()=>{
-    expect(campaignDestination(onexbet(),inlineContext,now)).toBe('https://1xaff.com.br/L?tag=d_6128686m_134462c_&site=6128686&ad=134462');
+    expect(campaignDestination(onexbet(),inlineContext,now)).toBe('https://1xaff.com.br/L?tag=synthetic-test-only&site=test-only&ad=test-only');
     // An operator domain outside the campaign allowlist is refused even with a valid destination.
     expect(campaignDestination(onexbet({domains:['1xbet.com']}),inlineContext,now)).toBeNull();
   });
@@ -66,7 +66,7 @@ const betssonAfter=():Campaign=>({...campaign(now),
 
 describe('1xBet desktop home top banner',()=>{
   it('serves the official 970x90 leaderboard from the local IMAGE path',()=>{
-    expect(validCreative(topCreative(),topContext,now,'7035424')).toBe(true);
+    expect(validCreative(topCreative(),topContext,now,'SYNTHETIC_CAMPAIGN')).toBe(true);
   });
   it('resolves uniquely, because Betsson no longer claims home_top_banner',async()=>{
     const onex=onexbet({placements:[...onexbet().placements,'home_top_banner'] as Campaign['placements'],creatives:[topCreative()]});
@@ -89,7 +89,7 @@ describe('1xBet desktop home top banner',()=>{
   });
   it('sends banner clicks to the verified 1xAff host only',()=>{
     const onex=onexbet({placements:[...onexbet().placements,'home_top_banner'] as Campaign['placements']});
-    expect(campaignDestination(onex,topContext,now)).toBe('https://1xaff.com.br/L?tag=d_6128686m_134462c_&site=6128686&ad=134462');
+    expect(campaignDestination(onex,topContext,now)).toBe('https://1xaff.com.br/L?tag=synthetic-test-only&site=test-only&ad=test-only');
     expect(campaignDestination({...onex,locale:'mx'},{...topContext,locale:'mx',pagePath:'/mx'},now)).toBeNull();
   });
 });

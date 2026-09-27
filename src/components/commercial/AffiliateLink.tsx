@@ -7,6 +7,7 @@ import {emitProductEvent} from '@/components/match/events';
 import {track} from '@/analytics/client';
 import {translatedPath} from '@/localization/interface';
 import {bookmakerConfig} from '@/odds/registry';
+import {revenueSurface} from '@/affiliate/attribution';
 
 export const commercialCopy={
   br:{cta:'Ver odds',advertisement:'Publicidade',responsible:'18+. Aposte com responsabilidade.',disclosure:'Podemos receber uma comissão pelos links de parceiros. Isso não altera a ordem das odds.',destination:'Abre o site da casa. Confira suas seleções e as odds lá.'},
@@ -28,7 +29,7 @@ export function AffiliateAnchor({offer,locale,className,children,onActivate}:{of
   },[offer,expired]);
   if(expired)return null;
   return <a ref={ref} className={className} href={offer.href} target="_blank" rel="sponsored nofollow noopener noreferrer" aria-label={`${text.cta} · ${bookmakerConfig(offer.bookmaker)?.shortLabel??offer.bookmaker}`}
-    onClick={event=>{if(!event.isTrusted||qaBrowser())event.currentTarget.href=offer.href+'&qa=1';track('affiliate_cta_clicked',{bookmaker:offer.bookmaker,placement:offer.placement},{dedupeKey:`anchor:${offer.token.slice(-16)}`});onActivate?.();}}
+    onClick={event=>{if(!event.isTrusted||qaBrowser())event.currentTarget.href=offer.href+'&qa=1';track('affiliate_cta_clicked',{...offer.analytics,bookmaker:offer.bookmaker,placement:offer.placement,campaignId:offer.campaignId},{props:{revenueSurface:revenueSurface(offer.placement)}});onActivate?.();}}
     onAuxClick={event=>{if(!event.isTrusted||qaBrowser())event.currentTarget.href=offer.href+'&qa=1';}}>{children??<>{text.cta} <span aria-hidden="true">↗</span></>}</a>;
 }
 export function AffiliateLink({context,className,onActivate,compact=false,onAvailability,uiLocale,children}:{context:Omit<CommercialContext,'pagePath'>;className?:string;onActivate?:()=>void;compact?:boolean;onAvailability?:(bookmaker:string,available:boolean)=>void;uiLocale?:CommercialCopyLocale;children?:ReactNode}){

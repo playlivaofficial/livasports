@@ -113,6 +113,11 @@ describe('P4 ingestion boundary (§15, §17, §26, §33)',()=>{
     expect(analyticsIds(headers)).toEqual({anonymousId:'anon_'+'a'.repeat(20),sessionId:'sess_'+'s'.repeat(20)});
     expect(await recordServerEvent({name:'outbound_redirect_completed',headers,locale:'br',canonicalPath:'/br/jogo/x-0123456789abcdef',bookmaker:'betsson',placement:'match_odds_table',slipLegCount:2,trafficClass:'HUMAN'},db)).toBe(true);
     expect(events[0][1]).toBe('outbound_redirect_completed');expect(events[0][3]).toBe('sess_'+'s'.repeat(20));expect(events[0][6]).toBe('HUMAN');expect(events[0][18]).toBe('betsson');
+    const outboundSql=String(query.mock.calls.find(([sql])=>String(sql).includes('INSERT INTO analytics_events'))![0]);
+    expect(outboundSql).toContain('s.session_id=$4 AND s.anonymous_id=$5');
+    expect(outboundSql).toContain('COALESCE(s.utm_source,$13)');
+    expect(outboundSql).toContain("'revenueAcquisition','livasports_social'");
+    expect(events[0][11]).toBe('unknown'); // Same-site referrer alone does not prove direct acquisition.
     expect(String(query.mock.calls.find(([sql])=>String(sql).includes('INSERT INTO analytics_events'))![0])).toContain("'server',now()");
     expect(await recordServerEvent({name:'sign_in_completed',headers,locale:'en',userId:'11111111-2222-4333-8444-555555555555'},db)).toBe(true);
     expect(String(query.mock.calls.at(-2)![0])).toContain('SET user_id=COALESCE(user_id,$2)');

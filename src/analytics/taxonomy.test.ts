@@ -4,8 +4,8 @@ import {CLIENT_EVENTS,EVENT_NAMES,EVENT_VERSION,SERVER_EVENTS,classifyPage,class
 const base={eventId:'11111111-1111-4111-8111-111111111111',eventName:'page_viewed',eventVersion:1,occurredAt:'2026-09-18T12:00:00.000Z',sessionId:'s'.repeat(24),anonymousId:'a'.repeat(24),
   locale:'br',pageType:'match',canonicalPath:'/br/jogo/x-0123456789abcdef',referrerClass:'google_organic',utm:{source:'newsletter'}};
 describe('P4 event taxonomy and contract (§3, §4, §33)',()=>{
-  it('is typed and versioned: 24 client events + 5 server-only events, version 1',()=>{
-    expect(EVENT_VERSION).toBe(1);expect(CLIENT_EVENTS).toHaveLength(24);expect(SERVER_EVENTS).toHaveLength(5);expect(new Set(EVENT_NAMES).size).toBe(29);
+  it('is typed and versioned: 24 client events + 6 server-only events, version 1',()=>{
+    expect(EVENT_VERSION).toBe(1);expect(CLIENT_EVENTS).toHaveLength(24);expect(SERVER_EVENTS).toHaveLength(6);expect(new Set(EVENT_NAMES).size).toBe(30);
     for(const required of ['session_started','landing_viewed','page_viewed','competition_viewed','team_viewed','player_viewed','match_viewed','search_used','odds_visible','odds_selected','bookmaker_comparison_viewed',
       'slip_created','slip_leg_added','slip_leg_removed','slip_cleared','stake_changed','slip_opened','affiliate_cta_viewed','affiliate_cta_clicked','outbound_redirect_completed','sign_in_started','sign_in_completed','sign_out_completed',
       'favorite_added','favorite_removed','my_matches_viewed','returning_session_started'])expect(EVENT_NAMES).toContain(required);
