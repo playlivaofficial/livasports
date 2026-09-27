@@ -82,8 +82,9 @@ export function buildShortlist(priorities:readonly FixturePriority[],options:Sho
   const producible=rankPriorities(priorities.filter(isProducible));
   const fresh=producible.filter(priority=>!exclude.has(priority.fixtureId));
   const content=pickWithDiversity(fresh,SHORTLIST.contentSize,SHORTLIST.maxPerCompetitionContent);
-  // Social is a strict subset of content, with a tighter cap so a single round cannot own the feed.
-  const social=pickWithDiversity(content,SHORTLIST.socialSize,SHORTLIST.maxPerCompetitionSocial);
+  // VNext: ranks 1–5 are social; 6–10 are SEO only. Preserve the existing diversity-aware
+  // Top 10 order/weights rather than promoting a rank-6 fixture past an unchanged rank-5.
+  const social=content.slice(0,SHORTLIST.socialSize);
   return {social,content,considered:priorities.length,producible:producible.length,
     suppressedAsDuplicate:producible.length-fresh.length};
 }

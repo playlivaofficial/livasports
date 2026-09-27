@@ -12,7 +12,7 @@ export function CopyButton({label,value}:{label:string;value:string}){
     {fallback?<label className="manual-copy-fallback">Não foi possível copiar automaticamente. Selecione e copie:
       <textarea readOnly value={value} onFocus={e=>e.currentTarget.select()} aria-label={`Texto para ${label}`}/></label>:null}</>;
 }
-export function PublishingCard({item,channel,overview,busy,act}:{item:GrowthContentItem;channel:GrowthVideoChannel;overview?:PublishingOverview;busy:string;act:(key:string,body:Record<string,unknown>)=>Promise<void>}){
+export function PublishingCard({item,channel,overview,busy,act,compact=false}:{item:GrowthContentItem;channel:GrowthVideoChannel;overview?:PublishingOverview;busy:string;act:(key:string,body:Record<string,unknown>)=>Promise<void>;compact?:boolean}){
   const [confirm,setConfirm]=useState(false),[external,setExternal]=useState(''),[notes,setNotes]=useState('');
   const draft=item.content.platforms![channel],asset=item.platformAssets?.find(a=>a.channel===channel),record=item.channels.find(c=>c.channel===channel)!;
   const post=matchingPost(item,channel,overview?.currentPosts??overview?.posts??[]),state=publishingState(item,channel,post);
@@ -21,11 +21,11 @@ export function PublishingCard({item,channel,overview,busy,act}:{item:GrowthCont
   async function submit(event:FormEvent){event.preventDefault();await act(`posted:${item.id}:${channel}`,{action:'mark-posted',itemId:item.id,channel,sha256:asset!.sha256,creativeVersion:item.creativeVersion,externalPostUrl:external,notes});setConfirm(false);}
   return <article className="owner-growth-platform manual-platform" aria-label={`${CHANNEL_UTM[channel].label} · ${item.content.headline}`}>
     <header><div><span>{CHANNEL_UTM[channel].label}</span><strong>{draft.template}</strong></div><b data-status={state}>{state.replaceAll('_',' ')}</b></header>
-    {video?<video controls playsInline preload="none" src={video} aria-label={`Vídeo ${CHANNEL_UTM[channel].label} de ${item.content.headline}`}/>:<p className="owner-health-notice">Vídeo atual indisponível para publicação. Consulte o histórico para versões anteriores.</p>}
+    {compact?<p>Usa o mesmo vídeo master acima.</p>:video?<video controls playsInline preload="none" src={video} aria-label={`Vídeo ${CHANNEL_UTM[channel].label} de ${item.content.headline}`}/>:<p className="owner-health-notice">Vídeo atual indisponível para publicação. Consulte o histórico para versões anteriores.</p>}
     <p className="manual-meta">{asset?.renderMetadata?.durationSeconds.toFixed(1)??'—'} s · {asset?.generatedAt?publishingDate(asset.generatedAt):'Pendente'} (Brasília)<br/>Revisão {item.revision} · {item.creativeVersion??'Legado'}<br/>{item.content.story?.angle} · Aprovação: {record.status==='PUBLISHED'?'aprovado e publicado':record.status}</p>
     <h4>{draft.title}</h4><p><b>Hook:</b> {draft.hook}</p>
     {copy?<><p className="manual-caption">{copy.caption}</p><p>{copy.hashtags}</p>
-      <div className="manual-primary">{download?<a href={download}>Baixar vídeo MP4</a>:null}{video?<a href={video} target="_blank" rel="noreferrer">Abrir prévia</a>:null}</div>
+      {!compact?<div className="manual-primary">{download?<a href={download}>Baixar vídeo MP4</a>:null}{video?<a href={video} target="_blank" rel="noreferrer">Abrir prévia</a>:null}</div>:null}
       <div className="manual-copy-actions" aria-label="Copiar texto da plataforma">
         {channel==='YOUTUBE_SHORTS'?<CopyButton label="Copiar título" value={copy.title}/>:null}
         <CopyButton label="Copiar legenda" value={copy.caption}/><CopyButton label="Copiar hashtags" value={copy.hashtags}/>
@@ -46,7 +46,7 @@ export function PublishingCard({item,channel,overview,busy,act}:{item:GrowthCont
       <ol>{draft.scenes.map(scene=><li key={scene.order}>{scene.startSeconds.toFixed(1)}–{(scene.startSeconds+scene.durationSeconds).toFixed(1)} s: {scene.headline}<br/>{scene.subtitle}</li>)}</ol>
       {state!=='POSTED'?<div className="manual-copy-actions"><button disabled={!!busy||record.status==='APPROVED'} onClick={()=>act(`approve:${item.id}:${channel}`,{action:'transition',itemId:item.id,channel,status:'APPROVED'})}>Aprovar</button>
         <button disabled={!!busy||record.status==='REJECTED'} onClick={()=>act(`reject:${item.id}:${channel}`,{action:'transition',itemId:item.id,channel,status:'REJECTED'})}>Rejeitar</button>
-        {['DRAFT','REJECTED'].includes(record.status)?<button disabled={!!busy} onClick={()=>act(`regen:${item.id}:${channel}`,{action:'regenerate-platform',itemId:item.id,channel})}>Regenerar plataforma</button>:null}</div>:null}
+        {!compact&&['DRAFT','REJECTED'].includes(record.status)?<button disabled={!!busy} onClick={()=>act(`regen:${item.id}:${channel}`,{action:'regenerate-platform',itemId:item.id,channel})}>Regenerar plataforma</button>:null}</div>:null}
     </details>
   </article>;
 }

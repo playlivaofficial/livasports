@@ -64,9 +64,14 @@ export interface GrowthRenderMetadata {
       ducking:{threshold:number;ratio:number;attackMs:number;releaseMs:number};measuredInputLufs:number|null;outputLufs:number|null;outputTruePeakDb:number|null;loudnessRange:number|null}};
 }
 export interface GrowthPlatformDraft {channel:GrowthVideoChannel;title:string;description:string;hook:string;script:string;caption:string;hashtags:string[];cta:string;template:GrowthCreativeTemplate;scenes:GrowthVideoScene[];creative?:GrowthCreativeDirection;}
+export type GrowthAssetKind='MASTER_VIDEO'|'STORY_IMAGE'|'FEED_IMAGE';
+export interface GrowthCanonicalAsset {id:string;kind:GrowthAssetKind;creativeVersion:string;mimeType:'video/mp4'|'image/png';width:1080;height:1920|1350;sha256:string;byteLength:number;generatedAt:string;renderMetadata?:GrowthRenderMetadata;}
 export interface GrowthReadiness {score:number;state:'READY'|'NEEDS_REVIEW'|'FALLBACK';reasons:string[];fallbackApplied:boolean;}
 export interface GrowthPlatformAsset {channel:GrowthVideoChannel;creativeVersion?:string|null;status:'READY'|'FAILED'|'PENDING';mimeType:string|null;sha256:string|null;byteLength:number|null;generatedAt:string|null;errorCode:string|null;renderMetadata?:GrowthRenderMetadata;}
 export interface GrowthContentPack {
+  assetModel?:'MASTER_V1';
+  /** Sole persisted narrative/scene plan. Platform projections are read-time text/state adapters only. */
+  masterSocial?:GrowthPlatformDraft;
   locale:'pt-BR';
   headline:string;
   hook:string;
@@ -109,6 +114,7 @@ export interface GrowthChannelRecord {
 }
 
 export interface GrowthContentItem {
+  canonicalAssets?:GrowthCanonicalAsset[];
   creativeVersion?:string|null;
   contentIdentity?:string|null;
   id:string;

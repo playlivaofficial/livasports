@@ -155,6 +155,19 @@ export function alignTransitions(plan:MotionPlan,fps:number):MotionPlan{
   return {...plan,transitions:plan.transitions.map(transition=>({...transition,duration:Math.max(2,Math.round(transition.duration*fps))/fps}))};
 }
 
+/** Stable master: no continuous camera resampling, pan, drift or moving readable copy.
+ * Only a short opacity entrance and restrained dissolve/wipe remain. */
+export function planMasterMotion(scenes:readonly Pick<GrowthVideoScene,'order'|'transition'|'visual'>[],seed:string,families:readonly string[]):MotionPlan{
+  const base=planMotion('INSTAGRAM_REELS',scenes,seed,families);
+  const settle={dx:0,dy:0,seconds:.25,delay:0,fade:.25};
+  return {...base,opening:{fadeFromBlack:0,hookPunch:0},transitions:base.transitions.map((_,index)=>({
+    ...TRANSITIONS[index%2?'PITCH_LINE_WIPE':'CROSS_DISSOLVE'],duration:.28,exitDrift:0,entryPunch:0,overlay:null})),
+    scenes:base.scenes.map((scene,index)=>({...scene,camera:{fromScale:1,toScale:1,panX:0,panY:0,punch:0,punchSeconds:0},
+      left:index?settle:{...settle,fade:0},right:index?settle:{...settle,fade:0},center:settle,
+      foreground:{...settle,fade:0},heroDrift:{dx:0,dy:0},exit:{dx:0,dy:0,seconds:0},
+      atmosphere:scenes[index].visual==='HOOK'?['LIGHT_SWEEP']:[]}))};
+}
+
 /**
  * Scene timing on an overlapping timeline. A transition of length T overlaps the last T seconds of
  * one scene with the first T seconds of the next, so scene k starts at the sum of the previous scene

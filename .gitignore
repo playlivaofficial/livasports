@@ -79,3 +79,4 @@ output/p5-*-private.ts
 !output/p5-quota-report.json
 output/voice-audition/
 output/motion-qa/
+.qa-master/

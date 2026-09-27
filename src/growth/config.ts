@@ -147,7 +147,7 @@ export const SHORTLIST={
    * still powers SEO; three daily runs advance through duplicate-safe content batches.
    * Premium narration measured 243s for three fixtures on Vercel, and a slower run exhausted the
    * 250s render deadline. Two fixtures reserve a full third-fixture margin without reducing Top 10. */
-  generationBatchSize:2,
+  generationBatchSize:5,
   /** How far ahead a fixture may be and still be shortlisted. */
   horizonHours:168,
   /** Fixtures that kicked off within this many hours stay eligible (a match in play still draws traffic). */
@@ -195,9 +195,9 @@ export const QUALITY={publishReady:68,needsReview:50,playerEvidenceMinimum:22,od
  * docs/PREMIUM_MOTION_V1.md): the layered motion pipeline keeps a single encoder inside the serverless
  * budget with the headroom recorded there. Runtime safety beats vanity specs.
  */
-export const VIDEO={width:1080,height:1920,fps:15,subtitleTop:1320,subtitleBottom:1640,maxRenderBytes:4_000_000,preset:'superfast',crf:28} as const;
+export const VIDEO={width:1080,height:1920,fps:18,subtitleTop:1320,subtitleBottom:1640,maxRenderBytes:4_000_000,preset:'superfast',crf:28} as const;
 /** Motion language version persisted with each render, so QA can tell motion generations apart. */
-export const MOTION_VERSION='PREMIUM_MOTION_1' as const;
+export const MOTION_VERSION='STABLE_MOTION_2' as const;
 
 /** Reserved boundary for future verified Search Console/social-trend inputs. No source means no adjustment. */
 export const VERIFIED_TREND_PROVIDERS=[] as readonly string[];

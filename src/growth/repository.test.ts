@@ -2,11 +2,11 @@ import {describe,expect,it,vi} from 'vitest';
 vi.mock('server-only',()=>({}));
 import type {DatabaseClient,QueryExecutor} from '@/database/client';
 import {canTransitionGrowthStatus,persistGrowthItem,readRightsFallbackDraftsForRegeneration,readV1DraftsForRegeneration,readPremiumDraftsForRegeneration,transitionGrowthChannel} from './repository';
-import {generatedContent} from './content';
+import {generatedContent,generateV11ContentPack} from './content';
 import {rankedFixture,testNow} from './fixtures.test-support';
 
 function database(query:QueryExecutor['query']):DatabaseClient{return {query,transaction:work=>work({query}),close:async()=>undefined};}
-function input(force=false){const row=rankedFixture(),material=generatedContent(row);return {fixtureId:row.signals.fixtureId,sourceHash:material.sourceHash,trigger:'OWNER' as const,
+function input(force=false){const row=rankedFixture(),material={...generatedContent(row),content:generateV11ContentPack(row)};return {fixtureId:row.signals.fixtureId,sourceHash:material.sourceHash,trigger:'OWNER' as const,
   priorityScore:row.priority.total,scoreBreakdown:row.priority.lines,reasons:row.priority.reasons,fixture:material.fixture,content:material.content,
   canonicalUrl:row.destinationUrl,tracking:material.tracking,now:testNow,force};}
 

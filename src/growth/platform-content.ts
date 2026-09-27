@@ -338,7 +338,7 @@ function platformText(channel:GrowthVideoChannel,row:RankedGrowthFixture,story:G
       hookFamily:`${story.angle}:${opening}`,ctaFamily:cta.headline}};
 }
 
-export function platformDrafts(row:RankedGrowthFixture,story:GrowthStorySelection,players:GrowthSelectedPlayer[],topSocial:RankedGrowthFixture[],rank=1):Record<GrowthVideoChannel,GrowthPlatformDraft>{
+export function platformDrafts(row:RankedGrowthFixture,story:GrowthStorySelection,players:GrowthSelectedPlayer[],topSocial:RankedGrowthFixture[],rank=1,masterOnly=false):Record<GrowthVideoChannel,GrowthPlatformDraft>{
   const position=topSocial.findIndex(candidate=>candidate.signals.fixtureId===row.signals.fixtureId);
   // One stable cohort seed rotates copy when the real fixture slate changes, never on a retry.
   // Rank offsets still prevent same-angle collisions within that slate. Choices persist in history.
@@ -356,6 +356,7 @@ export function platformDrafts(row:RankedGrowthFixture,story:GrowthStorySelectio
     }
     return best;
   };
+  if(masterOnly){const master=select('INSTAGRAM_REELS');return {TIKTOK:master,INSTAGRAM_REELS:master,YOUTUBE_SHORTS:master};}
   return {TIKTOK:select('TIKTOK'),INSTAGRAM_REELS:select('INSTAGRAM_REELS'),YOUTUBE_SHORTS:select('YOUTUBE_SHORTS')};
 }
 

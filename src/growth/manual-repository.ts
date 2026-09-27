@@ -26,10 +26,10 @@ export async function markGrowthPosted(db:DatabaseClient,input:MarkPostedInput,s
     if(!['DRAFT','APPROVED'].includes(record.status))throw new Error('POSTING_NOT_ALLOWED');
     const identity=publicationIdentity(item,input.channel),snapshot=postSnapshot(item,input.channel);
     const inserted=await tx.query<{id:string}>(`INSERT INTO growth_manual_posts(content_item_id,fixture_id,channel,content_identity,creative_version,
-      asset_sha256,generated_at,posted_at,posted_by,external_post_url,notes,snapshot)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb) ON CONFLICT DO NOTHING RETURNING id`,
+      asset_sha256,generated_at,posted_at,posted_by,external_post_url,notes,snapshot,canonical_asset_id)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb,$13) ON CONFLICT DO NOTHING RETURNING id`,
     [item.id,item.fixtureId,input.channel,identity,item.creativeVersion,asset.sha256,asset.generatedAt,now,
-      createHash('sha256').update(`manual-post-owner:${sessionId}`).digest('hex'),external,input.notes?.trim()||null,JSON.stringify(snapshot)]);
+      createHash('sha256').update(`manual-post-owner:${sessionId}`).digest('hex'),external,input.notes?.trim()||null,JSON.stringify(snapshot),item.canonicalAssets?.find(a=>a.kind==='MASTER_VIDEO')?.id??null]);
     if(!inserted.rows[0])throw new Error('ALREADY_POSTED');
     await tx.query(`UPDATE growth_content_channels SET status='PUBLISHED',approved_at=COALESCE(approved_at,$3),published_at=$3,updated_at=$3
       WHERE content_item_id=$1 AND channel=$2`,[item.id,input.channel,now]);
@@ -44,7 +44,10 @@ export async function readCurrentPostingReceipts(db:QueryExecutor,fixtureIds:str
   const rows=(await db.query(`SELECT p.* FROM growth_manual_posts p WHERE p.fixture_id=ANY($1::uuid[]) AND EXISTS(
     SELECT 1 FROM growth_content_items i JOIN growth_platform_assets a ON a.content_item_id=i.id
     WHERE i.fixture_id=p.fixture_id AND i.superseded_at IS NULL AND i.creative_version=p.creative_version
-      AND a.channel=p.channel AND a.sha256=p.asset_sha256)`,[fixtureIds])).rows;
+      AND a.channel=p.channel AND a.sha256=p.asset_sha256) OR (p.fixture_id=ANY($1::uuid[]) AND EXISTS(
+      SELECT 1 FROM growth_content_items i JOIN growth_canonical_assets a ON a.content_item_id=i.id
+      WHERE i.fixture_id=p.fixture_id AND i.superseded_at IS NULL AND i.creative_version=p.creative_version
+        AND a.kind='MASTER_VIDEO' AND a.sha256=p.asset_sha256))`,[fixtureIds])).rows;
   return rows.map(row=>({id:row.id,itemId:row.content_item_id,channel:row.channel,fixtureId:row.fixture_id,creativeVersion:row.creative_version,
     contentIdentity:row.content_identity,assetSha256:row.asset_sha256,generatedAt:new Date(row.generated_at).toISOString(),postedAt:new Date(row.posted_at).toISOString(),
     postedBy:row.posted_by,externalPostUrl:row.external_post_url,notes:row.notes,snapshot:row.snapshot}));

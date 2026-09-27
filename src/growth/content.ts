@@ -66,11 +66,11 @@ export function generateContentPack(row:RankedGrowthFixture):GrowthContentPack{
 }
 
 /** V1.1 keeps the V1 facts contract while adding one shared SEO/story/platform plan. */
-export function generateV11ContentPack(row:RankedGrowthFixture,rank=1,topSocial:RankedGrowthFixture[]=[row]):GrowthContentPack{
-  const fixture=fixtureSnapshot(row),players=selectedPlayers(row),initialStory=selectStory(row,players,{rank,topSocial});
+export function generateV11ContentPack(row:RankedGrowthFixture,rank=1,topSocial:RankedGrowthFixture[]=[row],masterOnly=false):GrowthContentPack{
+  const fixture=fixtureSnapshot(row),players=selectedPlayers(row),initialStory=selectStory(row,players,{rank,topSocial:masterOnly?[row]:topSocial});
   const quality=readiness(row,initialStory,players),story={...initialStory,template:safeTemplate(initialStory.template,quality)};
   const creativePlayers=story.angle==='PLAYER_VS_PLAYER'||story.angle==='STAR_FOCUS'?commercialMediaPlayers(players):[];
-  const platforms=platformDrafts(row,story,creativePlayers,topSocial,rank),editorialContext=truthfulMatchContext(row);
+  const platforms=platformDrafts(row,story,creativePlayers,topSocial,rank,masterOnly),editorialContext=truthfulMatchContext(row);
   const primary=platforms.YOUTUBE_SHORTS;
   const captions:Record<GrowthChannel,string>={TIKTOK:platforms.TIKTOK.caption,INSTAGRAM_REELS:platforms.INSTAGRAM_REELS.caption,
     YOUTUBE_SHORTS:platforms.YOUTUBE_SHORTS.caption,EDITORIAL:`${fixture.home.name} vs ${fixture.away.name}. ${editorialContext} Acesse ${row.destinationUrl}`};
@@ -109,7 +109,19 @@ export function contentIdentity(row:RankedGrowthFixture):string{
 }
 
 export function generatedContent(row:RankedGrowthFixture,rank=1,topSocial:RankedGrowthFixture[]=[row]){
-  return {content:generateV11ContentPack(row,rank,topSocial),fixture:fixtureSnapshot(row),sourceHash:contentSourceHash(row),
+  const content=generateV11ContentPack(row,rank,topSocial,true);
+  const master=content.platforms!.INSTAGRAM_REELS;
+  // Four scenes, one narration. Keep approved premium art choices; no platform branding.
+  const kept=master.scenes.filter(scene=>scene.visual!=='MATCHUP'&&scene.visual!=='WATCHLIST');
+  kept[0]={...kept[0],voiceover:`${row.signals.home.name} e ${row.signals.away.name}. ${kept[0].voiceover}`};
+  let start=0;master.scenes=kept.map((scene,index)=>{const durationSeconds=index===0?5:scene.visual==='CTA'?4:5;
+    const next={...scene,order:index+1,startSeconds:start,durationSeconds};start+=durationSeconds;return next;});
+  if(master.creative)master.creative.scenery=kept.map(scene=>master.creative!.scenery[scene.order-1]);
+  master.script=master.scenes.map(scene=>scene.voiceover).join(' ');
+  content.assetModel='MASTER_V1';content.masterSocial=master;delete content.platforms;
+  content.script=master.script;content.hook=master.hook;content.cta=master.cta;
+  content.screens=master.scenes.map(scene=>({order:scene.order,durationSeconds:scene.durationSeconds,headline:scene.headline,body:scene.subtitle}));
+  return {content,fixture:fixtureSnapshot(row),sourceHash:contentSourceHash(row),
     contentIdentity:contentIdentity(row),
     tracking:growthTrackingUrls(row.destinationUrl,row.signals.publicId)};
 }
