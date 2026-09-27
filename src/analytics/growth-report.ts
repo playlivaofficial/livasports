@@ -288,7 +288,7 @@ async function readQuality(db:QueryExecutor,range:{from:Date;to:Date}):Promise<G
     // The redirect writes the click ledger and the analytics event with one shared UUID, so matching is exact.
     db.query(`SELECT count(*)::int AS ledger,count(e.event_id)::int AS matched FROM affiliate_clicks c
       LEFT JOIN analytics_events e ON e.event_id=c.id AND e.event_name='outbound_redirect_completed'
-      WHERE c.traffic_class='HUMAN_CLICK' AND c.clicked_at>=$1 AND c.clicked_at<$2`,params).catch(()=>({rows:[{ledger:0,matched:0}]})),
+      WHERE c.traffic_class='HUMAN_CLICK' AND c.redirect_status='ISSUED_303' AND c.clicked_at>=$1 AND c.clicked_at<$2`,params).catch(()=>({rows:[{ledger:0,matched:0}]})),
     db.query(`SELECT coalesce(sum(accepted),0)::int AS accepted,coalesce(sum(duplicates),0)::int AS duplicates,coalesce(sum(rejected),0)::int AS rejected,coalesce(max(max_lag_seconds),0)::int AS lag
       FROM analytics_ingestion_quality WHERE bucket>=$1 AND bucket<$2`,params),
   ]);

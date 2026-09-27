@@ -149,8 +149,11 @@ export async function recordServerEvent(input:ServerEventInput,db?:DatabaseClien
     const eventId=input.eventId??crypto.randomUUID();
     const inserted=await client.query(`INSERT INTO analytics_events(event_id,event_name,event_version,source,occurred_at,session_id,anonymous_id,user_id,traffic_class,locale,geo,page_type,canonical_path,referrer_class,
         utm_source,utm_medium,utm_campaign,competition_id,fixture_id,team_id,bookmaker,market,slip_leg_count,comparison_state,campaign_id,placement,props)
-      VALUES($1,$2,$3,'server',now(),$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25::jsonb) ON CONFLICT(event_id) DO NOTHING`,
-      [eventId,input.name,EVENT_VERSION,sessionId,anonymousId,input.userId??null,traffic,input.locale,geo,page.pageType,path,ref.referrerClass==='internal'?'direct':ref.referrerClass,utm.source??null,utm.medium??null,utm.campaign??null,
+      SELECT $1,$2,$3,'server',now(),$4,$5,$6,$7,$8,$9,$10,$11,COALESCE(s.referrer_class,$12),COALESCE(s.utm_source,$13),COALESCE(s.utm_medium,$14),COALESCE(s.utm_campaign,$15),$16,$17,$18,$19,$20,$21,$22,$23,$24,
+        $25::jsonb || CASE WHEN s.referrer_class='social' THEN jsonb_build_object('revenueAcquisition','livasports_social') ELSE '{}'::jsonb END
+      FROM (SELECT 1) anchor LEFT JOIN analytics_sessions s ON s.session_id=$4 AND s.anonymous_id=$5
+      ON CONFLICT(event_id) DO NOTHING`,
+      [eventId,input.name,EVENT_VERSION,sessionId,anonymousId,input.userId??null,traffic,input.locale,geo,page.pageType,path,ref.referrerClass==='internal'?'unknown':ref.referrerClass,utm.source??null,utm.medium??null,utm.campaign??null,
           input.competitionId??null,input.fixtureId??null,input.teamId??null,input.bookmaker??null,input.market??null,input.slipLegCount??null,input.comparisonState??null,input.campaignId??null,input.placement??null,JSON.stringify(input.props??{})]);
     if(inserted.rowCount===0)return true;
     // link the session to the authenticated user from now on (never rewrites another visitor's session)

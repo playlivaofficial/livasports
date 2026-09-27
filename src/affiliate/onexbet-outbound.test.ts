@@ -8,9 +8,9 @@ import type {Campaign,CommercialContext} from './types';
 
 afterEach(()=>{vi.restoreAllMocks();vi.unstubAllEnvs();});
 
-const DESTINATION='https://1xaff.com.br/L?tag=d_6128686m_134462c_&site=6128686&ad=134462';
+const DESTINATION='https://1xaff.com.br/L?tag=synthetic-test-only&site=test-only&ad=test-only';
 const onexbet=(overrides:Partial<Campaign>={}):Campaign=>({...campaign(),
-  id:'cccccccc-cccc-4ccc-8ccc-cccccccccccc',bookmaker:'1xbet',operatorCampaignId:'7035424',
+  id:'cccccccc-cccc-4ccc-8ccc-cccccccccccc',bookmaker:'1xbet',operatorCampaignId:'SYNTHETIC_CAMPAIGN',
   destination:DESTINATION,domains:['1xaff.com.br'],
   placements:['match_odds_table','match_slip_comparison','slip_bookmaker_comparison','match_inline','home_top_banner'],
   creatives:[],...overrides});
@@ -39,7 +39,7 @@ describe('1xBet outbound redirect',()=>{
     expect(r.status).toBe(303);
     expect(r.headers.get('location')).toBe(DESTINATION);
     // The partner tag must survive untouched: no stripping, no reconstruction.
-    expect(new URL(r.headers.get('location')!).searchParams.get('tag')).toBe('d_6128686m_134462c_');
+    expect(new URL(r.headers.get('location')!).searchParams.get('tag')).toBe('synthetic-test-only');
   });
   it('records the click as 1xbet on the right placement',async()=>{
     const f=await harness();

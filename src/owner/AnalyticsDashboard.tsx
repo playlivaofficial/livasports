@@ -39,12 +39,13 @@ export function AnalyticsDashboard({report}:{report:AnalyticsReport}){
       <div className="owner-health-card"><span>Odds selections</span><strong>{c.oddsSelections}</strong><small>selections added to My Slip</small></div>
       <div className="owner-health-card"><span>Slips created</span><strong>{c.slipsCreated}</strong><small>first leg of a new slip</small></div>
       <div className="owner-health-card"><span>Bookmaker comparisons</span><strong>{c.comparisons}</strong><small>sessions that viewed a comparison</small></div>
-      <div className="owner-health-card"><span>Affiliate clicks</span><strong>{c.affiliateClicks}</strong><small>{c.outboundRedirects} server-verified redirects · internal clicks only, never registrations or revenue</small></div>
+      <div className="owner-health-card"><span>Affiliate clicks</span><strong>{c.affiliateClicks}</strong><small>Ledger-backed outcomes: {c.outboundRedirects} redirects · {c.affiliateClicks-c.outboundRedirects} embed activations. Never registrations or revenue.</small></div>
       <div className="owner-health-card"><span>Click-through rate</span><strong>{pct(c.clickThroughRate)}</strong><small>sessions with an affiliate click ÷ sessions</small></div>
       <div className="owner-health-card"><span>Sign-ins</span><strong>{c.signIns}</strong><small>server-verified</small></div>
       <div className="owner-health-card"><span>Favorites added</span><strong>{c.favoritesAdded}</strong><small>server-verified</small></div>
     </section>
     <section aria-label="Funnel"><h2>My Slip funnel</h2>
+      <p className="owner-health-notes">Each stage counts sessions with all preceding steps present. Restored slips and direct banner clicks remain in the overall metrics; this is a session cohort, not proof of chronological event order.</p>
       <table className="owner-health-table"><thead><tr><th>Stage</th><th>Sessions</th><th>From previous stage</th><th>From session</th></tr></thead><tbody>
         {report.funnel.map(s=><tr key={s.stage}><td>{s.stage}</td><td>{s.sessions}</td><td>{s.fromPrevious===null?'—':pct(s.fromPrevious)}</td><td>{pct(s.fromSession)}</td></tr>)}
       </tbody></table>
@@ -77,7 +78,7 @@ export function AnalyticsDashboard({report}:{report:AnalyticsReport}){
         <div className={`owner-health-card ${report.quality.flags.length?'owner-health-state-degraded':'owner-health-state-healthy'}`}><span>Ingestion</span><strong>{report.quality.flags.length?report.quality.flags.join(' · '):'OK'}</strong><small>last event {ago(report.quality.lastEventAt)}</small></div>
         <div className="owner-health-card"><span>Accepted / duplicates</span><strong>{report.quality.accepted} / {report.quality.duplicates}</strong><small>duplicate rate {pct(report.quality.duplicateRate)}</small></div>
         <div className="owner-health-card"><span>Rejected</span><strong>{report.quality.rejected}</strong><small>unknown types {report.quality.unknownEvents} · missing session {report.quality.missingSession} · oversized {report.quality.oversized}</small></div>
-        <div className="owner-health-card"><span>Server events / lag</span><strong>{report.quality.serverEvents}</strong><small>max client→server lag {report.quality.maxLagSeconds}s · client clicks {c.affiliateClicks} vs server redirects {c.outboundRedirects}</small></div>
+        <div className="owner-health-card"><span>Server events / lag</span><strong>{report.quality.serverEvents}</strong><small>max client→server lag {report.quality.maxLagSeconds}s · client interactions {c.ctaInteractions} vs verified outcomes {c.affiliateClicks}</small></div>
         <div className="owner-health-card"><span>Traffic mix (events)</span><strong>{report.quality.trafficMix.map(t=>`${t.trafficClass} ${t.events}`).join(' · ')||'—'}</strong><small>QA, owner and bot traffic are excluded from the numbers above unless selected</small></div>
       </div>
     </section>

@@ -8,8 +8,7 @@ const hosts:Record<string,readonly string[]>={
   'betsson:br':['betsson.bet.br','www.betsson.bet.br','record.betsson.bet.br'],
   'betsson:mx':['betsson.mx','www.betsson.mx'],
   'sportingbet.bet.br:br':['sportingbet.bet.br','www.sportingbet.bet.br','sports.sportingbet.bet.br'],
-  // Verified in the authenticated 1xBet Partners dashboard (Aff ID 4841984, campaign "DirectLink
-  // USD"): generated links resolve to the 1xaff.com.br tracking host, not to the operator domain.
+  // Approved partner links use the exact BR tracking host. Private campaign IDs stay server-side.
   '1xbet:br':['1xaff.com.br','www.1xaff.com.br'],
   // Betboo is retired and `isVisibleBookmaker` already refuses it, so its destination is removed
   // rather than left as a dormant allowlist entry a later change could re-enable.

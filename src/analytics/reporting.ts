@@ -11,7 +11,7 @@ export interface FunnelStage {stage:string;sessions:number;fromPrevious:number|n
 export interface RankedRow {key:string;label:string;views:number;slips:number;clicks:number;rate:number;sessions:number;}
 export interface AnalyticsReport {
   filters:ReportFilters;from:string;to:string;generatedAt:string;
-  cards:{sessions:number;newVisitors:number;returningVisitors:number;engagedSessions:number;contentViews:number;oddsSelections:number;slipsCreated:number;comparisons:number;affiliateClicks:number;outboundRedirects:number;clickThroughRate:number;signIns:number;favoritesAdded:number;pageViews:number};
+  cards:{sessions:number;newVisitors:number;returningVisitors:number;engagedSessions:number;contentViews:number;oddsSelections:number;slipsCreated:number;comparisons:number;affiliateClicks:number;ctaInteractions:number;outboundRedirects:number;clickThroughRate:number;signIns:number;favoritesAdded:number;pageViews:number};
   funnel:FunnelStage[];legBuckets:Array<{bucket:string;sessions:number}>;comparisonStates:Array<{state:string;sessions:number}>;
   top:{landingPages:RankedRow[];competitions:RankedRow[];teams:RankedRow[];matches:RankedRow[];placements:RankedRow[];bookmakers:RankedRow[]};
   acquisition:Array<{source:string;sessions:number;engaged:number;slips:number;clicks:number;rate:number}>;
@@ -22,7 +22,8 @@ export interface AnalyticsReport {
   quality:{accepted:number;duplicates:number;rejected:number;unknownEvents:number;missingSession:number;oversized:number;serverEvents:number;maxLagSeconds:number;duplicateRate:number;trafficMix:Array<{trafficClass:string;events:number}>;flags:string[];lastEventAt:string|null};
 }
 const CONTENT_VIEWS=['competition_viewed','match_viewed','team_viewed','player_viewed'];
-const CLICKS=['affiliate_cta_clicked','outbound_redirect_completed'];
+// The interaction and navigation are two observations of one click, not two conversions.
+const CLICKS=['outbound_redirect_completed','affiliate_embed_activated'];
 const pct=(n:number,d:number)=>d?Math.round(n/d*1000)/10:0;
 const n=(v:unknown)=>Number(v??0);
 
@@ -52,15 +53,19 @@ export async function readAnalyticsReport(db:QueryExecutor,filters:ReportFilters
       (SELECT count(*) FROM ev WHERE event_name=ANY($${params.length+1}::text[]))::int AS content_views,(SELECT count(*) FROM ev WHERE event_name='page_viewed')::int AS page_views,
       (SELECT count(*) FROM ev WHERE event_name='odds_selected')::int AS odds_selections,(SELECT count(*) FROM ev WHERE event_name='slip_created')::int AS slips_created,
       (SELECT count(DISTINCT session_id) FROM ev WHERE event_name='bookmaker_comparison_viewed')::int AS comparisons,
-      (SELECT count(*) FROM ev WHERE event_name='affiliate_cta_clicked')::int AS affiliate_clicks,(SELECT count(*) FROM ev WHERE event_name='outbound_redirect_completed')::int AS outbound,
+      (SELECT count(*) FROM ev WHERE event_name IN ('outbound_redirect_completed','affiliate_embed_activated'))::int AS affiliate_clicks,(SELECT count(*) FROM ev WHERE event_name='outbound_redirect_completed')::int AS outbound,
+      (SELECT count(*) FROM ev WHERE event_name='affiliate_cta_clicked')::int AS cta_interactions,
+      (SELECT count(DISTINCT session_id) FROM ev WHERE event_name IN ('outbound_redirect_completed','affiliate_embed_activated'))::int AS click_sessions,
       (SELECT count(*) FROM ev WHERE event_name='sign_in_completed')::int AS sign_ins,(SELECT count(*) FROM ev WHERE event_name='favorite_added')::int AS favorites_added`,[...params,CONTENT_VIEWS]),
-    db.query(`WITH sess AS (${S}), ev AS (${E}) SELECT
-      (SELECT count(*) FROM sess)::int AS s0,
-      (SELECT count(DISTINCT session_id) FROM ev WHERE event_name=ANY($${params.length+1}::text[]))::int AS s1,
-      (SELECT count(DISTINCT session_id) FROM ev WHERE event_name='odds_selected')::int AS s2,
-      (SELECT count(DISTINCT session_id) FROM ev WHERE event_name IN ('slip_created','slip_leg_added'))::int AS s3,
-      (SELECT count(DISTINCT session_id) FROM ev WHERE event_name='bookmaker_comparison_viewed')::int AS s4,
-      (SELECT count(DISTINCT session_id) FROM ev WHERE event_name=ANY($${params.length+2}::text[]))::int AS s5`,[...params,CONTENT_VIEWS,CLICKS]),
+    db.query(`WITH sess AS (${S}), ev AS (${E}), stages AS (
+      SELECT s.session_id,bool_or(e.event_name=ANY($${params.length+1}::text[])) AS content,
+        bool_or(e.event_name='odds_selected') AS odds,bool_or(e.event_name IN ('slip_created','slip_leg_added')) AS slip,
+        bool_or(e.event_name='bookmaker_comparison_viewed') AS comparison,bool_or(e.event_name=ANY($${params.length+2}::text[])) AS click
+      FROM sess s LEFT JOIN ev e ON e.session_id=s.session_id GROUP BY s.session_id)
+      SELECT count(*)::int AS s0,count(*) FILTER(WHERE content)::int AS s1,
+        count(*) FILTER(WHERE content AND odds)::int AS s2,count(*) FILTER(WHERE content AND odds AND slip)::int AS s3,
+        count(*) FILTER(WHERE content AND odds AND slip AND comparison)::int AS s4,
+        count(*) FILTER(WHERE content AND odds AND slip AND comparison AND click)::int AS s5 FROM stages`,[...params,CONTENT_VIEWS,CLICKS]),
     db.query(`WITH sess AS (${S}), ev AS (${E}) SELECT CASE WHEN m>=5 THEN '5+' ELSE m::text END AS bucket,count(*)::int AS sessions FROM (SELECT session_id,max(slip_leg_count) AS m FROM ev WHERE event_name IN ('slip_leg_added','odds_selected','slip_opened') AND slip_leg_count>0 GROUP BY session_id) t GROUP BY 1`,params),
     db.query(`WITH sess AS (${S}), ev AS (${E}) SELECT comparison_state AS state,count(DISTINCT session_id)::int AS sessions FROM ev WHERE event_name='bookmaker_comparison_viewed' AND comparison_state IS NOT NULL GROUP BY 1`,params),
     db.query(`WITH sess AS (${S}) SELECT s.landing_path AS key,s.landing_path AS label,count(*)::int AS sessions,count(*)::int AS views,
@@ -77,7 +82,7 @@ export async function readAnalyticsReport(db:QueryExecutor,filters:ReportFilters
         count(DISTINCT ev.session_id) FILTER (WHERE ev.event_name IN ('slip_created','slip_leg_added','odds_selected'))::int AS slips,count(DISTINCT ev.session_id) FILTER (WHERE ev.event_name=ANY($${params.length+1}::text[]))::int AS clicks
       FROM ev JOIN fixtures f ON f.id=ev.fixture_id JOIN teams h ON h.id=f.home_team_id JOIN teams a ON a.id=f.away_team_id GROUP BY f.public_id,h.name,a.name ORDER BY views DESC LIMIT 10`,[...params,CLICKS]),
     db.query(`WITH sess AS (${S}), ev AS (${E}) SELECT coalesce(placement,'(none)') AS key,coalesce(placement,'(none)') AS label,count(*) FILTER (WHERE event_name='affiliate_cta_viewed')::int AS views,count(DISTINCT session_id)::int AS sessions,0::int AS slips,
-        count(*) FILTER (WHERE event_name=ANY($${params.length+1}::text[]))::int AS clicks FROM ev WHERE event_name IN ('affiliate_cta_viewed','affiliate_cta_clicked','outbound_redirect_completed') GROUP BY placement ORDER BY clicks DESC,views DESC LIMIT 10`,[...params,CLICKS]),
+        count(*) FILTER (WHERE event_name=ANY($${params.length+1}::text[]))::int AS clicks FROM ev WHERE event_name IN ('affiliate_cta_viewed','affiliate_cta_clicked','outbound_redirect_completed','affiliate_embed_activated') GROUP BY placement ORDER BY clicks DESC,views DESC LIMIT 10`,[...params,CLICKS]),
     db.query(`WITH sess AS (${S}), ev AS (${E}) SELECT bookmaker AS key,bookmaker AS label,count(*) FILTER (WHERE event_name='affiliate_cta_viewed')::int AS views,count(DISTINCT session_id)::int AS sessions,
         count(DISTINCT session_id) FILTER (WHERE event_name='odds_selected')::int AS slips,count(*) FILTER (WHERE event_name=ANY($${params.length+1}::text[]))::int AS clicks FROM ev WHERE bookmaker IS NOT NULL GROUP BY bookmaker ORDER BY clicks DESC`,[...params,CLICKS]),
     db.query(`WITH sess AS (${S}) SELECT s.referrer_class AS source,count(*)::int AS sessions,count(*) FILTER (WHERE s.engaged)::int AS engaged,
@@ -114,11 +119,11 @@ export async function readAnalyticsReport(db:QueryExecutor,filters:ReportFilters
   if(n(q.unknown)>0)flags.push('UNKNOWN_EVENT_TYPES');
   if(n(q.missing)>0)flags.push('MISSING_SESSION_IDS');
   if(n(q.lag)>900)flags.push('EVENT_LAG_OVER_15_MIN');
-  if(n(c.affiliate_clicks)>0&&n(c.outbound)===0&&filters.window!=='today')flags.push('CLIENT_CLICKS_WITHOUT_SERVER_REDIRECTS');
+  if(n(c.cta_interactions)>0&&n(c.affiliate_clicks)===0&&filters.window!=='today')flags.push('CLIENT_CLICKS_WITHOUT_SERVER_REDIRECTS');
   if(!lastAt||now.getTime()-Date.parse(lastAt)>6*3600000)flags.push('NO_EVENTS_RECEIVED_RECENTLY');
   return {filters,from:from.toISOString(),to:to.toISOString(),generatedAt:now.toISOString(),
     cards:{sessions:n(c.sessions),newVisitors:n(c.new_visitors),returningVisitors:n(c.returning_visitors),engagedSessions:n(c.engaged),contentViews:n(c.content_views),oddsSelections:n(c.odds_selections),slipsCreated:n(c.slips_created),
-      comparisons:n(c.comparisons),affiliateClicks:n(c.affiliate_clicks),outboundRedirects:n(c.outbound),clickThroughRate:pct(n(f.s5),n(f.s0)),signIns:n(c.sign_ins),favoritesAdded:n(c.favorites_added),pageViews:n(c.page_views)},
+      comparisons:n(c.comparisons),affiliateClicks:n(c.affiliate_clicks),ctaInteractions:n(c.cta_interactions),outboundRedirects:n(c.outbound),clickThroughRate:pct(n(c.click_sessions),n(c.sessions)),signIns:n(c.sign_ins),favoritesAdded:n(c.favorites_added),pageViews:n(c.page_views)},
     funnel:funnelStages,legBuckets:LEG_BUCKETS.map(b=>({bucket:b,sessions:n(legs.rows.find(r=>String(r.bucket)===b)?.sessions)})),
     comparisonStates:['REAL_COMPLETE','ESTIMATED_COMPLETE','INCOMPLETE'].map(s=>({state:s,sessions:n(states.rows.find(r=>String(r.state)===s)?.sessions)})),
     top:{landingPages:ranked(landing.rows),competitions:ranked(competitions.rows),teams:ranked(teams.rows),matches:ranked(matches.rows),placements:ranked(placements.rows),bookmakers:ranked(bookmakers.rows)},

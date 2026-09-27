@@ -1,5 +1,7 @@
 import {afterEach,describe,expect,it,vi} from 'vitest';
 vi.mock('server-only',()=>({}));
+vi.mock('@/analytics/server',()=>({recordServerEvent:vi.fn().mockResolvedValue(true)}));
+import {recordServerEvent} from '@/analytics/server';
 import {safeBetssonEmbed} from './embed-policy';
 import {parseCampaignConfiguration} from './configuration';
 import {campaign,dependencies,key} from './fixtures.test-support';
@@ -21,6 +23,17 @@ async function fixture(permission:'anonymous'|'consent'='anonymous'){
   return {c,creative,context,deps,offer,value,services,tasks,request};
 }
 describe('G1 approved publisher embed boundary',()=>{
+  it('records a deduplicated embed activation without claiming a redirect',async()=>{
+    const f=await fixture();vi.mocked(recordServerEvent).mockClear();
+    vi.mocked(f.services.click).mockResolvedValueOnce('cccccccc-cccc-4ccc-8ccc-cccccccccccc').mockResolvedValueOnce(null);
+    const request=new Request('https://livasports.com/api/events',{headers:{'sec-fetch-site':'same-origin','user-agent':'Mozilla/5.0'}});
+    const body={eventId:'dddddddd-dddd-4ddd-8ddd-dddddddddddd',eventName:'affiliate_embed_click',offer:f.value.token};
+    await embedClickRequest(request,body,f.services);await f.tasks[0]();
+    await embedClickRequest(request,body,f.services);await f.tasks[1]();
+    expect(recordServerEvent).toHaveBeenCalledTimes(1);
+    expect(recordServerEvent).toHaveBeenCalledWith(expect.objectContaining({name:'affiliate_embed_activated',eventId:'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+      props:expect.objectContaining({activation:'EMBED_ACTIVATION',revenueSurface:'livasports_banner'})}));
+  });
   it('preserves the complete image-mode source without reconstructing tracking',()=>{expect(safeBetssonEmbed(source(),'7')).toBe(source());});
   it.each(['host','http','userinfo','port','fragment','path','duplicate','extra','script','campaign','deeplink','redirect','media'])('rejects unsafe or unapproved source: %s',change=>{
     const u=new URL(source());

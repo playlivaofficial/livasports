@@ -1,5 +1,7 @@
 import {describe,it,expect,vi,afterEach} from 'vitest';
 vi.mock('server-only',()=>({}));
+vi.mock('@/analytics/server',()=>({recordServerEvent:vi.fn().mockResolvedValue(true)}));
+import {recordServerEvent} from '@/analytics/server';
 import {outboundRequest,offersRequest,impressionRequest,legacyOutbound,type CommercialServices} from './server';
 import {publicOffer,resolveOffer} from './service';
 import {verifyOffer,clickDedup} from './tokens';
@@ -12,6 +14,17 @@ async function fixture(){const tasks:Array<()=>Promise<void>>=[],c=campaign(),de
   const request=(extra:Record<string,string>={},suffix='')=>new Request('https://livasports.com'+value.href+suffix,{headers:{'sec-fetch-user':'?1','sec-fetch-mode':'navigate','sec-fetch-dest':'document','user-agent':'Browser',...extra}});
   return {tasks,c,deps,offer,value,services,request};}
 describe('M8 canonical outbound and attribution',()=>{
+  it('records one authoritative outcome with verified entities and no private destination',async()=>{
+    const f=await fixture();f.deps.page=async()=>({pageType:'MATCH',pagePath:context().pagePath,fixtureId:'verified-fixture',competitionId:'verified-competition'});
+    vi.mocked(f.services.click).mockResolvedValueOnce('cccccccc-cccc-4ccc-8ccc-cccccccccccc').mockResolvedValueOnce(null);
+    vi.mocked(recordServerEvent).mockClear();
+    await outboundRequest(f.request(),'betsson','slip_bookmaker_comparison',f.services);await f.tasks[0]();
+    await outboundRequest(f.request(),'betsson','slip_bookmaker_comparison',f.services);await f.tasks[1]();
+    expect(recordServerEvent).toHaveBeenCalledTimes(1);
+    expect(recordServerEvent).toHaveBeenCalledWith(expect.objectContaining({eventId:'cccccccc-cccc-4ccc-8ccc-cccccccccccc',fixtureId:'verified-fixture',competitionId:'verified-competition',slipLegCount:3,
+      props:expect.objectContaining({revenueSurface:'livasports_same_slip_compare',revenueJourney:'livasports_slip',activation:'ISSUED_303'})}));
+    expect(JSON.stringify(vi.mocked(recordServerEvent).mock.calls)).not.toContain(f.c.destination);
+  });
   it.each(['GE','MX','US',''])('does not issue BR banner or odds offers to visitor country %s',async country=>{
     vi.stubEnv('VERCEL','1');vi.stubEnv('AFFILIATE_QA_GEO','BR');
     const f=await fixture();f.services.geo=geoAllowed;f.deps.campaigns=vi.fn(f.deps.campaigns);

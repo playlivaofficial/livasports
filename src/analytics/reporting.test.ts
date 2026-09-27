@@ -5,10 +5,20 @@ import {parseFilters} from './filters';
 import {isPrivatePath,robotsDisallow} from '@/seo/policy';
 
 describe('P4 owner reporting (§19–§25, §31, §37)',()=>{
+  it('counts one ledger-backed outcome, never CTA plus redirect as two clicks',async()=>{
+    const query=vi.fn(async()=>({rows:[],rowCount:0}));
+    await readAnalyticsReport({query:query as unknown as QueryExecutor['query']},{window:'7d'});
+    const calls=query.mock.calls as unknown as [string,unknown[]][];
+    const clickLists=calls.flatMap(([,params])=>(params??[]).filter(Array.isArray)).filter(list=>list.includes('outbound_redirect_completed'));
+    expect(clickLists.length).toBeGreaterThan(0);
+    for(const list of clickLists)expect(list).toEqual(['outbound_redirect_completed','affiliate_embed_activated']);
+    expect(calls[0][0]).toContain("event_name IN ('outbound_redirect_completed','affiliate_embed_activated'))::int AS affiliate_clicks");
+    expect(calls[1][0]).toContain('WHERE content AND odds AND slip AND comparison AND click');
+  });
   it('bounds every query to the window and to HUMAN traffic by default, and shapes the report from aggregates only',async()=>{
     const now=new Date('2026-09-18T12:00:00Z');
     const query=vi.fn(async(sql:string)=>{
-      if(sql.includes('AS sessions,(SELECT count(*) FROM sess WHERE visitor_kind'))return {rows:[{sessions:100,new_visitors:70,returning_visitors:30,engaged:60,content_views:150,page_views:400,odds_selections:40,slips_created:25,comparisons:20,affiliate_clicks:12,outbound:10,sign_ins:5,favorites_added:8}],rowCount:1};
+      if(sql.includes('AS sessions,(SELECT count(*) FROM sess WHERE visitor_kind'))return {rows:[{sessions:100,new_visitors:70,returning_visitors:30,engaged:60,content_views:150,page_views:400,odds_selections:40,slips_created:25,comparisons:20,affiliate_clicks:12,click_sessions:12,outbound:10,sign_ins:5,favorites_added:8}],rowCount:1};
       if(sql.includes('AS s0,'))return {rows:[{s0:100,s1:80,s2:30,s3:25,s4:20,s5:12}],rowCount:1};
       if(sql.includes('AS bucket'))return {rows:[{bucket:'1',sessions:10},{bucket:'5+',sessions:3}],rowCount:2};
       if(sql.includes('comparison_state AS state'))return {rows:[{state:'REAL_COMPLETE',sessions:15}],rowCount:1};
@@ -33,7 +43,7 @@ describe('P4 owner reporting (§19–§25, §31, §37)',()=>{
   it('raises data-quality flags for breakage and reports registrations/revenue nowhere',async()=>{
     const now=new Date('2026-09-18T12:00:00Z');
     const query=vi.fn(async(sql:string)=>{
-      if(sql.includes('AS sessions,(SELECT count(*) FROM sess WHERE visitor_kind'))return {rows:[{sessions:50,page_views:0,affiliate_clicks:5,outbound:0}],rowCount:1};
+      if(sql.includes('AS sessions,(SELECT count(*) FROM sess WHERE visitor_kind'))return {rows:[{sessions:50,page_views:0,cta_interactions:5,affiliate_clicks:0,outbound:0}],rowCount:1};
       if(sql.includes('sum(accepted)'))return {rows:[{accepted:100,duplicates:60,rejected:30,unknown:2,missing:1,lag:2000}],rowCount:1};
       if(sql.includes('max(received_at)'))return {rows:[{at:new Date('2026-09-17T00:00:00Z')}],rowCount:1};
       return {rows:[],rowCount:0};
