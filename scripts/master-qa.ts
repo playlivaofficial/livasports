@@ -3,7 +3,8 @@ import {join} from 'node:path';
 import {PostgresDatabaseClient,databaseUrl} from '../src/database/client';
 import {readGrowthDashboard,rankGrowthInventory,runGrowthGeneration} from '../src/growth/service';
 import {buildShortlist} from '../src/growth/shortlist';
-import {enrichGrowthStorySignals,readGrowthVideo} from '../src/growth/repository';
+import {enrichGrowthStorySignals,readGrowthVideo,readGrowthItem} from '../src/growth/repository';
+import {markGrowthPosted} from '../src/growth/manual-repository';
 import {generatedContent} from '../src/growth/content';
 import {renderGrowthVideo} from '../src/growth/video-renderer';
 import {renderCanonicalStatics} from '../src/growth/canonical-renderer';
@@ -23,7 +24,26 @@ try{
    if(!response.ok)throw Error('VOICE_ENV_UNAVAILABLE');const value=await response.json();if(!value.decrypted)throw Error('VOICE_ENV_UNAVAILABLE');process.env[key]=value.value;
   }
  }
- if(command==='quota'){
+ if(command==='receipt-check'){
+  // Fixed task-owned QA schema only. The outer transaction always rolls back every test receipt.
+  try{await db.transaction(async tx=>{
+   await tx.query('SET LOCAL search_path TO growth_vnext_qa_c7e9190,public');
+   const isolated={query:tx.query.bind(tx),transaction:async <T>(work:(client:typeof tx)=>Promise<T>)=>work(tx),close:async()=>{}};
+   const id=(await tx.query("SELECT id FROM growth_content_items WHERE content_pack->>'assetModel'='MASTER_V1' AND current_rank=1")).rows[0]?.id;
+   const item=await readGrowthItem(tx,id);if(!item)throw Error('QA_ITEM_MISSING');
+   const asset=item.canonicalAssets!.find(a=>a.kind==='MASTER_VIDEO')!;
+   for(const channel of ['TIKTOK','INSTAGRAM_REELS','YOUTUBE_SHORTS'] as const){
+    await markGrowthPosted(isolated,{itemId:id,channel,sha256:asset.sha256,creativeVersion:item.creativeVersion!},'qa-only');
+    if(channel==='TIKTOK'){
+     const fresh=await readGrowthItem(tx,id);if(fresh!.channels.find(c=>c.channel==='INSTAGRAM_REELS')?.status!=='DRAFT')throw Error('PLATFORM_STATE_COUPLED');
+     try{await markGrowthPosted(isolated,{itemId:id,channel,sha256:asset.sha256,creativeVersion:item.creativeVersion!},'qa-only');throw Error('DUPLICATE_ALLOWED');}catch(e){if((e as Error).message!=='ALREADY_POSTED')throw e;}
+    }
+   }
+   const receipts=(await tx.query('SELECT channel,canonical_asset_id,asset_sha256,snapshot FROM growth_manual_posts WHERE content_item_id=$1',[id])).rows;
+   if(receipts.length!==3||new Set(receipts.map(r=>r.canonical_asset_id)).size!==1||new Set(receipts.map(r=>r.snapshot.utmSource)).size!==3)throw Error('RECEIPT_LINKAGE_FAILED');
+   console.log(JSON.stringify({receipts:3,sharedAsset:true,independentStates:true,distinctSources:true,duplicateRejected:true,mode:'ROLLBACK_ONLY'}));throw Error('QA_ROLLBACK');
+  });}catch(e){if((e as Error).message!=='QA_ROLLBACK')throw e;}
+ }else if(command==='quota'){
   if(!process.env.ELEVENLABS_API_KEY)throw Error('VOICE_NOT_CONFIGURED');
   const response=await fetch('https://api.elevenlabs.io/v1/user/subscription',{headers:{'xi-api-key':process.env.ELEVENLABS_API_KEY}});
   const value=await response.json();console.log(JSON.stringify({status:response.status,reason:value.detail?.status,tier:value.tier,used:value.character_count,limit:value.character_limit,remaining:value.character_limit-value.character_count}));
