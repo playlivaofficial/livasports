@@ -32,7 +32,7 @@ const isoDay=(value:unknown)=>value instanceof Date?value.toISOString().slice(0,
 
 /** Daily persisted follow-up, DB-only. No metadata mutation, winners, automatic rollout or rollback. */
 export async function captureExperimentObservations(db:QueryExecutor,now=new Date()){
-  const rows=(await db.query(`SELECT e.id,e.property,e.page,e.observation_start,
+  const rows=(await db.query(`SELECT e.id,e.property,e.page,e.observation_start::text AS observation_start,
     ARRAY(SELECT o.window_days FROM seo_experiment_observations o WHERE o.experiment_id=e.id) AS captured_windows
     FROM seo_metadata_experiments e WHERE e.changed_at IS NOT NULL ORDER BY e.changed_at DESC LIMIT 100`)).rows;
   let captured=0;
@@ -51,7 +51,8 @@ export async function captureExperimentObservations(db:QueryExecutor,now=new Dat
 }
 
 export async function readExperiments(db:QueryExecutor,now=new Date()){
-  const rows=(await db.query(`SELECT * FROM seo_metadata_experiments ORDER BY registered_at DESC LIMIT 100`)).rows;
+  // PostgreSQL DATE is a calendar day: avoid pg's local-midnight Date conversion.
+  const rows=(await db.query(`SELECT *,observation_start::text AS observation_start FROM seo_metadata_experiments ORDER BY registered_at DESC LIMIT 100`)).rows;
   const observations=rows.length?(await db.query(`SELECT experiment_id,window_days,from_day,to_day,metrics,measured_at
     FROM seo_experiment_observations WHERE experiment_id=ANY($1::uuid[])`,[rows.map(row=>row.id)])).rows:[];
   return rows.map(row=>{
