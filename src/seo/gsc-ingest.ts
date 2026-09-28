@@ -2,6 +2,7 @@ import 'server-only';
 import type {QueryExecutor} from '@/database/client';
 import {gscCredential,gscProperty,gscStatus,type GscState} from './gsc';
 import {accessTokenFor,GscApiError,listSitemaps,searchAnalytics,type SearchAnalyticsRow} from './gsc-client';
+import {ingestPageBreakdowns} from './page-breakdowns';
 
 /**
  * Daily Search Console ingestion.
@@ -75,8 +76,10 @@ export async function ingestGscSearchAnalytics(db:QueryExecutor,
   const sync=(await db.query<{id:string}>(
     `INSERT INTO seo_gsc_syncs(property,state) VALUES($1,'RUNNING') RETURNING id`,[property])).rows[0];
   const finish=async(state:GscState,result:Partial<GscIngestResult>,error?:string)=>{
-    await db.query(`UPDATE seo_gsc_syncs SET finished_at=now(),state=$2,days_ingested=$3,rows_ingested=$4,truncated=$5,error_code=$6 WHERE id=$1`,
-      [sync.id,state,result.days??0,result.rows??0,result.truncated??false,error??null]).catch(()=>undefined);
+    await db.query(`UPDATE seo_gsc_syncs SET finished_at=now(),state=$2,days_ingested=$3,rows_ingested=$4,truncated=$5,error_code=$6,
+      from_day=$7,to_day=$8 WHERE id=$1`,
+      [sync.id,state,result.days??0,result.rows??0,result.truncated??false,error??null,
+        options.dimensions?null:windows.current28.from,options.dimensions?null:windows.current28.to]).catch(()=>undefined);
     return {...empty,...result,state,property,...(error?{error}:{})} as GscIngestResult;
   };
 
@@ -90,6 +93,7 @@ export async function ingestGscSearchAnalytics(db:QueryExecutor,
         {startDate:windows.current28.from,endDate:windows.current28.to,dimensions:DIMENSION_KEYS[dimension]},
         {fetcher:options.fetcher,maxRows:GSC_ROW_CEILING});
       truncated=truncated||report.truncated;
+      if(report.truncated)continue; // Do not overwrite a good window with a capped partial response.
       const records=report.rows.map(row=>toRecord(dimension,row)).filter(record=>/^\d{4}-\d{2}-\d{2}$/.test(record.day));
       for(const record of records)days.add(record.day);
       if(!records.length)continue;
@@ -102,6 +106,9 @@ export async function ingestGscSearchAnalytics(db:QueryExecutor,
       rows+=records.length;
     }
 
+    // Page-query associations are real joined GSC dimensions, never inferred from separate top lists.
+    // Failure/truncation is visible in seo_breakdown_syncs and never fabricates an empty baseline.
+    if(!options.dimensions)await ingestPageBreakdowns(db,token,property,windows.current28.from,windows.current28.to,options.fetcher);
     let sitemaps=0;
     try{
       const list=await listSitemaps(token,property,options.fetcher??fetch);

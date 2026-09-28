@@ -706,3 +706,8 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .growth-prominence-links a:hover,.growth-prominence-links a:focus-visible { border-color:var(--color-accent); outline:0; }
 .growth-prominence-links span,.growth-prominence-links time { color:var(--color-text-muted); font-size:.61rem; }
 .growth-prominence-links strong { overflow:hidden; font-size:.74rem; text-overflow:ellipsis; white-space:nowrap; }
+.growth-prominence-item { min-width:0; }
+.growth-prominence-links .growth-context-links { display:flex; flex-wrap:wrap; gap:.25rem .6rem; padding:.3rem .2rem; }
+.growth-prominence-links .growth-context-links a { display:inline-flex; align-items:center; min-height:44px; padding:.2rem; border:0; background:none; font-size:.7rem; overflow-wrap:anywhere; }
+.match-query-intro { margin:0 0 1rem; color:var(--color-text-secondary); font-size:.8rem; line-height:1.6; overflow-wrap:anywhere; }
+.match-query-intro a { display:inline-flex; align-items:center; min-height:44px; color:var(--color-accent); font-weight:700; }

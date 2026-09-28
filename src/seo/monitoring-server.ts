@@ -1,4 +1,5 @@
 import 'server-only';
+import {captureExperimentObservations} from './experiments';
 import type {QueryExecutor} from '@/database/client';
 import {siteOrigin} from './policy';
 import {deriveSeoAlerts,type SeoAlert,type SeoProblem,type SeoSnapshot,type SubmittedFamily} from './monitoring';
@@ -134,6 +135,7 @@ export async function runSeoMonitor(db:QueryExecutor,fetcher:Fetcher=fetch,now=n
     try{
       const ingest=await ingestGscSearchAnalytics(db,{now});
       gsc={state:ingest.state,days:ingest.days,rows:ingest.rows,...(ingest.error?{error:ingest.error}:{})};
+      if(ingest.state==='CONNECTED'&&!ingest.truncated)await captureExperimentObservations(db,now);
       await db.query('UPDATE seo_snapshots SET gsc_state=$2 WHERE id=$1',[snapshotId,ingest.state]).catch(()=>undefined);
     }catch(error){gsc={state:'API_ERROR',days:0,rows:0,error:error instanceof Error?error.message.slice(0,120):'GSC_INGEST_FAILED'};}
     return {state:'SUCCEEDED',day:today,submittedTotal:snapshot.submittedTotal,problems:snapshot.problems.length,alerts:alerts.length,providerRequests:0,gsc};

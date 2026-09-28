@@ -23,6 +23,9 @@
 .owner-health-filters{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:10px}.owner-health-filters label{display:inline-flex;gap:6px;align-items:center}
 .owner-health select,.owner-health input{background:#13212a;color:#fff;border:1px solid #63747c;border-radius:6px;padding:6px 8px;min-width:0}
 .owner-health-scroll{overflow-x:auto;max-width:100%}
+.seo-experiments .seo-experiment-card { margin:12px 0; overflow-wrap:anywhere; }
+.seo-experiments .seo-experiment-card h4 { margin:0 0 8px; font-size:14px; }
+.seo-experiments summary { min-height:44px; cursor:pointer; padding:10px 0; }
 .owner-health-table{border-collapse:collapse;width:100%;font-size:13px}.owner-health-table th,.owner-health-table td{text-align:left;padding:6px 8px;border-bottom:1px solid #2c3d48;vertical-align:top;white-space:nowrap}
 .owner-health-table th{color:#a9b8c1;font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.03em}
 .owner-health-evidence{white-space:normal!important;max-width:420px;color:#c6d2d9}
