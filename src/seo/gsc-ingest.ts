@@ -95,14 +95,18 @@ export async function ingestGscSearchAnalytics(db:QueryExecutor,
       truncated=truncated||report.truncated;
       if(report.truncated)continue; // Do not overwrite a good window with a capped partial response.
       const records=report.rows.map(row=>toRecord(dimension,row)).filter(record=>/^\d{4}-\d{2}-\d{2}$/.test(record.day));
+      if(records.length!==report.rows.length)throw new GscApiError('API_ERROR',0,'Search Analytics returned malformed rows');
       for(const record of records)days.add(record.day);
-      if(!records.length)continue;
-      // One statement per dimension; ON CONFLICT makes a repeated run an update, never a duplicate.
-      await db.query(`INSERT INTO seo_search_daily(property,day,dimension,key,clicks,impressions,ctr,position)
-        SELECT $1,r.day::date,$2,r.key,r.clicks,r.impressions,r.ctr,r.position
-        FROM jsonb_to_recordset($3::jsonb) AS r(day text,key text,clicks integer,impressions integer,ctr double precision,position double precision)
+      // One atomic report replacement, including rows Google revised away. Failed/capped fetches
+      // never reach this statement. An empty successful report is distinct from a failed request.
+      await db.query(`WITH records AS (SELECT * FROM jsonb_to_recordset($3::jsonb)
+        AS r(day text,key text,clicks integer,impressions integer,ctr double precision,position double precision)),
+        removed AS (DELETE FROM seo_search_daily d WHERE property=$1 AND dimension=$2 AND day BETWEEN $4::date AND $5::date
+          AND NOT EXISTS(SELECT 1 FROM records r WHERE r.day::date=d.day AND r.key=d.key) RETURNING 1)
+        INSERT INTO seo_search_daily(property,day,dimension,key,clicks,impressions,ctr,position)
+        SELECT $1,r.day::date,$2,r.key,r.clicks,r.impressions,r.ctr,r.position FROM records r WHERE true
         ON CONFLICT(property,day,dimension,key) DO UPDATE SET clicks=excluded.clicks,impressions=excluded.impressions,
-          ctr=excluded.ctr,position=excluded.position,ingested_at=now()`,[property,dimension,JSON.stringify(records)]);
+          ctr=excluded.ctr,position=excluded.position,ingested_at=now()`,[property,dimension,JSON.stringify(records),windows.current28.from,windows.current28.to]);
       rows+=records.length;
     }
 

@@ -39,6 +39,15 @@ describe('complete-day comparison windows',()=>{
 });
 
 describe('ingestion',()=>{
+  it('atomically clears only revised-away rows in a successful report window, even when empty',async()=>{
+    const fetcher=vi.fn(async(url:string)=>url.includes('oauth2')?json({access_token:'tok'}):url.includes('searchAnalytics')?json({rows:[]}):json({sitemap:[]})) as unknown as typeof fetch;
+    const {db:client,calls}=db();
+    await ingestGscSearchAnalytics(client,{now:NOW,env:{GSC_SERVICE_ACCOUNT_JSON:SERVICE},fetcher,dimensions:['PAGE']});
+    const statement=calls.find(c=>c.sql.includes('INSERT INTO seo_search_daily'))!;
+    expect(statement.sql).toContain('DELETE FROM seo_search_daily');
+    expect(statement.sql).toContain('property=$1 AND dimension=$2 AND day BETWEEN $4::date AND $5::date');
+    expect(statement.sql).toContain('NOT EXISTS');expect(statement.params.slice(1)).toEqual(['PAGE','[]','2026-08-27','2026-09-23']);
+  });
   it('stays NOT_CONNECTED and touches no table when no credential exists',async()=>{
     const {db:client,calls}=db();
     const result=await ingestGscSearchAnalytics(client,{now:NOW,env:{}});

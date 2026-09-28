@@ -7,7 +7,7 @@ The historical notes below are retained as the prior checkpoint, not the current
 - User approved scoped CRON_SECRET/GSC access in memory. Fresh sync succeeded at 06:44:09.947 UTC; four joined reports captured at 06:44:14.879 UTC. No credentials saved/exported; sports providerRequests=0.
 - Migration 049 APPLIED and idempotent; five immutable experiment baselines registered but not activated. 4,759 joined rows. Two offline ingestion replays passed in a rolled-back transaction.
 - Five selected metadata changes, three factual intros, contextual Brazil links, and owner experiment UI implemented. Ranking weights and technical SEO policy unchanged.
-- Final local gates: 1,572 application tests plus 17 legacy tests PASS; typecheck/lint/build/secret scan PASS. Local mobile/desktop sample has zero overflow. PR/release remains pending.
+- Final local gates: 1,573 application tests plus 17 legacy tests PASS; typecheck/lint/build/secret scan PASS. Local mobile/desktop sample has zero overflow. PR #19 contains the final release/production evidence when complete.
 - Seven-day forward current-inventory audit: Brazil 6,7,7,10,10,10,10 of ten (not historical observed rankings). No generation or provider calls.
 - Next: final gates, fetch main, PR/CI/merge, existing Vercel release, production QA, then atomic experiment activation using the verified SHA. See docs/SEO_CTR_BRAZIL_OPTIMIZATION.md and output/seo-ctr/RELEASE.md for final evidence.
 

@@ -4,7 +4,7 @@ Date: 2026-09-28. Baseline production/main: `554be5da5e110ece38e098b36807b629411
 
 ## Local acceptance
 
-- 1,572 Vitest tests across 195 files PASS; 17 legacy validation tests PASS.
+- Final rerun: 1,573 Vitest tests across 195 files PASS; 17 legacy validation tests PASS.
 - Typecheck, lint, production build and secret scan PASS (zero tracked env files, credential-value leaks and client secret references).
 - Initial concurrent build/test run had one existing scheduler timeout; complete isolated-worker rerun passed without scheduler/test-threshold changes.
 - 13 rendered routes compared with pre-release production: all HTTP 200, canonical/hreflang/robots/H1/schema types preserved; five exact selected title/description pairs applied.
@@ -15,7 +15,7 @@ Date: 2026-09-28. Baseline production/main: `554be5da5e110ece38e098b36807b629411
 
 ## Production release protocol
 
-The release PR records CI, merge SHA, existing Vercel deployment ID/status and post-release acceptance. No immediate CTR uplift is claimed.
+[Release PR #19](https://github.com/playlivaofficial/livasports/pull/19) records CI, merge SHA, existing Vercel deployment ID/status and post-release acceptance in its final evidence comment. No immediate CTR uplift is claimed.
 
 After production verification, activate only the five `seo-ctr-2026-09-28` registrations with the verified main SHA using `scripts/seo-ctr-release.ts --activate --sha=<SHA>`. The helper checks every production metadata pair, canonical and indexability before atomic activation. Repeated activation cannot shift dates.
 

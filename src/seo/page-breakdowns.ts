@@ -17,6 +17,8 @@ export async function ingestPageBreakdowns(db:QueryExecutor,token:string,propert
         const records=result.rows.map(row=>({day:row.keys[0],page:row.keys[1],key:row.keys[2],
           clicks:row.clicks,impressions:row.impressions,ctr:row.ctr,position:row.position}))
           .filter(row=>/^\d{4}-\d{2}-\d{2}$/.test(row.day)&&row.page?.startsWith('https://livasports.com/')&&typeof row.key==='string');
+        if(result.rows.some(row=>!/^\d{4}-\d{2}-\d{2}$/.test(row.keys[0])||typeof row.keys[1]!=='string'||typeof row.keys[2]!=='string'))
+          throw new GscApiError('API_ERROR',0,'Search Analytics returned malformed page rows');
         // Atomic refresh includes removal of rows Google has revised away, scoped only to this report.
         await db.query(`WITH records AS (
           SELECT * FROM jsonb_to_recordset($5::jsonb) AS r(day text,page text,key text,clicks integer,impressions integer,ctr double precision,position double precision)

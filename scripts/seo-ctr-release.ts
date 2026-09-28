@@ -12,6 +12,7 @@ import {addSearchDays} from '../src/seo/experiment-windows';
 import {isFinishedMatchDecayed} from '../src/seo/policy';
 import {readCtrOpportunities} from '../src/seo/ctr-report';
 import {readSeoSearchReport,readSeoReport} from '../src/seo/report';
+import {ingestGscSearchAnalytics} from '../src/seo/gsc-ingest';
 
 const url=databaseUrl();if(!url)throw Error('DATABASE_NOT_CONFIGURED');
 const db=new PostgresDatabaseClient(url,()=>undefined,{statementTimeoutMs:30_000});
@@ -38,6 +39,17 @@ async function main(){
         const results=await ingestPageBreakdowns(tx,'unused-offline',evidence.property,evidence.windows.current28.from,evidence.windows.current28.to,fetcher);
         if(results.some(r=>r.state!=='SUCCEEDED'))throw Error('REPLAY_SQL_FAILED');
         if((await tx.query('SELECT count(*)::int n FROM seo_page_breakdowns')).rows[0].n!==before)throw Error('REPLAY_COUNT_CHANGED');
+      }
+      const pageReport=evidence.reports.find((r:{dimension:string})=>r.dimension==='page');
+      const offline=(async(url:unknown)=>String(url).includes('oauth2.googleapis.com')?Response.json({access_token:'unused-offline'})
+        :String(url).includes('searchAnalytics')?Response.json({rows:pageReport.rows}):Response.json({sitemap:[]})) as typeof fetch;
+      for(let run=0;run<2;run++){
+        const result=await ingestGscSearchAnalytics(tx,{now:new Date(evidence.capturedAt),fetcher:offline,dimensions:['PAGE'],
+          env:{GSC_PROPERTY:evidence.property,GSC_CLIENT_ID:'offline-test',GSC_CLIENT_SECRET:'offline-test',GSC_REFRESH_TOKEN:'offline-test'}});
+        if(result.state!=='CONNECTED')throw Error('PAGE_REPLAY_FAILED');
+        const count=(await tx.query(`SELECT count(*)::int n FROM seo_search_daily WHERE property=$1 AND dimension='PAGE' AND day BETWEEN $2 AND $3`,
+          [evidence.property,evidence.windows.current28.from,evidence.windows.current28.to])).rows[0].n;
+        if(count!==pageReport.rows.length)throw Error('PAGE_REPLAY_COUNT_MISMATCH');
       }
       throw Error('VERIFIED_ROLLBACK');
     });}catch(error){if(!(error instanceof Error)||error.message!=='VERIFIED_ROLLBACK')throw error;}
