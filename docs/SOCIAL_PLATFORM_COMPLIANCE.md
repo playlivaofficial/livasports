@@ -87,3 +87,7 @@ Read-only Vercel verification: production remains `31e06f92c04191ff6ea42a356371b
 
 Candidate is released from `codex/social-platform-compliance` through a reviewed PR after the gates above. The baseline verification is not substituted for post-deployment acceptance. Deployment and controlled-generation evidence is recorded separately under ignored `output/social-policy/` and in the release handoff; no social auto-publishing is introduced.
 
+### Production roundtrip correction
+
+Migration 050 was applied through the normal migrator; a second pass applied nothing and the unique index is valid. PR #21 deployed the initial candidate. One owner-triggered production batch completed successfully with five packages in 144 seconds, zero sports-provider requests and no publishing. Production QA caught JSONB object-key reordering invalidating a byte-order-sensitive draft proof comparison. The follow-up makes proof encoding deterministic and compares existing proofs by their complete parsed JSON content: array order, text, values and asset hashes remain enforced. No database rewrite, recertification, extra voice synthesis or video rendering is needed. Regression tests cover recursive JSONB key reordering, legacy proof encoding, changed content, scene order and malformed proofs. Internal validation remains risk reduction, never platform approval.
+

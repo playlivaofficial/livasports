@@ -1,6 +1,6 @@
 import {describe,it,expect,vi} from 'vitest';
 vi.mock('server-only',()=>({}));
-import {tiktokComplianceCheck,youtubeGamblingComplianceCheck,draftCompliance,socialCompliance,socialDraftIdentity} from './socialCompliance';
+import {tiktokComplianceCheck,youtubeGamblingComplianceCheck,draftCompliance,socialCompliance,socialDraftIdentity,matchesSocialDraftIdentity,socialMasterIdentity} from './socialCompliance';
 import {generatedContent,generateV11ContentPack,fixtureSnapshot} from './content';
 import {rankedFixture,testNow} from './fixtures.test-support';
 import {socialFrames,svgText,renderSocialPackage} from './social-renderer';
@@ -77,5 +77,22 @@ describe('one source, three verified editorial exports',()=>{
     const row=rankedFixture(),g=generatedContent(row),transaction=vi.fn(),db={transaction} as unknown as DatabaseClient;
     await expect(persistGrowthItem(db,{...g,fixtureId:row.signals.fixtureId,trigger:'OWNER',priorityScore:0,scoreBreakdown:[],reasons:[],canonicalUrl:row.destinationUrl,now:testNow,force:false})).rejects.toThrow('SOCIAL_PACKAGE_INCOMPLETE');
     expect(transaction).not.toHaveBeenCalled();
+  });
+  it('preserves exact-content proof verification after JSONB recursively reorders object keys',()=>{
+    const reorder=(value:unknown):unknown=>Array.isArray(value)?value.map(reorder):value&&typeof value==='object'?Object.fromEntries(Object.entries(value).reverse().map(([k,v])=>[k,reorder(v)])):value;
+    const item=publishingItem(),draft=item.content.platforms!.TIKTOK;
+    const oldEncoding=JSON.stringify(reorder(JSON.parse(socialDraftIdentity(draft))));
+    item.platformAssets![0].socialProof!.draftIdentity=oldEncoding;
+    const stored=reorder(JSON.parse(JSON.stringify(item))) as typeof item;
+    expect(matchesSocialDraftIdentity(stored.content.platforms!.TIKTOK,oldEncoding)).toBe(true);
+    expect(socialMasterIdentity(stored.content.platforms!.TIKTOK)).toBe(socialMasterIdentity(draft));
+    for(const channel of VIDEO_CHANNELS)expect(socialExportReady(stored,channel)).toBe(true);
+    stored.content.platforms!.TIKTOK.scenes.reverse();
+    expect(socialExportReady(stored,'TIKTOK')).toBe(false);
+  });
+  it('never treats malformed or changed proof content as a key-order-only difference',()=>{
+    const draft=publishingItem().content.platforms!.TIKTOK,identity=socialDraftIdentity(draft);
+    for(const bad of [null,{},'invalid','null','{}'])expect(matchesSocialDraftIdentity(draft,bad)).toBe(false);
+    draft.caption+=' Outro contexto.';expect(matchesSocialDraftIdentity(draft,identity)).toBe(false);
   });
 });

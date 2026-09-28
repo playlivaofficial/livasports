@@ -2,7 +2,7 @@ import {CHANNEL_UTM,type GrowthVideoChannel} from './config';
 import {CREATIVE_VERSION} from './creative-version';
 import type {GrowthContentItem} from './types';
 import {canonicalAssetUrl} from './master-model';
-import {draftCompliance,SOCIAL_POLICY_VERSION,socialDraftIdentity,socialMasterIdentity,platformComplianceCheck} from './socialCompliance';
+import {draftCompliance,SOCIAL_POLICY_VERSION,matchesSocialDraftIdentity,socialMasterIdentity,platformComplianceCheck} from './socialCompliance';
 
 export type PublishingState='DRAFT'|'READY_TO_POST'|'POSTED'|'REJECTED'|'SUPERSEDED'|'blocked_for_review';
 export interface PostSnapshot {
@@ -59,7 +59,7 @@ export function socialExportReady(item:GrowthContentItem,channel:GrowthVideoChan
     &&asset?.status==='READY'&&asset.mimeType==='video/mp4'&&Number.isFinite(Date.parse(proof.checkedAt))
     &&/^[a-f0-9]{64}$/.test(proof.videoSha256)&&/^[a-f0-9]{64}$/.test(proof.coverSha256)
     &&draft.social?.sourceFixtureId===item.fixtureId
-    &&Array.isArray(proof.rejectionReasons)&&proof.rejectionReasons.length===0&&draftCompliance(draft).status==='ready'&&proof.draftIdentity===socialDraftIdentity(draft)
+    &&Array.isArray(proof.rejectionReasons)&&proof.rejectionReasons.length===0&&draftCompliance(draft).status==='ready'&&matchesSocialDraftIdentity(draft,proof.draftIdentity)
     &&proof.videoSha256===asset?.sha256&&!!proof.coverSha256&&proof.coverSha256===asset?.coverSha256;
 }
 export function publishingState(item:GrowthContentItem,channel:GrowthVideoChannel,post?:PostingReceipt):PublishingState {
