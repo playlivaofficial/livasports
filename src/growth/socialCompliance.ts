@@ -80,7 +80,14 @@ export function draftCompliance(draft:GrowthPlatformDraft,renderedText:string[]=
   }
   return result;
 }
+/** JSONB reorders object keys, but never array order. Preserve every value in a canonical encoding. */
+function stableJson(value:unknown):string{return JSON.stringify(value,(_key,v)=>v&&typeof v==='object'&&!Array.isArray(v)?Object.fromEntries(Object.keys(v).sort().map(k=>[k,v[k]])):v);}
 /** Excludes timings (narration adjusts them), never excludes any visible text or asset identity. */
-export function socialDraftIdentity(draft:GrowthPlatformDraft){return JSON.stringify({channel:draft.channel,title:draft.title,description:draft.description,hook:draft.hook,script:draft.script,caption:draft.caption,hashtags:draft.hashtags,cta:draft.cta,template:draft.template,creative:draft.creative,social:draft.social,scenes:draft.scenes.map(scene=>({...scene,startSeconds:undefined,durationSeconds:undefined}))});}
+export function socialDraftIdentity(draft:GrowthPlatformDraft){return stableJson({channel:draft.channel,title:draft.title,description:draft.description,hook:draft.hook,script:draft.script,caption:draft.caption,hashtags:draft.hashtags,cta:draft.cta,template:draft.template,creative:draft.creative,social:draft.social,scenes:draft.scenes.map(scene=>({...scene,startSeconds:undefined,durationSeconds:undefined}))});}
+/** Accept existing exact-content proofs regardless of JSON object-key order; no recertification or writes. */
+export function matchesSocialDraftIdentity(draft:GrowthPlatformDraft,identity:unknown):boolean{
+  if(typeof identity!=='string')return false;
+  try{return stableJson(JSON.parse(identity))===socialDraftIdentity(draft);}catch{return false;}
+}
 /** Posting copy may differ; rendered narrative/artwork may not. */
-export function socialMasterIdentity(draft:GrowthPlatformDraft){return JSON.stringify({script:draft.script,template:draft.template,creative:draft.creative,scenes:draft.scenes.map(scene=>({...scene,startSeconds:undefined,durationSeconds:undefined}))});}
+export function socialMasterIdentity(draft:GrowthPlatformDraft){return stableJson({script:draft.script,template:draft.template,creative:draft.creative,scenes:draft.scenes.map(scene=>({...scene,startSeconds:undefined,durationSeconds:undefined}))});}
