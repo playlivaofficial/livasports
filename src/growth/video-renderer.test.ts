@@ -1,6 +1,7 @@
 import {describe,expect,it,vi} from 'vitest';
 vi.mock('server-only',()=>({}));
-import {generateV11ContentPack,fixtureSnapshot} from './content';
+import {generatedContent,fixtureSnapshot} from './content';
+const generateV11ContentPack=(...args:Parameters<typeof generatedContent>)=>generatedContent(...args).content;
 import {rankedFixture} from './fixtures.test-support';
 import {renderGrowthVideo,renderGrowthVideos} from './video-renderer';
 
@@ -19,7 +20,7 @@ describe('Traffic Engine V1.1 MP4 renderer',()=>{
     const repeated=await renderGrowthVideo(draft,fixtureSnapshot(row),{assetLoader:async()=>null});expect(repeated.sha256).toBe(rendered.sha256);
   },120_000);
   it('renders all platform outputs through the bounded-memory batch path',async()=>{
-    const base=rankedFixture(),row=rankedFixture({home:{...base.signals.home,imageUrl:'https://cdn.sportmonks.com/football/teams/1.png'},away:{...base.signals.away,imageUrl:'https://cdn.sportmonks.com/football/teams/2.png'}}),pack=generateV11ContentPack(row,1,[row]);
+    const base=rankedFixture(),row=rankedFixture({home:{...base.signals.home,imageUrl:'https://cdn.sportmonks.com/images/soccer/teams/1.png'},away:{...base.signals.away,imageUrl:'https://cdn.sportmonks.com/images/soccer/teams/2.png'}}),pack=generateV11ContentPack(row,1,[row]);
     const loader=vi.fn(async()=>null),rendered=await renderGrowthVideos(pack.platforms!,fixtureSnapshot(row),{assetLoader:loader});
     expect(rendered).toHaveLength(3);expect(rendered.map(item=>item.channel)).toEqual(['TIKTOK','INSTAGRAM_REELS','YOUTUBE_SHORTS']);
     expect(rendered.every(item=>item.status==='READY'&&item.byteLength>20_000)).toBe(true);

@@ -36,7 +36,7 @@ export interface GrowthIntentCluster {primary:string;queries:string[];canonicalU
 export interface GrowthSeoPriority {level:'TOP_5'|'TOP_10'|'STANDARD';rank:number;score:number;intent:GrowthIntentCluster;placements:string[];context:string;}
 export interface GrowthSelectedPlayer {id:string;publicId:string;teamId:string;teamName:string;name:string;selectionReason:string;evidenceScore:number;statistics:GrowthPlayerStatistics;media:GrowthMediaRights;}
 export interface GrowthSceneAsset {kind:'TEAM_CREST'|'PLAYER_IMAGE'|'PLAYER_SILHOUETTE'|'NONE';label:string;url:string|null;commercialEligible:boolean;}
-export interface GrowthVideoScene {order:number;startSeconds:number;durationSeconds:number;template:GrowthCreativeTemplate;visual:'HOOK'|'MATCHUP'|'PLAYER'|'CONTEXT'|'ODDS'|'CTA'|'WATCHLIST';assets:GrowthSceneAsset[];headline:string;subtitle:string;voiceover:string;transition:'CUT'|'FADE'|'SLIDE';}
+export interface GrowthVideoScene {order:number;startSeconds:number;durationSeconds:number;template:GrowthCreativeTemplate;visual:'HOOK'|'MATCHUP'|'PLAYER'|'CONTEXT'|'EDITORIAL_DATA'|'ODDS'|'CTA'|'WATCHLIST';assets:GrowthSceneAsset[];headline:string;subtitle:string;voiceover:string;transition:'CUT'|'FADE'|'SLIDE';}
 export interface GrowthCreativeDirection {
   version:'PREMIUM_1';scenery:string[];characters:'LIVA_ORIGINAL'|'NONE';poses:string[];
   promo:'DISCOVER'|'CONTINUE'|'EXPLORE';hookFamily:string;ctaFamily:string;
@@ -51,6 +51,7 @@ export interface GrowthRenderVoice {mode:string;provider:string;lines:number;deg
   cache?:{memoryHits:number;storeHits:number;synthesized:number;characters:number};}
 export interface GrowthAudioSource {id:string;file:string;sha256:string|null;origin:'ORIGINAL_PROCEDURAL';license:string;}
 export interface GrowthRenderMetadata {
+  socialProofs?:Partial<Record<GrowthVideoChannel,SocialAssetProof>>;
   voice:GrowthRenderVoice;
   characterMode:'LIVA_ORIGINAL'|'CREST_FALLBACK'|'NONE';scenery:string[];durationSeconds:number;renderMs:number;
   /** Wall-clock per render stage, so serverless headroom is measured in production, not guessed. */
@@ -63,14 +64,18 @@ export interface GrowthRenderMetadata {
     mix:{hierarchy:'VOICE>MUSIC>AMBIENCE';targetLufs:number;truePeakCeilingDb:number;musicDb:number;ambienceDb:number;sfxDb:number;
       ducking:{threshold:number;ratio:number;attackMs:number;releaseMs:number};measuredInputLufs:number|null;outputLufs:number|null;outputTruePeakDb:number|null;loudnessRange:number|null}};
 }
-export interface GrowthPlatformDraft {channel:GrowthVideoChannel;title:string;description:string;hook:string;script:string;caption:string;hashtags:string[];cta:string;template:GrowthCreativeTemplate;scenes:GrowthVideoScene[];creative?:GrowthCreativeDirection;}
+export interface GrowthPlatformDraft {channel:GrowthVideoChannel;title:string;description:string;hook:string;script:string;caption:string;hashtags:string[];cta:string;template:GrowthCreativeTemplate;scenes:GrowthVideoScene[];creative?:GrowthCreativeDirection;
+  social?:{policyVersion:string;mode:'EDITORIAL';coverText:string;altText:string;sourceFixtureId:string;generatedAt:string;targetGeo:string;metadata:Record<string,string>};}
 export type GrowthAssetKind='MASTER_VIDEO'|'STORY_IMAGE'|'FEED_IMAGE';
 export interface GrowthCanonicalAsset {id:string;kind:GrowthAssetKind;creativeVersion:string;mimeType:'video/mp4'|'image/png';width:1080;height:1920|1350;sha256:string;byteLength:number;generatedAt:string;renderMetadata?:GrowthRenderMetadata;}
 export interface GrowthReadiness {score:number;state:'READY'|'NEEDS_REVIEW'|'FALLBACK';reasons:string[];fallbackApplied:boolean;}
-export interface GrowthPlatformAsset {channel:GrowthVideoChannel;creativeVersion?:string|null;status:'READY'|'FAILED'|'PENDING';mimeType:string|null;sha256:string|null;byteLength:number|null;generatedAt:string|null;errorCode:string|null;renderMetadata?:GrowthRenderMetadata;}
+export interface GrowthPlatformAsset {channel:GrowthVideoChannel;creativeVersion?:string|null;status:'READY'|'FAILED'|'PENDING';mimeType:string|null;sha256:string|null;byteLength:number|null;generatedAt:string|null;errorCode:string|null;renderMetadata?:GrowthRenderMetadata;socialProof?:SocialAssetProof;coverSha256?:string|null;}
+export interface SocialAssetProof {policyVersion:string;status:'ready'|'blocked_for_review';rejectionReasons:string[];draftIdentity:string;videoSha256:string;coverSha256:string;feedSha256:string;checkedAt:string;}
+export interface SocialContentSource {fixture:GrowthFixtureSnapshot;teams:{home:GrowthFixtureSnapshot['home'];away:GrowthFixtureSnapshot['away']};competition:GrowthFixtureSnapshot['competition'];locale:'pt-BR';stats:{standings:GrowthFixtureSnapshot['standings']};form:GrowthStorySignals['form']|null;h2h:null;markets:GrowthOddsSummary;operators:GrowthOddsBookmaker[];targetGeo:'BR';generatedAt:string;}
 export interface GrowthContentPack {
-  assetModel?:'MASTER_V1';
-  /** Sole persisted narrative/scene plan. Platform projections are read-time text/state adapters only. */
+  assetModel?:'MASTER_V1'|'SOCIAL_V2';
+  socialSource?:SocialContentSource;
+  /** One strict editorial master; platform posting copy has independent policy proofs. */
   masterSocial?:GrowthPlatformDraft;
   locale:'pt-BR';
   headline:string;

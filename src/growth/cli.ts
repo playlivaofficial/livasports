@@ -13,6 +13,7 @@ import {generatedContent} from './content';
 import {renderGrowthVideo,growthSceneSvg} from './video-renderer';
 import {renderCanonicalStatics} from './canonical-renderer';
 import {databaseVoiceStore} from './voice-store';
+import {socialExportReady} from './manual-publishing';
 import {voiceConfigured,voicesPinned} from './voice';
 import type {GrowthRenderMetadata} from './types';
 import {newOwnerSession,ownerCookie,signOwnerSession} from '@/owner/session';
@@ -92,6 +93,7 @@ try{
       const item=items.find(row=>row.fixtureId===priority.fixtureId);
       if(!item||item.content.platforms?.TIKTOK.creative?.version!=='PREMIUM_1')throw new Error('PREMIUM_TOP5_INCOMPLETE');
       for(const channel of ['TIKTOK','INSTAGRAM_REELS','YOUTUBE_SHORTS'] as const){
+        if(!socialExportReady(item,channel))throw new Error('SOCIAL_BLOCKED_FOR_REVIEW');
         const video=await readGrowthVideo(db,item.id,channel);
         if(!video?.renderMetadata||video.renderMetadata.voice.degradedReason)throw new Error('PRODUCTION_VIDEO_INCOMPLETE');
         const file=join(directory,`${index+1}-${item.fixture.publicId}-${channel.toLowerCase()}.mp4`);

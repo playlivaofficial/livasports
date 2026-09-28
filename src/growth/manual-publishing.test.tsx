@@ -11,7 +11,7 @@ import {latestQueueItems} from './GrowthQueue';
 describe('manual social publishing contract',()=>{
   it('pins primary downloads to the exact current platform, version and hash',()=>{
     const item=publishingItem(),url=currentVideoUrl(item,'TIKTOK',true)!;
-    expect(url).toContain('/video/TIKTOK?');expect(new URL(url,'https://livasports.com').searchParams.get('version')).toBe(CREATIVE_VERSION);
+    expect(url).toContain('/media/MASTER_VIDEO?');expect(new URL(url,'https://livasports.com').searchParams.get('version')).toBe(CREATIVE_VERSION);
     expect(url).toContain('sha='+ 'a'.repeat(64));expect(url).toContain('download=1');
     expect(videoFilename({...item,fixture:{...item.fixture,home:{...item.fixture.home,name:'São Paulo / "\r\n'},away:{...item.fixture.away,name:'Athletic Club'}}},'TIKTOK')).toBe('livasports_tiktok_sao-paulo-vs-athletic-club_2026-09-22_r2.mp4');
   });

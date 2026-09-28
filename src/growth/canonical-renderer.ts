@@ -3,6 +3,7 @@ import sharp from 'sharp';
 import {createHash} from 'node:crypto';
 import {sceneLayerSvgs,renderGrowthVideo,type VideoRendererOptions} from './video-renderer';
 import {BRAND,brandDefsSvg,livaSportsLockupSvg} from './brand';
+import {draftCompliance,EDITORIAL_COPY} from './socialCompliance';
 import type {GrowthAssetKind,GrowthFixtureSnapshot,GrowthPlatformDraft,GrowthRenderMetadata} from './types';
 
 export interface CanonicalRender {kind:GrowthAssetKind;mimeType:'video/mp4'|'image/png';width:1080;height:1920|1350;data:Buffer;sha256:string;byteLength:number;renderMetadata?:GrowthRenderMetadata;}
@@ -17,6 +18,7 @@ function fit(value:string,y:number,width=920,size=48){
 /** Dedicated standalone layout, not a video screenshot or a stretched 9:16 bitmap.
  * Same original artwork/palettes/poses as the master; no voice or FFmpeg dependency is invoked. */
 export async function renderCanonicalStatics(draft:GrowthPlatformDraft,fixture:GrowthFixtureSnapshot,options:VideoRendererOptions={}):Promise<CanonicalRender[]>{
+  if(draftCompliance(draft).status!=='ready')throw Error('SOCIAL_BLOCKED_FOR_REVIEW');
   const hook=draft.scenes[0],layers=await sceneLayerSvgs({...hook,visual:'HOOK'},fixture,draft,options);
   const defs=/<defs>([\s\S]*?)<\/defs>/.exec(layers.background)?.[1]??brandDefsSvg();
   const time=new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date(fixture.kickoff));
@@ -33,9 +35,10 @@ export async function renderCanonicalStatics(draft:GrowthPlatformDraft,fixture:G
       `<g transform="translate(${540*(1-heroScale)} ${heroY}) scale(${heroScale})">${hero}</g>`+
       `<rect x="56" y="${detailsY-64}" width="968" height="${story?345:236}" rx="28" fill="#06131ced" stroke="#ffffff24"/>`+
       fit(fixture.competition.name,detailsY,900,36)+text(`${time} · Brasília`,detailsY+58,34,'#d3e2e5')+
-      text('COMPARE AS ODDS NO LIVASPORTS.COM',detailsY+124,story?36:32,BRAND.livasports.accent)+
-      (story?text('Dados do jogo → comparação → Meu bilhete',detailsY+191,29):'')+
-      text('18+ · Informação, não recomendação de aposta',height-(story?180:35),23,'#b5c9cc')+'</svg>';
+      fit(EDITORIAL_COPY.TIKTOK.cta,detailsY+124,900,story?32:27)+
+      text('Futebol · Dados · Análise',height-(story?180:35),23,'#b5c9cc')+'</svg>';
+    const rendered=[...svg.matchAll(/<text\b[^>]*>([\s\S]*?)<\/text>/g)].map(m=>m[1].replace(/<[^>]+>/g,''));
+    if(draftCompliance(draft,rendered).status!=='ready')throw Error('SOCIAL_RENDER_BLOCKED_FOR_REVIEW');
     const data=await sharp(Buffer.from(svg)).png({compressionLevel:9}).toBuffer();
     if(data.length>4_000_000)throw Error('STATIC_SIZE_INVALID');
     results.push({kind,mimeType:'image/png',width:1080,height:height as 1920|1350,data,sha256:createHash('sha256').update(data).digest('hex'),byteLength:data.length});

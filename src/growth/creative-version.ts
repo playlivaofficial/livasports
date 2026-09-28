@@ -14,7 +14,7 @@ import {AUDIO_LIBRARY_VERSION} from './audio-design';
  * a new narration style. The next ordinary scheduler run then sees active current content as stale and
  * regenerates it exactly once; nothing has to be cleaned up by hand.
  */
-export const CREATIVE_STACK_REVISION=2 as const;
+export const CREATIVE_STACK_REVISION=3 as const;
 
 /**
  * Composed so a change to any tracked part of the stack changes the identity on its own. Everything in

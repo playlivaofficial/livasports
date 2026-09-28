@@ -21,6 +21,8 @@ import {alignTransitions,planMotion,planMasterMotion,sceneTimeline} from './moti
 import {buildMotionGraph,type PlacedLayer,type PreparedScene,type SharedLayers} from './motion-graph';
 import {AUDIO_FILES,AUDIO_LIBRARY_VERSION,MIX,placeEffects,selectAudioDirection} from './audio-design';
 import {buildMixGraph,loudnormFilter,parseLoudnorm} from './audio-mix';
+import {draftCompliance,EDITORIAL_COPY,platformComplianceCheck} from './socialCompliance';
+import {spokenLine} from './spoken';
 
 
 export interface RenderedGrowthVideo {channel:GrowthVideoChannel;status:'READY';mimeType:'video/mp4';sha256:string;byteLength:number;data:Buffer;
@@ -89,7 +91,7 @@ const brazilKickoff=(value:string)=>{
   return Number.isFinite(at.getTime())?`${brazilKickoffFormatter.format(at).replace(',',' ·')} · horário de Brasília`:'';
 };
 
-async function remoteAsset(url:string):Promise<string|null>{
+export async function remoteAsset(url:string):Promise<string|null>{
   let parsed:URL;try{parsed=new URL(url);}catch{return null;}
   if(parsed.protocol!=='https:'||!['cdn.sportmonks.com','livasports.com','www.livasports.com'].includes(parsed.hostname))return null;
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),5000);
@@ -117,6 +119,8 @@ const svgDocument=(content:string,defs='',size:{width:number;height:number}={wid
  * are pixel-for-pixel the same design.
  */
 export async function sceneLayerSvgs(scene:GrowthVideoScene,fixture:GrowthFixtureSnapshot,draft:GrowthPlatformDraft,options:VideoRendererOptions={}):Promise<SceneLayerSvgs>{
+  const editorial=draft.social?.mode==='EDITORIAL';
+  if(editorial&&(scene.visual==='ODDS'||draftCompliance(draft).status!=='ready'))throw Error('SOCIAL_BLOCKED_FOR_REVIEW');
   const channel=draft.channel,load=options.assetLoader??remoteAsset;
   const assets=await Promise.all(scene.assets.slice(0,2).map(async asset=>({...asset,data:asset.url?await load(asset.url):null})));
   // V1.2: one brand accent on every platform. Platforms differ by composition, pacing and geometry.
@@ -126,7 +130,7 @@ export async function sceneLayerSvgs(scene:GrowthVideoScene,fixture:GrowthFixtur
   const family=sceneFamily(scene,fixture,draft);
   const sceneryArt=await (options.sceneryLoader??loadSceneryArt)(family);
   const scenery= sceneryArt?`<image href="${sceneryArt}" x="${family==='CROWD_ATMOSPHERE'?-180:0}" y="${family==='CROWD_ATMOSPHERE'?-400:0}" width="${family==='CROWD_ATMOSPHERE'?1440:1080}" height="${family==='CROWD_ATMOSPHERE'?2560:1920}" preserveAspectRatio="xMidYMid slice"/><rect width="1080" height="1920" fill="#041218" opacity="${family==='EDITORIAL_SPORTS'?'.70':family==='PITCH_MATCHDAY'?'.25':'.42'}"/><rect width="1080" height="1920" fill="url(#sc-vig)"/>`:scenerySvg(family,'sc',sceneSeed);
-  const visualAssets=!["ODDS","CTA","WATCHLIST"].includes(scene.visual);
+  const visualAssets=!["ODDS","CTA","WATCHLIST","EDITORIAL_DATA"].includes(scene.visual);
   const palettes=matchPalettes({slug:fixture.home.slug??'',name:fixture.home.name},{slug:fixture.away.slug??'',name:fixture.away.name});
   const posePair=draft.creative?.poses.length===2&&draft.creative.poses.every(pose=>CHARACTER_POSES.includes(pose as CharacterPose))?draft.creative.poses as [CharacterPose,CharacterPose]:clashPoses(`${fixture.fixtureId}:${channel}`);
   const identities=draft.creative?.identities?.length===2?draft.creative.identities:['curly','fade'] as const;
@@ -170,6 +174,10 @@ export async function sceneLayerSvgs(scene:GrowthVideoScene,fixture:GrowthFixtur
   const watchlistItems=scene.visual==='WATCHLIST'?scene.subtitle.split(/\s+•\s+/).slice(0,5):[];
   // Centre pieces enter one after another: list rows, odds columns, CTA steps.
   const center:string[]=[];
+  if(scene.visual==='EDITORIAL_DATA')scene.subtitle.split(' • ').slice(0,2).forEach((line,i)=>{
+    center.push(`<rect x="76" y="${535+i*260}" width="928" height="228" rx="28" fill="#06131cee" stroke="${accent}" stroke-width="2"/>`+
+      block(wrappedLines(line,34),112,610+i*260,38,'start',800));
+  });
   if(versus)center.push(versus);
   if(scene.visual==='WATCHLIST')watchlistItems.forEach((item,index)=>{const size=Math.max(22,Math.min(34,Math.floor(810/Math.max(1,item.length*.57))));
     center.push(`<rect x="76" y="${520+index*135}" width="928" height="104" rx="${channel==='INSTAGRAM_REELS'?38:18}" fill="#ffffff0b" stroke="${index===0?accent:'#ffffff20'}" stroke-width="${index===0?3:2}"/><circle cx="126" cy="${572+index*135}" r="27" fill="${index===0?accent:'#183442'}"/><text x="126" y="${582+index*135}" text-anchor="middle" fill="${index===0?'#07131c':'#f7fbff'}" font-family="Arial" font-size="26" font-weight="900">${index+1}</text><text x="174" y="${582+index*135}" fill="#f7fbff" font-family="Arial" font-size="${size}" font-weight="800">${escape(item.replace(/^\d+\.\s*/,''))}</text>`);});
@@ -178,7 +186,11 @@ export async function sceneLayerSvgs(scene:GrowthVideoScene,fixture:GrowthFixtur
     [0,1,2].forEach(index=>{const cx=220+index*320;center.push(`<text x="${cx}" y="900" text-anchor="middle" fill="${index===1?accent:'#f7fbff'}" font-family="Arial" font-size="168" font-weight="900" font-style="${channel==='TIKTOK'?'italic':'normal'}">${['1','X','2'][index]}</text><text x="${cx}" y="962" text-anchor="middle" fill="#d3e2e5" font-family="Arial" font-size="24" font-weight="800" letter-spacing="4">${['CASA','EMPATE','FORA'][index]}</text>${index<2?`<path d="M${cx+160} 765 V978" stroke="#ffffff30" stroke-width="2"/>`:''}`);});
     center.push(`<path d="M76 1028 H1004" stroke="#ffffff55" stroke-width="2"/><text x="540" y="1125" text-anchor="middle" fill="#f7fbff" font-family="Arial" font-size="34" font-weight="900">MESMO JOGO. MESMO MERCADO.</text><text x="540" y="1184" text-anchor="middle" fill="${accent}" font-family="Arial" font-size="28" letter-spacing="3">COMPARE OS PREÇOS</text>`);
   }
-  if(scene.visual==='CTA'){
+  if(scene.visual==='CTA'&&editorial){
+    EDITORIAL_COPY.TIKTOK.steps.forEach((label,index)=>center.push(`<rect x="90" y="${520+index*145}" width="900" height="115" rx="24" fill="#06131cee" stroke="${accent}" stroke-width="2"/>`+block([label],540,593+index*145,36,'middle',900)));
+    center.push(block(['MAIS DADOS NO LIVASPORTS'],540,1100,34,'middle',900,accent));
+  }
+  if(scene.visual==='CTA'&&!editorial){
     if(channel==='TIKTOK')['ABRE O JOGO','COMPARA AS ODDS','MONTA SEU BILHETE'].forEach((label,index)=>center.push(`<g transform="translate(${110+index*42} ${530+index*132}) rotate(-3)"><rect width="${780-index*40}" height="100" rx="12" fill="${index===1?accent:'#06131cef'}" stroke="${accent}" stroke-width="3"/><text x="32" y="66" fill="${index===1?'#07131c':'#f7fbff'}" font-family="Arial" font-size="40" font-weight="900">${index+1}. ${label}</text></g>`));
     else if(channel==='INSTAGRAM_REELS')center.push(`<circle cx="540" cy="760" r="233" fill="#06131cce" stroke="${accent}" stroke-width="3"/><circle cx="540" cy="760" r="216" fill="none" stroke="#ffffff25"/><text x="540" y="670" text-anchor="middle" fill="#d7eae5" font-family="Arial" font-size="27" letter-spacing="5">O JOGO CONTINUA</text><text x="540" y="760" text-anchor="middle" fill="${accent}" font-family="Arial" font-size="55" font-weight="900">Compare.</text><text x="540" y="832" text-anchor="middle" fill="#f7fbff" font-family="Arial" font-size="55" font-weight="900">Decida.</text><text x="540" y="900" text-anchor="middle" fill="#d7eae5" font-family="Arial" font-size="25">DADOS · ODDS · MEU BILHETE</text>`);
     else ['DADOS DO CONFRONTO','COMPARAÇÃO DE ODDS','MEU BILHETE'].forEach((label,index)=>center.push(`<rect x="110" y="${510+index*144}" width="860" height="114" rx="18" fill="#06131cf2" stroke="${accent}" stroke-width="2"/><circle cx="178" cy="${567+index*144}" r="32" fill="${accent}"/><text x="178" y="${578+index*144}" text-anchor="middle" fill="#07131c" font-family="Arial" font-size="30" font-weight="900">${index+1}</text><text x="244" y="${578+index*144}" fill="#f7fbff" font-family="Arial" font-size="34" font-weight="900">${label}</text>`));
@@ -201,11 +213,11 @@ export async function sceneLayerSvgs(scene:GrowthVideoScene,fixture:GrowthFixtur
   const subtitle=channel==='TIKTOK'?`<rect x="76" y="${VIDEO.subtitleTop}" rx="22" width="928" height="${VIDEO.subtitleBottom-VIDEO.subtitleTop}" fill="#06131cf5"/><rect x="76" y="${VIDEO.subtitleTop}" width="14" height="${VIDEO.subtitleBottom-VIDEO.subtitleTop}" fill="${accent}"/>`
     :channel==='INSTAGRAM_REELS'?`<rect x="76" y="${VIDEO.subtitleTop}" rx="48" width="928" height="${VIDEO.subtitleBottom-VIDEO.subtitleTop}" fill="#07131cdd" stroke="#ffffff32" stroke-width="3"/>`
       :`<rect x="76" y="${VIDEO.subtitleTop}" rx="16" width="928" height="${VIDEO.subtitleBottom-VIDEO.subtitleTop}" fill="#07131cf5" stroke="${accent}" stroke-width="3"/><rect x="112" y="${VIDEO.subtitleTop+30}" width="150" height="42" rx="21" fill="${accent}"/><text x="187" y="${VIDEO.subtitleTop+59}" text-anchor="middle" fill="#07131c" font-family="Arial" font-size="20" font-weight="900">RESUMO</text>`;
-  const subtitleCopy=scene.visual==='WATCHLIST'?'Cinco confrontos para acompanhar. Veja a agenda completa no LivaSports.com.':scene.subtitle;
+  const subtitleCopy=draft.social?.mode==='EDITORIAL'?spokenLine(scene.voiceover,{mode:CHANNEL_VOICE[draft.channel],hook:scene.order===1}):scene.visual==='WATCHLIST'?'Cinco confrontos para acompanhar. Veja a agenda completa no LivaSports.com.':scene.subtitle;
   const footerSize=Math.max(20,Math.min(28,Math.floor(850/Math.max(1,fixture.competition.name.length*.55))));
   const foreground=`${contextStrip}${characterMode?`<text x="540" y="1158" text-anchor="middle" fill="#cadbd5" font-family="Arial" font-size="17" letter-spacing="2">PERSONAGENS LIVA · ARTE ORIGINAL</text>`:''}`+
     `${options.master&&scene.visual==='HOOK'?`<text x="540" y="1302" text-anchor="middle" fill="#edf5f1" font-family="Arial" font-size="25">${escape(brazilKickoff(fixture.kickoff))}</text>`:''}`+
-    `${scene.visual==='CTA'?playLivaPromoSvg(draft.creative?.promo??'DISCOVER'):''}${subtitle}`+
+    `${scene.visual==='CTA'&&!editorial?playLivaPromoSvg(draft.creative?.promo??'DISCOVER'):''}${subtitle}`+
     `${fittedSubtitle(subtitleCopy,channel==='TIKTOK'?112:540,VIDEO.subtitleTop+(channel==='YOUTUBE_SHORTS'?120:105),channel==='TIKTOK'?'start':'middle')}`+
     `<text x="540" y="1770" text-anchor="middle" fill="${accent}" font-family="Arial" font-size="${footerSize}" font-weight="800">${escape(fixture.competition.name)} · ${scene.order}</text>`;
   const defs=`${sceneryDefs('sc',family)}<radialGradient id="glow"><stop stop-color="${accent}" stop-opacity=".18"/><stop offset="1" stop-color="${accent}" stop-opacity="0"/></radialGradient>`;
@@ -234,8 +246,8 @@ function sceneFamily(scene:GrowthVideoScene,fixture:GrowthFixtureSnapshot,draft:
 
 const PROGRESS={x:76,y:1830,width:928,height:10} as const;
 /** Static pieces that persist across every cut: lockup and label, top rule, progress track, Shorts edge bar. */
-function chromeSvgs(channel:GrowthVideoChannel,master=false):string[]{
-  const topLabel=master?'FUTEBOL · DADOS · ODDS':channel==='TIKTOK'?'RÁPIDO E DIRETO':channel==='INSTAGRAM_REELS'?'EM CAMPO':'GUIA EM 5 CENAS';
+function chromeSvgs(channel:GrowthVideoChannel,master=false,editorial=false):string[]{
+  const topLabel=editorial?'FUTEBOL · DADOS · ANÁLISE':master?'FUTEBOL · DADOS · ODDS':channel==='TIKTOK'?'RÁPIDO E DIRETO':channel==='INSTAGRAM_REELS'?'EM CAMPO':'GUIA EM 5 CENAS';
   const pieces=[
     `${livaSportsLockupSvg({x:76,y:78,size:34})}<text x="1000" y="112" text-anchor="end" fill="${BRAND.livasports.muted}" font-family="Arial" font-size="21" letter-spacing="4">${topLabel}</text><rect x="76" y="154" width="928" height="3" fill="#2a4959"/>`,
     `<rect x="${PROGRESS.x}" y="${PROGRESS.y}" width="${PROGRESS.width}" height="${PROGRESS.height}" rx="5" fill="#06131c" fill-opacity=".55" stroke="#345463" stroke-width="2"/>`,
@@ -249,10 +261,10 @@ export async function growthSceneSvg(scene:GrowthVideoScene,fixture:GrowthFixtur
   const layers=await sceneLayerSvgs(scene,fixture,draft,options);
   const inner=(svg:string)=>svg.replace(/^<svg[^>]*><defs>[\s\S]*?<\/defs>/,'').replace(/<\/svg>$/,'');
   const defs=/<defs>([\s\S]*?)<\/defs>/.exec(layers.background)?.[1]??'';
-  const staticProgress=`<rect x="${PROGRESS.x}" y="${PROGRESS.y}" width="${Math.round(PROGRESS.width*(scene.order/5))}" height="${PROGRESS.height}" rx="5" fill="${BRAND.livasports.accent}"/>`;
+  const staticProgress=`<rect x="${PROGRESS.x}" y="${PROGRESS.y}" width="${Math.round(PROGRESS.width*(scene.order/draft.scenes.length))}" height="${PROGRESS.height}" rx="5" fill="${BRAND.livasports.accent}"/>`;
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${VIDEO.width}" height="${VIDEO.height}" viewBox="0 0 ${VIDEO.width} ${VIDEO.height}"><defs>${defs}</defs>`+
     [layers.background,layers.headline,layers.left,layers.right,...layers.center,layers.foreground].map(inner).join('')+
-    chromeSvgs(draft.channel,options.master).map(inner).join('')+staticProgress+'</svg>';
+    chromeSvgs(draft.channel,options.master,!!draft.social).map(inner).join('')+staticProgress+'</svg>';
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -307,12 +319,12 @@ function sharedArtwork(){
     return out;
   })().catch(error=>{sharedArt=undefined;throw error;});
 }
-async function writeShared(directory:string,channel:GrowthVideoChannel,master=false):Promise<SharedLayers>{
+async function writeShared(directory:string,channel:GrowthVideoChannel,master=false,editorial=false):Promise<SharedLayers>{
   const art=await sharedArtwork(),place=async(key:string)=>{const item=art.get(key)!,path=join(directory,`shared-${key.toLowerCase()}.png`);await writeFile(path,item.png);return {path,x:item.x,y:item.y,width:item.width,height:item.height};};
   const atmosphere:SharedLayers['atmosphere']={};
   for(const key of ['LIGHT_SWEEP','HAZE','CROWD_SHIMMER','CROWD_SHIMMER_B','TUNNEL_GLOW','EDITORIAL_LINES','PITCH_GLIDE'] as const)atmosphere[key]=await place(key);
   const chrome:PlacedLayer[]=[];
-  for(const [index,svg] of chromeSvgs(channel,master).entries()){const layer=await rasterLayer(svg,join(directory,`chrome-${index}.png`));if(layer)chrome.push(layer);}
+  for(const [index,svg] of chromeSvgs(channel,master,editorial).entries()){const layer=await rasterLayer(svg,join(directory,`chrome-${index}.png`));if(layer)chrome.push(layer);}
   return {chrome,progressFill:(await place('PROGRESS_FILL')).path,atmosphere};
 }
 
@@ -335,6 +347,7 @@ const durationOf=(probe:string)=>{const match=/Duration: (\d+):(\d+):(\d+(?:\.\d
 async function buildNarrationAudio(draft:GrowthPlatformDraft,directory:string,options:VideoRendererOptions):Promise<NarrationAudio>{
   const mode=CHANNEL_VOICE[draft.channel];
   const lines=draft.scenes.map(scene=>({order:scene.order,startSeconds:scene.startSeconds,text:scene.voiceover}));
+  if(platformComplianceCheck(draft.channel,{voiceoverScript:lines.map((line,index)=>spokenLine(line.text,{mode,hook:index===0})).join(' ')}).status!=='ready')throw Error('SOCIAL_VOICE_BLOCKED_FOR_REVIEW');
   const narration=await narrateScenes(lines,mode,{provider:options.voice,cache:options.voiceCache,store:options.voiceStore,deadlineMs:options.deadlineMs});
   const files:NarrationAudio['files']=[];
   for(const line of narration.clips){
@@ -361,6 +374,7 @@ function audioProvenance(){
 }
 
 export async function renderGrowthVideo(draft:GrowthPlatformDraft,fixture:GrowthFixtureSnapshot,options:VideoRendererOptions={}):Promise<RenderedGrowthVideo>{
+  if(draftCompliance(draft).status!=='ready')throw Error('SOCIAL_BLOCKED_FOR_REVIEW');
   const started=Date.now(),fps=options.fps??VIDEO.fps;
   options={...options,deadlineMs:options.deadlineMs??started+90_000};
   if(started>=options.deadlineMs!)throw new Error('RENDER_BUDGET_EXCEEDED');
@@ -385,6 +399,9 @@ export async function renderGrowthVideo(draft:GrowthPlatformDraft,fixture:Growth
     for(const scene of timedScenes){
       if(Date.now()>=options.deadlineMs!)throw new Error('RENDER_BUDGET_EXCEEDED');
       const layers=await sceneLayerSvgs(scene,fixture,draft,options),base=join(directory,`scene-${scene.order}`);
+      const actualText=[...Object.values(layers).flat(),...chromeSvgs(draft.channel,options.master,true)]
+        .filter((v):v is string=>typeof v==='string').flatMap(svg=>[...svg.matchAll(/<text\b[^>]*>([\s\S]*?)<\/text>/g)].map(m=>m[1].replace(/<[^>]+>/g,'')));
+      if(draftCompliance(draft,actualText).status!=='ready')throw Error('SOCIAL_RENDER_BLOCKED_FOR_REVIEW');
       drawnCharacters||=layers.left.includes('data-liva-character=')||layers.right.includes('data-liva-character=');
       const background=`${base}-bg.png`;
       await sharp(Buffer.from(layers.background)).flatten({background:'#041218'}).png({compressionLevel:1}).toFile(background);
@@ -393,7 +410,7 @@ export async function renderGrowthVideo(draft:GrowthPlatformDraft,fixture:Growth
         rasterLayer(layers.foreground,`${base}-fg.png`),...layers.center.map((svg,index)=>rasterLayer(svg,`${base}-center-${index}.png`))]);
       prepared.push({order:scene.order,background,headline:headline??null,left:left??null,right:right??null,foreground:foreground??null,center:center.filter((layer):layer is PlacedLayer=>!!layer)});
     }
-    const shared=await writeShared(directory,draft.channel,options.master);lap('layersMs');
+    const shared=await writeShared(directory,draft.channel,options.master,!!draft.social);lap('layersMs');
     const graph=buildMotionGraph({width:VIDEO.width,height:VIDEO.height,fps,bleed:BLEED,plan,timeline:timeline.scenes,totalSeconds,scenes:prepared,shared,progress:PROGRESS});
     // Sound: deterministic direction, voice placed inside each scene's clean window, beds ducked under it.
     const direction=draft.creative?.audio??selectAudioDirection({channel:draft.channel,angle:draft.template,family:draft.creative?.family??null,fixtureSeed:fixture.fixtureId});

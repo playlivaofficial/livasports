@@ -4,6 +4,7 @@ import {growthTrackingUrls} from './attribution';
 import type {GrowthContentPack,GrowthFixtureSnapshot,RankedGrowthFixture} from './types';
 import {platformDrafts} from './platform-content';
 import {commercialMediaPlayers,readiness,safeTemplate,selectedPlayers,selectStory,seoPriority,truthfulMatchContext} from './strategy';
+import {editorialPlatforms,socialSource} from './social-content';
 
 const brazilTimeZone='America/Sao_Paulo';
 const kickoffFormatter=new Intl.DateTimeFormat('pt-BR',{
@@ -108,19 +109,15 @@ export function contentIdentity(row:RankedGrowthFixture):string{
   return createHash('sha256').update(JSON.stringify(value)).digest('hex');
 }
 
-export function generatedContent(row:RankedGrowthFixture,rank=1,topSocial:RankedGrowthFixture[]=[row]){
+export function generatedContent(row:RankedGrowthFixture,rank=1,topSocial:RankedGrowthFixture[]=[row],now=new Date()){
   const content=generateV11ContentPack(row,rank,topSocial,true);
-  const master=content.platforms!.INSTAGRAM_REELS;
-  // Four scenes, one narration. Keep approved premium art choices; no platform branding.
-  const kept=master.scenes.filter(scene=>scene.visual!=='MATCHUP'&&scene.visual!=='WATCHLIST');
-  kept[0]={...kept[0],voiceover:`${row.signals.home.name} e ${row.signals.away.name}. ${kept[0].voiceover}`};
-  let start=0;master.scenes=kept.map((scene,index)=>{const durationSeconds=index===0?5:scene.visual==='CTA'?4:5;
-    const next={...scene,order:index+1,startSeconds:start,durationSeconds};start+=durationSeconds;return next;});
-  if(master.creative)master.creative.scenery=kept.map(scene=>master.creative!.scenery[scene.order-1]);
-  master.script=master.scenes.map(scene=>scene.voiceover).join(' ');
-  content.assetModel='MASTER_V1';content.masterSocial=master;delete content.platforms;
-  content.script=master.script;content.hook=master.hook;content.cta=master.cta;
-  content.screens=master.scenes.map(scene=>({order:scene.order,durationSeconds:scene.durationSeconds,headline:scene.headline,body:scene.subtitle}));
+  const source=socialSource(row,fixtureSnapshot(row),now.toISOString());
+  content.assetModel='SOCIAL_V2';content.socialSource=source;content.platforms=editorialPlatforms(row,source,rank);
+  content.masterSocial=content.platforms.INSTAGRAM_REELS;
+  const editorial=content.masterSocial;
+  content.script=editorial.script;content.hook=editorial.hook;content.cta=editorial.cta;
+  content.screens=editorial.scenes.map(scene=>({order:scene.order,durationSeconds:scene.durationSeconds,headline:scene.headline,body:scene.subtitle}));
+  for(const channel of ['TIKTOK','INSTAGRAM_REELS','YOUTUBE_SHORTS'] as const)content.captions[channel]=content.platforms[channel].caption;
   return {content,fixture:fixtureSnapshot(row),sourceHash:contentSourceHash(row),
     contentIdentity:contentIdentity(row),
     tracking:growthTrackingUrls(row.destinationUrl,row.signals.publicId)};

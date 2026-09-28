@@ -11,7 +11,7 @@ function input(over:Record<string,unknown>={}){
   const row=rankedFixture(),material=generatedContent(row);
   return {fixtureId:row.signals.fixtureId,sourceHash:material.sourceHash,contentIdentity:material.contentIdentity,
     trigger:'AUTOMATIC' as const,priorityScore:row.priority.total,scoreBreakdown:row.priority.lines,reasons:row.priority.reasons,
-    fixture:material.fixture,content:material.content,canonicalUrl:row.destinationUrl,tracking:material.tracking,
+    fixture:material.fixture,content:{...material.content,assetModel:'MASTER_V1' as const},canonicalUrl:row.destinationUrl,tracking:material.tracking,
     now:testNow,force:false,...over};
 }
 /** Stands in for the table: the duplicate probe answers from `existing`, everything else succeeds. */
@@ -34,7 +34,7 @@ function world(existing:Array<{creativeVersion:string;contentIdentity:string|nul
 
 describe('creative version identity',()=>{
   it('composes an explicit, queryable version from the shipped stack',()=>{
-    expect(CREATIVE_VERSION).toMatch(/^cs2\.master-story-feed\.STABLE_MOTION_2\.1080x1920@18\.audio-v1\.voice-cache2$/);
+    expect(CREATIVE_VERSION).toMatch(/^cs3\.master-story-feed\.STABLE_MOTION_2\.1080x1920@18\.audio-v1\.voice-cache2$/);
     expect(isCurrentCreative(CREATIVE_VERSION)).toBe(true);
     expect(isStaleCreative(LEGACY_CREATIVE_VERSION)).toBe(true);
     expect(isStaleCreative(null)).toBe(true);

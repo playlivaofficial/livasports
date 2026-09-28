@@ -4,8 +4,8 @@ import Link from 'next/link';
 import {CHANNEL_UTM,VIDEO_CHANNELS} from './config';
 import type {GrowthContentItem,GrowthDashboard,RankedGrowthFixture} from './types';
 import {PublishingCard,PublishingCounts,PublishingHistory,publishingDate} from './ManualPublishing';
-import type {PublishingOverview} from './manual-publishing';
 import {MasterSocial} from './MasterSocial';
+import type {PublishingOverview} from './manual-publishing';
 
 type Action=(key:string,body:Record<string,unknown>)=>Promise<void>;
 export function latestQueueItems(items:GrowthContentItem[]){
@@ -65,7 +65,7 @@ function FixtureOpportunity({row,rank,social,item,overview,busy,act}:{row:Ranked
 function ContentReview({item,overview,busy,act}:{item:GrowthContentItem;overview?:PublishingOverview;busy:string;act:Action}){
   const content=item.content,editorial=item.channels.find(c=>c.channel==='EDITORIAL');
   return <div className="owner-growth-copy">
-    {content.assetModel==='MASTER_V1'?<><MasterSocial item={item}/><details><summary>Publicação por plataforma · estados independentes</summary><div className="owner-growth-platforms">{VIDEO_CHANNELS.map(channel=><PublishingCard compact key={`${item.id}:${channel}`} item={item} channel={channel} overview={overview} busy={busy} act={act}/>)}</div></details></>:<p>Versão anterior preservada no histórico. Master e imagens serão preparados na próxima geração elegível.</p>}
+    {content.assetModel==='SOCIAL_V2'?<><p>Um vídeo master · textos e estados separados por plataforma. Verificação automática não equivale à aprovação da plataforma.</p><MasterSocial item={item}/><div className="owner-growth-platforms">{VIDEO_CHANNELS.map(channel=><PublishingCard compact key={`${item.id}:${channel}`} item={item} channel={channel} overview={overview} busy={busy} act={act}/>)}</div></>:<p role="status">blocked_for_review · Pacote anterior sem verificação de política. Preservado no histórico; gere o master editorial antes de exportar.</p>}
     {editorial?<details><summary>Social editorial · {editorial.status}</summary><p>{content.captions.EDITORIAL}</p><a href={editorial.trackedUrl} target="_blank" rel="noreferrer">Link editorial</a>
       {editorial.status!=='PUBLISHED'?<div className="manual-copy-actions">{['APPROVED','REJECTED',...(editorial.status==='APPROVED'?['PUBLISHED']:[])].map(status=><button key={status} disabled={!!busy||editorial.status===status} onClick={()=>act(`editorial:${item.id}`,{action:'transition',itemId:item.id,channel:'EDITORIAL',status})}>{status}</button>)}</div>:null}</details>:null}
     <details><summary>Jogadores e direitos</summary>{content.players?.length?content.players.map(p=><p key={p.id}>{p.name}: {p.selectionReason} · {p.media.licenseStatus} · {p.media.commercialEligible?'uso comercial aprovado':'fallback sem retrato'}</p>):<p>Fallback seguro com clubes e personagens Liva.</p>}</details>
