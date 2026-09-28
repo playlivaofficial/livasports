@@ -1,7 +1,7 @@
 import {describe,it,expect,vi} from 'vitest';
 vi.mock('server-only',()=>({}));
 import type {QueryExecutor} from '@/database/client';
-import {registerExperiment,activateExperiment,captureExperimentObservations,type ExperimentRegistration} from './experiments';
+import {registerExperiment,activateExperiment,captureExperimentObservations,readExperiments,type ExperimentRegistration} from './experiments';
 const measurement={from:'2026-09-01',to:'2026-09-07',totals:{clicks:0,impressions:100,ctr:0,position:10},brazil:null,mobile:null,topQueries:[],countries:[],devices:[],complete:true,breakdownsComplete:true};
 const input:ExperimentRegistration={key:'ctr-v1',page:'https://livasports.com/br/jogo/a-b-id',locale:'br',queryCluster:'a b',reason:'Observed impressions',oldTitle:'Old',oldDescription:'Old description',newTitle:'New',newDescription:'New description',baseline:{'7':measurement,'14':measurement,'28':measurement}};
 function database(){const query=vi.fn< (sql:string,values?:readonly unknown[])=>Promise<{rows:never[];rowCount:number}> >(async()=>({rows:[],rowCount:0}));return {query,db:{query} as unknown as QueryExecutor};}
@@ -24,5 +24,17 @@ describe('owner metadata experiment persistence',()=>{
     const query=vi.fn(async()=>({rows:[{id:'id',property:'sc-domain:livasports.com',page:input.page,observation_start:'2026-09-29'}]}));
     expect(await captureExperimentObservations({query} as unknown as QueryExecutor,new Date('2026-09-30'))).toBe(0);
     expect(query).toHaveBeenCalledTimes(1);
+    expect(query.mock.calls[0]).toEqual([expect.stringContaining('e.observation_start::text AS observation_start')]);
+  });
+  it('reads calendar dates as text so non-UTC hosts cannot shift observation windows',async()=>{
+    const query=vi.fn(async(sql:string)=>({rows:sql.includes('FROM seo_metadata_experiments')?[{
+      id:'id',experiment_key:input.key,page:input.page,baseline:input.baseline,
+      changed_at:'2026-09-28T07:28:46Z',observation_start:'2026-09-29',
+    }]:[]}));
+    const [experiment]=await readExperiments({query} as unknown as QueryExecutor,new Date('2026-09-28T10:00:00Z'));
+    expect(query.mock.calls[0]?.[0]).toContain('observation_start::text AS observation_start');
+    expect(experiment.windows.map(w=>[w.from,w.to,w.earliestReadDate])).toEqual([
+      ['2026-09-29','2026-10-05','2026-10-08'],['2026-09-29','2026-10-12','2026-10-15'],['2026-09-29','2026-10-26','2026-10-29'],
+    ]);
   });
 });

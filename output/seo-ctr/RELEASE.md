@@ -4,7 +4,7 @@ Date: 2026-09-28. Baseline production/main: `554be5da5e110ece38e098b36807b629411
 
 ## Local acceptance
 
-- Final rerun: 1,573 Vitest tests across 195 files PASS; 17 legacy validation tests PASS.
+- Final calendar-date correction rerun: 1,574 Vitest tests across 195 files PASS; 17 legacy validation tests PASS. Typecheck, lint, production build and secret scan passed again. The corrected SQL returned all five `2026-09-29` starts as text on an Asia/Tbilisi host, matching the production owner dashboard.
 - Typecheck, lint, production build and secret scan PASS (zero tracked env files, credential-value leaks and client secret references).
 - Initial concurrent build/test run had one existing scheduler timeout; complete isolated-worker rerun passed without scheduler/test-threshold changes.
 - 13 rendered routes compared with pre-release production: all HTTP 200, canonical/hreflang/robots/H1/schema types preserved; five exact selected title/description pairs applied.
@@ -28,5 +28,7 @@ For a September 28 Pacific release, first full observation day is September 29:
 | 28d | Sep 29–Oct 26 | Oct 29 |
 
 Actual activation timestamps/windows are authoritative in the owner-only dashboard. Existing daily SEO cron is 05:40 UTC; delayed successful coverage can recover missed windows. Never fabricate a result before maturity.
+
+Five experiments were activated at `2026-09-28T07:28:46.398Z` against verified release `0dcf13515cedbd80a56e9b03c0b3433fff9e5c73`; PostgreSQL stores observation start `2026-09-29`. Final QA caught local PostgreSQL DATE conversion displaying the previous day on a non-UTC machine. The follow-up fix reads this calendar value as SQL text in both reporting and capture paths, without rewriting activation dates, baselines, or public metadata. The table above remains correct.
 
 Full baseline, exact old/new metadata, Brazil audit, implementation and limitations: [engineering report](../../docs/SEO_CTR_BRAZIL_OPTIMIZATION.md).
