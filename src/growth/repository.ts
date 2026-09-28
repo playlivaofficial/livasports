@@ -2,6 +2,8 @@ import 'server-only';
 import type {DatabaseClient,QueryExecutor} from '@/database/client';
 import {absoluteUrl} from '@/seo/policy';
 import {CREATIVE_VERSION} from './creative-version';
+import {createHash} from 'node:crypto';
+import {draftCompliance,socialDraftIdentity,socialMasterIdentity,SOCIAL_POLICY_VERSION} from './socialCompliance';
 import {exposeMaster} from './master-model';
 import type {CanonicalRender} from './canonical-renderer';
 import type {GrowthCanonicalAsset,GrowthAssetKind} from './types';
@@ -9,7 +11,7 @@ import {matchPath} from '@/localization/interface';
 import {slugifyProfileName} from '@/profiles/routes';
 import {readListingOddsSnapshots} from '@/odds/read-repository';
 import {quoteState} from '@/odds/comparison';
-import {SHORTLIST,GROWTH_CHANNELS,type GrowthChannel} from './config';
+import {SHORTLIST,GROWTH_CHANNELS,VIDEO_CHANNELS,type GrowthChannel} from './config';
 import {publicBookmakerSummary} from './public-bookmakers';
 import {playerEvidenceScore} from './strategy';
 import type {FixtureSignals} from './scoring';
@@ -174,10 +176,22 @@ interface PersistInput {
 }
 /** Advisory locking makes the seven-day duplicate check and revision increment atomic per fixture. */
 export async function persistGrowthItem(db:DatabaseClient,input:PersistInput):Promise<{id:string;revision:number}|null>{
+  if(input.content.assetModel==='SOCIAL_V2'){
+    const assets=input.canonicalAssets,video=assets?.find(a=>a.kind==='MASTER_VIDEO'),cover=assets?.find(a=>a.kind==='STORY_IMAGE'),feed=assets?.find(a=>a.kind==='FEED_IMAGE');
+    if(input.videos?.length||assets?.length!==3||!video||!cover||!feed||!input.content.masterSocial)throw Error('SOCIAL_PACKAGE_INCOMPLETE');
+    if(assets.some(a=>createHash('sha256').update(a.data).digest('hex')!==a.sha256)||!video.renderMetadata||video.renderMetadata.voice.degradedReason||video.renderMetadata.voice.lines!==input.content.masterSocial.scenes.length)throw Error('SOCIAL_BLOCKED_FOR_REVIEW');
+    for(const channel of VIDEO_CHANNELS){
+      const draft=input.content.platforms?.[channel],proof=video.renderMetadata.socialProofs?.[channel];
+      if(!draft||draft.social?.sourceFixtureId!==input.fixtureId||draftCompliance(draft).status!=='ready'||!proof||proof.status!=='ready'
+        ||proof.policyVersion!==SOCIAL_POLICY_VERSION||proof.rejectionReasons.length||proof.draftIdentity!==socialDraftIdentity(draft)
+        ||socialMasterIdentity(draft)!==socialMasterIdentity(input.content.masterSocial)
+        ||proof.coverSha256!==cover.sha256||proof.videoSha256!==video.sha256||proof.feedSha256!==feed.sha256)throw Error('SOCIAL_BLOCKED_FOR_REVIEW');
+    }
+  }
   return db.transaction(async tx=>{
     await tx.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`growth:${input.fixtureId}`]);
     let carriedChannels=input.channelRecords;
-    if(!input.force||input.content.assetModel==='MASTER_V1'){
+    if(!input.force||input.content.assetModel==='MASTER_V1'||input.content.assetModel==='SOCIAL_V2'){
       // Duplicate means "already produced from the same facts by the creative stack we ship today". Keying on
       // fixture + recency alone made an older stack's output suppress its own replacement forever.
       const since=new Date(input.now.getTime()-SHORTLIST.duplicateWindowDays*86_400_000);
@@ -195,15 +209,16 @@ export async function persistGrowthItem(db:DatabaseClient,input:PersistInput):Pr
         approvedAt:row.approved_at?iso(row.approved_at):null,rejectedAt:row.rejected_at?iso(row.rejected_at):null,publishedAt:row.published_at?iso(row.published_at):null}));
       const predecessor=(await tx.query<{id:string}>(`SELECT i.id FROM growth_content_items i
         WHERE i.id=$1 AND i.superseded_at IS NULL AND (($2::text IS NULL AND NOT EXISTS(SELECT 1 FROM growth_content_channels ch WHERE ch.content_item_id=i.id AND ch.status<>'DRAFT'))
-          OR $3::boolean OR ($2::text IS NOT NULL AND EXISTS(SELECT 1 FROM growth_content_channels ch WHERE ch.content_item_id=i.id AND ch.channel=$2 AND ch.status IN('DRAFT','REJECTED')))) FOR UPDATE`,[input.supersedesItemId,input.regeneratedChannel??null,input.content.assetModel==='MASTER_V1'])).rows[0];
+          OR $3::boolean OR ($2::text IS NOT NULL AND EXISTS(SELECT 1 FROM growth_content_channels ch WHERE ch.content_item_id=i.id AND ch.channel=$2 AND ch.status IN('DRAFT','REJECTED')))) FOR UPDATE`,[input.supersedesItemId,input.regeneratedChannel??null,['MASTER_V1','SOCIAL_V2'].includes(input.content.assetModel??'')])).rows[0];
       if(!predecessor)throw new Error('DRAFT_REGENERATION_NOT_ALLOWED');
     }
     const revision=Number((await tx.query<{revision:number}>('SELECT COALESCE(max(revision),0)+1 AS revision FROM growth_content_items WHERE fixture_id=$1',[input.fixtureId])).rows[0]?.revision??1);
     const content=structuredClone(input.content);
     if(content.masterSocial){
-      delete content.platforms;
+      if(content.assetModel!=='SOCIAL_V2')delete content.platforms;
       const timing=input.canonicalAssets?.find(a=>a.kind==='MASTER_VIDEO')?.renderMetadata?.sceneTiming;
       if(timing)content.masterSocial.scenes=content.masterSocial.scenes.map(scene=>{const t=timing.find(x=>x.order===scene.order);return t?{...scene,startSeconds:t.startSeconds,durationSeconds:t.durationSeconds}:scene;});
+      if(content.assetModel==='SOCIAL_V2'&&content.platforms)for(const channel of VIDEO_CHANNELS)content.platforms[channel].scenes=structuredClone(content.masterSocial.scenes);
     }
     for(const video of input.videos??[]){
       if(video.status!=='READY'||!video.renderMetadata||!content.platforms)continue;
@@ -298,15 +313,16 @@ async function hydrateAssets(db:QueryExecutor,items:GrowthContentItem[]):Promise
     try{rows=(await db.query<Row>(sql('render_metadata'),[ids])).rows;}
     catch(error){if((error as {code?:string}).code!=='42703')throw error;rows=(await db.query<Row>(sql('NULL::jsonb AS render_metadata'),[ids])).rows;}
     let canonical:Row[]=[];
-    if(items.some(item=>item.content.assetModel==='MASTER_V1'))canonical=(await db.query<Row>(`SELECT id,content_item_id,kind,creative_version,mime_type,width,height,sha256,byte_length,render_metadata,generated_at FROM growth_canonical_assets WHERE content_item_id=ANY($1::uuid[])`,[ids])).rows;
+    if(items.some(item=>item.content.masterSocial))canonical=(await db.query<Row>(`SELECT id,content_item_id,kind,creative_version,mime_type,width,height,sha256,byte_length,render_metadata,generated_at FROM growth_canonical_assets WHERE content_item_id=ANY($1::uuid[])`,[ids])).rows;
     return items.map(item=>exposeMaster({...item,canonicalAssets:canonical.filter(a=>String(a.content_item_id)===item.id).map((a):GrowthCanonicalAsset=>({id:String(a.id),kind:a.kind as GrowthAssetKind,creativeVersion:String(a.creative_version),mimeType:a.mime_type as GrowthCanonicalAsset['mimeType'],width:1080,height:Number(a.height) as 1920|1350,sha256:String(a.sha256),byteLength:Number(a.byte_length),generatedAt:iso(a.generated_at),renderMetadata:a.render_metadata?asJson(a.render_metadata):undefined})),platformAssets:rows.filter(row=>String(row.content_item_id)===item.id).map((row):GrowthPlatformAsset=>({channel:String(row.channel) as GrowthPlatformAsset['channel'],
-      creativeVersion:text(row.creative_version),status:String(row.status) as 'READY'|'FAILED'|'PENDING',mimeType:text(row.mime_type),sha256:text(row.sha256),byteLength:numeric(row.byte_length),generatedAt:row.generated_at?iso(row.generated_at):null,errorCode:text(row.error_code),renderMetadata:row.render_metadata?asJson(row.render_metadata):undefined}))}));
+      socialProof:row.social_proof?asJson(row.social_proof):undefined,coverSha256:text(row.cover_sha256),creativeVersion:text(row.creative_version),status:String(row.status) as 'READY'|'FAILED'|'PENDING',mimeType:text(row.mime_type),sha256:text(row.sha256),byteLength:numeric(row.byte_length),generatedAt:row.generated_at?iso(row.generated_at):null,errorCode:text(row.error_code),renderMetadata:row.render_metadata?asJson(row.render_metadata):undefined}))}));
   }catch(error){const code=(error as {code?:string}).code;if(code==='42P01'||code==='42703')return items;throw error;}
 }
 
 export async function readGrowthVideo(db:QueryExecutor,itemId:string,channel:string){
-  try{const master=await readCanonicalAsset(db,itemId,'MASTER_VIDEO');if(master)return master;}
-  catch(error){if((error as {code?:string}).code!=='42P01')throw error;}
+  // Only a verified SOCIAL_V2 projection may reuse the canonical master.
+  const item=await readGrowthItem(db,itemId);
+  if(item?.content.assetModel==='SOCIAL_V2')return readCanonicalAsset(db,itemId,'MASTER_VIDEO');
   const sql=(metadata:string)=>`SELECT video_data,mime_type,sha256,byte_length,${metadata} FROM growth_platform_assets WHERE content_item_id=$1 AND channel=$2 AND status='READY'`;
   let row:Row|undefined;
   try{row=(await db.query<Row>(sql('render_metadata'),[itemId,channel])).rows[0];}

@@ -5,6 +5,8 @@ import {readCanonicalAsset,readGrowthItem} from '@/growth/repository';
 import {isLatestGrowthItem} from '@/growth/manual-repository';
 import {CREATIVE_VERSION} from '@/growth/creative-version';
 import type {GrowthAssetKind} from '@/growth/types';
+import {socialExportReady} from '@/growth/manual-publishing';
+import {VIDEO_CHANNELS} from '@/growth/config';
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -16,6 +18,7 @@ export async function GET(request:Request,{params}:{params:Promise<{id:string;ki
   const db=new PostgresDatabaseClient(url);
   try{
     const item=await readGrowthItem(db,id),asset=item?.canonicalAssets?.find(a=>a.kind===kind);
+    if(item&&!VIDEO_CHANNELS.every(channel=>socialExportReady(item,channel)))return Response.json({status:'blocked_for_review',error:'SOCIAL_BLOCKED_FOR_REVIEW'},{status:409,headers:ownerHeaders});
     if(!item||!asset)return Response.json({error:'NOT_FOUND'},{status:404,headers:ownerHeaders});
     if(query.get('current')==='1'&&(item.supersededAt||asset.creativeVersion!==CREATIVE_VERSION||asset.creativeVersion!==query.get('version')||asset.sha256!==query.get('sha')||!await isLatestGrowthItem(db,id)))return Response.json({error:'STALE_OR_UNREADY_ASSET'},{status:409,headers:ownerHeaders});
     const media=await readCanonicalAsset(db,id,kind as GrowthAssetKind);if(!media)return Response.json({error:'NOT_FOUND'},{status:404,headers:ownerHeaders});

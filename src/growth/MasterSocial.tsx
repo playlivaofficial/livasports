@@ -4,12 +4,14 @@ import {useState} from 'react';
 import {VIDEO_CHANNELS,CHANNEL_UTM,type GrowthVideoChannel} from './config';
 import type {GrowthContentItem} from './types';
 import {CopyButton,publishingDate} from './ManualPublishing';
-import {postSnapshot} from './manual-publishing';
+import {postSnapshot,socialExportReady} from './manual-publishing';
 import {canonicalAssetUrl} from './master-model';
 export function MasterSocial({item}:{item:GrowthContentItem}){
   const [channel,setChannel]=useState<GrowthVideoChannel>('INSTAGRAM_REELS');
   const master=item.canonicalAssets?.find(a=>a.kind==='MASTER_VIDEO');
-  const copy=master?postSnapshot(item,channel):null;
+  const ready=VIDEO_CHANNELS.every(c=>socialExportReady(item,c));
+  const copy=master&&ready?postSnapshot(item,channel):null;
+  if(master&&!ready)return <p role="status">blocked_for_review · Master sem verificação editorial completa.</p>;
   if(!master)return <p>Master pendente. A próxima geração elegível prepara um vídeo e duas imagens, sem três versões por plataforma.</p>;
   return <section className="master-social" aria-label={`Pacote master · ${item.content.headline}`}>
     <p>Uma campanha · revisão {item.revision} · {item.creativeVersion}</p>

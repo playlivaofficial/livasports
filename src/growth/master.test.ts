@@ -1,17 +1,17 @@
 import {describe,it,expect,vi,beforeEach} from 'vitest';
 vi.mock('server-only',()=>({}));
 vi.mock('./repository',()=>({acquireGrowthJob:vi.fn(),finishGrowthJob:vi.fn(),readGrowthFixtures:vi.fn(),enrichGrowthStorySignals:vi.fn(),upsertGrowthSeoPriorities:vi.fn(),rebuildCurrentGrowthQueue:vi.fn(),readLatestGrowthItems:vi.fn(),persistGrowthItem:vi.fn(),readGrowthItem:vi.fn(),readGrowthVideo:vi.fn()}));
-vi.mock('./canonical-renderer',()=>({renderCanonicalPackage:vi.fn(),renderCanonicalStatics:vi.fn()}));
+vi.mock('./social-renderer',()=>({renderSocialPackage:vi.fn()}));
 vi.mock('./voice-store',()=>({databaseVoiceStore:()=>({})}));
 import * as repo from './repository';
-import {renderCanonicalPackage,renderCanonicalStatics} from './canonical-renderer';
+import {renderSocialPackage} from './social-renderer';
+import {socialDraftIdentity} from './socialCompliance';
 import {runGrowthGeneration} from './service';
 import {generatedContent} from './content';
 import {rankedFixture,testNow} from './fixtures.test-support';
 import {publishingItem} from './manual.test-support';
 import {exposeMaster,platformViews} from './master-model';
 import {postSnapshot,publicationIdentity,publishingState,currentVideoUrl} from './manual-publishing';
-import {CREATIVE_VERSION} from './creative-version';
 import {buildShortlist} from './shortlist';
 import {planMasterMotion,alignTransitions,sceneTimeline} from './motion';
 import type {DatabaseClient} from '@/database/client';
@@ -19,24 +19,25 @@ import type {GrowthContentItem} from './types';
 const db={query:vi.fn(async()=>({rows:[],rowCount:0})),transaction:vi.fn(async fn=>fn(db)),close:vi.fn()} as unknown as DatabaseClient;
 const rows=Array.from({length:10},(_,i)=>rankedFixture({fixtureId:`11111111-1111-4111-8111-${String(i).padStart(12,'0')}`,publicId:String(i).padStart(16,'0')}));
 function masterItem(index=0):GrowthContentItem{
- const g=generatedContent(rows[index],index+1,rows.slice(0,5));
- return exposeMaster({...publishingItem(),id:`item-${index}`,fixtureId:rows[index].signals.fixtureId,fixture:g.fixture,content:g.content,contentIdentity:g.contentIdentity,
-  canonicalAssets:(['MASTER_VIDEO','STORY_IMAGE','FEED_IMAGE'] as const).map(kind=>({id:kind,kind,creativeVersion:CREATIVE_VERSION,mimeType:kind==='MASTER_VIDEO'?'video/mp4':'image/png',width:1080,height:kind==='FEED_IMAGE'?1350:1920,sha256:'a'.repeat(64),byteLength:100,generatedAt:testNow.toISOString()}))});
+ const g=generatedContent(rows[index],index+1,rows.slice(0,5),testNow),item=publishingItem();
+ item.platformAssets!.forEach(a=>{a.socialProof!.draftIdentity=socialDraftIdentity(g.content.platforms![a.channel]);});
+ return exposeMaster({...item,id:`item-${index}`,fixtureId:rows[index].signals.fixtureId,fixture:g.fixture,content:g.content,contentIdentity:g.contentIdentity,
+  canonicalAssets:item.canonicalAssets});
 }
 beforeEach(()=>{
  vi.clearAllMocks();vi.mocked(repo.acquireGrowthJob).mockResolvedValue('lease');vi.mocked(repo.readGrowthFixtures).mockResolvedValue(rows);
  vi.mocked(repo.finishGrowthJob).mockResolvedValue(undefined);
  vi.mocked(repo.enrichGrowthStorySignals).mockImplementation(async(_db,r)=>r);vi.mocked(repo.readLatestGrowthItems).mockResolvedValue([]);
- vi.mocked(repo.persistGrowthItem).mockResolvedValue({id:'new',revision:1});vi.mocked(renderCanonicalPackage).mockResolvedValue([]);
+ vi.mocked(repo.persistGrowthItem).mockResolvedValue({id:'new',revision:1});vi.mocked(renderSocialPackage).mockResolvedValue([]);
 });
 describe('canonical master model',()=>{
- it('persists one narrative, not three platform packages; one match even on a busy day',()=>{
-  const material=generatedContent(rows[0],1,rows.slice(0,5));expect(material.content.platforms).toBeUndefined();
-  expect(material.content.masterSocial?.scenes.map(s=>s.visual)).toEqual(['HOOK','CONTEXT','ODDS','CTA']);
+ it('derives three editorial exports from one canonical source',()=>{
+  const material=generatedContent(rows[0],1,rows.slice(0,5),testNow);expect(Object.keys(material.content.platforms!)).toHaveLength(3);
+  expect(material.content.masterSocial?.scenes.map(s=>s.visual)).toEqual(['HOOK','CONTEXT','EDITORIAL_DATA','CTA']);
   expect(material.content.story?.angle).not.toBe('TOP_MATCHES_TODAY');
-  expect(material.content).toEqual(generatedContent(rows[0],1,rows.slice(0,5)).content);
+  expect(material.content).toEqual(generatedContent(rows[0],1,rows.slice(0,5),testNow).content);
  });
- it('keeps one video/hash/download with three independent publication states and sources',()=>{
+ it('keeps one shared verified download with three posting states and sources',()=>{
   const item=masterItem();item.channels[0].status='PUBLISHED';
   expect(new Set(item.platformAssets!.map(a=>a.sha256)).size).toBe(1);
   expect(new Set(['TIKTOK','INSTAGRAM_REELS','YOUTUBE_SHORTS'].map(c=>currentVideoUrl(item,c as 'TIKTOK'))).size).toBe(1);
@@ -45,6 +46,7 @@ describe('canonical master model',()=>{
   expect(new Set(channels.map(c=>postSnapshot(item,c).utmSource)).size).toBe(3);
   expect(new Set(channels.map(c=>publicationIdentity(item,c))).size).toBe(1);
   expect(platformViews(item.content)!.TIKTOK.script).toBe(platformViews(item.content)!.YOUTUBE_SHORTS.script);
+  expect(new Set(channels.map(c=>postSnapshot(item,c).caption)).size).toBe(3);
  });
  it('preserves the ordered SEO Top 10 and makes exactly ranks 1–5 social',()=>{
   const shortlist=buildShortlist(rows.map(r=>r.priority));expect(shortlist.content).toHaveLength(10);expect(shortlist.social).toEqual(shortlist.content.slice(0,5));
@@ -54,23 +56,23 @@ describe('canonical master model',()=>{
   const result=await runGrowthGeneration(db,'AUTOMATIC',{now:testNow});
   expect(repo.upsertGrowthSeoPriorities).toHaveBeenCalledWith(db,expect.arrayContaining([expect.objectContaining({rank:10,topSocial:false})]),testNow);
   expect(repo.rebuildCurrentGrowthQueue).toHaveBeenCalledTimes(2);
-  expect(result.skippedDuplicate).toBe(5);expect(renderCanonicalPackage).not.toHaveBeenCalled();
+  expect(result.skippedDuplicate).toBe(5);expect(renderSocialPackage).not.toHaveBeenCalled();
  });
  it('renders a bounded batch of master packages once; concurrent invocations do no work',async()=>{
   const result=await runGrowthGeneration(db,'AUTOMATIC',{now:testNow});expect(result.generated).toBe(5);
-  expect(renderCanonicalPackage).toHaveBeenCalledTimes(5);expect(repo.persistGrowthItem).toHaveBeenCalledTimes(5);
+  expect(renderSocialPackage).toHaveBeenCalledTimes(5);expect(repo.persistGrowthItem).toHaveBeenCalledTimes(5);
   vi.mocked(repo.acquireGrowthJob).mockResolvedValue(null);
-  expect((await runGrowthGeneration(db,'OWNER')).state).toBe('ALREADY_RUNNING');expect(renderCanonicalPackage).toHaveBeenCalledTimes(5);
+  expect((await runGrowthGeneration(db,'OWNER')).state).toBe('ALREADY_RUNNING');expect(renderSocialPackage).toHaveBeenCalledTimes(5);
  });
- it('repairs missing static images without any master render or narration',async()=>{
-  const items=rows.slice(0,5).map((_,i)=>masterItem(i));items[0].canonicalAssets=items[0].canonicalAssets!.filter(a=>a.kind==='MASTER_VIDEO');
-  vi.mocked(repo.readLatestGrowthItems).mockResolvedValue(items);vi.mocked(renderCanonicalStatics).mockResolvedValue([]);
-  await runGrowthGeneration(db,'OWNER',{now:testNow});expect(renderCanonicalStatics).toHaveBeenCalledTimes(1);expect(renderCanonicalPackage).not.toHaveBeenCalled();
+ it('does not certify a package missing its canonical media',async()=>{
+  const items=rows.slice(0,5).map((_,i)=>masterItem(i));items.forEach(item=>{item.canonicalAssets=[];});
+  vi.mocked(repo.readLatestGrowthItems).mockResolvedValue(items);
+  const result=await runGrowthGeneration(db,'OWNER',{now:testNow});expect(result.state).toBe('PARTIAL');expect(renderSocialPackage).not.toHaveBeenCalled();
  });
  it('refuses forced generation outside Top 5 and retains predecessors on voice failure',async()=>{
   expect((await runGrowthGeneration(db,'OWNER',{now:testNow,forceFixtureId:rows[9].signals.fixtureId})).error).toBe('FIXTURE_NOT_SOCIAL_TOP_FIVE');
-  expect(renderCanonicalPackage).not.toHaveBeenCalled();vi.mocked(renderCanonicalPackage).mockRejectedValue(Error('NARRATION_INCOMPLETE_KEEP_PREDECESSOR'));
-  expect((await runGrowthGeneration(db,'OWNER',{now:testNow})).state).toBe('PARTIAL');expect(repo.persistGrowthItem).not.toHaveBeenCalled();expect(renderCanonicalPackage).toHaveBeenCalledTimes(1);
+  expect(renderSocialPackage).not.toHaveBeenCalled();vi.mocked(renderSocialPackage).mockRejectedValue(Error('NARRATION_INCOMPLETE_KEEP_PREDECESSOR'));
+  expect((await runGrowthGeneration(db,'OWNER',{now:testNow})).state).toBe('PARTIAL');expect(repo.persistGrowthItem).not.toHaveBeenCalled();expect(renderSocialPackage).toHaveBeenCalledTimes(1);
  });
  it('stabilizes geometry and quantizes joins at either benchmark frame rate',()=>{
   const draft=generatedContent(rows[0]).content.masterSocial!;

@@ -3,7 +3,11 @@ import type {DatabaseClient} from '@/database/client';
 import {buildShortlist} from './shortlist';
 import {scoreFixture} from './scoring';
 import {generatedContent} from './content';
-import {renderCanonicalPackage,renderCanonicalStatics} from './canonical-renderer';
+import {renderSocialPackage} from './social-renderer';
+import {renderCanonicalStatics} from './canonical-renderer';
+import {exposeMaster} from './master-model';
+import {socialExportReady} from './manual-publishing';
+import {VIDEO_CHANNELS} from './config';
 import {SHORTLIST,type GrowthVideoChannel} from './config';
 import {acquireGrowthJob,enrichGrowthStorySignals,finishGrowthJob,persistGrowthItem,readGrowthFixtures,readGrowthItem,readGrowthVideo,readLatestGrowthItems,upsertGrowthSeoPriorities,rebuildCurrentGrowthQueue} from './repository';
 import type {GrowthContentPack,GrowthDashboard,RankedGrowthFixture} from './types';
@@ -40,7 +44,7 @@ export async function runGrowthGeneration(db:DatabaseClient,trigger:'AUTOMATIC'|
     const shortlist=buildShortlist(inventory.map(row=>row.priority));
     const topTen=await enrichGrowthStorySignals(db,rowsForPriorities(inventory,shortlist.content)),topFive=topTen.slice(0,5);
     if(options.forceFixtureId&&!topFive.some(row=>row.signals.fixtureId===options.forceFixtureId))throw Error('FIXTURE_NOT_SOCIAL_TOP_FIVE');
-    const materials=topTen.map((row,index)=>({row,rank:index+1,material:generatedContent(row,index+1,topFive)}));
+    const materials=topTen.map((row,index)=>({row,rank:index+1,material:generatedContent(row,index+1,topFive,now)}));
     await upsertGrowthSeoPriorities(db,materials.map(({row,rank,material})=>({fixtureId:row.signals.fixtureId,rank,score:row.priority.total,
       topSocial:rank<=5,canonicalUrl:row.destinationUrl,seo:material.content.seo!,sourceHash:material.sourceHash})),now);
     const entries=materials.map(({row,rank})=>({fixtureId:row.signals.fixtureId,rank,topSocial:rank<=5}));
@@ -50,26 +54,32 @@ export async function runGrowthGeneration(db:DatabaseClient,trigger:'AUTOMATIC'|
     for(const {row,rank,material} of materials){
       if(rank>5)continue; // Absolute cost boundary, including forced/manual runs.
       if(options.forceFixtureId&&row.signals.fixtureId!==options.forceFixtureId)continue;
-      const previous=items.filter(item=>item.fixtureId===row.signals.fixtureId&&!item.supersededAt).sort((a,b)=>b.revision-a.revision)[0];
-      const same=previous?.creativeVersion===CREATIVE_VERSION&&previous.contentIdentity===material.contentIdentity&&previous.content.assetModel==='MASTER_V1';
-      if(same&&previous.canonicalAssets?.some(a=>a.kind==='MASTER_VIDEO')){
-        // Images can be repaired independently: never re-buy narration or re-render the master.
-        const missing=['STORY_IMAGE','FEED_IMAGE'].filter(kind=>!previous.canonicalAssets?.some(a=>a.kind===kind));
-        if(missing.length){
-          const images=await renderCanonicalStatics(previous.content.masterSocial!,previous.fixture);
-          await db.transaction(async tx=>{for(const asset of images.filter(a=>missing.includes(a.kind)))await tx.query(
-            'INSERT INTO growth_canonical_assets(content_item_id,kind,creative_version,mime_type,width,height,sha256,byte_length,asset_data,generated_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT(content_item_id,kind) DO NOTHING',
-            [previous.id,asset.kind,CREATIVE_VERSION,asset.mimeType,asset.width,asset.height,asset.sha256,asset.byteLength,asset.data,now]);});
+      let previous=items.filter(item=>item.fixtureId===row.signals.fixtureId&&!item.supersededAt).sort((a,b)=>b.revision-a.revision)[0];
+      const same=previous?.creativeVersion===CREATIVE_VERSION&&previous.contentIdentity===material.contentIdentity&&previous.content.assetModel==='SOCIAL_V2';
+      if(same){
+        // Repair missing statics without another video encode or narration purchase.
+        const master=previous.canonicalAssets?.find(a=>a.kind==='MASTER_VIDEO');
+        const missing=(['STORY_IMAGE','FEED_IMAGE'] as const).filter(kind=>!previous.canonicalAssets?.some(a=>a.kind===kind));
+        if(master?.renderMetadata?.socialProofs&&missing.length){
+          const images=(await renderCanonicalStatics(previous.content.masterSocial!,previous.fixture)).filter(a=>missing.includes(a.kind as 'STORY_IMAGE'|'FEED_IMAGE'));
+          if(images.every(a=>VIDEO_CHANNELS.every(c=>master.renderMetadata!.socialProofs![c]?.[a.kind==='STORY_IMAGE'?'coverSha256':'feedSha256']===a.sha256))){
+            await db.transaction(async tx=>{for(const a of images)await tx.query(
+              'INSERT INTO growth_canonical_assets(content_item_id,kind,creative_version,mime_type,width,height,sha256,byte_length,asset_data,generated_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT(content_item_id,kind) DO NOTHING',
+              [previous.id,a.kind,CREATIVE_VERSION,a.mimeType,a.width,a.height,a.sha256,a.byteLength,a.data,now]);});
+            previous=exposeMaster({...previous,canonicalAssets:[...previous.canonicalAssets!,...images.map(a=>({id:'repaired',kind:a.kind,creativeVersion:CREATIVE_VERSION,mimeType:a.mimeType,width:a.width,height:a.height,sha256:a.sha256,byteLength:a.byteLength,generatedAt:now.toISOString()}))]});
+          }
         }
-        skippedDuplicate++;continue;
+        if(VIDEO_CHANNELS.every(channel=>socialExportReady(previous,channel)))skippedDuplicate++;
+        else failed++; // Invalid same-identity data requires review, never a recurring paid retry.
+        continue;
       }
       if(attempted>=SHORTLIST.generationBatchSize||Date.now()+65_000>deadline)continue;
       attempted++;
       try{
-        const assets=await renderCanonicalPackage(material.content.masterSocial!,material.fixture,{deadlineMs:deadline,voiceStore:databaseVoiceStore(db)});
+        const canonicalAssets=await renderSocialPackage(material.content.platforms!,material.fixture,{deadlineMs:deadline,voiceStore:databaseVoiceStore(db)});
         const stored=await persistGrowthItem(db,{fixtureId:row.signals.fixtureId,sourceHash:material.sourceHash,contentIdentity:material.contentIdentity,trigger,
           priorityScore:row.priority.total,scoreBreakdown:row.priority.lines,reasons:row.priority.reasons,fixture:material.fixture,content:material.content,
-          canonicalUrl:row.destinationUrl,tracking:material.tracking,now,force:false,canonicalAssets:assets,supersedesItemId:previous?.id});
+          canonicalUrl:row.destinationUrl,tracking:material.tracking,now,force:false,canonicalAssets,supersedesItemId:previous?.id});
         if(stored){generated++;itemIds.push(stored.id);}else skippedDuplicate++;
       }catch(error){
         failed++;const code=error instanceof Error&&/^[A-Z0-9_]+$/.test(error.message)?error.message:'MASTER_GENERATION_FAILED';
@@ -89,7 +99,7 @@ export async function runGrowthGeneration(db:DatabaseClient,trigger:'AUTOMATIC'|
     return {state:'FAILED',jobId,considered,generated,skippedDuplicate,itemIds,error:code,providerRequests:0};
   }
 }
-/** Old controls remain API-compatible, but can no longer create platform-specific or out-of-Top-5 renders. */
+/** Old controls remain API-compatible; regenerate a complete platform package within the Top 5 only. */
 export async function regenerateGrowthPlatform(db:DatabaseClient,itemId:string,_channel:GrowthVideoChannel,now=new Date()):Promise<GrowthRunResult>{
   const item=await readGrowthItem(db,itemId);if(!item||item.supersededAt)throw Error('PLATFORM_REGENERATION_NOT_ALLOWED');
   return runGrowthGeneration(db,'OWNER',{now,forceFixtureId:item.fixtureId});
@@ -105,7 +115,7 @@ export async function previewGrowthVideo(db:DatabaseClient,fixtureId:string,chan
   const dashboard=await readGrowthDashboard(db);
   if(!dashboard.social.some(row=>row.signals.fixtureId===fixtureId))throw Error('FIXTURE_NOT_SOCIAL_TOP_FIVE');
   const item=dashboard.items.find(i=>i.fixtureId===fixtureId&&!i.supersededAt&&i.creativeVersion===CREATIVE_VERSION);
-  if(!item)throw Error('MASTER_NOT_READY');
+  if(!item||!socialExportReady(item,channel))throw Error('SOCIAL_BLOCKED_FOR_REVIEW');
   const video=await readGrowthVideo(db,item.id,channel);if(!video)throw Error('MASTER_NOT_READY');
   return {...video,channel,status:'READY',mimeType:'video/mp4',voice:video.renderMetadata?.voice};
 }

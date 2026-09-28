@@ -12,6 +12,11 @@ import {publishingItem} from './manual.test-support';
 import {currentVideoUrl} from './manual-publishing';
 beforeEach(()=>{vi.clearAllMocks();vi.mocked(requestOwnerSession).mockReturnValue({id:'owner'} as never);vi.mocked(isLatestGrowthItem).mockResolvedValue(true);});
 describe('exact owner video download',()=>{
+  it('blocks legacy betting video even when current=1 is omitted',async()=>{
+    const item=publishingItem();item.content.assetModel='MASTER_V1';vi.mocked(readGrowthItem).mockResolvedValue(item);
+    const response=await GET(new Request(`https://livasports.com/api/owner/growth/items/${item.id}/video/TIKTOK?download=1`),{params:Promise.resolve({id:item.id,channel:'TIKTOK'})});
+    expect(response.status).toBe(409);expect(readGrowthVideo).not.toHaveBeenCalled();
+  });
   it('returns useful platform filename, MP4 attachment and matching content hash',async()=>{
     const item=publishingItem();vi.mocked(readGrowthItem).mockResolvedValue(item);
     vi.mocked(readGrowthVideo).mockResolvedValue({data:Buffer.from('mp4!'),mimeType:'video/mp4',sha256:'a'.repeat(64),byteLength:4,renderMetadata:undefined});

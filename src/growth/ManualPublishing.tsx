@@ -3,6 +3,7 @@ import {useState,type FormEvent} from 'react';
 import {CHANNEL_UTM,VIDEO_CHANNELS,type GrowthVideoChannel} from './config';
 import type {GrowthContentItem,GrowthDashboard} from './types';
 import {currentVideoUrl,matchingPost,postSnapshot,publishingState,type PublishingOverview} from './manual-publishing';
+import {draftCompliance,SOCIAL_LABELS} from './socialCompliance';
 
 export const publishingDate=(value:string)=>new Intl.DateTimeFormat('pt-BR',{dateStyle:'short',timeStyle:'short',timeZone:'America/Sao_Paulo'}).format(new Date(value));
 export function CopyButton({label,value}:{label:string;value:string}){
@@ -18,10 +19,15 @@ export function PublishingCard({item,channel,overview,busy,act,compact=false}:{i
   const post=matchingPost(item,channel,overview?.currentPosts??overview?.posts??[]),state=publishingState(item,channel,post);
   const video=currentVideoUrl(item,channel),download=currentVideoUrl(item,channel,true);
   const copy=video?post?.snapshot??postSnapshot(item,channel):null;
+  const compliance=draftCompliance(draft),cover=video&&asset?.coverSha256?`/api/owner/growth/items/${item.id}/cover/${channel}?sha=${asset.coverSha256}`:null;
   async function submit(event:FormEvent){event.preventDefault();await act(`posted:${item.id}:${channel}`,{action:'mark-posted',itemId:item.id,channel,sha256:asset!.sha256,creativeVersion:item.creativeVersion,externalPostUrl:external,notes});setConfirm(false);}
   return <article className="owner-growth-platform manual-platform" aria-label={`${CHANNEL_UTM[channel].label} · ${item.content.headline}`}>
-    <header><div><span>{CHANNEL_UTM[channel].label}</span><strong>{draft.template}</strong></div><b data-status={state}>{state.replaceAll('_',' ')}</b></header>
-    {compact?<p>Usa o mesmo vídeo master acima.</p>:video?<video controls playsInline preload="none" src={video} aria-label={`Vídeo ${CHANNEL_UTM[channel].label} de ${item.content.headline}`}/>:<p className="owner-health-notice">Vídeo atual indisponível para publicação. Consulte o histórico para versões anteriores.</p>}
+    <header><div><span>{SOCIAL_LABELS[channel]}</span><strong>{draft.template}</strong></div><b data-status={state}>{state.replaceAll('_',' ')}</b></header>
+    <p>Política: {video?'ready':'blocked_for_review'} · {compliance.policyVersion}</p>
+    <p>Verificação interna de conteúdo; não representa aprovação da plataforma.</p>
+    {compliance.rejectionReasons.length?<ul>{compliance.rejectionReasons.map(reason=><li key={reason}>{reason}</li>)}</ul>:!video?<p>Renderização verificada ausente, incompleta ou desatualizada.</p>:null}
+    {cover?<a href={`${cover}&download=1`}>Baixar capa da plataforma · 1080×1920</a>:null}
+    {compact?<p>Mesmo master editorial; texto e registro específicos.</p>:video?<video controls playsInline preload="none" src={video} aria-label={`Vídeo ${CHANNEL_UTM[channel].label} de ${item.content.headline}`}/>:<p className="owner-health-notice">Vídeo atual indisponível para publicação. Versões anteriores não verificadas também permanecem bloqueadas.</p>}
     <p className="manual-meta">{asset?.renderMetadata?.durationSeconds.toFixed(1)??'—'} s · {asset?.generatedAt?publishingDate(asset.generatedAt):'Pendente'} (Brasília)<br/>Revisão {item.revision} · {item.creativeVersion??'Legado'}<br/>{item.content.story?.angle} · Aprovação: {record.status==='PUBLISHED'?'aprovado e publicado':record.status}</p>
     <h4>{draft.title}</h4><p><b>Hook:</b> {draft.hook}</p>
     {copy?<><p className="manual-caption">{copy.caption}</p><p>{copy.hashtags}</p>
@@ -42,9 +48,10 @@ export function PublishingCard({item,channel,overview,busy,act,compact=false}:{i
       <button disabled={!!busy} type="submit">Confirmar registro</button><button type="button" onClick={()=>setConfirm(false)}>Cancelar</button>
     </form>:null}
     <details><summary>Revisão e detalhes do conteúdo</summary><p>{draft.script}</p><p>Família: {draft.creative?.family??draft.template} · {draft.creative?.hookFamily} · {draft.creative?.ctaFamily}</p>
+      <p>Partida de origem: {draft.social?.sourceFixtureId??'—'} · Gerado: {draft.social?.generatedAt??'—'}</p>
       <p>Voz: {asset?.renderMetadata?.voice.provider??'—'} · {asset?.renderMetadata?.voice.lines??0} cenas. {asset?.renderMetadata?.voice.degradedReason}</p>
       <ol>{draft.scenes.map(scene=><li key={scene.order}>{scene.startSeconds.toFixed(1)}–{(scene.startSeconds+scene.durationSeconds).toFixed(1)} s: {scene.headline}<br/>{scene.subtitle}</li>)}</ol>
-      {state!=='POSTED'?<div className="manual-copy-actions"><button disabled={!!busy||record.status==='APPROVED'} onClick={()=>act(`approve:${item.id}:${channel}`,{action:'transition',itemId:item.id,channel,status:'APPROVED'})}>Aprovar</button>
+      {state!=='POSTED'?<div className="manual-copy-actions"><button disabled={!!busy||!video||record.status==='APPROVED'} onClick={()=>act(`approve:${item.id}:${channel}`,{action:'transition',itemId:item.id,channel,status:'APPROVED'})}>Aprovar</button>
         <button disabled={!!busy||record.status==='REJECTED'} onClick={()=>act(`reject:${item.id}:${channel}`,{action:'transition',itemId:item.id,channel,status:'REJECTED'})}>Rejeitar</button>
         {!compact&&['DRAFT','REJECTED'].includes(record.status)?<button disabled={!!busy} onClick={()=>act(`regen:${item.id}:${channel}`,{action:'regenerate-platform',itemId:item.id,channel})}>Regenerar plataforma</button>:null}</div>:null}
     </details>
