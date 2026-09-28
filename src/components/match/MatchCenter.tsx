@@ -21,6 +21,7 @@ import {SponsoredSlot} from '@/components/commercial/SponsoredSlot';
 import {FavoriteButton} from '@/favorites/FavoriteButton';
 import {publicOddsComparisons} from '@/odds/public-response';
 import {GrowthProminence} from '@/growth/GrowthProminence';
+import {MatchQueryIntro} from '@/seo/MatchQueryIntro';
 
 const copy = {
   br: {
@@ -177,6 +178,7 @@ export async function MatchCenter({ locale, match, replay = false, commercialLoc
           <div className="match-team is-away"><Link href={teamPath(locale,match.header.away.publicId,match.header.away.name)}><TeamIdentity name={match.header.away.name} shortName={match.header.away.shortName} imageUrl={match.header.away.imageUrl} size={80}/></Link><FavoriteButton locale={locale} kind="team" id={match.header.away.publicId} className="favorite-toggle-compact"/></div></div>
         <MatchClientActions context={context} canonicalUrl={`https://livasports.com${canonical}`} shareText={`${match.header.home.name} x ${match.header.away.name}`} labels={{share:text.share,copied:text.copied}}/>
       </header>
+      {!replay?<MatchQueryIntro locale={locale} match={match}/>:null}
       {!replay?<GrowthProminence locale={locale} surface={{kind:'MATCH',fixtureId:match.header.id}}/>:null}
       {!replay?<SponsoredSlot context={{locale,pagePath:canonical,placement:'mobile_inline'}}/>:null}
       <MatchSectionNav context={context} items={[{href:'#summary',label:text.summary},{href:'#statistics',label:text.statistics},{href:'#lineups',label:text.lineups},

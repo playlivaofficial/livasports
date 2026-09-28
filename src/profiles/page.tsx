@@ -10,6 +10,7 @@ import {TeamHistoryPanel} from '@/sports/TeamHistoryPanel';
 import {JsonLd} from '@/seo/json-ld';
 import {openGraphImages} from '@/seo/open-graph';
 import {cache} from 'react';
+import {ctrTeamMetadata} from '@/seo/ctr-variants';
 
 // Metadata and the page body share one request-scoped read per profile.
 const teamData=cache((id:string,locale:SiteLocale)=>loadTeamProfile(id,locale));
@@ -30,13 +31,14 @@ export async function profileMetadata(paramPromise: Promise<{ profile: string }>
   const result = entity === 'team' ? await teamData(parsed.publicId, locale) : await playerData(parsed.publicId, locale);
   if (result.kind === 'not-found') return { title: metadataCopy[locale].notFound, robots: { index: false, follow: false } };
   const profile = result.profile;
-  const description = entity === 'team'
+  const variant=entity==='team'?ctrTeamMetadata(locale,profile.publicId,profile.name):null;
+  const description = variant?.description??(entity === 'team'
     ? `${profile.name}: ${metadataCopy[locale].team}. ${metadataCopy[locale].tail}`
-    : `${profile.name}: ${metadataCopy[locale].player}. ${metadataCopy[locale].tail}`;
+    : `${profile.name}: ${metadataCopy[locale].player}. ${metadataCopy[locale].tail}`);
   const canonical = entity === 'team' ? teamPath(locale, profile.publicId, profile.name) : playerPath(locale, profile.publicId, profile.name);
   const br = entity === 'team' ? teamPath('br', profile.publicId, profile.name) : playerPath('br', profile.publicId, profile.name);
   const mx = entity === 'team' ? teamPath('mx', profile.publicId, profile.name) : playerPath('mx', profile.publicId, profile.name);
-  return { title: `${profile.name}: ${metadataCopy[locale][entity]}`, description,
+  return { title: variant?.title??`${profile.name}: ${metadataCopy[locale][entity]}`, description,
     robots: profile.indexable ? { index: true, follow: true } : { index: false, follow: true },
     // P2 policy: a noindex profile keeps its canonical but no hreflang cluster.
     alternates: profile.indexable ? { canonical, languages: languageAlternates(br,mx,(entity==='team'?interfaceTeamPath:interfacePlayerPath)('en',profile.publicId,profile.name)) } : { canonical },

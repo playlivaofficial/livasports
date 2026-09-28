@@ -1,0 +1,4 @@
+# Raw owner-only GSC measurements and local QA artifacts are not release assets.
+*.json
+*.png
+*.log
