@@ -61,7 +61,7 @@ export class SportsSitemapRepository {
         FROM page p ORDER BY p.id`;
     const result=await this.db.query(query,[limit,offset]);
     // Source observation timestamps on team/profile rows are not proof of a significant content change.
-    return result.rows.map(row=>({publicId:String(row.public_id),name:String(row.name),...(row.away?{away:String(row.away)}:{}),updatedAt:row.updated_at?new Date(String(row.updated_at)):new Date(0),lastmodVerified:kind==='matches'&&!!row.updated_at}));
+    return result.rows.map(row=>({publicId:String(row.public_id),name:String(row.name),...(row.away?{away:String(row.away)}:{}),updatedAt:row.updated_at?new Date(String(row.updated_at)):new Date(0),lastmodVerified:kind==='matches'&&!!row.updated_at,lastmodLocales:['br'] as const}));
   }
   /**
    * P2: which competition tabs have content for the season a hub resolves by default.
