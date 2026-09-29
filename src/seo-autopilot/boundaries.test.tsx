@@ -33,4 +33,11 @@ describe('owner and scheduler boundaries',()=>{
   it('period links use a complete route with native navigation and touch-sized controls',()=>{
     const text=readFileSync(new URL('Dashboard.tsx',import.meta.url),'utf8');expect(text).toContain('href={`/owner/growth/autopilot?days=${d}`}');expect(text).toContain('minHeight:44');expect(text).not.toContain('href={`?days=');
   });
+  it('versions persisted sitemap entry/count caches for V2 eligibility and locale-specific lastmod',()=>{
+    const text=readFileSync(new URL('../sports/sitemap-runtime.ts',import.meta.url),'utf8');
+    expect(text).toContain("entityCacheVersion='sports:sitemap:v4'");
+    expect(text).toContain('`${entityCacheVersion}:counts`');
+    expect(text).toContain('`${entityCacheVersion}:${kind}:${page}`');
+    expect(text).toContain('ttlSeconds:6*3600');
+  });
 });

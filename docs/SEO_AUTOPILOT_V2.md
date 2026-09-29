@@ -86,3 +86,7 @@ node --import ./scripts/seo-autopilot-preload.mjs --import tsx scripts/seo-autop
 - [Scaled content abuse policy](https://developers.google.com/search/docs/essentials/spam-policies)
 
 Release SHA, controlled production outcomes and observed shortlist belong in the release evidence report; this document does not claim an unverified deployment.
+
+## Release cache compatibility
+
+Sitemap entity/count caches use `sports:sitemap:v4`: the shared Next Data Cache survives deployments, so the new locale-scoped lastmod and managed-page eligibility must not reuse older entry objects. The existing six-hour entity cache and one-day counts cache remain unchanged; competition summaries retain their existing independent cache. This is a one-time schema namespace change, not per-deploy cache busting.
