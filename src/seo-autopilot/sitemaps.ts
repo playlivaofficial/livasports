@@ -33,11 +33,13 @@ export async function maintainSeoSitemaps(db:QueryExecutor,now:Date,fetcher:type
       await db.query(`INSERT INTO seo_autopilot_sitemaps(path,content_hash,content_changed_at,state) VALUES($1,$2,$3,'DISCOVERED')
         ON CONFLICT(path) DO UPDATE SET content_hash=$2,content_changed_at=CASE WHEN seo_autopilot_sitemaps.content_hash<>$2 THEN $3 ELSE seo_autopilot_sitemaps.content_changed_at END`,[path,hash,now]);
       if(!submit){
-        // A fully re-read, identical sitemap proves a transient maintenance error recovered.
+        // A fully re-read sitemap proves a transient read error recovered. If content changed,
+        // timestamps must prove no write was attempted after the last successful submission.
         // Retain the last real Google submission; do not issue a duplicate PUT to clear health.
-        // Never erase a denied/failed Google write or an unsubmitted changed fingerprint.
-        if(hash===previous?.submitted_hash&&previous?.submitted_at&&previous?.error_code==='SITEMAP_MAINTENANCE_FAILED'){
-          await db.query("UPDATE seo_autopilot_sitemaps SET state='SUBMITTED',error_code=NULL WHERE path=$1 AND submitted_hash=$2 AND error_code='SITEMAP_MAINTENANCE_FAILED'",[path,hash]);
+        // A changed fingerprint still observes backoff; genuine/uncertain write errors stay visible.
+        const noLaterWrite=!!previous?.attempted_at&&!!previous?.submitted_at&&new Date(String(previous.attempted_at)).getTime()<=new Date(String(previous.submitted_at)).getTime();
+        if((hash===previous?.submitted_hash||noLaterWrite)&&previous?.submitted_at&&previous?.error_code==='SITEMAP_MAINTENANCE_FAILED'){
+          await db.query("UPDATE seo_autopilot_sitemaps SET state=$3,error_code=NULL WHERE path=$1 AND submitted_hash=$2 AND error_code='SITEMAP_MAINTENANCE_FAILED'",[path,previous.submitted_hash,hash===previous.submitted_hash?'SUBMITTED':'BACKOFF']);
         }
         results.push({path,state:hash===previous?.submitted_hash?'UNCHANGED':'BACKOFF'});continue;
       }

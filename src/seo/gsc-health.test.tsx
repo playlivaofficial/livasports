@@ -20,7 +20,7 @@ function setup(scope=GSC_WRITE_SCOPE,permission='siteOwner',writeStatus=204){
     if(sql.includes('SET submitted_hash'))Object.assign(row!,{submitted_hash:args[1],submitted_at:args[2],error_code:null});
     if(sql.includes("SET state='SUBMISSION_BLOCKED'"))row!.error_code=args[1];
     if(sql.includes("SET state='FAILED'"))row!.error_code='SITEMAP_MAINTENANCE_FAILED';
-    if(sql.includes("SET state='SUBMITTED',error_code=NULL")&&row?.submitted_hash===args[1]&&row?.error_code==='SITEMAP_MAINTENANCE_FAILED')Object.assign(row,{state:'SUBMITTED',error_code:null});
+    if(sql.includes('SET state=$3,error_code=NULL')&&row?.submitted_hash===args[1]&&row?.error_code==='SITEMAP_MAINTENANCE_FAILED')Object.assign(row,{state:args[2],error_code:null});
     return {rows:[]};
   });
   const fetcher=vi.fn(async(input:RequestInfo|URL,init?:RequestInit)=>{
@@ -78,16 +78,26 @@ describe('GSC write scope, evidence and deduplication',()=>{
     expect(f.puts()).toHaveLength(2);
     expect([...f.stored.values()].map(r=>({hash:r.submitted_hash,at:r.submitted_at,attempt:r.attempted_at}))).toEqual(saved);
   });
-  it('does not clear maintenance failure for changed content or genuine Google rejection',async()=>{
+  it('does not clear a later write failure for changed content or genuine Google rejection',async()=>{
     const f=setup();let health:GscHealth|undefined;
     await maintainSeoSitemaps(f.db,now,f.fetcher);
-    f.stored.get('/sports-sitemaps.xml')!.error_code='SITEMAP_MAINTENANCE_FAILED';f.change();
+    Object.assign(f.stored.get('/sports-sitemaps.xml')!,{error_code:'SITEMAP_MAINTENANCE_FAILED',attempted_at:new Date(now.getTime()+1000)});f.change();
     await maintainSeoSitemaps(f.db,now,f.fetcher,h=>{health=h;});
     expect(health?.lastSubmissionError).toBe('API_ERROR');expect(f.puts()).toHaveLength(2);
     const g=setup();await maintainSeoSitemaps(g.db,now,g.fetcher);
     g.stored.get('/sports-sitemaps.xml')!.error_code='SCOPE_INSUFFICIENT';
     await maintainSeoSitemaps(g.db,now,g.fetcher,h=>{health=h;});
     expect(health?.lastSubmissionError).toBe('SCOPE_INSUFFICIENT');expect(g.puts()).toHaveLength(2);
+  });
+  it('clears a proven read failure for changed content while retaining the daily submission backoff',async()=>{
+    const f=setup();let health:GscHealth|undefined;await maintainSeoSitemaps(f.db,now,f.fetcher);
+    const row=f.stored.get('/sports-sitemaps.xml')!,submitted=row.submitted_hash,at=row.submitted_at,attempt=row.attempted_at;
+    row.error_code='SITEMAP_MAINTENANCE_FAILED';f.change();
+    const result=await maintainSeoSitemaps(f.db,now,f.fetcher,h=>{health=h;});
+    expect(result.every(r=>r.state==='BACKOFF')).toBe(true);expect(f.puts()).toHaveLength(2);
+    expect(row).toMatchObject({state:'BACKOFF',error_code:null,submitted_hash:submitted,submitted_at:at,attempted_at:attempt});
+    expect(row.content_hash).not.toBe(submitted);expect(health).toMatchObject({sitemapWrite:'OK',lastSubmissionError:null});
+    await maintainSeoSitemaps(f.db,now,f.fetcher);expect(f.puts()).toHaveLength(2);
   });
   it('does not hide a current property access failure when a transient read recovers',async()=>{
     const f=setup();let health:GscHealth|undefined;await maintainSeoSitemaps(f.db,now,f.fetcher);
