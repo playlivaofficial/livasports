@@ -4,7 +4,7 @@ const mocks=vi.hoisted(()=>({acquire:vi.fn(),inventory:vi.fn(),record:vi.fn(),cr
 vi.mock('./repository',()=>({acquireSeoRun:mocks.acquire,readSeoInventory:mocks.inventory,recordSeoDecision:mocks.record}));
 vi.mock('./crawl',()=>({crawlSeoUrl:mocks.crawl}));
 vi.mock('./sitemaps',()=>({maintainSeoSitemaps:mocks.sitemaps}));
-vi.mock('./feedback',()=>({optimizeSeoClusters:mocks.feedback}));
+vi.mock('./optimization',()=>({runGrowthOptimization:mocks.feedback}));
 import {runSeoAutopilot} from './service';
 import {testSignals,testNow} from '@/growth/fixtures.test-support';
 import {matchPath} from '@/localization/interface';
@@ -22,7 +22,7 @@ function database(publishedToday=0){
   return {db:db as unknown as DatabaseClient,query};
 }
 beforeEach(()=>{
-  vi.clearAllMocks();mocks.acquire.mockResolvedValue('run');mocks.inventory.mockResolvedValue(candidates());mocks.feedback.mockResolvedValue({changed:0});mocks.sitemaps.mockResolvedValue([]);
+  vi.clearAllMocks();mocks.acquire.mockResolvedValue('run');mocks.inventory.mockResolvedValue(candidates());mocks.feedback.mockResolvedValue({mode:'ACTIVE',changed:0});mocks.sitemaps.mockResolvedValue([]);
   mocks.crawl.mockImplementation(async(url:string)=>({url,status:200,title:url,h1:'Fixture',canonical:url,indexFollow:true,primaryLength:900,structuredDataValid:true,
     alternates:[{lang:'pt-BR',href:url}],links:candidates().map(c=>c.destinationUrl),problems:[]}));
 });

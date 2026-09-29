@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type {AutopilotReport} from './report';
+import {OptimizationDashboard} from './OptimizationDashboard';
 const stamp=(v:unknown)=>v?new Date(String(v)).toISOString():'—';
 export function AutopilotDashboard({report:r}:{report:AutopilotReport}){
   const max=Math.max(1,...r.trend.map(p=>p.impressions));
@@ -12,6 +13,7 @@ export function AutopilotDashboard({report:r}:{report:AutopilotReport}){
       'URLs submetidas (não indexadas)':String(r.indexable?.submitted_total??'—'),'URLs indexadas':'Não informado pelo GSC','Sessões orgânicas':String(r.organic.sessions),
       'Orgânicas engajadas':String(r.organic.engaged),'Intenção comercial orgânica':String(r.organic.commercial_sessions),'Saídas comerciais orgânicas':String(r.organic.outbound_sessions)}).map(([k,v])=><article className="owner-health-card" key={k}><span>{k}</span><strong>{v}</strong></article>)}</div>
     <p>Não-marca usa somente consultas divulgadas pelo Google. Funil exclui QA, OWNER e BOT; intenção não significa receita ou aposta.</p>
+    <OptimizationDashboard report={r.optimization}/>
     <section><h2>Impressões diárias</h2><div style={{display:'flex',alignItems:'end',height:150,gap:3}}>{r.trend.map(p=><div key={p.day} title={`${p.day}: ${p.impressions} impressões, ${p.clicks} cliques`} style={{flex:1,background:'var(--accent, #087f5b)',minHeight:2,height:`${p.impressions/max*100}%`}}/>)}</div>
       <details><summary>Dados acessíveis do gráfico</summary>{r.trend.map(p=><p key={p.day}>{p.day}: {p.impressions} impressões · {p.clicks} cliques</p>)}</details></section>
     <section><h2>Oportunidades entre posições 8–20</h2>{r.striking.length?r.striking.map(p=><p key={p.key}><a href={p.key}>{p.key.replace('https://livasports.com','')}</a> · {p.impressions} impressões · posição {p.position.toFixed(1)}</p>):<p>Sem amostra suficiente.</p>}</section>
