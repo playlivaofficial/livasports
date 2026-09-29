@@ -2,6 +2,10 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "crons": [
     {
+      "path": "/api/internal/seo-autopilot",
+      "schedule": "10 7 * * *"
+    },
+    {
       "path": "/api/internal/odds-refresh",
       "schedule": "*/5 * * * *"
     },

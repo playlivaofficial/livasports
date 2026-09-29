@@ -28,7 +28,8 @@ export function competitionClusters(summaries:readonly CompetitionSitemapSummary
     // Loaded but absent means M1's coverage filter rejected it — routed, but not actually covered, so not submitted.
     if(!summary)return summaries===null?[{paths:competitionPaths(slug)}]:[];
     const rows:Record<CompetitionTab,number>={fixtures:summary.upcoming+Math.min(summary.results,5),results:summary.results,standings:summary.standings?1:0,scorers:summary.scorers?1:0,teams:summary.teams?1:0};
-    const lastModified=summary.updatedAt??undefined;
+    // An ingestion observation is not evidence of a significant rendered-page change.
+    const lastModified=undefined;
     return tabOrder.flatMap(tab=>{
       const canonical=competitionCanonical({slug,tab,seasonId:summary.seasonId,defaultSeasonId:summary.seasonId,page:1,pages:1,rows:rows[tab]});
       return canonical.indexable?[{paths:canonical.paths,lastModified}]:[];

@@ -1,5 +1,7 @@
 import {matchSeoDescription,matchSeoTitle,sportsMatchSchema} from '@/sports/match-seo';
 import {ctrMatchMetadata} from '@/seo/ctr-variants';
+import {readPublishedSeo} from '@/seo-autopilot/public';
+import {factualMatchContent} from '@/seo-autopilot/content';
 import {isFinishedMatchDecayed,noindexRobots} from '@/seo/policy';
 import type { Metadata } from 'next';
 import {loadPendingFixture} from '@/sports/runtime';
@@ -31,14 +33,16 @@ export async function matchMetadata(paramPromise: Promise<{ match: string }>, lo
   if (!result || result.kind === 'not-found'){const pending=parsed?await loadPendingFixture(parsed.publicId):null;return pending?pendingMetadata(locale,pending):{title:locale==='br'?'Partida não encontrada':'Partido no encontrado',robots:{index:false,follow:false}};}
   const { header } = result.match;
   const variant=ctrMatchMetadata(locale,result.match);
-  const title = variant?.title??matchSeoTitle(locale, header);
-  const description = variant?.description??matchSeoDescription(locale, header);
+  const seo=await readPublishedSeo(header.id);
+  const factual=locale==='br'&&seo?.title?factualMatchContent(result.match):null;
+  const title = variant?.title??factual?.title??matchSeoTitle(locale, header);
+  const description = variant?.description??factual?.description??matchSeoDescription(locale, header);
   const canonical = matchPath(locale, header.publicId, header.home.name, header.away.name);
   const br = matchPath('br', header.publicId, header.home.name, header.away.name);
   const mx = matchPath('mx', header.publicId, header.home.name, header.away.name);
   // M1 decay: a finished match past the boundary keeps its route, content and internal links but stops
   // asking to be indexed, and like every other noindex surface it emits no hreflang cluster.
-  const decayed = isFinishedMatchDecayed(header.status, header.kickoff);
+  const decayed = isFinishedMatchDecayed(header.status, header.kickoff)&&!seo?.retain_indexable;
   return { title, description, ...(decayed ? { robots: noindexRobots } : {}),
     alternates: decayed ? { canonical } : { canonical, languages: languageAlternates(br,mx,interfaceMatchPath('en',header.publicId,header.home.name,header.away.name)) },
     openGraph: { type: 'website', siteName: 'LivaSports', title, url: canonical, locale: localeTag[locale].replace('-','_'),

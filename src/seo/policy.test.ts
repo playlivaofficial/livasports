@@ -110,7 +110,7 @@ describe('P2 sitemap policy',()=>{
     expect(enPaths).not.toContain('/en/football?competition=la-liga&tab=scorers');
     expect(enPaths.filter(p=>p.includes('fa-cup'))).toEqual([]);
     expect(enPaths.some(p=>p.includes('season='))).toBe(false);
-    expect(clusters.find(c=>c.paths.en.endsWith('la-liga'))?.lastModified?.toISOString()).toBe('2026-09-10T00:00:00.000Z');
+    expect(clusters.find(c=>c.paths.en.endsWith('la-liga'))?.lastModified).toBeUndefined(); // ingestion observation is not a significant-change proof
     const degraded=competitionClusters(null);
     expect(degraded).toHaveLength(slugs.length);expect(degraded.every(c=>!c.lastModified)).toBe(true);
   });
@@ -120,7 +120,7 @@ describe('P2 sitemap policy',()=>{
     expect(rows.filter(r=>r.url.includes('premier-league'))).toHaveLength(4*3);
     // M1: a registry competition with no coverage summary is not submitted at all, so only the four
     // static hubs (×3 locales) remain without a source-backed lastmod.
-    expect(rows.filter(r=>r.lastModified===undefined).length).toBe(4*3);
+    expect(rows.filter(r=>r.lastModified===undefined).length).toBe(8*3); // static + competition tabs: no fabricated lastmod
     expect(rows.some(r=>r.url.includes('la-liga'))).toBe(false);
     expect(rows.every(r=>!('changeFrequency' in r)&&!('priority' in r))).toBe(true);
   });
@@ -188,7 +188,7 @@ describe('P2 sitemap XML well-formedness (Search Console "Parsing error" regress
     expect(sitemapXmlProblems(body)).toEqual([]);
     expect(body).toContain('<loc>https://livasports.com/en/football?competition=la-liga&amp;tab=standings</loc>');
     expect(body).toContain('href="https://livasports.com/mx/futbol?competition=la-liga&amp;tab=standings"');
-    expect(body).toContain('<lastmod>2026-09-17T13:15:13.000Z</lastmod>');
+    expect(body).not.toContain('<lastmod>2026-09-17T13:15:13.000Z</lastmod>');
     expect(body).not.toMatch(/<(changefreq|priority)>/);
   });
   it('entity batches and the index are well-formed too',()=>{

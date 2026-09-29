@@ -19,7 +19,8 @@ const days=(value:number)=>`interval '${Math.trunc(value)} days'`;
  */
 const matchWindow=`f.kickoff>=now()-${days(matchSitemapPastDays)} AND f.kickoff<=now()+${days(matchSitemapFutureDays)}`;
 const eligibleFixtures=`SELECT f.* FROM fixtures f JOIN competitions c ON c.id=f.competition_id
-  WHERE ${submittableCompetition} AND ${matchWindow} AND NOT EXISTS(SELECT 1 FROM sports_pending_fixtures p WHERE p.id=f.id)`;
+  WHERE ${submittableCompetition} AND (${matchWindow} OR EXISTS(SELECT 1 FROM seo_autopilot_pages ap WHERE ap.fixture_id=f.id AND ap.state='PUBLISHED' AND ap.retain_indexable)) AND NOT EXISTS(SELECT 1 FROM sports_pending_fixtures p WHERE p.id=f.id)
+  AND NOT EXISTS(SELECT 1 FROM seo_autopilot_pages ap WHERE ap.fixture_id=f.id AND ap.state IN ('PRODUCT_ONLY','NOINDEX'))`;
 const eligibleTeams=`SELECT t.* FROM teams t WHERE NOT t.provider_placeholder AND (
   t.id IN (SELECT f.home_team_id FROM fixtures f JOIN competitions c ON c.id=f.competition_id WHERE ${submittableCompetition}
     UNION SELECT f.away_team_id FROM fixtures f JOIN competitions c ON c.id=f.competition_id WHERE ${submittableCompetition})
@@ -44,7 +45,8 @@ export class SportsSitemapRepository {
     if(!Number.isSafeInteger(limit)||limit<1||limit>sitemapBatchSize||!Number.isSafeInteger(offset)||offset<0)throw Error('Invalid sports sitemap window');
     // Page before aggregating. Independent aggregates avoid a fixtures × squads Cartesian join.
     const prefix=`WITH page AS MATERIALIZED (SELECT * FROM (${eligible[kind]}) e ORDER BY e.id LIMIT $1 OFFSET $2)`;
-    const query=kind==='matches'?`${prefix} SELECT p.public_id,ht.name,at.name AS away,p.updated_at FROM page p
+    const query=kind==='matches'?`${prefix} SELECT p.public_id,ht.name,at.name AS away,
+      (SELECT ap.content_changed_at FROM seo_autopilot_pages ap WHERE ap.fixture_id=p.id AND ap.state='PUBLISHED') AS updated_at FROM page p
       JOIN teams ht ON ht.id=p.home_team_id JOIN teams at ON at.id=p.away_team_id ORDER BY p.id`
       :kind==='teams'?`${prefix}, changes AS (
         SELECT f.home_team_id AS id,f.updated_at AS stamp FROM fixtures f JOIN page p ON p.id=f.home_team_id
@@ -58,7 +60,8 @@ export class SportsSitemapRepository {
         (SELECT max(fps.observed_at) FROM fixture_player_statistics fps WHERE fps.player_id=p.id)) AS updated_at
         FROM page p ORDER BY p.id`;
     const result=await this.db.query(query,[limit,offset]);
-    return result.rows.map(row=>({publicId:String(row.public_id),name:String(row.name),...(row.away?{away:String(row.away)}:{}),updatedAt:new Date(String(row.updated_at))}));
+    // Source observation timestamps on team/profile rows are not proof of a significant content change.
+    return result.rows.map(row=>({publicId:String(row.public_id),name:String(row.name),...(row.away?{away:String(row.away)}:{}),updatedAt:row.updated_at?new Date(String(row.updated_at)):new Date(0),lastmodVerified:kind==='matches'&&!!row.updated_at}));
   }
   /**
    * P2: which competition tabs have content for the season a hub resolves by default.

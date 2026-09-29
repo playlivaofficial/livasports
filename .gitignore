@@ -80,4 +80,6 @@ output/p5-*-private.ts
 output/voice-audition/
 output/motion-qa/
 output/social-policy/
+output/seo-v2-*.log
+output/seo-autopilot/
 .qa-master/

@@ -1,0 +1,41 @@
+import {describe,it,expect,vi} from 'vitest';
+vi.mock('server-only',()=>({}));
+import {testSignals,testNow} from '@/growth/fixtures.test-support';
+import {seoOpportunityScore,seoPublishGate,seoInternalLinkEngine,cleanCanonical,contentHash,feedbackDecision,type PublishEvidence,type OpportunityEvidence} from './policy';
+import {inspectSeoHtml} from './crawl';
+import {shouldSubmitSitemap,sitemapFingerprint} from './sitemaps';
+import {sitemapEntriesXml} from '@/sports/sitemap';
+const evidence:OpportunityEvidence={brazil:true,impressions:100,clicks:2,queryImpressions:0,relatedImpressions:200,uniqueSignals:['fixture','venue','form'],fresh:true,shortlisted:true,inboundSources:3,clusterBoost:0};
+const valid:PublishEvidence={score:80,uniqueSignals:3,fresh:true,quality:true,duplicateRisk:'LOW',canonicalValid:true,urlValid:true,httpStatus:200,indexFollow:true,internalLinkSources:2,sitemapEligible:true,structuredDataValid:true,localeValid:true,factual:true,placeholders:false,emptyModules:false,serverRendered:true,englishLeak:false};
+describe('SEO opportunity and fail-closed publish policy',()=>{
+  it('qualifies evidenced Brazil fixtures deterministically',()=>{const s=seoOpportunityScore(testSignals(),evidence,testNow);expect(s.tier).toBe('A');expect(s.total).toBeLessThanOrEqual(100);expect(s).toEqual(seoOpportunityScore(testSignals(),evidence,testNow));expect(s.components.some(p=>p.name==='gsc'&&p.points>0)).toBe(true);});
+  it('does not promote generic low-priority fixtures merely because they exist',()=>{const f=testSignals({competitionSlug:'unknown',home:{...testSignals().home,slug:'unknown'},away:{...testSignals().away,slug:'other'}});expect(seoOpportunityScore(f,{...evidence,brazil:false,impressions:0,relatedImpressions:0,shortlisted:false,uniqueSignals:[],inboundSources:0},testNow).tier).toBe('C');});
+  it('publishes only with every gate passing',()=>expect(seoPublishGate(valid).state).toBe('PUBLISHED'));
+  it.each(['fresh','quality','canonicalValid','urlValid','indexFollow','sitemapEligible','structuredDataValid','localeValid','factual','serverRendered'] as const)('fails closed when %s fails',key=>expect(seoPublishGate({...valid,[key]:false}).state).not.toBe('PUBLISHED'));
+  it.each(['placeholders','emptyModules','englishLeak'] as const)('blocks unsafe %s',key=>expect(seoPublishGate({...valid,[key]:true}).state).not.toBe('PUBLISHED'));
+  it.each([401,404,500,308])('blocks non-200 HTTP %s',httpStatus=>expect(seoPublishGate({...valid,httpStatus}).state).not.toBe('PUBLISHED'));
+  it('blocks orphan, duplicate and thin pages',()=>{for(const change of [{internalLinkSources:0},{uniqueSignals:1},{duplicateRisk:'HIGH' as const}])expect(seoPublishGate({...valid,...change}).state).not.toBe('PUBLISHED');});
+  it('retains low-value product pages without index spam',()=>expect(seoPublishGate({...valid,score:20}).state).toBe('PRODUCT_ONLY'));
+  it('retains existing noindex',()=>expect(seoPublishGate({...valid,indexFollow:false}).state).toBe('NOINDEX'));
+  it('links existing canonical entities, not intent variants or unrelated fixtures',()=>{const links=seoInternalLinkEngine(testSignals(),[{signals:testSignals(),score:80}]);expect(links).toHaveLength(3);expect(links.filter(l=>l.relation==='TEAM')).toHaveLength(2);expect(new Set(links.map(l=>l.href)).size).toBe(3);});
+  it('strips social campaign parameters while keeping exact fixture and locale',()=>{const p='https://livasports.com/br/jogo/a-x-b-1111111111111111';expect(cleanCanonical(p+'?utm_source=tiktok&utm_campaign=fixture#stats')).toBe(p);expect(cleanCanonical(p.replace('/br/','/mx/'))).not.toBe(p);expect(cleanCanonical('https://evil.test/br/x')).toBeNull();});
+  it('content fingerprint survives JSONB ordering and repeated reads',()=>{expect(contentHash({b:2,a:{x:1,y:2}})).toBe(contentHash({a:{y:2,x:1},b:2}));expect(contentHash({score:'1-0'})).not.toBe(contentHash({score:'2-0'}));});
+});
+describe('feedback and sitemap discipline',()=>{
+  const now={impressions:200,clicks:4,position:12,days:7},old={impressions:120,clicks:2,position:15,days:7};
+  it('detects striking distance and caps weekly boost without compounding',()=>{const d=feedbackDecision(now,old,15,true);expect(d.actions).toContain('STRENGTHEN_EXISTING_PAGE');expect(d.boost).toBe(5);expect(feedbackDecision(now,old,15,true)).toEqual(d);});
+  it('does not learn a winner from tiny samples or partial windows',()=>{expect(feedbackDecision({...now,days:2},old,15,true).boost).toBe(0);expect(feedbackDecision(now,{...old,impressions:2},15,true).boost).toBe(0);});
+  it('flags CTR and decline, not automatic padding or deletion',()=>{expect(feedbackDecision({...now,clicks:0},old,15,true).actions).toContain('REVIEW_FACTUAL_SNIPPET');expect(feedbackDecision({...now,impressions:50},old,15,true).actions).toContain('DIAGNOSE_DECAY');expect(feedbackDecision({...now,impressions:0,days:28},old,3,false).actions).not.toContain('REVIEW_SITEMAP_EXCLUSION');});
+  it('retains strategic zero-value pages after evaluation',()=>expect(feedbackDecision({...now,impressions:0,days:28},old,100,true).actions).toContain('RETAIN_STRATEGIC'));
+  it('never resubmits identical sitemap and backs off failures',()=>{expect(shouldSubmitSitemap('a',{submitted_hash:'a'},testNow)).toBe(false);expect(shouldSubmitSitemap('a',{submitted_hash:'b',attempted_at:testNow},testNow)).toBe(false);expect(shouldSubmitSitemap('a',undefined,testNow)).toBe(true);});
+  it('hashes actual URL/lastmod content including child documents independent of ordering',()=>{const a='<urlset><url><loc>a</loc><lastmod>2026-09-01</lastmod></url></urlset>',b='<urlset><url><loc>b</loc></url></urlset>';expect(sitemapFingerprint([a,b])).toBe(sitemapFingerprint([b,a]));expect(sitemapFingerprint([a])).not.toBe(sitemapFingerprint([b]));});
+  it('omits unverified lastmod instead of using a poll timestamp',()=>{const xml=sitemapEntriesXml('matches',[{publicId:'1111111111111111',name:'A',away:'B',updatedAt:testNow,lastmodVerified:false}]);expect(xml).not.toContain('<lastmod>');});
+});
+describe('actual rendered technical audit',()=>{
+  const url='https://livasports.com/br/jogo/a-b-1111111111111111';
+  it('finds canonical/robots/JSON-LD/empty-H1/primary-content/alternate failures',()=>{const a=inspectSeoHtml(url,200,'<html><head><title>A</title><meta name="robots" content="noindex"><script type="application/ld+json">{bad}</script></head><body></body></html>');for(const code of ['CANONICAL_MISMATCH','ROBOTS_MISMATCH','JSON_LD_PARSE_ERROR','EMPTY_H1','MISSING_PRIMARY_CONTENT','LOCALE_ALTERNATE_MISSING'])expect(a.problems).toContain(code);});
+  it('only accepts crawlable HTML anchors in primary content',()=>{const a=inspectSeoHtml(url,200,`<main><a href="/br/time/team-1111111111111111">Team</a><button data-href="/bad">Not a link</button></main>`);expect(a.links).toEqual(['https://livasports.com/br/time/team-1111111111111111']);});
+  it('records HTTP errors and redirect chains without following',()=>{expect(inspectSeoHtml(url,308,'').problems).toContain('REDIRECT');expect(inspectSeoHtml(url,500,'').problems).toContain('HTTP_ERROR');});
+  it('does not confuse an empty Next shell with the populated primary main',()=>{const a=inspectSeoHtml(url,200,`<main></main><main id="match-content"><h1>Match</h1>${'real match facts '.repeat(20)}</main>`);expect(a.problems).not.toContain('MISSING_PRIMARY_CONTENT');});
+  it('recognizes real anchors in streamed server fragments, never serialized JS hrefs',()=>{const a=inspectSeoHtml(url,200,'<main></main><div hidden id="S:1"><a href="/br/time/team-1111111111111111">Team</a></div><script>"href=/br/fake"</script>');expect(a.links).toEqual(['https://livasports.com/br/time/team-1111111111111111']);});
+});
