@@ -30,6 +30,7 @@ describe('feedback and sitemap discipline',()=>{
   it('never resubmits identical sitemap and backs off failures',()=>{expect(shouldSubmitSitemap('a',{submitted_hash:'a'},testNow)).toBe(false);expect(shouldSubmitSitemap('a',{submitted_hash:'b',attempted_at:testNow},testNow)).toBe(false);expect(shouldSubmitSitemap('a',undefined,testNow)).toBe(true);});
   it('hashes actual URL/lastmod content including child documents independent of ordering',()=>{const a='<urlset><url><loc>a</loc><lastmod>2026-09-01</lastmod></url></urlset>',b='<urlset><url><loc>b</loc></url></urlset>';expect(sitemapFingerprint([a,b])).toBe(sitemapFingerprint([b,a]));expect(sitemapFingerprint([a])).not.toBe(sitemapFingerprint([b]));});
   it('omits unverified lastmod instead of using a poll timestamp',()=>{const xml=sitemapEntriesXml('matches',[{publicId:'1111111111111111',name:'A',away:'B',updatedAt:testNow,lastmodVerified:false}]);expect(xml).not.toContain('<lastmod>');});
+  it('does not claim an English or Spanish content update for a PT-BR-only enrichment',()=>{const xml=sitemapEntriesXml('matches',[{publicId:'1111111111111111',name:'A',away:'B',updatedAt:testNow,lastmodVerified:true,lastmodLocales:['br']}]);expect(xml.match(/<lastmod>/g)).toHaveLength(1);expect(xml.match(/<url>/g)).toHaveLength(3);});
 });
 describe('actual rendered technical audit',()=>{
   const url='https://livasports.com/br/jogo/a-b-1111111111111111';

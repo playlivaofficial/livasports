@@ -27,4 +27,10 @@ describe('owner and scheduler boundaries',()=>{
   });
   it('migration is additive, idempotent and isolated to SEO state',()=>{const sql=readFileSync(new URL('../../db/migrations/051_seo_autopilot.sql',import.meta.url),'utf8');
     expect(sql).not.toMatch(/DROP\s|TRUNCATE\s|DELETE FROM|ALTER TABLE (fixtures|users|odds)/i);expect(sql.match(/CREATE TABLE IF NOT EXISTS/g)).toHaveLength(6);});
+  it('keeps repaired links while a qualified page waits for its publication budget',()=>{
+    const text=readFileSync(new URL('public.tsx',import.meta.url),'utf8');expect(text).toContain('DAILY_PUBLICATION_CAP');expect(text).toContain('INSUFFICIENT_INBOUND_LINKS');
+  });
+  it('period links use a complete route with native navigation and touch-sized controls',()=>{
+    const text=readFileSync(new URL('Dashboard.tsx',import.meta.url),'utf8');expect(text).toContain('href={`/owner/growth/autopilot?days=${d}`}');expect(text).toContain('minHeight:44');expect(text).not.toContain('href={`?days=');
+  });
 });

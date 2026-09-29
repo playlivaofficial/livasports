@@ -47,7 +47,7 @@ Existing daily technical/GSC sync remains 05:40 UTC. The read client remains rea
 
 Two exact sitemap roots are allowlisted. The worker hashes normalized URL/lastmod content, including child batches, stores content/submission hashes separately, never resubmits unchanged content, and backs off failed submissions for at least24hours. No Indexing API, ping endpoint or manual per-page request workflow.
 
-Managed fixture lastmod is driven by a stable source-content fingerprint, not polling/build/score changes. Unverified ingestion timestamps are omitted for other fixtures, teams and competition hubs; reviewed static-document dates remain. Sitemap submissions improve discovery, **not guaranteed indexing**. Indexed-URL count remains unavailable rather than fabricated.
+Managed PT-BR fixture lastmod is driven by a stable source-content fingerprint, not polling/build/score changes. The PT-BR enrichment timestamp is not copied to unchanged EN/ES-MX alternates. Unverified ingestion timestamps are omitted for other fixtures, teams and competition hubs; reviewed static-document dates remain. Sitemap submissions improve discovery, **not guaranteed indexing**. Indexed-URL count remains unavailable rather than fabricated.
 
 ## Scheduling, caps and recovery
 

@@ -13,7 +13,7 @@ export type SitemapCounts=Record<SitemapKind,number>;
  */
 export const submittedSitemapKinds=['matches','teams'] as const satisfies readonly SitemapKind[];
 export type SubmittedSitemapKind=typeof submittedSitemapKinds[number];
-export interface SportsSitemapEntry {publicId:string;name:string;away?:string;updatedAt:Date|string;lastmodVerified?:boolean;}
+export interface SportsSitemapEntry {publicId:string;name:string;away?:string;updatedAt:Date|string;lastmodVerified?:boolean;lastmodLocales?:readonly ('br'|'mx'|'en')[];}
 /** Per-competition tab availability for the default season (P2 sitemap tab policy). */
 export interface CompetitionSitemapSummary {slug:string;seasonId:string;upcoming:number;results:number;standings:boolean;scorers:boolean;teams:boolean;updatedAt:Date|null;}
 const origin=siteOrigin;
@@ -35,7 +35,7 @@ export function sitemapEntriesXml(kind:SubmittedSitemapKind,entries:SportsSitema
     const paths=(['br','mx','en'] as const).map(locale=>origin+(kind==='matches'?matchPath(locale,entry.publicId,entry.name,entry.away!):teamPath(locale,entry.publicId,entry.name)));
     const links=Object.entries(languageAlternates(paths[0],paths[1],paths[2])).map(([lang,href])=>`<xhtml:link rel="alternate" hreflang="${lang}" href="${xml(href)}"/>`).join('');
     const lastmod=entry.lastmodVerified!==false?`<lastmod>${new Date(entry.updatedAt).toISOString()}</lastmod>`:'';
-    return paths.map(path=>`<url><loc>${xml(path)}</loc>${lastmod}${links}</url>`).join('');
+    return paths.map((path,i)=>`<url><loc>${xml(path)}</loc>${!entry.lastmodLocales||entry.lastmodLocales.includes((['br','mx','en'] as const)[i])?lastmod:''}${links}</url>`).join('');
   }).join('')}</urlset>`;
 }
 

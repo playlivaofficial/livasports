@@ -17,10 +17,10 @@ export async function SeoFactualContext({match,locale}:{match:MatchCenterView;lo
   const row=await readPublishedSeo(match.header.id);if(!row)return null;
   const content=factualMatchContent(match);
   return <section className="growth-prominence" data-seo-autopilot="factual-context"><h2>Dados para acompanhar o confronto</h2>
-    {content.paragraphs.map(p=><p key={p}>{p}</p>)}
-    <nav className="growth-context-links" aria-label="Jogos, equipes e retrospecto">
+    {content.paragraphs.map(p=><p className="growth-prominence-context" key={p}>{p}</p>)}
+    <div className="growth-prominence-links"><nav className="growth-context-links" aria-label="Jogos, equipes e retrospecto">
       {[...(row.links as SeoLink[]),...content.h2hLinks].map(l=><Link key={l.href} href={l.href}>{l.label}</Link>)}
-    </nav></section>;
+    </nav></div></section>;
 }
 export type SeoSurface={kind:'HOME'}|{kind:'DAILY'}|{kind:'COMPETITION';slug:string}|{kind:'TEAM';teamId:string}|{kind:'MATCH';fixtureId:string};
 export async function SeoPriorityLinks({locale,surface}:{locale:string;surface:SeoSurface}){
@@ -31,7 +31,7 @@ export async function SeoPriorityLinks({locale,surface}:{locale:string;surface:S
   try{rows=(await database()?.query(`SELECT p.url,ht.name AS home,at.name AS away,c.display_name_pt_br AS competition
     FROM seo_autopilot_pages p JOIN fixtures f ON f.id=p.fixture_id JOIN competitions c ON c.id=f.competition_id
     JOIN teams ht ON ht.id=f.home_team_id JOIN teams at ON at.id=f.away_team_id
-    WHERE (p.state='PUBLISHED' OR (p.state='RETRYABLE_DATA_GAP' AND p.reasons='["INSUFFICIENT_INBOUND_LINKS"]'::jsonb))
+    WHERE (p.state='PUBLISHED' OR (p.state='RETRYABLE_DATA_GAP' AND p.reasons IN ('["INSUFFICIENT_INBOUND_LINKS"]'::jsonb,'["DAILY_PUBLICATION_CAP"]'::jsonb)))
       AND c.enabled AND f.status IN('SCHEDULED','FINISHED') AND f.kickoff>now()-interval '30 days' AND ${condition}
     ORDER BY p.score DESC,f.kickoff LIMIT 3`,values))?.rows??[];}catch{return null;}
   if(!rows.length)return null;

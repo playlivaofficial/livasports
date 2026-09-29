@@ -28,7 +28,7 @@ export async function runSeoAutopilot(db:DatabaseClient,options:{now?:Date;fetch
     let remaining=config.maxNewIndexablePagesPerDay-Number(used.n),refreshes=refreshed,titlesRemaining=config.maxAutomaticTitleChangesPerDay-titleUsed;
     const oldest=(a:typeof candidates[number],b:typeof candidates[number])=>(a.row.checked_at?new Date(String(a.row.checked_at)).getTime():0)-(b.row.checked_at?new Date(String(b.row.checked_at)).getTime():0)||b.score.total-a.score.total;
     // Reserve maintenance slots so new inventory cannot starve already-published lifecycle updates.
-    const linkRepair=(c:typeof candidates[number])=>JSON.stringify(c.row.previous_reasons)==='["INSUFFICIENT_INBOUND_LINKS"]';
+    const linkRepair=(c:typeof candidates[number])=>['["INSUFFICIENT_INBOUND_LINKS"]','["DAILY_PUBLICATION_CAP"]'].includes(JSON.stringify(c.row.previous_reasons));
     const queue=[...candidates.filter(c=>c.row.published_at).sort(oldest).slice(0,4),...candidates.filter(c=>!c.row.published_at)
       .sort((a,b)=>Number(linkRepair(b))-Number(linkRepair(a))||oldest(a,b)).slice(0,8)];
     for(const candidate of queue.slice(0,config.maxCandidatesPerRun)){
