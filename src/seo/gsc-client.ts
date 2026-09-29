@@ -27,10 +27,10 @@ const base64url=(value:Buffer|string)=>Buffer.from(value).toString('base64url');
  * Service-account access token: a signed JWT exchanged for a bearer token. Google's own libraries do the
  * same thing; doing it here keeps the dependency surface at zero for two read endpoints.
  */
-export async function serviceAccountToken(credential:{clientEmail:string;privateKey:string},fetcher:Fetcher=fetch,now=Date.now()):Promise<string>{
+export async function serviceAccountToken(credential:{clientEmail:string;privateKey:string},fetcher:Fetcher=fetch,now=Date.now(),scope:string=GSC_SCOPE):Promise<string>{
   const issued=Math.floor(now/1000);
   const header=base64url(JSON.stringify({alg:'RS256',typ:'JWT'}));
-  const claims=base64url(JSON.stringify({iss:credential.clientEmail,scope:GSC_SCOPE,aud:TOKEN_ENDPOINT,iat:issued,exp:issued+3600}));
+  const claims=base64url(JSON.stringify({iss:credential.clientEmail,scope,aud:TOKEN_ENDPOINT,iat:issued,exp:issued+3600}));
   let signature:string;
   try{
     const signer=createSign('RSA-SHA256');signer.update(`${header}.${claims}`);

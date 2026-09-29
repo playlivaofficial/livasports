@@ -19,7 +19,7 @@ export function SeoDashboard({report,search,experiments=null,opportunities=null}
   const families=Object.entries(latest?.families??{}).sort((a,b)=>b[1]-a[1]);
   return <main className="owner-health owner-seo">
     <header className="owner-health-header"><div>
-      <h1>LivaSports SEO monitoring</h1>
+      <h1>LivaSports SEO monitoring</h1><Link href="/owner/growth/autopilot">SEO Autopilot · oportunidades e decisões</Link>
       <p>Technical snapshot {latest?`${latest.day} · captured ${latest.capturedAt.slice(11,16)}Z`:'not captured yet'} ·
         {' '}Search Console <strong>{gsc.state}</strong> · provider requests on this page: 0 ·{' '}
         <Link href="/owner/growth/dashboard">Growth dashboard</Link> · <Link href="/owner/growth/scorecard">Weekly scorecard</Link> ·{' '}
