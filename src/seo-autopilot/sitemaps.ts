@@ -32,7 +32,15 @@ export async function maintainSeoSitemaps(db:QueryExecutor,now:Date,fetcher:type
       const submit=shouldSubmitSitemap(hash,previous,now);
       await db.query(`INSERT INTO seo_autopilot_sitemaps(path,content_hash,content_changed_at,state) VALUES($1,$2,$3,'DISCOVERED')
         ON CONFLICT(path) DO UPDATE SET content_hash=$2,content_changed_at=CASE WHEN seo_autopilot_sitemaps.content_hash<>$2 THEN $3 ELSE seo_autopilot_sitemaps.content_changed_at END`,[path,hash,now]);
-      if(!submit){results.push({path,state:hash===previous?.submitted_hash?'UNCHANGED':'BACKOFF'});continue;}
+      if(!submit){
+        // A fully re-read, identical sitemap proves a transient maintenance error recovered.
+        // Retain the last real Google submission; do not issue a duplicate PUT to clear health.
+        // Never erase a denied/failed Google write or an unsubmitted changed fingerprint.
+        if(hash===previous?.submitted_hash&&previous?.submitted_at&&previous?.error_code==='SITEMAP_MAINTENANCE_FAILED'){
+          await db.query("UPDATE seo_autopilot_sitemaps SET state='SUBMITTED',error_code=NULL WHERE path=$1 AND submitted_hash=$2 AND error_code='SITEMAP_MAINTENANCE_FAILED'",[path,hash]);
+        }
+        results.push({path,state:hash===previous?.submitted_hash?'UNCHANGED':'BACKOFF'});continue;
+      }
       if(!token){await db.query("UPDATE seo_autopilot_sitemaps SET state='SETUP_REQUIRED',error_code='GSC_AUTH_UNAVAILABLE' WHERE path=$1",[path]);results.push({path,state:'SETUP_REQUIRED'});continue;}
       await db.query('UPDATE seo_autopilot_sitemaps SET attempted_at=$2 WHERE path=$1',[path,now]);
       if(health.authScopeStatus!=='WEBMASTERS'||!['siteOwner','siteFullUser'].includes(health.propertyPermissionStatus)){

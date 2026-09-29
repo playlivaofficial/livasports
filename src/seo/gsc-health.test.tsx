@@ -19,6 +19,8 @@ function setup(scope=GSC_WRITE_SCOPE,permission='siteOwner',writeStatus=204){
     if(sql.includes('SET attempted_at'))row!.attempted_at=args[1];
     if(sql.includes('SET submitted_hash'))Object.assign(row!,{submitted_hash:args[1],submitted_at:args[2],error_code:null});
     if(sql.includes("SET state='SUBMISSION_BLOCKED'"))row!.error_code=args[1];
+    if(sql.includes("SET state='FAILED'"))row!.error_code='SITEMAP_MAINTENANCE_FAILED';
+    if(sql.includes("SET state='SUBMITTED',error_code=NULL")&&row?.submitted_hash===args[1]&&row?.error_code==='SITEMAP_MAINTENANCE_FAILED')Object.assign(row,{state:'SUBMITTED',error_code:null});
     return {rows:[]};
   });
   const fetcher=vi.fn(async(input:RequestInfo|URL,init?:RequestInit)=>{
@@ -62,6 +64,37 @@ describe('GSC write scope, evidence and deduplication',()=>{
   it('reports restricted property permission and prevents writes',async()=>{
     const f=setup(GSC_WRITE_SCOPE,'siteRestrictedUser');let health:GscHealth|undefined;
     await maintainSeoSitemaps(f.db,now,f.fetcher,h=>{health=h;});expect(health?.propertyPermissionStatus).toBe('siteRestrictedUser');expect(health?.sitemapWrite).toBe('PROPERTY_DENIED');expect(f.puts()).toHaveLength(0);
+  });
+  it('recovers a transient sitemap read failure without resubmitting or changing successful timestamps',async()=>{
+    const f=setup();let health:GscHealth|undefined;
+    await maintainSeoSitemaps(f.db,now,f.fetcher);
+    const saved=[...f.stored.values()].map(r=>({hash:r.submitted_hash,at:r.submitted_at,attempt:r.attempted_at}));
+    const fail:typeof fetch=async(input,init)=>{if(String(input)==='https://livasports.com/sports-sitemaps.xml')throw Error('private-failure');return f.fetcher(input,init);};
+    await maintainSeoSitemaps(f.db,now,fail,h=>{health=h;});
+    expect(health?.lastSubmissionError).toBe('API_ERROR');
+    const result=await maintainSeoSitemaps(f.db,now,f.fetcher,h=>{health=h;});
+    expect(result.every(r=>r.state==='UNCHANGED')).toBe(true);
+    expect(health).toMatchObject({sitemapWrite:'OK',lastSubmissionError:null});
+    expect(f.puts()).toHaveLength(2);
+    expect([...f.stored.values()].map(r=>({hash:r.submitted_hash,at:r.submitted_at,attempt:r.attempted_at}))).toEqual(saved);
+  });
+  it('does not clear maintenance failure for changed content or genuine Google rejection',async()=>{
+    const f=setup();let health:GscHealth|undefined;
+    await maintainSeoSitemaps(f.db,now,f.fetcher);
+    f.stored.get('/sports-sitemaps.xml')!.error_code='SITEMAP_MAINTENANCE_FAILED';f.change();
+    await maintainSeoSitemaps(f.db,now,f.fetcher,h=>{health=h;});
+    expect(health?.lastSubmissionError).toBe('API_ERROR');expect(f.puts()).toHaveLength(2);
+    const g=setup();await maintainSeoSitemaps(g.db,now,g.fetcher);
+    g.stored.get('/sports-sitemaps.xml')!.error_code='SCOPE_INSUFFICIENT';
+    await maintainSeoSitemaps(g.db,now,g.fetcher,h=>{health=h;});
+    expect(health?.lastSubmissionError).toBe('SCOPE_INSUFFICIENT');expect(g.puts()).toHaveLength(2);
+  });
+  it('does not hide a current property access failure when a transient read recovers',async()=>{
+    const f=setup();let health:GscHealth|undefined;await maintainSeoSitemaps(f.db,now,f.fetcher);
+    f.stored.get('/sports-sitemaps.xml')!.error_code='SITEMAP_MAINTENANCE_FAILED';
+    const denied:typeof fetch=async(input,init)=>String(input).endsWith('sc-domain%3Alivasports.com')?json({},403):f.fetcher(input,init);
+    await maintainSeoSitemaps(f.db,now,denied,h=>{health=h;});
+    expect(health?.sitemapWrite).toBe('PROPERTY_DENIED');expect(f.puts()).toHaveLength(2);
   });
   it('contains failed writes, preserves prior success hashes and applies backoff',async()=>{
     const f=setup(GSC_WRITE_SCOPE,'siteOwner',403);let health:GscHealth|undefined;
