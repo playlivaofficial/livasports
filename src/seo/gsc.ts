@@ -1,17 +1,15 @@
 /**
  * Search Console connector.
  *
- * There is no Search Console credential in this project. `AUTH_GOOGLE_ID`/`AUTH_GOOGLE_SECRET` exist but
- * are the NextAuth sign-in client: they carry no Search Console scope and no property grant, so using them
- * would not return data. Rather than fabricate metrics, this module reports NOT_CONNECTED and states
- * exactly what is missing, and the owner UI renders that state instead of numbers.
+ * GSC credentials are separate from the NextAuth sign-in client. Missing credentials are reported as
+ * NOT_CONNECTED, never fabricated metrics. Actual read ingestion is implemented in gsc-ingest.ts.
  *
  * To connect, the owner supplies one of:
  *   - a Google service account added as a user on the `sc-domain:livasports.com` property, with its JSON
  *     key in `GSC_SERVICE_ACCOUNT_JSON`; or
  *   - an OAuth refresh token for an account with access to that property, scope
- *     `https://www.googleapis.com/auth/webmasters.readonly`, in `GSC_REFRESH_TOKEN`.
- * Only then does this module read the Search Analytics API. Nothing here writes placeholder rows.
+ *     `webmasters.readonly` for analytics, or full `webmasters` for Autopilot sitemap submission,
+ *     in `GSC_REFRESH_TOKEN`. Changing a scope string cannot expand an existing OAuth grant.
  */
 const DEFAULT_PROPERTY='sc-domain:livasports.com';
 /** Domain property by default; an account that only holds the URL-prefix property sets GSC_PROPERTY. */

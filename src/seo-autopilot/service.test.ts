@@ -27,6 +27,10 @@ beforeEach(()=>{
     alternates:[{lang:'pt-BR',href:url}],links:candidates().map(c=>c.destinationUrl),problems:[]}));
 });
 describe('bounded autonomous execution',()=>{
+  it('a contained Google submission failure does not stop page publication',async()=>{
+    mocks.sitemaps.mockResolvedValue([{path:'/sitemap.xml',state:'SCOPE_INSUFFICIENT'}]);
+    const r=await runSeoAutopilot(database().db,{now:testNow});expect(r.state).toBe('SUCCEEDED');expect('published' in r?r.published:null).toBe(5);expect(r.providerRequests).toBe(0);
+  });
   it('publishes at most five canonical pages, preserves V1/social/provider tables, and logs decisions',async()=>{
     const {db,query}=database();const r=await runSeoAutopilot(db,{now:testNow,maintainSitemaps:false});
     if(!('published' in r))throw Error('EXPECTED_COMPLETED_RUN');

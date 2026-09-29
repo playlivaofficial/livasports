@@ -4,6 +4,8 @@ import {SeoSearchPerformance} from './SeoSearchPerformance';
 import {SeoExperiments} from './SeoExperiments';
 import type {MetadataExperiment} from '@/seo/experiments';
 import type {CtrReport} from '@/seo/ctr-report';
+import type {GscHealth} from '@/seo/gsc-health';
+import {GscHealthPanel} from './GscHealth';
 
 const pctText=(value:number)=>`${Math.round(value*1000)/10}%`;
 const delta=(current:number,baseline:number|null|undefined)=>{
@@ -13,7 +15,7 @@ const delta=(current:number,baseline:number|null|undefined)=>{
 };
 
 /** Owner-only SEO monitoring. Server-rendered, noindex, no public exposure of Search Console data. */
-export function SeoDashboard({report,search,experiments=null,opportunities=null}:{report:SeoReport;search:SeoSearchReport|null;experiments?:MetadataExperiment[]|null;opportunities?:CtrReport|null}){
+export function SeoDashboard({report,search,experiments=null,opportunities=null,gscHealth=null}:{report:SeoReport;search:SeoSearchReport|null;experiments?:MetadataExperiment[]|null;opportunities?:CtrReport|null;gscHealth?:GscHealth|null}){
   const {latest,previous,alerts,scorecard,gsc,history,thresholds,unsubmitted}=report;
   const critical=alerts.filter(a=>a.severity==='CRITICAL');
   const families=Object.entries(latest?.families??{}).sort((a,b)=>b[1]-a[1]);
@@ -27,6 +29,7 @@ export function SeoDashboard({report,search,experiments=null,opportunities=null}
     </div></header>
 
     <SeoExperiments experiments={experiments} opportunities={opportunities}/>
+    <GscHealthPanel health={gscHealth}/>
     {!latest?<section className="owner-health-card" role="status">
       <h2>No snapshot yet</h2><p>The daily SEO monitor has not run. It stores the first snapshot on its next scheduled run.</p>
     </section>:null}
