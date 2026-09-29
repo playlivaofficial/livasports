@@ -47,7 +47,7 @@ export async function probeGscHealth(now:Date,fetcher:typeof fetch=fetch){
   if(property.status==='OK'){
     const body=await property.response!.json().catch(()=>({}));
     const levels=['siteOwner','siteFullUser','siteRestrictedUser','siteUnverifiedUser'];
-    if(body.siteUrl===health.configuredProperty&&levels.includes(body.permissionLevel))health.propertyPermissionStatus=body.permissionLevel;
+    if(body&&typeof body==='object'&&body.siteUrl===health.configuredProperty&&levels.includes(body.permissionLevel))health.propertyPermissionStatus=body.permissionLevel;
   }
   const day=new Date(now.getTime()-3*86_400_000).toISOString().slice(0,10);
   health.analyticsRead=(await check(`${base}/searchAnalytics/query`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({startDate:day,endDate:day,rowLimit:1,dataState:'final'})})).status;

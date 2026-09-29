@@ -74,6 +74,10 @@ describe('GSC write scope, evidence and deduplication',()=>{
     setup();const f=vi.fn(async()=>{throw Error('private-refresh');});const {health}=await probeGscHealth(now,f);
     expect(health.analyticsRead).toBe('AUTH_ERROR');expect(JSON.stringify(health)).not.toContain('private-');
   });
+  it('malformed property response remains unknown rather than stopping SEO',async()=>{
+    const f=setup();const fetcher:typeof fetch=async(input,init)=>String(input).endsWith('sc-domain%3Alivasports.com')?json(null):f.fetcher(input,init);
+    expect((await probeGscHealth(now,fetcher)).health.propertyPermissionStatus).toBe('UNKNOWN');
+  });
   it('dashboard has no credential fields and performs database-only projected reads',async()=>{
     const f=setup();const health=(await probeGscHealth(now,f.fetcher)).health;
     const db={query:vi.fn(async()=>({rows:[{health:{...health,accessToken:'private-access',refreshToken:'private-refresh'}}]}))} as unknown as QueryExecutor;
