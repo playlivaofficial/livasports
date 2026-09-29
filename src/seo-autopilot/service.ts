@@ -10,6 +10,7 @@ import {optimizeSeoClusters} from './feedback';
 import {PostgresMatchCenterRepository} from '@/match-center/repository';
 import {factualMatchContent} from './content';
 import type {MatchCenterView} from '@/match-center/types';
+import type {GscHealth} from '@/seo/gsc-health';
 
 export async function runSeoAutopilot(db:DatabaseClient,options:{now?:Date;fetcher?:typeof fetch;maintainSitemaps?:boolean}={}){
   const now=options.now??new Date(),started=Date.now(),day=now.toISOString().slice(0,10);
@@ -102,9 +103,10 @@ export async function runSeoAutopilot(db:DatabaseClient,options:{now?:Date;fetch
       await db.query(`INSERT INTO seo_autopilot_technical(url,status,problems,audit,checked_at) VALUES($1,$2,$3::jsonb,$4::jsonb,$5)
         ON CONFLICT(url) DO UPDATE SET status=$2,problems=$3::jsonb,audit=$4::jsonb,checked_at=$5`,[url,a.status,JSON.stringify(a.problems),JSON.stringify(a),now]);
     }
-    const sitemaps=options.maintainSitemaps===false?[]:await maintainSeoSitemaps(db,now,options.fetcher);
+    let gscHealth:GscHealth|null=null;
+    const sitemaps=options.maintainSitemaps===false?[]:await maintainSeoSitemaps(db,now,options.fetcher,health=>{gscHealth=health;});
     const summary={state:'SUCCEEDED',runId,considered:candidates.length,evaluated:outcomes.length,published:outcomes.filter(o=>o.state==='PUBLISHED').length,
-      outcomes,feedback,sitemaps,pageCrawlRequests:audits.size,providerRequests:0};
+      outcomes,feedback,sitemaps,gscHealth,pageCrawlRequests:audits.size,providerRequests:0};
     await db.query("UPDATE seo_autopilot_runs SET state='SUCCEEDED',finished_at=now(),summary=$2::jsonb WHERE id=$1",[runId,JSON.stringify(summary)]);
     return summary;
   }catch{

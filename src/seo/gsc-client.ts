@@ -3,11 +3,8 @@ import {createSign} from 'node:crypto';
 import {GSC_SCOPE,type GscCredential} from './gsc';
 
 /**
- * Read-only Search Console API client.
- *
- * Only two endpoints are used and both are reads: `searchanalytics.query` and `sitemaps.list`. The scope
- * requested is `webmasters.readonly`, so this client cannot submit, remove or alter anything even if it
- * were asked to. Credentials are read from the environment by the caller and never logged: every error
+ * Search Console read client. Service-account reads default to readonly; OAuth refreshes retain the
+ * owner's actual grant. Sitemap writes are isolated in the Autopilot worker. Every error
  * path below returns a typed code, never the response body, which could echo a token.
  */
 const TOKEN_ENDPOINT='https://oauth2.googleapis.com/token';
@@ -37,7 +34,7 @@ export async function serviceAccountToken(credential:{clientEmail:string;private
     signature=signer.sign(credential.privateKey.replace(/\\n/g,'\n'),'base64url');
   }catch{throw new GscApiError('AUTH_ERROR',0,'Service-account private key could not sign the assertion');}
   const response=await fetcher(TOKEN_ENDPOINT,{method:'POST',headers:{'content-type':'application/x-www-form-urlencoded'},
-    body:new URLSearchParams({grant_type:'urn:ietf:params:oauth:grant-type:jwt-bearer',assertion:`${header}.${claims}.${signature}`})});
+    body:new URLSearchParams({grant_type:'urn:ietf:params:oauth:grant-type:jwt-bearer',assertion:`${header}.${claims}.${signature}`}),signal:AbortSignal.timeout(15_000)});
   if(!response.ok)throw new GscApiError('AUTH_ERROR',response.status,`Token exchange rejected the service account (${response.status})`);
   const token=(await response.json() as {access_token?:string}).access_token;
   if(!token)throw new GscApiError('AUTH_ERROR',response.status,'Token exchange returned no access token');
@@ -46,12 +43,18 @@ export async function serviceAccountToken(credential:{clientEmail:string;private
 
 /** OAuth access token from a stored refresh token. */
 export async function refreshTokenAccess(credential:{clientId:string;clientSecret:string;refreshToken:string},fetcher:Fetcher=fetch):Promise<string>{
+  return (await refreshTokenGrant(credential,fetcher)).token;
+}
+
+/** Token and effective grant remain server-only; callers persist only the classified scope status. */
+export async function refreshTokenGrant(credential:{clientId:string;clientSecret:string;refreshToken:string},fetcher:Fetcher=fetch){
   const response=await fetcher(TOKEN_ENDPOINT,{method:'POST',headers:{'content-type':'application/x-www-form-urlencoded'},
-    body:new URLSearchParams({grant_type:'refresh_token',client_id:credential.clientId,client_secret:credential.clientSecret,refresh_token:credential.refreshToken})});
+    body:new URLSearchParams({grant_type:'refresh_token',client_id:credential.clientId,client_secret:credential.clientSecret,refresh_token:credential.refreshToken}),signal:AbortSignal.timeout(15_000)});
   if(!response.ok)throw new GscApiError('AUTH_ERROR',response.status,`Refresh token was rejected (${response.status})`);
-  const token=(await response.json() as {access_token?:string}).access_token;
+  const body=await response.json() as {access_token?:string;scope?:string};
+  const token=body.access_token;
   if(!token)throw new GscApiError('AUTH_ERROR',response.status,'Refresh exchange returned no access token');
-  return token;
+  return {token,scope:body.scope??''};
 }
 
 export async function accessTokenFor(credential:GscCredential,fetcher:Fetcher=fetch,now=Date.now()):Promise<string>{
