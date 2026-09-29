@@ -5,7 +5,7 @@ export function AutopilotDashboard({report:r}:{report:AutopilotReport}){
   const max=Math.max(1,...r.trend.map(p=>p.impressions));
   return <main className="owner-health" style={{overflowWrap:'anywhere'}}><header className="owner-health-header"><div><h1>SEO Autopilot</h1>
     <p>Brasil · AutoPublish ON · {r.config.version} · consultas a provedores: 0</p><p><Link href="/owner/growth/seo">Saúde SEO / GSC</Link> · <Link href="/owner/growth/dashboard">Funil comercial completo</Link></p>
-    <nav aria-label="Período">{([7,28,90] as const).map(d=><Link key={d} href={`?days=${d}`} aria-current={r.days===d?'page':undefined}>{d} dias </Link>)}</nav></div></header>
+    <nav aria-label="Período" style={{display:'flex',gap:8,flexWrap:'wrap'}}>{([7,28,90] as const).map(d=><a key={d} href={`/owner/growth/autopilot?days=${d}`} aria-current={r.days===d?'page':undefined} style={{display:'inline-flex',alignItems:'center',minHeight:44,padding:'0 10px'}}>{d} dias</a>)}</nav></div></header>
     <p>{r.from} a {r.to} · {r.daysObserved}/{r.days} dias com dados. Histórico incompleto não é zero; publicação não comprova crescimento.</p>
     <div className="owner-health-cards">{Object.entries({'Impressões':r.totals.impressions,'Cliques':r.totals.clicks,'CTR':`${(r.totals.ctr*100).toFixed(2)}%`,'Posição média':r.totals.position.toFixed(1),
       'Cliques não-marca':r.nonBrandClicks,'Consultas Top 10':r.top10Queries,'Consultas Top 20':r.top20Queries,'Páginas Top 10':r.top10Pages,'Páginas Top 20':r.top20Pages,

@@ -31,7 +31,7 @@ export async function SeoPriorityLinks({locale,surface}:{locale:string;surface:S
   try{rows=(await database()?.query(`SELECT p.url,ht.name AS home,at.name AS away,c.display_name_pt_br AS competition
     FROM seo_autopilot_pages p JOIN fixtures f ON f.id=p.fixture_id JOIN competitions c ON c.id=f.competition_id
     JOIN teams ht ON ht.id=f.home_team_id JOIN teams at ON at.id=f.away_team_id
-    WHERE (p.state='PUBLISHED' OR (p.state='RETRYABLE_DATA_GAP' AND p.reasons='["INSUFFICIENT_INBOUND_LINKS"]'::jsonb))
+    WHERE (p.state='PUBLISHED' OR (p.state='RETRYABLE_DATA_GAP' AND p.reasons IN ('["INSUFFICIENT_INBOUND_LINKS"]'::jsonb,'["DAILY_PUBLICATION_CAP"]'::jsonb)))
       AND c.enabled AND f.status IN('SCHEDULED','FINISHED') AND f.kickoff>now()-interval '30 days' AND ${condition}
     ORDER BY p.score DESC,f.kickoff LIMIT 3`,values))?.rows??[];}catch{return null;}
   if(!rows.length)return null;
