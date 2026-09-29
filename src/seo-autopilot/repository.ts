@@ -56,9 +56,11 @@ export async function readSeoInventory(db:QueryExecutor,now:Date){
       FROM fixtures f JOIN competitions c ON c.id=f.competition_id JOIN teams ht ON ht.id=f.home_team_id JOIN teams at ON at.id=f.away_team_id
       LEFT JOIN seo_autopilot_pages ap ON ap.fixture_id=f.id WHERE f.id=ANY($1::uuid[])`,[fixtures.map(f=>f.signals.fixtureId)]),
     db.query(`SELECT key,clicks,impressions,ctr,position FROM seo_search_daily WHERE property=$1 AND dimension='PAGE' AND day BETWEEN $2 AND $3`,[gscProperty(),w.current28.from,w.current28.to]),
-    db.query('SELECT cluster,boost FROM seo_autopilot_clusters'),
+    db.query("SELECT cluster,boost FROM seo_autopilot_clusters WHERE updated_at>now()-interval '14 days'"),
   ]);
   const pages=collapse(search.rows.map(r=>({key:String(r.key),clicks:Number(r.clicks),impressions:Number(r.impressions),ctr:Number(r.ctr),position:Number(r.position)} as SearchRow)));
+  // Resource ordering only: approved scoring and publishing thresholds are not changed.
+  const learning=await db.query("SELECT cluster,adjustment FROM seo_growth_cluster_weights WHERE updated_at>now()-interval '14 days'").catch(()=>({rows:[]}));
   return fixtures.map(f=>{
     const row=details.rows.find(r=>r.id===f.signals.fixtureId)!,p=pages.find(p=>p.key===f.destinationUrl);
     const related=pages.filter(p=>p.key.startsWith('https://livasports.com/br/')&&[f.signals.home.publicId,f.signals.away.publicId].some(id=>p.key.endsWith(id)));
@@ -67,7 +69,7 @@ export async function readSeoInventory(db:QueryExecutor,now:Date){
         ...(Array.isArray(row.results)&&row.results.length>=3?['recent-results']:[]),...(f.signals.standings?['standings']:[])],
       fresh:f.signals.status==='FINISHED'||now.getTime()-new Date(String(row.updated_at)).getTime()<7*86_400_000,shortlisted:row.shortlisted===true,inboundSources:0,
       clusterBoost:Number(weights.rows.find(r=>r.cluster===f.signals.competitionSlug)?.boost??0)};
-    return {...f,row,evidence,score:seoOpportunityScore(f.signals,evidence,now)};
+    return {...f,row,evidence,resourceAdjustment:Number(learning.rows.find(w=>w.cluster===f.signals.competitionSlug)?.adjustment??0),score:seoOpportunityScore(f.signals,evidence,now)};
   }).sort((a,b)=>b.score.total-a.score.total||a.signals.publicId.localeCompare(b.signals.publicId));
 }
 export type SeoCandidate=Awaited<ReturnType<typeof readSeoInventory>>[number];

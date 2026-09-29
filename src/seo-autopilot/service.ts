@@ -6,10 +6,7 @@ import {acquireSeoRun,readSeoInventory,recordSeoDecision} from './repository';
 import {contentHash,seoInternalLinkEngine,seoOpportunityScore,seoPublishGate,type PublishState} from './policy';
 import {crawlSeoUrl,type HtmlAudit} from './crawl';
 import {maintainSeoSitemaps} from './sitemaps';
-import {optimizeSeoClusters} from './feedback';
-import {PostgresMatchCenterRepository} from '@/match-center/repository';
-import {factualMatchContent} from './content';
-import type {MatchCenterView} from '@/match-center/types';
+import {runGrowthOptimization} from './optimization';
 import type {GscHealth} from '@/seo/gsc-health';
 
 export async function runSeoAutopilot(db:DatabaseClient,options:{now?:Date;fetcher?:typeof fetch;maintainSitemaps?:boolean}={}){
@@ -20,14 +17,15 @@ export async function runSeoAutopilot(db:DatabaseClient,options:{now?:Date;fetch
   const audits=new Map<string,Promise<HtmlAudit|null>>();
   const audit=(url:string)=>{let promise=audits.get(url);if(!promise){promise=crawlSeoUrl(url,options.fetcher).catch(()=>null);audits.set(url,promise);}return promise;};
   try{
-    const feedback=await optimizeSeoClusters(db,runId,now);
+    // Existing 05:40 seo-refresh ingests final GSC days before this 07:10 job. Never duplicate ingestion here.
+    // Failed optimization cannot stop base publishing/technical/sitemap maintenance.
+    const feedback=await runGrowthOptimization(db,now,options.fetcher).catch(()=>({mode:'OBSERVE_ONLY',reasons:['OPTIMIZATION_FAILED'],applied:0,providerRequests:0}));
     const candidates=await readSeoInventory(db,now);
     const used=(await db.query(`SELECT count(*)::int AS n FROM seo_autopilot_pages WHERE published_at>=$1::date AND published_at<$1::date+interval '1 day'`,[day])).rows[0];
-    const titleUsed=Number((await db.query(`SELECT count(*)::int AS n FROM seo_autopilot_decisions WHERE action='FACTUAL_METADATA' AND created_at>=$1::date AND created_at<$1::date+interval '1 day'`,[day])).rows[0].n);
     const refreshed=Number((await db.query(`SELECT count(*)::int AS n FROM seo_autopilot_decisions WHERE created_at>=$1::date AND created_at<$1::date+interval '1 day'
       AND previous_state->>'hash' IS DISTINCT FROM new_state->>'hash' AND new_state ? 'hash'`,[day])).rows[0].n);
-    let remaining=config.maxNewIndexablePagesPerDay-Number(used.n),refreshes=refreshed,titlesRemaining=config.maxAutomaticTitleChangesPerDay-titleUsed;
-    const oldest=(a:typeof candidates[number],b:typeof candidates[number])=>(a.row.checked_at?new Date(String(a.row.checked_at)).getTime():0)-(b.row.checked_at?new Date(String(b.row.checked_at)).getTime():0)||b.score.total-a.score.total;
+    let remaining=config.maxNewIndexablePagesPerDay-Number(used.n),refreshes=refreshed;
+    const oldest=(a:typeof candidates[number],b:typeof candidates[number])=>Math.floor((a.row.checked_at?new Date(String(a.row.checked_at)).getTime():0)/86400000)-Math.floor((b.row.checked_at?new Date(String(b.row.checked_at)).getTime():0)/86400000)||(b.score.total+Number(b.resourceAdjustment??0))-(a.score.total+Number(a.resourceAdjustment??0));
     // Reserve maintenance slots so new inventory cannot starve already-published lifecycle updates.
     const linkRepair=(c:typeof candidates[number])=>['["INSUFFICIENT_INBOUND_LINKS"]','["DAILY_PUBLICATION_CAP"]'].includes(JSON.stringify(c.row.previous_reasons));
     const queue=[...candidates.filter(c=>c.row.published_at).sort(oldest).slice(0,4),...candidates.filter(c=>!c.row.published_at)
@@ -77,20 +75,8 @@ export async function runSeoAutopilot(db:DatabaseClient,options:{now?:Date;fetch
           {inbound:evidence.inboundSources},{state:'LINKS_STAGED_PRODUCT_ONLY'},evidence);
       });
       if(state==='PUBLISHED'&&!row.published_at)remaining--;
-      if(state==='PUBLISHED'&&titlesRemaining>0&&!row.previous_title&&!row.has_experiment&&(score.tier==='A'||evidence.impressions>=100)){
-        const repository=new PostgresMatchCenterRepository(db),header=await repository.header(f.publicId,'br');
-        if(header){
-          const form=await repository.form(header);
-          const meta={providerUpdatedAt:null,lastSuccessfulRefreshAt:null,snapshotAt:null};
-          const data:Pick<MatchCenterView,'header'|'form'|'standings'|'statistics'>={header,form:{...meta,state:'AVAILABLE',data:form},standings:{...meta,state:'NO_DATA_IN_WINDOW',data:[]},statistics:{...meta,state:'NO_DATA_IN_WINDOW',data:[]}};
-          const metadata=factualMatchContent(data);
-          await db.transaction(async tx=>{
-            await tx.query('UPDATE seo_autopilot_pages SET title=$2,description=$3,metadata_changed_at=$4,content_changed_at=$4 WHERE fixture_id=$1',[f.fixtureId,metadata.title,metadata.description,now]);
-            await recordSeoDecision(tx,runId,url,'FACTUAL_METADATA','Source-backed existing-page title; no keyword variant. Existing experiments excluded.',
-              {title:html?.title??null},{title:metadata.title,description:metadata.description,template:'FACTUAL_PT_BR_V1'},evidence);
-          });titlesRemaining--;
-        }
-      }
+      // V2.1 owns automatic metadata changes exclusively: high confidence, caps, control and cooldown.
+      // Existing stored metadata remains intact; factual content still uses the Match Center read model.
       if(row.previous_hash!==hash)refreshes++;
       outcomes.push({url,score:score.total,state,reasons});
     }

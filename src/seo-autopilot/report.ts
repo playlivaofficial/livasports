@@ -4,6 +4,8 @@ import {gscWindows} from '@/seo/gsc-ingest';
 import {gscProperty} from '@/seo/gsc';
 import {aggregate,collapse,nearPageOne,ctrOpportunities,compare,growthPages,losingVisibility,type SearchRow} from '@/seo/intelligence';
 import {SEO_AUTOPILOT as config} from './config';
+import {readOptimizationReport} from './optimization-report';
+import {classifyBrand} from './optimization-policy';
 
 export async function readAutopilotReport(db:QueryExecutor,days:7|28|90=28,now=new Date()){
   const to=gscWindows(now).latestComplete,from=new Date(Date.parse(to)-(days-1)*86_400_000).toISOString().slice(0,10);
@@ -30,13 +32,13 @@ export async function readAutopilotReport(db:QueryExecutor,days:7|28|90=28,now=n
   const currentPages=collapse(metrics(cur('PAGE'))),queries=collapse(metrics(cur('QUERY')));
   const movements=compare(currentPages,metrics(raw.rows.filter(r=>r.dimension==='PAGE'&&String(r.day)<from)));
   const totals=aggregate(metrics(cur('TOTAL'))),daysObserved=cur('TOTAL').length;
-  return {config,days,from,to,daysObserved,totals,nonBrandClicks:aggregate(queries.filter(q=>!/(liva\s*sports|livasport)/i.test(q.key))).clicks,
+  return {config,days,from,to,daysObserved,totals,nonBrandClicks:aggregate(queries.filter(q=>classifyBrand(q.key)==='NON_BRAND')).clicks,
     nonBrandCaveat:'Reported queries only; Google omits anonymized queries.',top10Queries:queries.filter(r=>r.position>0&&r.position<=10).length,
     top20Queries:queries.filter(r=>r.position>0&&r.position<=20).length,top10Pages:currentPages.filter(r=>r.position>0&&r.position<=10).length,
     top20Pages:currentPages.filter(r=>r.position>0&&r.position<=20).length,
     trend:cur('TOTAL').map(r=>({day:String(r.day),clicks:Number(r.clicks),impressions:Number(r.impressions)})).sort((a,b)=>a.day.localeCompare(b.day)),
     striking:nearPageOne(currentPages).slice(0,15),ctr:ctrOpportunities(currentPages).slice(0,15),winners:growthPages(movements).slice(0,10),decay:losingVisibility(movements).slice(0,10),
     pages:pages.rows.map(p=>({...p,performance:currentPages.find(r=>r.key===p.url)??null})),decisions:decisions.rows,runs:runs.rows,technical:technical.rows,
-    sitemaps:sitemaps.rows,clusters:clusters.rows,organic:organic.rows[0],indexable:indexable.rows[0]??null,indexed:null,providerRequests:0};
+    sitemaps:sitemaps.rows,clusters:clusters.rows,organic:organic.rows[0],indexable:indexable.rows[0]??null,indexed:null,optimization:await readOptimizationReport(db,now),providerRequests:0};
 }
 export type AutopilotReport=Awaited<ReturnType<typeof readAutopilotReport>>;

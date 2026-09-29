@@ -27,7 +27,7 @@ export function inspectSeoHtml(url:string,status:number,html:string,robotsHeader
   const links=[...new Set($('a[href]').map((_,el)=>{
     try{const u=new URL($(el).attr('href')!,siteOrigin);return u.origin===siteOrigin?u.href:'';}catch{return '';}
   }).get().filter(Boolean))];
-  return {url,status,title,h1,canonical,indexFollow:!(/noindex|nofollow/i.test(robots)),primaryLength:primary.length,
+  return {url,status,title,description:$('meta[name="description"]').attr('content')??'',h1,canonical,indexFollow:!(/noindex|nofollow/i.test(robots)),primaryLength:primary.length,
     structuredDataValid,alternates,links,problems,metadataHash:contentHash({title,h1,canonical,schemas})};
 }
 export type HtmlAudit=ReturnType<typeof inspectSeoHtml>;

@@ -2,6 +2,7 @@ import {matchSeoDescription,matchSeoTitle,sportsMatchSchema} from '@/sports/matc
 import {ctrMatchMetadata} from '@/seo/ctr-variants';
 import {readPublishedSeo} from '@/seo-autopilot/public';
 import {factualMatchContent} from '@/seo-autopilot/content';
+import {optimizationMetadata} from '@/seo-autopilot/optimization-metadata';
 import {isFinishedMatchDecayed,noindexRobots} from '@/seo/policy';
 import type { Metadata } from 'next';
 import {loadPendingFixture} from '@/sports/runtime';
@@ -35,8 +36,9 @@ export async function matchMetadata(paramPromise: Promise<{ match: string }>, lo
   const variant=ctrMatchMetadata(locale,result.match);
   const seo=await readPublishedSeo(header.id);
   const factual=locale==='br'&&seo?.title?factualMatchContent(result.match):null;
-  const title = variant?.title??factual?.title??matchSeoTitle(locale, header);
-  const description = variant?.description??factual?.description??matchSeoDescription(locale, header);
+  const optimized=locale==='br'?optimizationMetadata(seo?.optimization_metadata,`${header.home.name} x ${header.away.name}`,header.status,header.kickoff):null;
+  const title = variant?.title??optimized?.title??factual?.title??matchSeoTitle(locale, header);
+  const description = variant?.description??optimized?.description??factual?.description??matchSeoDescription(locale, header);
   const canonical = matchPath(locale, header.publicId, header.home.name, header.away.name);
   const br = matchPath('br', header.publicId, header.home.name, header.away.name);
   const mx = matchPath('mx', header.publicId, header.home.name, header.away.name);
