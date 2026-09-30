@@ -17,7 +17,7 @@ export async function readAutopilotReport(db:QueryExecutor,days:7|28|90=28,now=n
     db.query('SELECT url,action,reason,previous_state,new_state,created_at,config_version,release_sha FROM seo_autopilot_decisions ORDER BY id DESC LIMIT 80'),
     db.query('SELECT id,day::text,state,started_at,finished_at,summary FROM seo_autopilot_runs ORDER BY started_at DESC LIMIT 10'),
     db.query("SELECT url,status,problems,checked_at FROM seo_autopilot_technical WHERE problems<>'[]'::jsonb ORDER BY checked_at DESC LIMIT 60"),
-    db.query('SELECT * FROM seo_autopilot_sitemaps ORDER BY path'),
+    db.query('SELECT path,state,submitted_at,attempted_at,checked_at,error_code,diagnostic,next_retry_at FROM seo_autopilot_sitemaps ORDER BY path'),
     db.query('SELECT * FROM seo_autopilot_clusters ORDER BY boost DESC,cluster'),
     db.query(`SELECT count(*)::int AS sessions,count(*) FILTER(WHERE s.engaged)::int AS engaged,
       count(*) FILTER(WHERE EXISTS(SELECT 1 FROM analytics_events e WHERE e.session_id=s.session_id AND e.traffic_class='HUMAN' AND e.event_name='match_viewed'))::int AS match_sessions,

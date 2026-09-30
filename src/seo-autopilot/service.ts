@@ -90,7 +90,12 @@ export async function runSeoAutopilot(db:DatabaseClient,options:{now?:Date;fetch
         ON CONFLICT(url) DO UPDATE SET status=$2,problems=$3::jsonb,audit=$4::jsonb,checked_at=$5`,[url,a.status,JSON.stringify(a.problems),JSON.stringify(a),now]);
     }
     let gscHealth:GscHealth|null=null;
-    const sitemaps=options.maintainSitemaps===false?[]:await maintainSeoSitemaps(db,now,options.fetcher,health=>{gscHealth=health;});
+    // Start the lease at maintenance time, not at the potentially much earlier SEO run start.
+    const sitemaps=options.maintainSitemaps===false?[]:await maintainSeoSitemaps(db,new Date(now.getTime()+Date.now()-started),options.fetcher,health=>{gscHealth=health;},
+      {budgetMs:Math.max(1000,275_000-(Date.now()-started))}).catch(()=>{
+        console.error(JSON.stringify({event:'gsc-sitemap',result:'UNKNOWN_ERROR',stage:'PERSIST',providerRequests:0}));
+        return [{path:'/sitemap.xml',state:'MAINTENANCE_UNAVAILABLE'},{path:'/sports-sitemaps.xml',state:'MAINTENANCE_UNAVAILABLE'}];
+      });
     const summary={state:'SUCCEEDED',runId,considered:candidates.length,evaluated:outcomes.length,published:outcomes.filter(o=>o.state==='PUBLISHED').length,
       outcomes,feedback,sitemaps,gscHealth,pageCrawlRequests:audits.size,providerRequests:0};
     await db.query("UPDATE seo_autopilot_runs SET state='SUCCEEDED',finished_at=now(),summary=$2::jsonb WHERE id=$1",[runId,JSON.stringify(summary)]);
