@@ -51,28 +51,23 @@ describe('canonical master model',()=>{
  it('preserves the ordered SEO Top 10 and makes exactly ranks 1–5 social',()=>{
   const shortlist=buildShortlist(rows.map(r=>r.priority));expect(shortlist.content).toHaveLength(10);expect(shortlist.social).toEqual(shortlist.content.slice(0,5));
  });
- it('recomputes SEO for all 10 but never renders ranks 6–10',async()=>{
-  vi.mocked(repo.readLatestGrowthItems).mockResolvedValue(rows.slice(0,5).map((_,i)=>masterItem(i)));
+ it('refreshes all ten SEO priorities but creates no media job, lease, assets or history writes',async()=>{
   const result=await runGrowthGeneration(db,'AUTOMATIC',{now:testNow});
   expect(repo.upsertGrowthSeoPriorities).toHaveBeenCalledWith(db,expect.arrayContaining([expect.objectContaining({rank:10,topSocial:false})]),testNow);
-  expect(repo.rebuildCurrentGrowthQueue).toHaveBeenCalledTimes(2);
-  expect(result.skippedDuplicate).toBe(5);expect(renderSocialPackage).not.toHaveBeenCalled();
+  expect(result).toMatchObject({state:'SUCCEEDED',selectionCount:10,socialCount:5,generated:0,jobId:null,pending:0,mediaGeneration:'DISABLED',providerRequests:0});
+  for(const fn of [repo.acquireGrowthJob,repo.finishGrowthJob,repo.persistGrowthItem,repo.rebuildCurrentGrowthQueue,repo.readLatestGrowthItems,renderSocialPackage])expect(fn).not.toHaveBeenCalled();
  });
- it('renders a bounded batch of master packages once; concurrent invocations do no work',async()=>{
-  const result=await runGrowthGeneration(db,'AUTOMATIC',{now:testNow});expect(result.generated).toBe(5);
-  expect(renderSocialPackage).toHaveBeenCalledTimes(5);expect(repo.persistGrowthItem).toHaveBeenCalledTimes(5);
-  vi.mocked(repo.acquireGrowthJob).mockResolvedValue(null);
-  expect((await runGrowthGeneration(db,'OWNER')).state).toBe('ALREADY_RUNNING');expect(renderSocialPackage).toHaveBeenCalledTimes(5);
- });
- it('does not certify a package missing its canonical media',async()=>{
+ it('refreshes again without repairing missing media or retrying a failed render',async()=>{
+  vi.mocked(renderSocialPackage).mockRejectedValue(Error('VOICE_HTTP_500'));
   const items=rows.slice(0,5).map((_,i)=>masterItem(i));items.forEach(item=>{item.canonicalAssets=[];});
   vi.mocked(repo.readLatestGrowthItems).mockResolvedValue(items);
-  const result=await runGrowthGeneration(db,'OWNER',{now:testNow});expect(result.state).toBe('PARTIAL');expect(renderSocialPackage).not.toHaveBeenCalled();
+  for(let i=0;i<2;i++)expect(await runGrowthGeneration(db,'OWNER',{now:testNow})).toMatchObject({state:'SUCCEEDED',generated:0});
+  expect(repo.upsertGrowthSeoPriorities).toHaveBeenCalledTimes(2);expect(repo.readLatestGrowthItems).not.toHaveBeenCalled();
+  expect(renderSocialPackage).not.toHaveBeenCalled();expect(repo.persistGrowthItem).not.toHaveBeenCalled();
  });
- it('refuses forced generation outside Top 5 and retains predecessors on voice failure',async()=>{
-  expect((await runGrowthGeneration(db,'OWNER',{now:testNow,forceFixtureId:rows[9].signals.fixtureId})).error).toBe('FIXTURE_NOT_SOCIAL_TOP_FIVE');
-  expect(renderSocialPackage).not.toHaveBeenCalled();vi.mocked(renderSocialPackage).mockRejectedValue(Error('NARRATION_INCOMPLETE_KEEP_PREDECESSOR'));
-  expect((await runGrowthGeneration(db,'OWNER',{now:testNow})).state).toBe('PARTIAL');expect(repo.persistGrowthItem).not.toHaveBeenCalled();expect(renderSocialPackage).toHaveBeenCalledTimes(1);
+ it('rejects forced generation even for a Top 5 fixture before DB or rendering work',async()=>{
+  expect(await runGrowthGeneration(db,'OWNER',{now:testNow,forceFixtureId:rows[0].signals.fixtureId})).toMatchObject({state:'FAILED',error:'MEDIA_GENERATION_DISABLED'});
+  expect(repo.readGrowthFixtures).not.toHaveBeenCalled();expect(repo.acquireGrowthJob).not.toHaveBeenCalled();expect(renderSocialPackage).not.toHaveBeenCalled();
  });
  it('stabilizes geometry and quantizes joins at either benchmark frame rate',()=>{
   const draft=generatedContent(rows[0]).content.masterSocial!;

@@ -340,6 +340,9 @@ export async function readCanonicalAsset(db:QueryExecutor,itemId:string,kind:Gro
 export interface GrowthSeoUpsert {fixtureId:string;rank:number;score:number;topSocial:boolean;canonicalUrl:string;seo:GrowthSeoPriority;sourceHash:string;}
 export async function upsertGrowthSeoPriorities(db:DatabaseClient,rows:GrowthSeoUpsert[],now=new Date()){
   await db.transaction(async tx=>{
+    // Serialize only shortlist persistence, not a media job/lease/heartbeat.
+    await tx.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',['growth:seo-priorities']);
+    if((await tx.query('SELECT 1 FROM growth_seo_priorities WHERE updated_at>$1 LIMIT 1',[now])).rows.length)return;
     await tx.query('UPDATE growth_seo_priorities SET active=false,updated_at=$1 WHERE active',[now]);
     for(const row of rows)await tx.query(`INSERT INTO growth_seo_priorities(fixture_id,priority_rank,priority_score,top_social,canonical_url,intent_cluster,placements,context_pt_br,source_hash,active,updated_at)
       VALUES($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8,$9,true,$10)

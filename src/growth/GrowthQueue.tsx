@@ -6,6 +6,7 @@ import type {GrowthContentItem,GrowthDashboard,RankedGrowthFixture} from './type
 import {PublishingCard,PublishingCounts,PublishingHistory,publishingDate} from './ManualPublishing';
 import {MasterSocial} from './MasterSocial';
 import type {PublishingOverview} from './manual-publishing';
+import {seoPriority} from './strategy';
 
 type Action=(key:string,body:Record<string,unknown>)=>Promise<void>;
 export function latestQueueItems(items:GrowthContentItem[]){
@@ -29,12 +30,13 @@ export function GrowthQueue({dashboard:initial}:{dashboard:GrowthDashboard}){
   };
   return <main className="owner-health owner-growth">
     <header className="owner-health-header"><div><p className="owner-growth-kicker">LivaSports · publicação manual</p><h1>Fila de crescimento</h1>
-      <p>Revise → baixe o vídeo → copie os textos → publique na rede social → registre aqui. Nenhuma publicação automática.</p></div>
+      <p>Top 10 atualizado automaticamente. Escolha uma partida e produza seu vídeo externamente; a publicação continua manual.</p></div>
       <div className="owner-health-actions"><Link href="/owner/health">Saúde</Link><Link href="/owner/analytics">Analytics</Link><Link href="/owner/growth/dashboard">Growth dashboard</Link><Link href="/owner/growth/scorecard">Scorecard semanal</Link>
-        <Link href="/owner/growth/authority">Autoridade editorial</Link><button disabled={!!busy} onClick={()=>act('refresh',{action:'refresh'})}>{busy==='refresh'?'Atualizando…':'Atualizar e gerar'}</button></div></header>
+        <Link href="/owner/growth/authority">Autoridade editorial</Link><button disabled={!!busy} onClick={()=>act('refresh',{action:'refresh'})}>{busy==='refresh'?'Atualizando…':'Atualizar Top 10'}</button></div></header>
+    <p className="owner-health-notice">Produção de vídeo, voz e imagens desativada. Priorização Top 10, Top 5 social e SEO continuam ativos. Mídias e registros anteriores estão preservados.</p>
     <p className="manual-notice" role="status" aria-live="polite">{busy?'Salvando…':message}</p>
     <PublishingCounts dashboard={dashboard} latest={latest}/>
-    <p>{dashboard.considered} considerados · {dashboard.producible} produzíveis · leitura {publishingDate(dashboard.generatedAt)} (Brasília).</p>
+    <p>{dashboard.considered} considerados · {dashboard.producible} elegíveis · leitura {publishingDate(dashboard.generatedAt)} (Brasília).</p>
     {!dashboard.publishing?<p role="alert">Histórico de publicação indisponível. Registro de novos posts temporariamente desabilitado.</p>:null}
     <section><h2>Top 10 agora</h2><div className="owner-growth-list">{dashboard.content.map((row,index)=><FixtureOpportunity key={row.signals.fixtureId} row={row} rank={index+1}
       social={dashboard.social.some(item=>item.signals.fixtureId===row.signals.fixtureId)} item={latest.get(row.signals.fixtureId)} overview={dashboard.publishing} busy={busy} act={act}/>)}</div>
@@ -49,23 +51,23 @@ export function GrowthQueue({dashboard:initial}:{dashboard:GrowthDashboard}){
   </main>;
 }
 function FixtureOpportunity({row,rank,social,item,overview,busy,act}:{row:RankedGrowthFixture;rank:number;social:boolean;item?:GrowthContentItem;overview?:PublishingOverview;busy:string;act:Action}){
-  const {signals,priority}=row;
-  const review=item?<ContentReview item={item} overview={overview} busy={busy} act={act}/>:<p className="owner-health-notice">Ainda não gerado. Use “Atualizar e gerar” para criar o pacote.</p>;
+  const {signals,priority}=row,seo=seoPriority(row,rank);
+  const review=item?<ContentReview item={item} overview={overview} busy={busy} act={act}/>:<p className="owner-health-notice">Oportunidade selecionada. Nenhuma mídia será gerada pelo site; escolha esta partida para produção externa.</p>;
   return <article className="owner-growth-item"><div className="owner-growth-rank"><span>#{rank}</span><strong>{priority.total}</strong><small>pontos</small>{social?<b>Top 5 social</b>:null}</div>
     <div className="owner-growth-main"><header><div><small>{signals.competitionName}</small><h3>{signals.home.name} vs {signals.away.name}</h3><time>{publishingDate(signals.kickoff)} · Brasília</time></div>
       <a href={row.destinationUrl} target="_blank" rel="noreferrer">Abrir destino</a></header>
       <details><summary>Prioridade, SEO e contexto</summary><ul>{priority.reasons.map(reason=><li key={reason}>{reason}</li>)}</ul>
         <div className="owner-growth-score">{priority.lines.map(line=><span key={line.component}><b>{line.component}</b><em>{line.points}/{line.weight}</em><small>{line.reason}</small></span>)}</div>
         <p>{row.odds.label} — {row.odds.bookmakers.map(book=>book.name).join(', ')}</p>
-        {item?.content.seo?<><p>{item.content.seo.level} · {item.content.seo.context}</p><p>{item.content.seo.intent.queries.join(' · ')}</p><p>{item.content.seo.placements.join(' · ')}</p></>:null}
-        {item&&social?<button disabled={!!busy} onClick={()=>act(`regen:${signals.fixtureId}`,{action:'regenerate',fixtureId:signals.fixtureId})}>Atualizar pacote se necessário</button>:null}</details>
+        <p>{seo.level} · {seo.context}</p><p>{seo.intent.queries.join(' · ')}</p><p>{seo.placements.join(' · ')}</p>
+        </details>
       {social?review:<p>SEO / oportunidade · sem geração de vídeo, voz ou imagens. Histórico preservado abaixo.</p>}
     </div></article>;
 }
 function ContentReview({item,overview,busy,act}:{item:GrowthContentItem;overview?:PublishingOverview;busy:string;act:Action}){
   const content=item.content,editorial=item.channels.find(c=>c.channel==='EDITORIAL');
   return <div className="owner-growth-copy">
-    {content.assetModel==='SOCIAL_V2'?<><p>Um vídeo master · textos e estados separados por plataforma. Verificação automática não equivale à aprovação da plataforma.</p><MasterSocial item={item}/><div className="owner-growth-platforms">{VIDEO_CHANNELS.map(channel=><PublishingCard compact key={`${item.id}:${channel}`} item={item} channel={channel} overview={overview} busy={busy} act={act}/>)}</div></>:<p role="status">blocked_for_review · Pacote anterior sem verificação de política. Preservado no histórico; gere o master editorial antes de exportar.</p>}
+    {content.assetModel==='SOCIAL_V2'?<><p>Mídia histórica · textos e estados separados por plataforma. Verificação automática não equivale à aprovação da plataforma.</p><MasterSocial item={item}/><div className="owner-growth-platforms">{VIDEO_CHANNELS.map(channel=><PublishingCard compact key={`${item.id}:${channel}`} item={item} channel={channel} overview={overview} busy={busy} act={act}/>)}</div></>:<p role="status">blocked_for_review · Pacote anterior sem verificação de política. Preservado no histórico; geração de mídia desativada.</p>}
     {editorial?<details><summary>Social editorial · {editorial.status}</summary><p>{content.captions.EDITORIAL}</p><a href={editorial.trackedUrl} target="_blank" rel="noreferrer">Link editorial</a>
       {editorial.status!=='PUBLISHED'?<div className="manual-copy-actions">{['APPROVED','REJECTED',...(editorial.status==='APPROVED'?['PUBLISHED']:[])].map(status=><button key={status} disabled={!!busy||editorial.status===status} onClick={()=>act(`editorial:${item.id}`,{action:'transition',itemId:item.id,channel:'EDITORIAL',status})}>{status}</button>)}</div>:null}</details>:null}
     <details><summary>Jogadores e direitos</summary>{content.players?.length?content.players.map(p=><p key={p.id}>{p.name}: {p.selectionReason} · {p.media.licenseStatus} · {p.media.commercialEligible?'uso comercial aprovado':'fallback sem retrato'}</p>):<p>Fallback seguro com clubes e personagens Liva.</p>}</details>
