@@ -41,21 +41,23 @@ describe('Traffic Engine V1 owner control plane',()=>{
     expect((await growthOwnerAction(post({action:'delete-all'},owner()),deps())).status).toBe(400);
     expect((await growthOwnerAction(post({action:'refresh',sql:'DROP TABLE'},owner()),deps())).status).toBe(400);
   });
-  it('supports refresh, deterministic regeneration and validated channel transitions',async()=>{
+  it('supports selection refresh and historical channel transitions but denies generation',async()=>{
     const run=vi.fn<GrowthOwnerDependencies['run']>(async()=>({state:'SUCCEEDED',jobId:'11111111-1111-4111-8111-111111111111',considered:1,generated:1,skippedDuplicate:0,itemIds:[],providerRequests:0}));
     expect((await growthOwnerAction(post({action:'refresh'},owner()),deps({run}))).status).toBe(200);
-    expect((await growthOwnerAction(post({action:'regenerate',fixtureId:'11111111-1111-4111-8111-111111111111'},owner()),deps({run}))).status).toBe(200);
-    expect(run.mock.calls[1][2]).toEqual({forceFixtureId:'11111111-1111-4111-8111-111111111111'});
+    expect((await growthOwnerAction(post({action:'regenerate',fixtureId:'11111111-1111-4111-8111-111111111111'},owner()),deps({run}))).status).toBe(410);
+    expect(run).toHaveBeenCalledOnce();
     const transition=vi.fn(async()=>true);
     const response=await growthOwnerAction(post({action:'transition',itemId:'22222222-2222-4222-8222-222222222222',channel:'TIKTOK',status:'APPROVED'},owner()),deps({transition}));
     expect(response.status).toBe(200);expect(transition).toHaveBeenCalledWith(db,'22222222-2222-4222-8222-222222222222','TIKTOK','APPROVED');
     expect((await growthOwnerAction(post({action:'transition',itemId:'bad',channel:'TIKTOK',status:'APPROVED'},owner()),deps())).status).toBe(400);
   });
-  it('regenerates exactly one validated video platform through the owner control plane',async()=>{
-    const regeneratePlatform=vi.fn<GrowthOwnerDependencies['regeneratePlatform']>(async()=>({state:'SUCCEEDED',jobId:'11111111-1111-4111-8111-111111111111',considered:1,generated:1,skippedDuplicate:0,itemIds:[],providerRequests:0}));
-    const response=await growthOwnerAction(post({action:'regenerate-platform',itemId:'22222222-2222-4222-8222-222222222222',channel:'INSTAGRAM_REELS'},owner()),deps({regeneratePlatform}));
-    expect(response.status).toBe(200);expect(regeneratePlatform).toHaveBeenCalledWith(db,'22222222-2222-4222-8222-222222222222','INSTAGRAM_REELS');
-    expect((await growthOwnerAction(post({action:'regenerate-platform',itemId:'22222222-2222-4222-8222-222222222222',channel:'EDITORIAL'},owner()),deps())).status).toBe(400);
+  it('denies both legacy generation actions before database access, including stale tabs',async()=>{
+    const database=vi.fn(()=>db),dependencies=deps({database});
+    for(const action of ['regenerate','regenerate-platform']){
+      const response=await growthOwnerAction(post(action==='regenerate'?{action,fixtureId:'11111111-1111-4111-8111-111111111111'}:{action,itemId:'22222222-2222-4222-8222-222222222222',channel:'INSTAGRAM_REELS'},owner()),dependencies);
+      expect(response.status).toBe(410);expect(await response.json()).toEqual({error:'MEDIA_GENERATION_DISABLED',providerRequests:0});
+    }
+    expect(database).not.toHaveBeenCalled();expect(dependencies.run).not.toHaveBeenCalled();expect(dependencies.regeneratePlatform).not.toHaveBeenCalled();
   });
   it('supports an owner-only non-persisting deployed render proof',async()=>{
     const preview=vi.fn<NonNullable<GrowthOwnerDependencies['preview']>>(async()=>({channel:'TIKTOK',status:'READY',mimeType:'video/mp4',sha256:'a'.repeat(64),byteLength:4,data:Buffer.from('mp4!'),voice:{mode:'ENERGETIC',provider:'elevenlabs',lines:5,degradedReason:null}}));

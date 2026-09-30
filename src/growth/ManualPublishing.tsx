@@ -53,7 +53,7 @@ export function PublishingCard({item,channel,overview,busy,act,compact=false}:{i
       <ol>{draft.scenes.map(scene=><li key={scene.order}>{scene.startSeconds.toFixed(1)}–{(scene.startSeconds+scene.durationSeconds).toFixed(1)} s: {scene.headline}<br/>{scene.subtitle}</li>)}</ol>
       {state!=='POSTED'?<div className="manual-copy-actions"><button disabled={!!busy||!video||record.status==='APPROVED'} onClick={()=>act(`approve:${item.id}:${channel}`,{action:'transition',itemId:item.id,channel,status:'APPROVED'})}>Aprovar</button>
         <button disabled={!!busy||record.status==='REJECTED'} onClick={()=>act(`reject:${item.id}:${channel}`,{action:'transition',itemId:item.id,channel,status:'REJECTED'})}>Rejeitar</button>
-        {!compact&&['DRAFT','REJECTED'].includes(record.status)?<button disabled={!!busy} onClick={()=>act(`regen:${item.id}:${channel}`,{action:'regenerate-platform',itemId:item.id,channel})}>Regenerar plataforma</button>:null}</div>:null}
+        </div>:null}
     </details>
   </article>;
 }

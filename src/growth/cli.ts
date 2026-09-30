@@ -19,6 +19,8 @@ import type {GrowthRenderMetadata} from './types';
 import {newOwnerSession,ownerCookie,signOwnerSession} from '@/owner/session';
 
 const command=process.argv[2]??'verify',url=databaseUrl();
+// Old manual/automation commands must not bypass the production media shutdown.
+if(command==='render-top5'||command.startsWith('regenerate-'))throw new Error('MEDIA_GENERATION_DISABLED');
 if(!url)throw new Error('GROWTH_DATABASE_UNAVAILABLE');
 const db=new PostgresDatabaseClient(url,()=>undefined,{statementTimeoutMs:300_000});
 

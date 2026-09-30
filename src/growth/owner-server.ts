@@ -4,7 +4,7 @@ import {requestOwnerSession} from '@/owner/session';
 import {ownerHeaders} from '@/owner/server';
 import {boundedJson} from '@/slip/server';
 import {GROWTH_CHANNELS,type GrowthChannel} from './config';
-import {readGrowthDashboard,regenerateGrowthPlatform,runGrowthGeneration,previewGrowthVideo} from './service';
+import {readGrowthDashboard,regenerateGrowthPlatform,runGrowthSelection,previewGrowthVideo} from './service';
 import {transitionGrowthChannel} from './repository';
 import type {GrowthChannelStatus} from './types';
 import {markGrowthPosted,readPublishingOverview,type MarkPostedInput} from './manual-repository';
@@ -16,7 +16,7 @@ const reply=(body:unknown,status=200)=>Response.json(body,{status,headers:ownerH
 export interface GrowthOwnerDependencies {
   database:()=>DatabaseClient;
   dashboard:typeof readGrowthDashboard;
-  run:typeof runGrowthGeneration;
+  run:typeof runGrowthSelection;
   transition:typeof transitionGrowthChannel;
   regeneratePlatform:typeof regenerateGrowthPlatform;
   preview?:typeof previewGrowthVideo;
@@ -24,7 +24,7 @@ export interface GrowthOwnerDependencies {
 }
 const productionDependencies:GrowthOwnerDependencies={database:()=>{
   const url=databaseUrl();if(!url)throw new Error('GROWTH_DATABASE_UNAVAILABLE');return new PostgresDatabaseClient(url);
-},dashboard:readGrowthDashboard,run:runGrowthGeneration,transition:transitionGrowthChannel,regeneratePlatform:regenerateGrowthPlatform};
+},dashboard:readGrowthDashboard,run:runGrowthSelection,transition:transitionGrowthChannel,regeneratePlatform:regenerateGrowthPlatform};
 
 export async function growthOwnerStatus(request:Request,deps:GrowthOwnerDependencies=productionDependencies){
   if(new URL(request.url).search)return reply({error:'INVALID_REQUEST'},400);
@@ -44,6 +44,8 @@ export async function growthOwnerAction(request:Request,deps:GrowthOwnerDependen
   const action=body.action;
   const allowed=action==='mark-posted'?['action','itemId','channel','sha256','creativeVersion','externalPostUrl','notes']:action==='refresh'?['action']:action==='preview'?['action','fixtureId','channel']:action==='regenerate'?['action','fixtureId']:action==='regenerate-platform'?['action','itemId','channel']:action==='transition'?['action','itemId','channel','status']:[];
   if(!allowed.length||Object.keys(body).some(key=>!allowed.includes(key)))return reply({error:'INVALID_REQUEST'},400);
+  // Deny before DB access: even a stale owner tab cannot restart media production.
+  if(action==='regenerate'||action==='regenerate-platform')return reply({error:'MEDIA_GENERATION_DISABLED',providerRequests:0},410);
   let db:DatabaseClient;try{db=deps.database();}catch{return reply({error:'GROWTH_DATABASE_UNAVAILABLE'},503);}
   try{
     if(action==='mark-posted'){
@@ -64,15 +66,6 @@ export async function growthOwnerAction(request:Request,deps:GrowthOwnerDependen
     }
     if(action==='refresh'){
       const result=await deps.run(db,'OWNER');return reply(result,result.state==='FAILED'?409:200);
-    }
-    if(action==='regenerate'){
-      if(!uuid.test(String(body.fixtureId??'')))return reply({error:'INVALID_REQUEST'},400);
-      const result=await deps.run(db,'OWNER',{forceFixtureId:String(body.fixtureId)});return reply(result,result.state==='FAILED'?409:200);
-    }
-    if(action==='regenerate-platform'){
-      const channel=String(body.channel??'') as GrowthChannel;
-      if(!uuid.test(String(body.itemId??''))||channel==='EDITORIAL'||!GROWTH_CHANNELS.includes(channel))return reply({error:'INVALID_REQUEST'},400);
-      const result=await deps.regeneratePlatform(db,String(body.itemId),channel);return reply(result,result.state==='FAILED'?409:200);
     }
     const channel=String(body.channel??'') as GrowthChannel,status=String(body.status??'') as GrowthChannelStatus;
     if(!uuid.test(String(body.itemId??''))||!GROWTH_CHANNELS.includes(channel)||!['APPROVED','REJECTED','PUBLISHED'].includes(status))return reply({error:'INVALID_REQUEST'},400);
