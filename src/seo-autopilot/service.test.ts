@@ -27,6 +27,20 @@ beforeEach(()=>{
     alternates:[{lang:'pt-BR',href:url}],links:candidates().map(c=>c.destinationUrl),problems:[]}));
 });
 describe('bounded autonomous execution',()=>{
+  it('starts the sitemap lease after elapsed SEO processing, with only the remaining runtime budget',async()=>{
+    let elapsed=0;const clock=vi.spyOn(Date,'now').mockImplementation(()=>testNow.getTime()+elapsed);
+    mocks.feedback.mockImplementation(async()=>{elapsed=190000;return {mode:'ACTIVE',changed:0};});
+    try{
+      await runSeoAutopilot(database().db,{now:testNow});
+      expect(mocks.sitemaps.mock.calls[0][1]).toEqual(new Date(testNow.getTime()+190000));
+      expect(mocks.sitemaps.mock.calls[0][4]).toEqual({budgetMs:85000});
+    }finally{clock.mockRestore();}
+  });
+  it('an unexpected sitemap persistence failure cannot cancel successful SEO work',async()=>{
+    const log=vi.spyOn(console,'error').mockImplementation(()=>undefined);mocks.sitemaps.mockRejectedValue(Error('private credential'));
+    const r=await runSeoAutopilot(database().db,{now:testNow});expect(r.state).toBe('SUCCEEDED');expect('published' in r?r.published:null).toBe(5);
+    expect(JSON.stringify(log.mock.calls)).not.toContain('private credential');log.mockRestore();
+  });
   it('a contained Google submission failure does not stop page publication',async()=>{
     mocks.sitemaps.mockResolvedValue([{path:'/sitemap.xml',state:'SCOPE_INSUFFICIENT'}]);
     const r=await runSeoAutopilot(database().db,{now:testNow});expect(r.state).toBe('SUCCEEDED');expect('published' in r?r.published:null).toBe(5);expect(r.providerRequests).toBe(0);
