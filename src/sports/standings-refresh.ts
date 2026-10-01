@@ -13,10 +13,20 @@ export function standingsBackoff(failures:number,code:string){
   return [5,15,60,360,720][Math.min(Math.max(0,failures-1),4)];
 }
 export function standingsAwaitingSettlement(dirty:boolean,priorHash:string|null,evidence:StandingsEvidence,lastResultAt:Date|string|null){
-  if(evidence.providerUpdatedAt&&lastResultAt&&Date.parse(evidence.providerUpdatedAt)<new Date(lastResultAt).getTime())return true;
+  if(evidence.rows===0)return false; // The store still prevents an empty response erasing a good table.
+  if(evidence.providerUpdatedAt)return !!lastResultAt&&Date.parse(evidence.providerUpdatedAt)<new Date(lastResultAt).getTime();
   return dirty&&priorHash===evidence.hash;
 }
-type Candidate={id:string;competition_id:string;slug:string;league:string;provider_id:string;name:string;dirty_version:string;refreshed_version:string;snapshot_hash:string|null;failures:number;last_result_at:Date|null;};
+export async function latestStandingsResult(db:DatabaseClient,seasonId:string,evidence:StandingsEvidence){
+  const scopes=[...new Set(Object.keys(evidence.metrics).map(key=>key.split(':').slice(0,2).join(':')))].map(key=>{const [stage,group]=key.split(':').map(Number);return {stage,group};});
+  // Later knockout results cannot make a group table stale. Unknown fixture scopes remain conservative.
+  return (await db.query<{last_result_at:Date|null}>(`SELECT max(COALESCE(f.provider_updated_at,f.kickoff+interval '90 minutes')) AS last_result_at
+    FROM fixtures f WHERE f.season_id=$1 AND f.status='FINISHED' AND EXISTS (
+      SELECT 1 FROM jsonb_to_recordset($2::jsonb) AS scope(stage bigint,"group" bigint)
+      WHERE (scope.stage=0 OR f.provider_stage_id IS NULL OR scope.stage=f.provider_stage_id)
+        AND (scope."group"=0 OR f.provider_group_id IS NULL OR scope."group"=f.provider_group_id))`,[seasonId,JSON.stringify(scopes)])).rows[0]?.last_result_at??null;
+}
+type Candidate={id:string;competition_id:string;slug:string;league:string;provider_id:string;name:string;dirty_version:string;refreshed_version:string;snapshot_hash:string|null;failures:number;};
 class StandingsRequestError extends Error {constructor(readonly code:string){super(code);}}
 export async function fetchStandings(key:string,providerSeason:string,transport:typeof fetch=fetch):Promise<ProviderRow[]> {
   if(!/^\d+$/.test(providerSeason))throw new StandingsRequestError('INVALID_MAPPING');
@@ -45,8 +55,7 @@ export async function runStandingsRefresh(db:DatabaseClient,key:string|undefined
     const limit=Math.min(STANDINGS_POLICY.perTick,STANDINGS_POLICY.dailyCap-usage.today,STANDINGS_POLICY.hourlyCap-usage.hour);
     if(limit<=0)return {...result,status:'BUDGET_LIMIT'};
     const candidates=(await db.query<Candidate>(`SELECT s.id,s.name,s.competition_id,c.slug,lm.provider_entity_id AS league,sm.provider_entity_id AS provider_id,
-      q.dirty_version,q.refreshed_version,q.snapshot_hash,q.failures,
-      (SELECT max(COALESCE(f.provider_updated_at,f.kickoff+interval '90 minutes')) FROM fixtures f WHERE f.season_id=s.id AND f.status='FINISHED') AS last_result_at
+      q.dirty_version,q.refreshed_version,q.snapshot_hash,q.failures
       FROM standings_refresh_state q JOIN seasons s ON s.id=q.season_id JOIN competitions c ON c.id=s.competition_id AND c.enabled
       JOIN provider_entity_mappings sm ON sm.livasports_entity_id=s.id AND sm.provider='SPORTMONKS' AND sm.entity_type='SEASON'
       JOIN provider_entity_mappings lm ON lm.livasports_entity_id=c.id AND lm.provider='SPORTMONKS' AND lm.entity_type='COMPETITION'
@@ -61,9 +70,10 @@ export async function runStandingsRefresh(db:DatabaseClient,key:string|undefined
       try {
         const fetchedAt=new Date().toISOString();const rows=await fetchStandings(key,c.provider_id,transport);
         const evidence=standingsEvidence(rows,fetchedAt);
+        const lastResultAt=await latestStandingsResult(db,c.id,evidence);
         await store.standings({id:c.id,competitionId:c.competition_id,league:c.league,providerId:Number(c.provider_id),name:c.name},rows,fetchedAt);
         // Unchanged response after a result may mean provider settlement is still pending.
-        if(standingsAwaitingSettlement(c.dirty_version!==c.refreshed_version,c.snapshot_hash,evidence,c.last_result_at))throw new StandingsRequestError('PROVIDER_PENDING');
+        if(standingsAwaitingSettlement(c.dirty_version!==c.refreshed_version,c.snapshot_hash,evidence,lastResultAt))throw new StandingsRequestError('PROVIDER_PENDING');
         await db.query(`UPDATE standings_refresh_state SET refreshed_version=$2,failures=0,last_error=NULL,
           next_attempt_at=CASE WHEN dirty_version>$2 THEN now()+interval '5 minutes' ELSE now()+$3::int*interval '1 minute' END WHERE season_id=$1`,
           [c.id,c.dirty_version,c.dirty_version!==c.refreshed_version?20:STANDINGS_POLICY.safetyHours*60]);

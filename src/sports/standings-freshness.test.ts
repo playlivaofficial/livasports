@@ -1,6 +1,6 @@
 import {describe,it,expect,vi} from 'vitest';
 import {standingsEvidence,rejectStandingsSnapshot} from './standings-snapshot';
-import {fetchStandings,standingsBackoff,STANDINGS_POLICY,runStandingsRefresh,standingsAwaitingSettlement} from './standings-refresh';
+import {fetchStandings,standingsBackoff,STANDINGS_POLICY,runStandingsRefresh,standingsAwaitingSettlement,latestStandingsResult} from './standings-refresh';
 import {standingsRevision,readStandingsFreshness} from './standings-read';
 import {RecordingCacheInvalidator} from '@/cache/invalidation';
 const row=(played=5,revision='2026-10-01 10:00:00')=>({id:1,participant_id:2,position:1,points:15,details:[{type_id:129,value:played}],season:{standings_recalculated_at:revision}});
@@ -22,7 +22,11 @@ describe('standings snapshot truth',()=>{
 describe('bounded upstream refresh',()=>{
  it('keeps a changed but not-yet-settled source revision pending',()=>expect(standingsAwaitingSettlement(true,'different',evidence(),'2026-10-01T10:30:00Z')).toBe(true));
  it('accepts an authoritative revision after the latest completed result',()=>expect(standingsAwaitingSettlement(true,'different',evidence(),'2026-10-01T09:30:00Z')).toBe(false));
- it('does not pretend an unchanged dirty snapshot has settled',()=>expect(standingsAwaitingSettlement(true,evidence().hash,evidence(),null)).toBe(true));
+ it('keeps an unchanged dirty snapshot pending without source revision evidence',()=>expect(standingsAwaitingSettlement(true,evidence().hash,{...evidence(),providerUpdatedAt:null},null)).toBe(true));
+ it('accepts unchanged source-versioned group tables after their last relevant result',()=>expect(standingsAwaitingSettlement(true,evidence().hash,evidence(),'2026-10-01T09:30:00Z')).toBe(false));
+ it('does not loop on empty non-table competitions',()=>expect(standingsAwaitingSettlement(true,'same',{...evidence(),hash:'same',rows:0,metrics:{},providerUpdatedAt:null},null)).toBe(false));
+ it('does not invent a pending result when the table has no completed fixture in its scope',()=>expect(standingsAwaitingSettlement(true,evidence().hash,evidence(),null)).toBe(false));
+ it('compares only returned standings stages/groups without extra provider calls',async()=>{const db={query:vi.fn(async()=>({rows:[{last_result_at:null}]}))};await latestStandingsResult(db as never,'season',{...evidence(),metrics:{'100:20:2':5,'100:20:3':5,'100:21:4':5}});const [sql,args]=db.query.mock.calls[0] as unknown as [string,string[]];expect(sql).toContain("f.status='FINISHED'");expect(sql).toContain('scope.stage=f.provider_stage_id');expect(sql).toContain('f.provider_group_id');expect(JSON.parse(args[1])).toEqual([{stage:100,group:20},{stage:100,group:21}]);expect(db.query).toHaveBeenCalledTimes(1);});
  it.each([401,403,404,429,500,503])('makes one attempt on HTTP %s with no blind retry',async status=>{const transport=vi.fn(async()=>new Response('{}',{status}));await expect(fetchStandings('private-test-value','123',transport as never)).rejects.toThrow(`HTTP_${status}`);expect(transport).toHaveBeenCalledTimes(1);});
  it('requests complete season standings and source revision without auth in the URL',async()=>{const transport=vi.fn(async()=>Response.json({data:[row()]}));await fetchStandings('private-test-value','123',transport as never);const [url,options]=transport.mock.calls[0] as unknown as [URL,RequestInit];expect(url.pathname).toBe('/v3/football/standings/seasons/123');expect(url.searchParams.get('include')).toContain('season');expect(url.href).not.toContain('private-test-value');expect(options.cache).toBe('no-store');});
  it('rejects truncated data',async()=>{await expect(fetchStandings('test','123',(async()=>Response.json({data:[row()],pagination:{has_more:true}})) as never)).rejects.toThrow('INCOMPLETE_RESPONSE');});
