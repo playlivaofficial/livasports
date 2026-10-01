@@ -57,11 +57,19 @@ export function classifyCatalogRows(raw:unknown[]):CatalogRowState[]{
 /** Persist catalog rows with first/last seen timestamps; rows never disappear because a rule stopped matching them. */
 export async function persistCatalogRows(db:QueryExecutor,raw:unknown[]):Promise<{total:number;mapped:number;unmatched:number;ambiguous:number}>{
   const rows=classifyCatalogRows(raw);
-  if(rows.length)await db.query(`INSERT INTO odds_catalog_rows(provider,tournament_id,tournament_slug,tournament_name,category_slug,category_name,metadata,mapping_state,mapped_competition,mapping_reason)
-    SELECT 'ODDSPAPI',r.tournament_id,r.slug,r.name,r.category,r.category_name,jsonb_build_object('futureFixtures',r.future_fixtures),r.state,r.competition,r.reason
-    FROM jsonb_to_recordset($1::jsonb) AS r(tournament_id text,slug text,name text,category text,category_name text,future_fixtures int,state text,competition text,reason text)
+  const observation=(await db.query("SELECT verified_at FROM odds_provider_catalog WHERE provider='ODDSPAPI'")).rows[0]?.verified_at??null;
+  if(rows.length)await db.query(`INSERT INTO odds_catalog_rows(provider,tournament_id,tournament_slug,tournament_name,category_slug,category_name,metadata,mapping_state,mapped_competition,mapping_reason,
+      normalized_name,candidate_competitions,confidence,source_observed_at,last_seen_at,reconciled_at)
+    SELECT 'ODDSPAPI',r.tournament_id,r.slug,r.name,r.category,r.category_name,jsonb_build_object('futureFixtures',r.future_fixtures),r.state,r.competition,r.reason,
+      r.normalized,r.candidates,r.confidence,$2::timestamptz,COALESCE($2::timestamptz,now()),now()
+    FROM jsonb_to_recordset($1::jsonb) AS r(tournament_id text,slug text,name text,category text,category_name text,future_fixtures int,state text,competition text,reason text,normalized text,candidates jsonb,confidence text)
     ON CONFLICT(provider,tournament_id) DO UPDATE SET tournament_slug=excluded.tournament_slug,tournament_name=excluded.tournament_name,category_slug=excluded.category_slug,
-      category_name=excluded.category_name,metadata=excluded.metadata,last_seen_at=now(),mapping_state=excluded.mapping_state,mapped_competition=excluded.mapped_competition,mapping_reason=excluded.mapping_reason`,
-    [JSON.stringify(rows.map(r=>({tournament_id:r.tournamentId,slug:r.slug,name:r.name,category:r.category,category_name:r.categoryName,future_fixtures:r.futureFixtures,state:r.state,competition:r.competition,reason:r.reason})))]);
+      category_name=excluded.category_name,metadata=excluded.metadata,last_seen_at=COALESCE(excluded.source_observed_at,odds_catalog_rows.last_seen_at),
+      mapping_state=excluded.mapping_state,mapped_competition=excluded.mapped_competition,mapping_reason=excluded.mapping_reason,
+      normalized_name=excluded.normalized_name,candidate_competitions=excluded.candidate_competitions,confidence=excluded.confidence,reconciled_at=now(),
+      occurrence_count=odds_catalog_rows.occurrence_count+CASE WHEN odds_catalog_rows.source_observed_at IS NOT NULL AND odds_catalog_rows.source_observed_at<excluded.source_observed_at THEN 1 ELSE 0 END,
+      source_observed_at=COALESCE(excluded.source_observed_at,odds_catalog_rows.source_observed_at)`,
+    [JSON.stringify(rows.map(r=>({tournament_id:r.tournamentId,slug:r.slug,name:r.name,category:r.category,category_name:r.categoryName,future_fixtures:r.futureFixtures,state:r.state,competition:r.competition,reason:r.reason,
+      normalized:normalizeName(r.name),candidates:r.competition?[r.competition]:[],confidence:r.state==='MAPPED'?'DETERMINISTIC_EXACT':r.state==='AMBIGUOUS'?'AMBIGUOUS':'UNRESOLVED'}))),observation]);
   return {total:rows.length,mapped:rows.filter(r=>r.state==='MAPPED').length,unmatched:rows.filter(r=>r.state==='UNMATCHED').length,ambiguous:rows.filter(r=>r.state==='AMBIGUOUS').length};
 }

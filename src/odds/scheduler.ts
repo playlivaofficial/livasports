@@ -17,6 +17,7 @@ import {readReliabilityHealth} from './reliability/read';
 import type {OddsSnapshot} from './types';
 import {recoverNativeIdentities} from './native-recovery';
 import {backoffJitterMinutes,classifyBackoff} from './backoff-policy';
+import {claimRefreshTargets,reconcileRefreshQueue,releaseRefreshTargets} from './refresh-queue';
 
 export interface IntegrityFinding {bookmaker:string;tournamentIds:string[];classification:IssueClassification;severity:Severity;reason:string;returnedFixtures:number;matchedFixtures:number;quotes:number;currentWrites:number;closed:number;}
 /** P3 §14: flag a "successful" refresh whose outcome is suspicious. Provider truth is never rolled back automatically. */
@@ -29,7 +30,7 @@ export function integrityCheck(input:{bookmaker:string;tournamentIds:readonly st
   return null;
 }
 async function catalogRowsStale(db:DatabaseClient){
-  try{const r=await db.query("SELECT max(last_seen_at) AS at FROM odds_catalog_rows");return !r.rows[0]?.at||Date.now()-new Date(r.rows[0].at).getTime()>6*3600000;}catch{return false;}
+  try{const r=await db.query("SELECT max(reconciled_at) AS at FROM odds_catalog_rows");return !r.rows[0]?.at||Date.now()-new Date(r.rows[0].at).getTime()>6*3600000;}catch{return false;}
 }
 
 export type SchedulerState='READY'|'RUNNING'|'SUCCEEDED'|'PARTIAL'|'FAILED'|'BUDGET_STOPPED';
@@ -38,6 +39,7 @@ export const SNAPSHOT_REPLAY_LIMIT=3;
 export function safeSchedulerError(error:unknown):string {
   if(error instanceof OddsBudgetStopped)return error.code;
   const message=error instanceof Error?error.message:'';
+  if(message.startsWith('ODDSPAPI_NETWORK_ERROR'))return 'ODDS_NETWORK_ERROR';
   if(/^ODDS_[A-Z_]+$/.test(message))return message;
   try{const e=JSON.parse(message);if(Number.isInteger(e.status))return `ODDSPAPI_HTTP_${e.status}`;}catch{/* Only allowlisted codes are persisted. */}
   return 'ODDS_REFRESH_FAILED';
@@ -46,8 +48,8 @@ export async function schedulerInputs(db:DatabaseClient,tournaments:readonly Cat
   const [budget,fixtures,records]=await Promise.all([budgetHealth(db),canonicalFixtures(db),db.query(`SELECT b.provider_slug,
     EXISTS(SELECT 1 FROM bookmaker_geo_availability g WHERE g.bookmaker_id=b.id AND g.odds_enabled AND g.comparison_enabled
       AND g.verified_at IS NOT NULL AND g.verification_state IN ('VERIFIED_BR','VERIFIED_MX','VERIFIED_BR_MX')) AS public_eligible,
-    t.tournament_id,t.last_success_at,t.last_attempt_at,t.retry_after,t.consecutive_failures,t.last_error,
-    t.failure_class,t.backoff_reason,t.next_recheck_at,t.failure_evidence,
+    t.tournament_id,t.last_success_at,t.last_attempt_at,t.last_checked_at,t.pending_since,t.retry_after,t.consecutive_failures,t.last_error,
+    t.failure_class,t.backoff_reason,t.next_recheck_at,t.failure_evidence,t.last_outcome,
     EXISTS(SELECT 1 FROM odds_current legacy JOIN fixtures lf ON lf.id=legacy.fixture_id
       JOIN provider_entity_mappings lm ON lm.provider='ODDSPAPI' AND lm.entity_type='COMPETITION' AND lm.livasports_entity_id=lf.competition_id
       WHERE lm.provider_entity_id=t.tournament_id AND legacy.bookmaker_id=b.id AND legacy.status='ACTIVE'
@@ -84,11 +86,15 @@ export async function schedulerInputs(db:DatabaseClient,tournaments:readonly Cat
     const nativePriority=bookmaker==='betano.bet.br'?0:gaps.reduce((n,g)=>n+Math.max(0,g.fallback-(g.reasons.PROVIDER_GAP??0))+(g.reasons.STALE_OR_EXPIRED??0)+(g.reasons.INGESTION_BUG??0),0);
     return {bookmaker,tournamentId:t.id,nativePriority,nativeExpiryAt:expiry?.toISOString()??null,recentNative:!!expiry,
       unsupported:support.some(r=>r.bookmaker===bookmaker&&r.tournament_id===t.id),
+      // Re-fetching the same unmappable payload cannot repair identity/configuration. Saved-response
+      // recovery still runs without provider spend; verified persistence clears this block.
+      mappingBlocked:['MAPPING_EMPTY','PARSER_EMPTY'].includes(row?.last_outcome)||['MAPPING','MARKET'].includes(row?.failure_class),
       catalogEmpty:t.catalogEmpty===true&&row?.last_error==='ODDSPAPI_HTTP_404'&&!row?.last_success_at,
       fixtures:source?fixtures.filter(f=>f.competition===t.canonical):[],publicEligible:source?.public_eligible===true,
       hasUsefulCoverage:row?.useful_coverage===true,lastSuccessAt:row?.last_success_at?.toISOString()??null,retryAfter:row?.retry_after?.toISOString()??null,
       lastError:typeof row?.last_error==='string'?row.last_error:null,needsCadenceRefresh:row?.needs_cadence_refresh===true,
       lastAttemptAt:row?.last_attempt_at?.toISOString?.()??null,consecutiveFailures:Number(row?.consecutive_failures??0),
+      lastCheckedAt:row?.last_checked_at?.toISOString?.()??null,pendingSince:row?.pending_since?.toISOString?.()??null,
       failureClass:row?.failure_class??null,backoffReason:row?.backoff_reason??null,nextRecheckAt:row?.next_recheck_at?.toISOString?.()??null};
   }));
   return {targets,budget};
@@ -178,6 +184,7 @@ export async function runOddsScheduler(db:DatabaseClient,key:string,trigger:'CON
     if(replayed===SNAPSHOT_REPLAY_LIMIT)throw new Error('ODDS_RECOVERY_PENDING');
     if(!(await budgetHealth(db)).verified)await reconcileAccountPeriod(db,await provider.accountPeriod());
     const plan=await schedulerPlan(db,new Date(),tournaments);
+    await reconcileRefreshQueue(db,plan);
     await db.query(`INSERT INTO odds_scheduler_decisions(job_id,targets,budget) VALUES($1,$2::jsonb,$3::jsonb)
       ON CONFLICT(job_id) DO NOTHING`,[job,JSON.stringify(plan.targets.map(t=>({...t,decision:t.delayReason??(t.intervalMinutes===null?'NO_ELIGIBLE_FIXTURES':
         !t.due?'NOT_DUE':plan.batches.some(b=>b.bookmaker===t.bookmaker&&b.tournamentIds.includes(t.tournamentId))?'SELECTED':
@@ -193,9 +200,11 @@ export async function runOddsScheduler(db:DatabaseClient,key:string,trigger:'CON
         const ids=current.batches.find(b=>b.bookmaker===batch.bookmaker&&b.tournamentIds.some(id=>batch.tournamentIds.includes(id)))?.tournamentIds??[];
         if(!ids.length)continue;
         try{
+          await claimRefreshTargets(db,job,batch.bookmaker,ids);
           const snapshot={...await provider.snapshot(batch.bookmaker,ids),cadenceScale:current.cadence.scale};
           const saved=await persistSnapshot(db,job,snapshot);
-          await recordDecision(db,job,batch.bookmaker,ids,'REFRESHED');
+          for(const outcome of saved.outcomes)await recordDecision(db,job,batch.bookmaker,[outcome.tournamentId],outcome.outcome);
+          if(saved.outcomes.some(o=>!o.meaningful))state='PARTIAL';
           if(batch.rescue){
             const after=await schedulerInputs(db,tournaments);
             const rescued=current.targets.filter(t=>t.bookmaker===batch.bookmaker&&ids.includes(t.tournamentId)&&t.rescue);
@@ -205,13 +214,13 @@ export async function runOddsScheduler(db:DatabaseClient,key:string,trigger:'CON
               outcome:fresh.length===rescued.length&&fresh.length?'SUCCEEDED':'NO_NATIVE_RECOVERY',detail:{observedAt:snapshot.observedAt,currentWrites:saved.current_writes,targets:rescued.length,freshTargets:fresh.length,beforeExpiry:beforeExpiry.length}});
           }
           results.push({bookmaker:batch.bookmaker,tournamentIds:ids,returnedFixtures:saved.returnedFixtures,matchedFixtures:saved.matchedFixtures,
-            quotes:saved.quotes,historyChanges:saved.history_changes,currentWrites:saved.current_writes,closed:saved.closed,observedAt:snapshot.observedAt,cadence:current.cadence});
+            quotes:saved.quotes,outcomes:saved.outcomes,verifiedRefresh:saved.outcomes.some(o=>o.meaningful),historyChanges:saved.history_changes,currentWrites:saved.current_writes,closed:saved.closed,observedAt:snapshot.observedAt,cadence:current.cadence});
           // P3 §14 post-refresh integrity: a successful response that yields nothing usable is suspicious, never silent.
           const check=integrityCheck({bookmaker:batch.bookmaker,tournamentIds:ids,returnedFixtures:saved.returnedFixtures,matchedFixtures:saved.matchedFixtures,quotes:saved.quotes,currentWrites:saved.current_writes,closed:saved.closed??0,rejected:saved.rejected});
           if(check){integrity.push(check);await logRecoveryAction(db,{trigger:'INTEGRITY',action:'POST_REFRESH_CHECK',bookmaker:batch.bookmaker,tournamentId:ids.join(','),competition:tournaments.find(t=>t.id===ids[0])?.canonical??null,reason:check.reason,requestCost:0,outcome:check.classification,detail:{...check}});}
           // P3 §22: urgent/recovery batches are self-healing actions and stay explainable.
           if(batch.urgent)await logRecoveryAction(db,{trigger:'SCHEDULER',action:'URGENT_REFRESH',bookmaker:batch.bookmaker,tournamentId:ids.join(','),competition:tournaments.find(t=>t.id===ids[0])?.canonical??null,
-            reason:`Urgent batch (nearest kickoff ${Math.round(batch.nearestHours*10)/10}h)`,requestCost:1,outcome:'SUCCEEDED',budgetRemainingAfter:current.pacing.headroom===null?null:Math.max(0,current.pacing.headroom-1),detail:{quotes:saved.quotes,matchedFixtures:saved.matchedFixtures}});
+            reason:`Urgent batch (nearest kickoff ${Math.round(batch.nearestHours*10)/10}h)`,requestCost:1,outcome:saved.outcomes.every(o=>o.meaningful)?'VERIFIED':'PARTIAL',budgetRemainingAfter:current.pacing.headroom===null?null:Math.max(0,current.pacing.headroom-1),detail:{quotes:saved.quotes,matchedFixtures:saved.matchedFixtures,outcomes:saved.outcomes}});
         }catch(error){
           await recordDecision(db,job,batch.bookmaker,ids,schedulerDeferral(safeSchedulerError(error)));
           if(batch.rescue)await logRecoveryAction(db,{trigger:'SCHEDULER',action:'NATIVE_RESCUE',bookmaker:batch.bookmaker,tournamentId:ids.join(','),reason:'Persisted native expiry deadline',requestCost:error instanceof OddsBudgetStopped?0:1,outcome:safeSchedulerError(error)});
@@ -223,7 +232,7 @@ export async function runOddsScheduler(db:DatabaseClient,key:string,trigger:'CON
           const isolatedEmpty=isProviderFixtureAbsent(error)&&ids.length===1&&!isStableOddsTournament(ids[0]);
           if(!isolatedEmpty)errorCode=safeSchedulerError(error);
           // Hard target failures remain isolated; transient failures use a short bounded ladder and deterministic jitter.
-          const neverSucceeded=!current.targets.some(t=>t.bookmaker===batch.bookmaker&&ids.includes(t.tournamentId)&&t.proven);
+          const neverSucceeded=!current.targets.some(t=>t.bookmaker===batch.bookmaker&&ids.includes(t.tournamentId)&&t.lastSuccessAt);
           const persistable=ids.filter(id=>tournaments.some(tournament=>tournament.id===id));
           if(persistable.length){
             try{
@@ -240,7 +249,7 @@ export async function runOddsScheduler(db:DatabaseClient,key:string,trigger:'CON
                   retry_after=now()+$4*interval '1 minute',failure_class=$5,backoff_reason=$6,
                   next_recheck_at=now()+$4*interval '1 minute',failure_evidence=$7::jsonb`,
                 [batch.bookmaker,persistable,failureCode,delay,failure.failureClass,failure.subreason,JSON.stringify(failure.evidence)]);
-            }catch{/* Retry-target CHECK failures must not replace the provider status. */}
+            }catch{state='FAILED';errorCode='ODDS_RETRY_STATE_WRITE_FAILED';break;}
           }
           if(!isolatedEmpty)state=results.length?'PARTIAL':'FAILED';
           // Account-wide outage/auth/rate-limit: stop this tick, do not fan out to other feeds.
@@ -250,8 +259,10 @@ export async function runOddsScheduler(db:DatabaseClient,key:string,trigger:'CON
       if(state==='FAILED'&&results.length)state='PARTIAL';
     }
   }catch(error){errorCode=safeSchedulerError(error);state=error instanceof OddsBudgetStopped?'BUDGET_STOPPED':results.length?'PARTIAL':'FAILED';}
+  await releaseRefreshTargets(db,job);
   await recordDecision(db,job,null,[],schedulerDeferral(errorCode));
   const next=await schedulerPlan(db,new Date(),tournaments).catch(()=>null);
+  if(next)await reconcileRefreshQueue(db,next);
   // P3 reliability evaluation after every tick: rollups, deduplicated incidents, owner alerts. Never breaks the refresh path.
   let reliability:Record<string,unknown>|null=null;
   try{
@@ -260,14 +271,17 @@ export async function runOddsScheduler(db:DatabaseClient,key:string,trigger:'CON
       extraIssues:integrity.map(i=>({competition:tournaments.find(t=>t.id===i.tournamentIds[0])?.canonical??'*',issue:{classification:i.classification,severity:i.severity,evidence:i.reason,affectedFixtures:i.returnedFixtures,bookmaker:i.bookmaker}}))});
     reliability={overall:evaluation.health.overall,opened:evaluation.opened,resolved:evaluation.resolved,alerts:evaluation.alerts,counts:evaluation.health.counts};
   }catch(error){reliability={error:safeSchedulerError(error)};}
-  const result={jobId:job,trigger,state,requests:provider.requestCount(),recovered,catalogExpanded,feeds:results,error:errorCode,nextDueAt:next?.nextDueAt??null,pacing:next?.pacing??null,integrity,reliability:reliability as Record<string,unknown>|null};
+  const controlPlaneState=state;
+  const dataPlaneState=reliability?.error?'UNKNOWN':reliability?.overall??'UNKNOWN';
+  if(state==='SUCCEEDED'&&!['HEALTHY','IDLE'].includes(String(dataPlaneState)))state='PARTIAL';
+  const result={jobId:job,trigger,state,controlPlaneState,dataPlaneState,requests:provider.requestCount(),recovered,catalogExpanded,feeds:results,error:errorCode,nextDueAt:next?.nextDueAt??null,pacing:next?.pacing??null,integrity,reliability:reliability as Record<string,unknown>|null};
   await db.transaction(async tx=>{
     await tx.query("UPDATE odds_sync_jobs SET status=$2,completed_at=now(),error_code=$3,result=$4::jsonb WHERE id=$1 AND status='RUNNING'",[job,state,errorCode,JSON.stringify(result)]);
     await tx.query(`UPDATE odds_scheduler_health SET state=$1,last_error=CASE WHEN $1='SUCCEEDED' THEN NULL WHEN $2::text IS NOT NULL OR $5 THEN $2::text ELSE last_error END,
       feeds_refreshed=CASE WHEN $5 THEN $3::jsonb ELSE feeds_refreshed END,next_due_at=$4,updated_at=now(),
       last_refresh_at=CASE WHEN $5 THEN now() ELSE last_refresh_at END,
       last_automatic_refresh_at=CASE WHEN $5 AND $6 THEN now() ELSE last_automatic_refresh_at END WHERE id=true`,
-      [state,errorCode,JSON.stringify(results.map(r=>r.bookmaker)),next?.nextDueAt??null,results.length>0,trigger==='AUTOMATIC']);
+      [state,errorCode,JSON.stringify(results.filter(r=>r.verifiedRefresh).map(r=>r.bookmaker)),next?.nextDueAt??null,results.some(r=>r.verifiedRefresh),trigger==='AUTOMATIC']);
   });
   return result;
 }

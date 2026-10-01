@@ -1,5 +1,6 @@
 import {describe,it,expect,vi,beforeEach} from 'vitest';
 vi.mock('server-only',()=>({}));
+vi.mock('./refresh-queue',()=>({reconcileRefreshQueue:vi.fn(),claimRefreshTargets:vi.fn(),releaseRefreshTargets:vi.fn()}));
 import type {DatabaseClient,QueryExecutor} from '@/database/client';
 import {OddsBudgetStopped} from './budget';
 vi.mock('./budget',async importOriginal=>({...await importOriginal<typeof import('./budget')>(),
@@ -28,7 +29,7 @@ function database(pending:Array<{id:string;payload:unknown;replay_failures:numbe
   return {rows:[],rowCount:0};});const typed=query as unknown as QueryExecutor['query'];
   const db:DatabaseClient={query:typed,transaction:async w=>w({query:typed}),close:async()=>{}};return {db,query};
 }
-beforeEach(()=>{vi.clearAllMocks();mocked.expanded.length=0;mocked.start.mockResolvedValue('test-job');mocked.persist.mockResolvedValue({returnedFixtures:1,matchedFixtures:1,quotes:3,history_changes:0,current_writes:3,closed:0});mocked.tournaments.mockResolvedValue([]);});
+beforeEach(()=>{vi.clearAllMocks();mocked.expanded.length=0;mocked.start.mockResolvedValue('test-job');mocked.persist.mockResolvedValue({outcomes:[{tournamentId:'325',outcome:'NATIVE_PERSISTED',meaningful:true,nativeSelections:3}],returnedFixtures:1,matchedFixtures:1,quotes:3,history_changes:0,current_writes:3,closed:0});mocked.tournaments.mockResolvedValue([]);});
 describe('scheduler independent failure and durable completion',()=>{
   it('stops fan-out on HTTP 500 without persisting an empty snapshot or closing stored quotes',async()=>{
     mocked.snapshot.mockRejectedValue(new Error(JSON.stringify({status:500})));
@@ -62,7 +63,7 @@ describe('scheduler independent failure and durable completion',()=>{
     mocked.start.mockRejectedValueOnce(new Error('ODDS_WORKER_ALREADY_RUNNING'));
     await expect(runOddsScheduler(database().db,'test-only')).rejects.toThrow('ALREADY_RUNNING');expect(mocked.snapshot).not.toHaveBeenCalled();
   });
-  it('completes a no-work tick as SUCCEEDED with zero provider calls when nothing is due',async()=>{
+  it('completes a no-work control tick but does not greenwash missing data evidence',async()=>{
     const query=vi.fn(async(sql:string)=>{
       if(sql.includes('odds_provider_catalog'))return {rows:[{markets:[],tournaments:[]}],rowCount:1};
       if(sql.includes('FROM bookmakers b'))return {rows:['betano.bet.br','betsson'].map(provider_slug=>({
@@ -72,14 +73,14 @@ describe('scheduler independent failure and durable completion',()=>{
     const typed=query as unknown as QueryExecutor['query'];
     const idle={query:typed,transaction:async w=>w({query:typed}),close:async()=>{}} as DatabaseClient;
     const result=await runOddsScheduler(idle,'test-only','AUTOMATIC');
-    expect(result).toMatchObject({state:'SUCCEEDED',requests:0,trigger:'AUTOMATIC',feeds:[]});
+    expect(result).toMatchObject({state:'PARTIAL',controlPlaneState:'SUCCEEDED',requests:0,trigger:'AUTOMATIC',feeds:[]});
     expect(mocked.snapshot).not.toHaveBeenCalled();expect(mocked.account).not.toHaveBeenCalled();
   });
   it('never persists provider response bodies or arbitrary error messages into health',()=>{
     expect(safeSchedulerError(new Error(JSON.stringify({status:400,message:'private'})))).toBe('ODDSPAPI_HTTP_400');
     expect(safeSchedulerError(new Error('contains credentials'))).toBe('ODDS_REFRESH_FAILED');
   });
-  it('keeps the OddsPapi status when retry-target persistence fails',async()=>{
+  it('fails visibly when durable retry-target persistence fails',async()=>{
     mocked.snapshot.mockRejectedValue(new Error(JSON.stringify({status:400,message:'private'})));
     const query=vi.fn(async(sql:string)=>{
       if(sql.includes('odds_provider_catalog'))return {rows:[{markets:[],tournaments:[]}],rowCount:1};
@@ -93,7 +94,7 @@ describe('scheduler independent failure and durable completion',()=>{
     const db={query:typed,transaction:async(w:(tx:{query:QueryExecutor['query']})=>unknown)=>w({query:typed}),close:async()=>{}} as DatabaseClient;
     const result=await runOddsScheduler(db,'test-only');
     expect(result.state).toBe('FAILED');
-    expect(result.error).toBe('ODDSPAPI_HTTP_400');
+    expect(result.error).toBe('ODDS_RETRY_STATE_WRITE_FAILED');
     expect(result.feeds).toEqual([]);
   });
   it('refreshes the pinned stable batch and, in isolation, every catalog row that resolves to an enabled competition with upcoming fixtures',async()=>{
@@ -115,7 +116,7 @@ describe('scheduler independent failure and durable completion',()=>{
     const typed=query as unknown as QueryExecutor['query'];
     const db={query:typed,transaction:async(w: (tx:{query:QueryExecutor['query']})=>unknown)=>w({query:typed}),close:async()=>{}} as DatabaseClient;
     const result=await runOddsScheduler(db,'test-only');
-    expect(result.state).toBe('SUCCEEDED');
+    expect(result.controlPlaneState).toBe('SUCCEEDED');expect(result.state).toBe('PARTIAL');
     // 326 (brasileiro-serie-b) is not on the historical allowlist but resolves from the catalog: it is probed as a singleton per bookmaker.
     expect(mocked.snapshot.mock.calls.map(call=>call[1].slice().sort())).toEqual([['325'],['325'],['326'],['326']]);
     expect(mocked.tournaments).not.toHaveBeenCalled();
@@ -173,7 +174,7 @@ describe('scheduler independent failure and durable completion',()=>{
     const typed=query as unknown as QueryExecutor['query'];
     const db={query:typed,transaction:async(w: (tx:{query:QueryExecutor['query']})=>unknown)=>w({query:typed}),close:async()=>{}} as DatabaseClient;
     const result=await runOddsScheduler(db,'test-only');
-    expect(result.state).toBe('SUCCEEDED');
+    expect(result.controlPlaneState).toBe('SUCCEEDED');expect(result.state).toBe('PARTIAL');
     expect(result.error).toBeNull();
     expect(mocked.persist).not.toHaveBeenCalled();
     expect(mocked.snapshot.mock.calls.every(call=>(call[1] as string[]).join()==='326')).toBe(true);
@@ -216,15 +217,15 @@ describe('scheduler independent failure and durable completion',()=>{
     it('an urgent batch is logged as a recovery action with its cost and the tick ends with a reliability evaluation (§22)',async()=>{
       mocked.snapshot.mockResolvedValue({observedAt:new Date().toISOString()});
       const {db,query}=database();const result=await runOddsScheduler(db,'test-only');
-      expect(result.state).toBe('SUCCEEDED');
+      expect(result.controlPlaneState).toBe('SUCCEEDED');expect(result.state).toBe('PARTIAL');
       const actions=(query.mock.calls as unknown as [string,unknown[]][]).filter(([sql])=>String(sql).includes('INSERT INTO odds_recovery_actions')).map(c=>c[1]);
-      expect(actions.some(a=>a[1]==='URGENT_REFRESH'&&a[6]===1&&a[7]==='SUCCEEDED')).toBe(true);
+      expect(actions.some(a=>a[1]==='URGENT_REFRESH'&&a[6]===1&&a[7]==='VERIFIED')).toBe(true);
       expect(result.reliability).toMatchObject({overall:expect.any(String),opened:0,resolved:0});
       expect(query.mock.calls.some(([sql])=>String(sql).includes('DELETE FROM odds_health_rollups'))).toBe(true);
     });
     it('a saved snapshot that cannot be persisted is retried a bounded number of times, then quarantined with an incident, and never blocks the refresh (stall of 2026-09-21)',async()=>{
       const poison={id:'poison',payload:{bookmaker:'betsson',tournamentIds:['155'],fixtures:[{}],quotes:[{},{}]},replay_failures:SNAPSHOT_REPLAY_LIMIT-2};
-      mocked.persist.mockImplementation(async(_db:unknown,_job:unknown,snapshot:{bookmaker?:string})=>{if(snapshot?.bookmaker==='betsson'&&!('provider' in snapshot))throw new Error('INVALID_NATIVE_SOURCE_QUOTE');return {returnedFixtures:1,matchedFixtures:1,quotes:3,history_changes:0,current_writes:3,closed:0};});
+      mocked.persist.mockImplementation(async(_db:unknown,_job:unknown,snapshot:{bookmaker?:string})=>{if(snapshot?.bookmaker==='betsson'&&!('provider' in snapshot))throw new Error('INVALID_NATIVE_SOURCE_QUOTE');return {outcomes:[{tournamentId:'325',outcome:'NATIVE_PERSISTED',meaningful:true,nativeSelections:3}],returnedFixtures:1,matchedFixtures:1,quotes:3,history_changes:0,current_writes:3,closed:0};});
       mocked.snapshot.mockResolvedValue({provider:'oddspapi',bookmaker:'betsson',tournamentIds:['325'],fixtures:[{providerFixtureId:'1'}],quotes:[{}],observedAt:new Date().toISOString()});
       const first=database([poison]);const result=await runOddsScheduler(first.db,'test-only');
       expect(result.state).not.toBe('FAILED');expect(result.error).toBeNull();

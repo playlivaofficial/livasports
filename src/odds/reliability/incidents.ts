@@ -96,7 +96,7 @@ export async function evaluateReliability(db:DatabaseClient,options:{now?:Date;a
     const competition=health.competitions.find(c=>c.competition===o.competition);
     // Flap guard: a condition must stay clear for a grace window before the incident resolves (an idle competition resolves at once).
     if(competition?.health!=='IDLE'&&now.getTime()-new Date(o.last_seen_at).getTime()<RESOLVE_GRACE_MINUTES*60000)continue;
-    const resolution=o.competition==='*'?'Platform condition cleared':competition?.health==='IDLE'?'No fixtures inside 14 days (season window closed)':'Condition cleared by a later evaluation';
+    const resolution=o.competition==='*'?'Platform condition cleared':competition?.health==='IDLE'?'No eligible fixtures inside the seven-day odds refresh window':'Condition cleared by a later evaluation';
     await db.query(`UPDATE odds_incidents SET state='RESOLVED',resolved_at=$2,resolution=$3 WHERE id=$1`,[o.id,now.toISOString(),resolution]);
     result.resolved++;
     const decision=alertDecision({severity:o.severity,alertSeverity:o.alert_severity,state:o.state},{severity:o.severity,state:'RESOLVED'});

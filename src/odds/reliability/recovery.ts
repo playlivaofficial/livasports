@@ -48,7 +48,7 @@ export async function runTargetedRefresh(db:DatabaseClient,key:string,competitio
   let job:string;
   try{job=await startOddsJob(db);}catch{await logRecoveryAction(db,{trigger:options.trigger,action:'TARGETED_REFRESH',competition,tournamentId:target.id,reason:options.reason,outcome:'REJECTED_CONCURRENT'});return fail('CONCURRENT_REFRESH',target.id,cost);}
   await db.query("UPDATE odds_sync_jobs SET trigger_source='CONTROLLED' WHERE id=$1",[job]);
-  // The advertised two-request drill gives each independent bookmaker one attempt. A retry must not consume its peer's slot.
+  // Each configured independent feed gets at most one attempt. A retry must not consume its peer's slot.
   const provider=new M5OddsPapiAdapter(db,key,job,cost,true,Date.now()+140000,tournaments,0);
   const feeds:TargetedRefreshResult['feeds']=[];let ok=true;
   try{
@@ -56,7 +56,9 @@ export async function runTargetedRefresh(db:DatabaseClient,key:string,competitio
       try{
         const snapshot=await provider.snapshot(bookmaker,[target.id]);
         const saved=await persistSnapshot(db,job,snapshot);
-        feeds.push({bookmaker,outcome:'SUCCEEDED',quotes:saved.quotes,matchedFixtures:saved.matchedFixtures,returnedFixtures:saved.returnedFixtures});
+        const verified=saved.outcomes.length>0&&saved.outcomes.every(o=>o.meaningful);
+        if(!verified)ok=false;
+        feeds.push({bookmaker,outcome:verified?'SUCCEEDED':saved.outcomes[0]?.outcome??'UNVERIFIED',quotes:saved.quotes,matchedFixtures:saved.matchedFixtures,returnedFixtures:saved.returnedFixtures});
       }catch(error){
         const code=safeSchedulerError(error);feeds.push({bookmaker,outcome:'FAILED',error:code});ok=false;
         if(error instanceof OddsBudgetStopped)break;

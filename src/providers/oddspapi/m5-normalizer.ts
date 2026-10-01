@@ -157,6 +157,9 @@ export function normalizeM5Snapshot(data:unknown,bookmaker:string,observedAt:str
         context={...context,outcome:rule.outcomes[outcomeId]?.code??outcomeId};
         const outcome=rule.outcomes[outcomeId];if(!outcome){reject('OUT_OF_SCOPE_OUTCOME');continue;}
         const players=obj(obj(rawOutcome).players);const price=obj(players['0']);
+        const flag=(value:unknown)=>typeof value==='boolean'?value:null;
+        (result.offerFlags??=[]).push({providerFixtureId:fixture.providerId,market:rule.market,outcome:outcome.code,
+          bookmakerActive:flag(book.bookmakerIsActive),bookmakerSuspended:flag(book.suspended),marketActive:flag(market.marketActive),priceActive:flag(price.active)});
         context={...context,evidence:{...context.evidence,marketId:id,outcomeId,price:typeof price.price==='number'?price.price:null,
           bookmakerActive:book.bookmakerIsActive,bookmakerSuspended:book.suspended,marketActive:market.marketActive,priceActive:price.active}};
         if(Object.keys(players).length!==1||price.playerName!=null){reject('PLAYER_OR_AMBIGUOUS_OUTCOME');continue;}

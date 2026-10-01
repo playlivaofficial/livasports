@@ -75,7 +75,7 @@ describe('P3 incidents, deduplication and alerting (§19–§21)',()=>{
     expect(result.resolved).toBe(1);expect(result.opened).toBe(1);
     expect(result.alerts).toEqual([{kind:'OPENED',competition:'*',classification:'SCHEDULER_STALLED',channel:'EMAIL'}]);
     const resolve=query.mock.calls.find(([sql])=>String(sql).includes("SET state='RESOLVED'"));
-    expect(((resolve as unknown as [string,unknown[]])[1])[2]).toContain('season window closed');
+    expect(((resolve as unknown as [string,unknown[]])[1])[2]).toContain('seven-day odds refresh window');
   });
   it('alert decisions and copy: one open alert per incident, follow-ups only on escalation or resolution; message has no secrets',()=>{
     expect(alertDecision(null,{severity:'WARNING',state:'OPEN'})).toBeNull();

@@ -20,7 +20,7 @@ export function classifyBackoff(input:{code:string|null;neverSucceeded?:boolean;
   if(http>=500&&http<600)return {failureClass:'TRANSIENT_PROVIDER',subreason:'HTTP_5XX_TRANSIENT',delayMinutes:Math.min(60,5*2**Math.min(4,failures-1)),hard:false,evidence};
   if(code.includes('NETWORK')||code.includes('TRANSPORT')||code.includes('TIMEOUT'))return {failureClass:'TRANSPORT',subreason:'TRANSPORT_FAILURE',delayMinutes:Math.min(60,5*2**Math.min(4,failures-1)),hard:false,evidence};
   if(code==='ODDS_UPSTREAM_COOLDOWN')return {failureClass:'BOOKMAKER_COOLDOWN',subreason:'CIRCUIT_BREAKER',delayMinutes:30,hard:true,evidence};
-  if(code.includes('MAPPING'))return {failureClass:'MAPPING',subreason:'FIXTURE_MAPPING_FAILURE',delayMinutes:0,hard:true,evidence};
+  if(code.includes('MAPPING')||code==='ODDS_IDENTITY_CONFLICT')return {failureClass:'MAPPING',subreason:'FIXTURE_MAPPING_FAILURE',delayMinutes:0,hard:true,evidence};
   if(code.includes('MARKET'))return {failureClass:'MARKET',subreason:'MARKET_MISSING',delayMinutes:0,hard:true,evidence};
   if(code.includes('NO_CHANGE'))return {failureClass:'NO_CHANGE',subreason:'REPEATED_NO_CHANGE',delayMinutes:30,hard:false,evidence};
   if(code.includes('EMPTY'))return input.catalogEmpty||input.fixtures===0?

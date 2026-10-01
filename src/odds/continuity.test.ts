@@ -34,11 +34,12 @@ describe('native expiry deadlines',()=>{
   }
   expect(refreshes).toBe(2);
  });
- it('explicitly empty catalog after isolated 404 pauses odds probes, not permanently unsupported',()=>{
+ it('empty catalog uses a bounded twelve-hour recheck, not permanent suppression',()=>{
   const catalog=schedulerTournaments([{tournamentId:329,tournamentSlug:'copa-del-rey',categorySlug:'spain',futureFixtures:0,upcomingFixtures:0}]);
   expect(catalog.find(t=>t.id==='329')?.catalogEmpty).toBe(true);
-  expect(planScheduler([{...target,catalogEmpty:true}],now).batches).toEqual([]);
-  expect(planTarget({...target,catalogEmpty:true},4,now).delayReason).toBe('CATALOG_EMPTY');
+  expect(planTarget({...target,catalogEmpty:true,nativeExpiryAt:null},4,now).intervalMinutes).toBe(720);
+  expect(planTarget({...target,catalogEmpty:true,nativeExpiryAt:null,lastCheckedAt:now.toISOString()},4,now).due).toBe(false);
+  expect(planTarget({...target,catalogEmpty:true,nativeExpiryAt:null,lastCheckedAt:new Date(+now-721*60000).toISOString()},4,now).due).toBe(true);
   expect(schedulerTournaments([{tournamentId:329,tournamentSlug:'copa-del-rey',categorySlug:'spain',futureFixtures:3,upcomingFixtures:2}]).find(t=>t.id==='329')?.catalogEmpty).not.toBe(true);
  });
  it('reviewed future aliases remain competition-specific and do not broaden team-name matching',()=>{

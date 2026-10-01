@@ -28,7 +28,8 @@ describe('durable subscription request budget',()=>{
   });
   it('holds a budget lock and reserves before any provider fetch; unmetered account alone can reconcile after exhaustion',async()=>{
     const tx=transaction([{hard_limit:5000,consumed:50,rolling_day:1}]);await reserveOddsRequest(tx,input);
-    expect(tx.mock.mock.calls[0][0]).toContain('pg_advisory_xact_lock');expect(tx.mock.mock.calls.at(-1)?.[0]).toContain('INSERT INTO odds_provider_requests');
+    expect(tx.mock.mock.calls[0][0]).toContain('pg_advisory_xact_lock');expect(tx.mock.mock.calls.some(([sql])=>sql.includes('INSERT INTO odds_provider_requests'))).toBe(true);
+    expect(tx.mock.mock.calls.at(-1)?.[0]).toContain('last_attempt_at');
     const expired=transaction([]);await reserveOddsRequest(expired,{...input,unmetered:true,endpoint:'/v4/account'});
     expect(expired.mock.mock.calls.some(([sql])=>sql.includes('FROM odds_budget_baselines'))).toBe(false);
   });

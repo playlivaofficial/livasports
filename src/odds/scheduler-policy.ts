@@ -13,6 +13,7 @@ export interface RefreshTarget {
   nativeExpiryAt?:string|null;
   recentNative?:boolean;
   unsupported?:boolean;
+  mappingBlocked?:boolean;
   catalogEmpty?:boolean;
   nativePriority?:number;
   bookmaker:string;tournamentId:string;fixtures:Array<{id:string;kickoff:string;status:string}>;
@@ -20,6 +21,7 @@ export interface RefreshTarget {
   failureClass?:string|null;backoffReason?:string|null;nextRecheckAt?:string|null;
   /** P0 incident fields: a target that has succeeded before and is not failing can share a provider request. */
   lastAttemptAt?:string|null;consecutiveFailures?:number;
+  lastCheckedAt?:string|null;pendingSince?:string|null;
 }
 export function nativeSafetyMarginMinutes(value=process.env.ODDS_NATIVE_RESCUE_MARGIN_MINUTES){
   const n=Number(value??10);return Number.isFinite(n)?Math.max(5,Math.min(30,n)):10;
@@ -57,11 +59,13 @@ export function planTarget(target:RefreshTarget,activeFeeds:number,now=new Date(
   const tier:RefreshTier=!upcoming.length?'NO_UPCOMING':!target.publicEligible?'GEO_GATED':
     hours<=0.25?'FINAL_PREGAME':hours<=2?'WITHIN_2H':hours<=12?'WITHIN_12H':hours<=48?'WITHIN_48H':'FAR_FUTURE';
   // A feed without prices still needs discovery before kickoff. Coverage is never an eligibility gate.
-  const base=target.unsupported||target.catalogEmpty||tier==='NO_UPCOMING'?null:tier==='GEO_GATED'?1440:cadenceIntervalMinutes(hours,activeFeeds);
+  const base=target.unsupported||target.mappingBlocked||tier==='NO_UPCOMING'?null:target.catalogEmpty?720:tier==='GEO_GATED'?1440:cadenceIntervalMinutes(hours,activeFeeds);
   // Missing near-term coverage gets priority, but must not bypass the shared quota-scaled cadence.
   const recovery=base!==null&&!target.hasUsefulCoverage&&hours<=72;
   const intervalMinutes=base===null?null:scaledInterval(base,scale);
-  const normalDue=target.lastSuccessAt&&!target.needsCadenceRefresh?Date.parse(target.lastSuccessAt)+(intervalMinutes??0)*60000:0;
+  const checked=target.lastCheckedAt??target.lastSuccessAt;
+  const eligibilityAt=upcoming.length?Math.min(...upcoming.map(f=>Date.parse(f.kickoff)))-7*86400000:now.getTime();
+  const normalDue=checked&&!target.needsCadenceRefresh?Date.parse(checked)+(intervalMinutes??0)*60000:eligibilityAt;
   const nativeDue=target.publicEligible?expiryDue(normalDue,target.nativeExpiryAt):normalDue;
   const expiry=Date.parse(target.nativeExpiryAt??'');
   const rescue=intervalMinutes!==null&&target.publicEligible&&Number.isFinite(expiry)&&expiry>now.getTime()&&expiry-nativeSafetyMarginMinutes()*60000<=now.getTime();
@@ -69,7 +73,7 @@ export function planTarget(target:RefreshTarget,activeFeeds:number,now=new Date(
   const retryAt=effectiveBackoffAt({retryAfter:target.retryAfter,lastAttemptAt:target.lastAttemptAt,failureClass:target.failureClass,subreason:target.backoffReason,
     recentNative:target.recentNative,nativePriority:target.nativePriority,nearKickoff:hours<=12,closeToExpiry:rescue||nativeRecovery,bookmaker:target.bookmaker,tournamentId:target.tournamentId});
   const dueAt=intervalMinutes===null?null:Math.max(nativeDue,retryAt);
-  const delayReason=target.unsupported?'UNSUPPORTED':target.catalogEmpty?'CATALOG_EMPTY':retryAt>now.getTime()?
+  const delayReason=target.mappingBlocked?'MAPPING_REVIEW_REQUIRED':target.unsupported?'UNSUPPORTED':retryAt>now.getTime()?
     target.backoffReason??(/^ODDSPAPI_HTTP_5\d\d$/.test(target.lastError??'')?'HTTP_5XX_TRANSIENT':target.lastError==='ODDS_UPSTREAM_COOLDOWN'?'CIRCUIT_BREAKER':'UNKNOWN_BACKOFF'):null;
   return {bookmaker:target.bookmaker,tournamentId:target.tournamentId,tier,intervalMinutes,fixtures:upcoming.length,recovery,nativePriority:target.nativePriority??0,
     rescue,nativeRecovery,delayReason,recentNative:target.recentNative===true,nativeExpiryAt:target.nativeExpiryAt??null,normalDueAt:normalDue?new Date(normalDue).toISOString():null,
@@ -77,7 +81,9 @@ export function planTarget(target:RefreshTarget,activeFeeds:number,now=new Date(
     nearestKickoff:upcoming.length?new Date(now.getTime()+hours*3600000).toISOString():null,
     due:dueAt!==null&&Number.isFinite(dueAt)&&dueAt<=now.getTime(),
     urgency:dueAt===null?0:(now.getTime()-dueAt)/Math.max(1,(intervalMinutes??1)*60000),
-    nextDueAt:dueAt===null?null:new Date(Math.max(now.getTime(),dueAt)).toISOString()};
+    pendingSince:target.pendingSince??null,lastSuccessAt:target.lastSuccessAt,
+    overdueMinutes:dueAt===null?0:Math.max(0,(now.getTime()-(dueAt||now.getTime()))/60000),
+    nextDueAt:dueAt===null?null:new Date(dueAt||now.getTime()).toISOString()};
 }
 /** A target that has a prior success and no recent failure can safely share a request with other proven targets. */
 export function isProvenTarget(target:Pick<RefreshTarget,'tournamentId'|'lastSuccessAt'|'consecutiveFailures'>){
@@ -96,10 +102,10 @@ export function splitProviderBatches(due:readonly RefreshTarget[]):string[][]{
 }
 /** Simulate the five-minute ticker: stable batch, proven feeds in fours, unproven singletons (bounded per tick). */
 export function forecastDetail(targets:RefreshTarget[],now:Date,days:number,scale:number){
-  targets=[...new Map(targets.filter(t=>!t.unsupported&&!t.catalogEmpty).map(t=>[`${t.bookmaker}:${t.tournamentId}`,t])).values()];
+  targets=[...new Map(targets.filter(t=>!t.unsupported&&!t.mappingBlocked).map(t=>[`${t.bookmaker}:${t.tournamentId}`,t])).values()];
   const feeds=new Set(targets.filter(t=>t.publicEligible).map(t=>t.bookmaker)).size;
   const rows=targets.map(t=>({...t,kicks:t.fixtures.filter(f=>f.status==='SCHEDULED').map(f=>Date.parse(f.kickoff)).filter(Number.isFinite).sort((a,b)=>a-b),
-    expiry:t.nativeExpiryAt??null,last:t.lastSuccessAt&&!t.needsCadenceRefresh?Date.parse(t.lastSuccessAt):0,retry:t.retryAfter?Date.parse(t.retryAfter):0,proven:isProvenTarget(t)}));
+    expiry:t.nativeExpiryAt??null,last:(t.lastCheckedAt??t.lastSuccessAt)&&!t.needsCadenceRefresh?Date.parse((t.lastCheckedAt??t.lastSuccessAt)!):0,retry:t.retryAfter?Date.parse(t.retryAfter):0,proven:isProvenTarget(t)}));
   let count=0;const byBookmaker:Record<string,number>={},byCompetition:Record<string,number>={},byDay:number[]=Array(Math.ceil(days)).fill(0);
   const record=(bookmaker:string,members:typeof rows,at:number)=>{if(!members.length)return;count++;byBookmaker[bookmaker]=(byBookmaker[bookmaker]??0)+1;byDay[Math.floor((at-now.getTime())/86400000)]++;
     for(const r of members){byCompetition[r.tournamentId]=(byCompetition[r.tournamentId]??0)+1/members.length;r.last=at;r.proven=true;
@@ -109,7 +115,7 @@ export function forecastDetail(targets:RefreshTarget[],now:Date,days:number,scal
       const planned=rows.filter(r=>r.bookmaker===bookmaker).flatMap(r=>{
         const kick=r.kicks.find(k=>k>at);if(!kick||kick>at+7*86400000)return [];
         const hours=(kick-at)/3600000;
-        const base=r.publicEligible?cadenceIntervalMinutes(hours,feeds)!:1440;
+        const base=r.catalogEmpty?720:r.publicEligible?cadenceIntervalMinutes(hours,feeds)!:1440;
         const interval=scaledInterval(base,scale)*60000;
         return [{r,kick,dueAt:Math.max(r.publicEligible?expiryDue(r.last+interval,r.expiry):r.last+interval,r.retry),interval}];
       });
@@ -153,10 +159,10 @@ export function planScheduler(targets:RefreshTarget[],now=new Date(),budget?:Sch
   const planned=cadence.budgetAvailable?SCHEDULER_BOOKMAKERS.flatMap(bookmaker=>{
     const eligible=targetsPlan.filter(t=>t.bookmaker===bookmaker&&t.intervalMinutes!==null);
     // Priority: recovery (near-term feed without coverage) first, then relative lateness, then nearest kickoff.
-    const due=eligible.filter(t=>t.due).sort((a,b)=>Number(b.rescue)-Number(a.rescue)||Number(b.nativeRecovery)-Number(a.nativeRecovery)||Number(b.recovery)-Number(a.recovery)||b.urgency-a.urgency||b.nativePriority-a.nativePriority||Date.parse(a.nearestKickoff!)-Date.parse(b.nearestKickoff!));
+    const waitAge=(t:typeof eligible[number])=>t.pendingSince?Math.max(0,(now.getTime()-Date.parse(t.pendingSince))/60000):0;
+    const due=eligible.filter(t=>t.due).sort((a,b)=>(waitAge(b)>=SCHEDULER_TICK_MINUTES?waitAge(b):0)-(waitAge(a)>=SCHEDULER_TICK_MINUTES?waitAge(a):0)||Number(b.rescue)-Number(a.rescue)||Number(b.nativeRecovery)-Number(a.nativeRecovery)||Number(b.recovery)-Number(a.recovery)||b.urgency-a.urgency||b.nativePriority-a.nativePriority||Date.parse(a.nearestKickoff!)-Date.parse(b.nearestKickoff!));
     if(!due.length)return [];
-    const retryOk=(t:{tournamentId:string})=>{const retry=targets.find(r=>r.bookmaker===bookmaker&&r.tournamentId===t.tournamentId)?.retryAfter;return !retry||Date.parse(retry)<=now.getTime();};
-    const stable=due.filter(t=>isStableOddsTournament(t.tournamentId)&&retryOk(t));
+    const stable=due.filter(t=>isStableOddsTournament(t.tournamentId));
     const proven=due.filter(t=>!isStableOddsTournament(t.tournamentId)&&t.proven);
     const unproven=due.filter(t=>!isStableOddsTournament(t.tournamentId)&&!t.proven).slice(0,MAX_UNPROVEN_PROBES_PER_TICK);
     const selected=[...chunk(stable.map(t=>t.tournamentId)),...chunk(proven.map(t=>t.tournamentId)),...unproven.map(t=>[t.tournamentId])];
@@ -164,9 +170,12 @@ export function planScheduler(targets:RefreshTarget[],now=new Date(),budget?:Sch
       const members=eligible.filter(t=>tournamentIds.includes(t.tournamentId));
       const nearestHours=Math.min(...members.map(t=>t.nearestKickoff?(Date.parse(t.nearestKickoff)-now.getTime())/3600000:Infinity));
       return {bookmaker,tournamentIds,rescue:members.some(t=>t.rescue),recentNativeRecovery:members.some(t=>t.nativeRecovery),fixtures:members.reduce((n,t)=>n+t.fixtures,0),nativePriority:Math.max(...members.map(t=>t.nativePriority)),
+        // Aging survives cross-bookmaker sorting. After one missed tick, first-waiting wins over rescue priority.
+        overdueMinutes:Math.max(...members.map(t=>t.overdueMinutes)),
+        starvationAge:Math.max(...members.map(t=>t.pendingSince?Math.max(0,(now.getTime()-Date.parse(t.pendingSince))/60000):0)),
         urgent:members.some(t=>t.recovery)||nearestHours<=URGENT_KICKOFF_HOURS,nearestHours};
     });
-  }).sort((a,b)=>Number(b.rescue)-Number(a.rescue)||Number(b.recentNativeRecovery)-Number(a.recentNativeRecovery)||Number(b.urgent)-Number(a.urgent)||(a.urgent&&b.urgent?a.nearestHours-b.nearestHours:0)
+  }).sort((a,b)=>(b.starvationAge>=SCHEDULER_TICK_MINUTES?b.starvationAge:0)-(a.starvationAge>=SCHEDULER_TICK_MINUTES?a.starvationAge:0)||Number(b.rescue)-Number(a.rescue)||Number(b.recentNativeRecovery)-Number(a.recentNativeRecovery)||Number(b.urgent)-Number(a.urgent)||(a.urgent&&b.urgent?a.nearestHours-b.nearestHours:0)
     ||b.nativePriority-a.nativePriority
     ||Number(!a.tournamentIds.every(isStableOddsTournament))-Number(!b.tournamentIds.every(isStableOddsTournament))):[];
   // Urgent batches lead, but ALL automatic requests stop at 80%; they cannot consume the exception reserve.

@@ -98,6 +98,9 @@ export function routineDailyCap(routineRemaining:number,remainingDays:number):nu
 export async function reserveOddsRequest(tx:QueryExecutor,input:{id:string;jobId:string;endpoint:string;query:Record<string,string>;routine:boolean;unmetered:boolean}){
   await tx.query("SELECT pg_advisory_xact_lock(hashtext('livasports-m5-odds-budget'))");
   if(!input.unmetered){
+    // Same upper bound as twelve 5-minute ticks × six requests, shared by manual and automatic workers.
+    const hourly=await tx.query("SELECT count(*)::int AS used FROM odds_provider_requests WHERE billable AND started_at>now()-interval '1 hour'");
+    if(Number(hourly.rows[0]?.used??0)>=72)throw new OddsBudgetStopped('ODDS_HOURLY_BUDGET_EXHAUSTED');
     const circuit=await tx.query(`WITH failures AS (
       SELECT max(started_at) AS latest,count(*) AS n FROM odds_provider_requests
       WHERE (http_status=429 OR http_status>=500 OR outcome='NETWORK_ERROR')
@@ -110,7 +113,7 @@ export async function reserveOddsRequest(tx:QueryExecutor,input:{id:string;jobId
       const repeated=await tx.query(`SELECT EXISTS(SELECT 1 FROM odds_provider_requests WHERE endpoint=$1 AND safe_query->>'bookmaker'=$2
         AND string_to_array(safe_query->>'tournamentIds',',') && string_to_array($3,',')
         AND ((outcome='SUCCEEDED' AND started_at>now()-interval '5 minutes') OR
-          (http_status>=400 AND http_status<429 AND started_at>now()-interval '6 hours'))) AS blocked`,
+          (http_status>=400 AND http_status<429 AND http_status<>404 AND started_at>now()-interval '6 hours'))) AS blocked`,
         [input.endpoint,input.query.bookmaker,input.query.tournamentIds]);
       if(repeated.rows[0]?.blocked===true)throw new OddsBudgetStopped('ODDS_DUPLICATE_OR_FAILED_TARGET_COOLDOWN');
     }
@@ -132,4 +135,6 @@ export async function reserveOddsRequest(tx:QueryExecutor,input:{id:string;jobId
   if(!lease.rowCount)throw new Error('ODDS_WORKER_LEASE_LOST');
   await tx.query(`INSERT INTO odds_provider_requests(id,job_id,endpoint,safe_query,billable,purpose) VALUES($1,$2,$3,$4::jsonb,$5,$6)`,
     [input.id,input.jobId,input.endpoint,JSON.stringify(input.query),!input.unmetered,input.routine?'SCHEDULED':'MANUAL']);
+  if(input.endpoint==='/v4/odds-by-tournaments')await tx.query(`INSERT INTO odds_refresh_targets(bookmaker,tournament_id,last_attempt_at)
+    SELECT $1,unnest(string_to_array($2,',')),now() ON CONFLICT(bookmaker,tournament_id) DO UPDATE SET last_attempt_at=now()`,[input.query.bookmaker,input.query.tournamentIds]);
 }

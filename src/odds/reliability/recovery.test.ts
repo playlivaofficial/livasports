@@ -24,7 +24,7 @@ function database(lastAttempt:Date|null){
 const actions=(query:ReturnType<typeof vi.fn>)=>query.mock.calls.filter(([sql])=>String(sql).includes('INSERT INTO odds_recovery_actions')).map(c=>(c[1] as unknown[])[7]);
 describe('P3 targeted refresh safety (§24, §29)',()=>{
   beforeEach(()=>{mocked.snapshot.mockReset();mocked.persist.mockReset();mocked.startJob.mockReset();mocked.budget={verified:true,rollingHeadroom:10};
-    mocked.startJob.mockResolvedValue('job-1');mocked.snapshot.mockResolvedValue({observedAt:'2026-09-18T12:00:00Z',fixtures:[],quotes:[],tournamentIds:['35']});mocked.persist.mockResolvedValue({quotes:7,matchedFixtures:1,returnedFixtures:1});});
+    mocked.startJob.mockResolvedValue('job-1');mocked.snapshot.mockResolvedValue({observedAt:'2026-09-18T12:00:00Z',fixtures:[],quotes:[],tournamentIds:['35']});mocked.persist.mockResolvedValue({quotes:7,matchedFixtures:1,returnedFixtures:1,outcomes:[{outcome:'NATIVE_PERSISTED',meaningful:true}]});});
   it('rejects a competition without a verified target and records the rejection',async()=>{
     const {db,query}=database(null);
     const r=await runTargetedRefresh(db,'key','la-liga-2',{trigger:'OWNER',reason:'test'});
@@ -42,13 +42,18 @@ describe('P3 targeted refresh safety (§24, §29)',()=>{
     expect((await runTargetedRefresh(busy,'key','bundesliga',{trigger:'OWNER',reason:'test',now})).code).toBe('CONCURRENT_REFRESH');expect(actions(q3)).toEqual(['REJECTED_CONCURRENT']);
     expect(mocked.snapshot).not.toHaveBeenCalled();
   });
-  it('refreshes exactly the target for both bookmakers (cost 2), persists through the normal ingestion path and logs the action with the headroom after',async()=>{
+  it('refreshes exactly the target for all four feeds, verifies persistence and logs the action with the headroom after',async()=>{
     const {db,query}=database(null);
     const r=await runTargetedRefresh(db,'key','bundesliga',{trigger:'OWNER',reason:'owner test'});
     expect(r).toMatchObject({ok:true,code:'OK',tournamentId:'35',requestCost:4,requests:4});
     expect(mocked.snapshot.mock.calls.map(c=>c[1])).toEqual([['35'],['35'],['35'],['35']]);expect(mocked.persist).toHaveBeenCalledTimes(4);
     expect(actions(query)).toEqual(['SUCCEEDED']);
     expect(query.mock.calls.some(([sql])=>String(sql).includes("trigger_source='CONTROLLED'"))).toBe(true);
+  });
+  it('never calls a saved but unmapped response a successful owner refresh',async()=>{
+    mocked.persist.mockResolvedValue({quotes:0,matchedFixtures:0,returnedFixtures:3,outcomes:[{outcome:'MAPPING_EMPTY',meaningful:false}]});
+    const {db}=database(null);const r=await runTargetedRefresh(db,'key','bundesliga',{trigger:'OWNER',reason:'test'});
+    expect(r.ok).toBe(false);expect(r.feeds.every(f=>f.outcome==='MAPPING_EMPTY')).toBe(true);
   });
   it('a ledger stop mid-way ends the refresh without touching the second bookmaker and reports PARTIAL_OR_FAILED',async()=>{
     mocked.snapshot.mockResolvedValueOnce({observedAt:'2026-09-18T12:00:00Z',fixtures:[],quotes:[],tournamentIds:['35']}).mockRejectedValueOnce(new OddsBudgetStopped('ODDS_BUDGET_UNVERIFIED_OR_EXHAUSTED'));
