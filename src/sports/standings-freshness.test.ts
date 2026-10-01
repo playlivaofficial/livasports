@@ -1,6 +1,6 @@
 import {describe,it,expect,vi} from 'vitest';
 import {standingsEvidence,rejectStandingsSnapshot} from './standings-snapshot';
-import {fetchStandings,standingsBackoff,STANDINGS_POLICY,runStandingsRefresh} from './standings-refresh';
+import {fetchStandings,standingsBackoff,STANDINGS_POLICY,runStandingsRefresh,standingsAwaitingSettlement} from './standings-refresh';
 import {standingsRevision,readStandingsFreshness} from './standings-read';
 import {RecordingCacheInvalidator} from '@/cache/invalidation';
 const row=(played=5,revision='2026-10-01 10:00:00')=>({id:1,participant_id:2,position:1,points:15,details:[{type_id:129,value:played}],season:{standings_recalculated_at:revision}});
@@ -20,10 +20,13 @@ describe('standings snapshot truth',()=>{
  it('rejects missing played metrics instead of inventing zero',()=>expect(()=>standingsEvidence([{...row(),details:[]}])).toThrow('INVALID_PLAYED'));
 });
 describe('bounded upstream refresh',()=>{
+ it('keeps a changed but not-yet-settled source revision pending',()=>expect(standingsAwaitingSettlement(true,'different',evidence(),'2026-10-01T10:30:00Z')).toBe(true));
+ it('accepts an authoritative revision after the latest completed result',()=>expect(standingsAwaitingSettlement(true,'different',evidence(),'2026-10-01T09:30:00Z')).toBe(false));
+ it('does not pretend an unchanged dirty snapshot has settled',()=>expect(standingsAwaitingSettlement(true,evidence().hash,evidence(),null)).toBe(true));
  it.each([401,403,404,429,500,503])('makes one attempt on HTTP %s with no blind retry',async status=>{const transport=vi.fn(async()=>new Response('{}',{status}));await expect(fetchStandings('private-test-value','123',transport as never)).rejects.toThrow(`HTTP_${status}`);expect(transport).toHaveBeenCalledTimes(1);});
  it('requests complete season standings and source revision without auth in the URL',async()=>{const transport=vi.fn(async()=>Response.json({data:[row()]}));await fetchStandings('private-test-value','123',transport as never);const [url,options]=transport.mock.calls[0] as unknown as [URL,RequestInit];expect(url.pathname).toBe('/v3/football/standings/seasons/123');expect(url.searchParams.get('include')).toContain('season');expect(url.href).not.toContain('private-test-value');expect(options.cache).toBe('no-store');});
  it('rejects truncated data',async()=>{await expect(fetchStandings('test','123',(async()=>Response.json({data:[row()],pagination:{has_more:true}})) as never)).rejects.toThrow('INCOMPLETE_RESPONSE');});
- it('backs off pending/failing providers and bounds every tick',()=>{expect([1,2,3,4,5,6].map(n=>standingsBackoff(n,'PROVIDER_PENDING'))).toEqual([5,15,60,360,720,720]);expect(standingsBackoff(1,'HTTP_403')).toBe(1440);expect(STANDINGS_POLICY).toMatchObject({perTick:3,dailyCap:192,hourlyCap:24,safetyHours:12});});
+ it('backs off pending/failing providers and bounds every tick',()=>{expect([1,2,3,4,5,6].map(n=>standingsBackoff(n,'PROVIDER_PENDING'))).toEqual([5,15,60,360,720,720]);expect(standingsBackoff(1,'HTTP_403')).toBe(1440);expect(STANDINGS_POLICY).toMatchObject({perTick:3,dailyCap:192,hourlyCap:48,safetyHours:12});});
  it('does not request anything without configuration',async()=>{const transport=vi.fn();expect((await runStandingsRefresh({} as never,undefined,new RecordingCacheInvalidator(),transport)).status).toBe('NOT_CONFIGURED');expect(transport).not.toHaveBeenCalled();});
 });
 describe('standings read freshness',()=>{

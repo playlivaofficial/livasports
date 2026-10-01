@@ -1,16 +1,22 @@
 import type {DatabaseClient} from '@/database/client';
 import type {CacheInvalidator} from '@/cache/invalidation';
 import {SportsIngestionStore,type ProviderRow} from './ingestion-store';
-import {standingsEvidence,StandingsSnapshotError} from './standings-snapshot';
+import {standingsEvidence,StandingsSnapshotError,type StandingsEvidence} from './standings-snapshot';
 
-export const STANDINGS_POLICY={perTick:3,dailyCap:192,hourlyCap:24,safetyHours:12,settleMinutes:5} as const;
+// 48/hour permits one bounded 34-competition incident recovery without consuming
+// the 192/day reserve. The five-minute cron itself cannot exceed 36/hour.
+export const STANDINGS_POLICY={perTick:3,dailyCap:192,hourlyCap:48,safetyHours:12,settleMinutes:5} as const;
 export const standingsTag=(id:string)=>`standings:${id}`;
 export function standingsBackoff(failures:number,code:string){
   if(/HTTP_(401|403|404)/.test(code))return 24*60;
   if(code==='HTTP_429')return 60;
   return [5,15,60,360,720][Math.min(Math.max(0,failures-1),4)];
 }
-type Candidate={id:string;competition_id:string;slug:string;league:string;provider_id:string;name:string;dirty_version:string;refreshed_version:string;snapshot_hash:string|null;failures:number;};
+export function standingsAwaitingSettlement(dirty:boolean,priorHash:string|null,evidence:StandingsEvidence,lastResultAt:Date|string|null){
+  if(evidence.providerUpdatedAt&&lastResultAt&&Date.parse(evidence.providerUpdatedAt)<new Date(lastResultAt).getTime())return true;
+  return dirty&&priorHash===evidence.hash;
+}
+type Candidate={id:string;competition_id:string;slug:string;league:string;provider_id:string;name:string;dirty_version:string;refreshed_version:string;snapshot_hash:string|null;failures:number;last_result_at:Date|null;};
 class StandingsRequestError extends Error {constructor(readonly code:string){super(code);}}
 export async function fetchStandings(key:string,providerSeason:string,transport:typeof fetch=fetch):Promise<ProviderRow[]> {
   if(!/^\d+$/.test(providerSeason))throw new StandingsRequestError('INVALID_MAPPING');
@@ -39,7 +45,8 @@ export async function runStandingsRefresh(db:DatabaseClient,key:string|undefined
     const limit=Math.min(STANDINGS_POLICY.perTick,STANDINGS_POLICY.dailyCap-usage.today,STANDINGS_POLICY.hourlyCap-usage.hour);
     if(limit<=0)return {...result,status:'BUDGET_LIMIT'};
     const candidates=(await db.query<Candidate>(`SELECT s.id,s.name,s.competition_id,c.slug,lm.provider_entity_id AS league,sm.provider_entity_id AS provider_id,
-      q.dirty_version,q.refreshed_version,q.snapshot_hash,q.failures
+      q.dirty_version,q.refreshed_version,q.snapshot_hash,q.failures,
+      (SELECT max(COALESCE(f.provider_updated_at,f.kickoff+interval '90 minutes')) FROM fixtures f WHERE f.season_id=s.id AND f.status='FINISHED') AS last_result_at
       FROM standings_refresh_state q JOIN seasons s ON s.id=q.season_id JOIN competitions c ON c.id=s.competition_id AND c.enabled
       JOIN provider_entity_mappings sm ON sm.livasports_entity_id=s.id AND sm.provider='SPORTMONKS' AND sm.entity_type='SEASON'
       JOIN provider_entity_mappings lm ON lm.livasports_entity_id=c.id AND lm.provider='SPORTMONKS' AND lm.entity_type='COMPETITION'
@@ -56,7 +63,7 @@ export async function runStandingsRefresh(db:DatabaseClient,key:string|undefined
         const evidence=standingsEvidence(rows,fetchedAt);
         await store.standings({id:c.id,competitionId:c.competition_id,league:c.league,providerId:Number(c.provider_id),name:c.name},rows,fetchedAt);
         // Unchanged response after a result may mean provider settlement is still pending.
-        if(c.dirty_version!==c.refreshed_version&&c.snapshot_hash===evidence.hash)throw new StandingsRequestError('PROVIDER_PENDING');
+        if(standingsAwaitingSettlement(c.dirty_version!==c.refreshed_version,c.snapshot_hash,evidence,c.last_result_at))throw new StandingsRequestError('PROVIDER_PENDING');
         await db.query(`UPDATE standings_refresh_state SET refreshed_version=$2,failures=0,last_error=NULL,
           next_attempt_at=CASE WHEN dirty_version>$2 THEN now()+interval '5 minutes' ELSE now()+$3::int*interval '1 minute' END WHERE season_id=$1`,
           [c.id,c.dirty_version,c.dirty_version!==c.refreshed_version?20:STANDINGS_POLICY.safetyHours*60]);
