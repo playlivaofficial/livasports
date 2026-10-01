@@ -1,5 +1,6 @@
 import type {QueryExecutor} from '@/database/client';
 import {SELECTIONS,type OddsSnapshot,type FixtureMatch,type ProviderOddsFixture} from './types';
+import {freshnessTtlMs} from './scheduler-policy';
 
 export const NATIVE_REASONS=['PROVIDER_GAP','INGESTION_BUG','IDENTITY_UNRESOLVED','MARKET_MAPPING_FAILURE','STALE_OR_EXPIRED','SUSPENDED_OR_REMOVED','QUOTA_OR_BACKOFF_DELAY','UNKNOWN_PIPELINE_DEFECT'] as const;
 export type NativeReason=typeof NATIVE_REASONS[number];
@@ -9,10 +10,12 @@ export function snapshotDiagnostics(snapshot:OddsSnapshot,matches:readonly Snaps
     const quote=snapshot.quotes.find(q=>q.providerFixtureId===m.raw.providerId&&q.market===market&&q.outcome===outcome);
     const rejected=snapshot.diagnostics?.find(d=>d.providerFixtureId===m.raw.providerId&&d.market===market&&(!d.outcome||d.outcome===outcome));
     const classification=!m.fixture?'IDENTITY_UNRESOLVED':rejected&&!quote?'MARKET_MAPPING_FAILURE':!quote?'PROVIDER_GAP':
-      m.fixture.status!=='SCHEDULED'||m.raw.status!=='PREGAME'||Date.now()>=Math.min(Date.parse(m.fixture.kickoff),Date.parse(m.raw.kickoff))||['SUSPENDED','WITHDRAWN','CLOSED'].includes(quote.status)?'SUSPENDED_OR_REMOVED':quote.status==='STALE'?'STALE_OR_EXPIRED':'NATIVE_PERSISTED';
+      m.fixture.status!=='SCHEDULED'||m.raw.status!=='PREGAME'||Date.now()>=Math.min(Date.parse(m.fixture.kickoff),Date.parse(m.raw.kickoff))||['SUSPENDED','WITHDRAWN','CLOSED'].includes(quote.status)?'SUSPENDED_OR_REMOVED':quote.status==='STALE'?'STALE_OR_EXPIRED':
+      freshnessTtlMs((Math.min(Date.parse(m.fixture.kickoff),Date.parse(m.raw.kickoff))-Date.parse(snapshot.observedAt))/3600000,2,snapshot.cadenceScale??1)===0?'OUT_OF_SCOPE':'NATIVE_PERSISTED';
     return {provider_fixture_id:m.raw.providerId,fixture_id:m.fixture?.id??null,market,outcome,classification,
       evidence:{tournamentId:m.raw.providerCompetitionId,home:m.raw.homeNames,away:m.raw.awayNames,kickoff:m.raw.kickoff,candidate:m.fixture?.id??null,
-        candidates:m.candidateFixtureIds??[],confidence:m.state,reason:rejected?.reason??m.reason,quote:quote??null}};
+        candidates:m.candidateFixtureIds??[],confidence:m.state,reason:rejected?.reason??m.reason,quote:quote??null,
+        providerFlags:snapshot.offerFlags?.find(f=>f.providerFixtureId===m.raw.providerId&&f.market===market&&f.outcome===outcome)??null}};
   })));
   // Preserve rejected rows even when fixture identity/envelope never reached the matching stage.
   for(const d of snapshot.diagnostics??[]){
@@ -41,4 +44,15 @@ export async function persistNativeDiagnostics(db:QueryExecutor,snapshotId:strin
       AND (o.observed_at>d.observed_at OR (o.observed_at=d.observed_at
         AND o.decimal_odds=(d.evidence->'quote'->>'decimalOdds')::numeric
         AND o.status=d.evidence->'quote'->>'status')))`,[snapshotId]);
+  // The public resolver can select the supplier-isolated table; assert that side of the write as well.
+  await db.query(`UPDATE odds_native_diagnostics d SET classification='INGESTION_BUG'
+    WHERE snapshot_id=$1 AND classification='NATIVE_PERSISTED' AND NOT EXISTS(
+      SELECT 1 FROM odds_native_source_current o JOIN bookmakers b ON b.id=o.bookmaker_id
+      WHERE o.source_provider='ODDSPAPI' AND b.provider_slug=d.bookmaker AND o.fixture_id=d.fixture_id
+        AND o.market_code=d.market AND o.outcome_code=d.outcome
+        AND o.line IS NOT DISTINCT FROM CASE WHEN d.market='TOTAL_GOALS' THEN 2.5::numeric ELSE NULL::numeric END
+        AND o.mapping_verified AND o.confidence='VERIFIED'
+        AND (o.observed_at>d.observed_at OR (o.observed_at=d.observed_at
+          AND o.decimal_odds=(d.evidence->'quote'->>'decimalOdds')::numeric AND o.status=d.evidence->'quote'->>'status')))
+    `,[snapshotId]);
 }

@@ -13,6 +13,12 @@ const input=(over:Partial<ReliabilityInput>={}):ReliabilityInput=>({competition:
   feeds:[feed('betano.bet.br'),feed('betsson')],baseline:null,catalogState:'MAPPED',quoteAges:{p50Minutes:20,p95Minutes:50,oldestMinutes:60,currentQuotes:63,staleQuotes:0,expiredQuotes:0},...over});
 
 describe('P3 health classification (§28)',()=>{
+  it('keeps a failed data plane degraded, but names a proven mapping failure instead of implying no execution',()=>{
+    const h=classifyCompetition(input({lastSuccessAt:at(-10),nearestKickoff:at(40),windows:windows({'3d':{fixtures:3,neither:3},'7d':{fixtures:3,neither:3}}),
+      feeds:[feed('1xbet',{lastOutcome:'MAPPING_EMPTY'})]}),now);
+    expect(h.health).toBe('DEGRADED');expect(h.issues.some(i=>i.classification==='MAPPING_FAILED')).toBe(true);
+    expect(h.issues.some(i=>i.classification==='REFRESH_NOT_EXECUTED')).toBe(false);
+  });
   it('healthy competition with both bookmakers priced reports HEALTHY and no issues',()=>{
     const h=classifyCompetition(input(),now);
     expect(h.health).toBe('HEALTHY');expect(h.issues).toEqual([]);expect(h.tier).toBe(1);expect(h.targetState).toBe('ACTIVE');expect(h.providerState).toBe('OK');
@@ -40,7 +46,7 @@ describe('P3 health classification (§28)',()=>{
     const ambiguousSoon=classifyCompetition(input({competition:'conference-league',tournamentId:null,feeds:[],catalogState:'AMBIGUOUS',windows:windows({'3d':{fixtures:4,neither:4},'7d':{fixtures:4,neither:4},'14d':{fixtures:4,neither:4}})}),now);
     expect(ambiguousSoon.health).toBe('UNMAPPED');expect(ambiguousSoon.primary).toBe('MAPPING_FAILED');
     const unmatchedFar=classifyCompetition(input({competition:'x',tournamentId:null,feeds:[],catalogState:'UNMATCHED',windows:windows({'14d':{fixtures:3,neither:3}})}),now);
-    expect(unmatchedFar.health).toBe('UNMAPPED');expect(unmatchedFar.issues[0].severity).toBe('WARNING');
+    expect(unmatchedFar.health).toBe('IDLE');expect(unmatchedFar.notes.join(' ')).toContain('seven-day');
   });
   it('D: Betano collapses against its baseline while Betsson stays healthy → DEGRADED BOOKMAKER_COLLAPSE (betano)',()=>{
     const h=classifyCompetition(input({windows:windows({'24h':{fixtures:1,anyOdds:1,betssonReal:1},'3d':{fixtures:9,anyOdds:9,betssonReal:9,proxyOnly:9},'7d':{fixtures:9,anyOdds:9,betssonReal:9,proxyOnly:9},'14d':{fixtures:9,anyOdds:9}}),

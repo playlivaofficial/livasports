@@ -40,7 +40,7 @@ export function summarizeFourSources(snapshots:readonly OddsReadSnapshot[],now:n
   }
   const total=targets.reduce((n,t)=>n+t.real+t.proxy,0),proxy=targets.reduce((n,t)=>n+t.proxy,0);
   const bestVisible=Math.max(0,...sources.filter(s=>s.role==='VISIBLE_PRIMARY').map(s=>s.currentFixtures));
-  const degraded=proxy>total*.8||sources.some(s=>s.role==='VISIBLE_PRIMARY'&&bestVisible>=5&&s.currentFixtures<bestVisible*.25);
+  const degraded=(snapshots.length>0&&bestVisible===0)||proxy>total*.8||sources.some(s=>s.role==='VISIBLE_PRIMARY'&&bestVisible>=5&&s.currentFixtures<bestVisible*.25);
   return {fixtures:snapshots.length,sources,targets,visibleReal,proxyPct:total?Math.round(proxy/total*1000)/10:0,degraded};
 }
 export type FourSourceHealth={at:string;providerRequests:0;windows:Record<'24h'|'3d'|'7d',ReturnType<typeof summarizeFourSources>>};

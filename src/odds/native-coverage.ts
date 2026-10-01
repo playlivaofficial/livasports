@@ -48,8 +48,8 @@ export function nativeReason(input:{quote?:OddsReadSnapshot['quotes'][number];sn
   if(input.returned)return 'INGESTION_BUG';
   if(input.unresolved)return 'IDENTITY_UNRESOLVED';
   if(input.rejected)return 'MARKET_MAPPING_FAILURE';
-  if(input.delayed)return 'QUOTA_OR_BACKOFF_DELAY';
   if(input.providerGap)return 'PROVIDER_GAP';
+  if(input.delayed)return 'QUOTA_OR_BACKOFF_DELAY';
   return 'UNKNOWN_PIPELINE_DEFECT';
 }
 export function nativeRegressions(current:readonly NativeGroup[],history:readonly {groups:NativeGroup[]}[]){
@@ -103,7 +103,7 @@ export async function readNativeCoverage(db:QueryExecutor,now=new Date(),quotaBl
           const returnedQuote=raw?payload?.quotes.find(q=>q.providerFixtureId===raw.providerId&&q.market===market&&q.outcome===outcome&&q.status==='ACTIVE'):undefined;
           const returned=Boolean(freshEvidence&&returnedQuote);
           const kind=cell?.decimalOdds?(cell.priceKind??'UNAVAILABLE'):'UNAVAILABLE';
-          const hardExternalGap=target?.last_error==='ODDSPAPI_HTTP_404'&&!target?.last_success_at;
+          const hardExternalGap=target?.last_error==='ODDSPAPI_HTTP_404'&&target?.last_attempt_at&&+now-+new Date(target.last_attempt_at)<24*3600000;
           const reason=returnedQuoteLost(returnedQuote,own,freshEvidence)?'INGESTION_BUG':kind==='REAL'?null:nativeReason({quote:own,snapshot:snap,now:+now,returned,returnedAt:payload?.observedAt,
             rejected:relevant.some(d=>d.classification==='MARKET_MAPPING_FAILURE'&&(!d.outcome||d.outcome===outcome)),
             unresolved:relevant.some(d=>d.classification==='IDENTITY_UNRESOLVED'),

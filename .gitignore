@@ -83,3 +83,6 @@ output/social-policy/
 output/seo-v2-*.log
 output/seo-autopilot/
 .qa-master/
+output/p0-odds-*-private.*
+output/p0-odds-*.log
+output/p0-odds-browser-*

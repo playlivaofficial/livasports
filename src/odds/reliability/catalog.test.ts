@@ -56,7 +56,8 @@ describe('P3 catalog self-healing (§11, §30)',()=>{
     const query=vi.fn(async()=>({rows:[],rowCount:0}));
     const summary=await persistCatalogRows({query:query as unknown as QueryExecutor['query']},rows);
     expect(summary).toEqual({total:6,mapped:3,unmatched:2,ambiguous:0});
-    const sql=String((query.mock.calls as unknown as string[][])[0][0]);
-    expect(sql).toContain('INSERT INTO odds_catalog_rows');expect(sql).toContain('last_seen_at=now()');expect(sql).not.toContain('first_seen_at=');
+    const sql=String((query.mock.calls as unknown as string[][]).find(([s])=>s.includes('INSERT INTO odds_catalog_rows'))?.[0]);
+    expect(sql).toContain('INSERT INTO odds_catalog_rows');expect(sql).toContain('last_seen_at=COALESCE(excluded.source_observed_at');expect(sql).not.toContain('first_seen_at=');
+    expect(sql).toContain('odds_catalog_rows.source_observed_at<excluded.source_observed_at');expect(sql).toContain('normalized_name');
   });
 });

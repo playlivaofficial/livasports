@@ -7,6 +7,7 @@ import {HEALTH_CONTRACT_VERSION,HEALTH_RANK,type HealthState} from './model';
 import {readFourSourceHealth,type FourSourceHealth} from '../four-source-health';
 import {readNativeCoverage} from '../native-coverage';
 import {readContinuity} from '../continuity';
+import {dataPlaneTargets,type DataTarget} from './data-plane';
 
 export interface IncidentRecord {
   id:string;competition:string;classification:string;severity:'WARNING'|'CRITICAL';state:'OPEN'|'ACKNOWLEDGED'|'RESOLVED';
@@ -19,6 +20,8 @@ export interface RecoveryActionRecord {
 }
 export interface CompetitionReliability extends CompetitionHealth {windows:Record<CoverageWindow,CoverageWindowReport>;feeds:FeedEvidence[];baseline:CompetitionBaseline|null;}
 export interface ReliabilityHealth {
+  dataPlane?:{state:string;targets:DataTarget[];maxOverdueMinutes:number;providerRequests:0};
+  controlPlane?:{state:string;lastInvocationAt:string|null};
   continuity?:Awaited<ReturnType<typeof readContinuity>>;
   platformHealth?:string;upstreamCoverageHealth?:string;
   nativeCoverage?:Awaited<ReturnType<typeof readNativeCoverage>>;
@@ -33,7 +36,7 @@ export interface ReliabilityHealth {
   global:HealthIssue[];
   scheduler:{state:string;lastAutomaticInvocationAt:string|null;lastSuccessfulRefreshAt:string|null;nextDueAt:string|null;automationEnabled:boolean;lastError:string|null;lastJob:Record<string,unknown>|null};
   budget:BudgetGovernor|null;budgetVerified:boolean;
-  catalog:{mapped:number;unmatched:number;ambiguous:number;ignored:number;disabled:number;rows:Array<{tournamentId:string;slug:string;name:string;category:string;state:string;competition:string|null;reason:string;futureFixtures:number|null;lastSeenAt:string}>};
+  catalog:{mapped:number;unmatched:number;ambiguous:number;ignored:number;disabled:number;rows:Array<{tournamentId:string;slug:string;name:string;category:string;state:string;competition:string|null;reason:string;futureFixtures:number|null;lastSeenAt:string;firstSeenAt?:string|null;normalizedName?:string;confidence?:string;candidates?:string[];occurrences?:number}>};
   incidents:IncidentRecord[];recovery:RecoveryActionRecord[];
   alerting:{email:'CONFIGURED'|'NOT_CONFIGURED';dashboard:'ALWAYS'};
   liveOdds:typeof LIVE_ODDS_CAPABILITY;
@@ -45,14 +48,17 @@ export async function readReliabilityHealth(db:QueryExecutor,now=new Date(),opti
   const automationEnabled=options.automationEnabled??process.env.ODDS_AUTOMATION_ENABLED==='true';
   const [inputs,targets,snapshots,requests,ages,baselines,catalogRows,incidents,recovery,status,lastRequest,budget,lastJob]=await Promise.all([
     readCoverageInputs(db),
-    db.query('SELECT bookmaker,tournament_id,last_success_at,last_attempt_at,retry_after,consecutive_failures,last_error FROM odds_refresh_targets'),
+    db.query('SELECT * FROM odds_refresh_targets'),
     // Latest applied snapshot per feed: what the provider actually returned, with near-term (3d) fixture/quote counts for that tournament.
     db.query(`WITH latest AS (SELECT DISTINCT ON (s.bookmaker,t.id) s.bookmaker,t.id AS tournament_id,s.observed_at,s.payload FROM odds_sync_snapshots s
         CROSS JOIN LATERAL jsonb_array_elements_text(s.payload->'tournamentIds') t(id) WHERE s.applied_at IS NOT NULL AND s.observed_at>now()-interval '3 days'
         ORDER BY s.bookmaker,t.id,s.observed_at DESC),
       near AS (SELECT l.bookmaker,l.tournament_id,f->>'providerId' AS provider_fixture_id FROM latest l CROSS JOIN LATERAL jsonb_array_elements(l.payload->'fixtures') f
         WHERE f->>'providerCompetitionId'=l.tournament_id AND (f->>'kickoff')::timestamptz BETWEEN now() AND now()+interval '3 days')
-      SELECT l.bookmaker,l.tournament_id,l.observed_at,jsonb_array_length(l.payload->'fixtures')::int AS fixtures,jsonb_array_length(l.payload->'quotes')::int AS quotes,
+      SELECT l.bookmaker,l.tournament_id,l.observed_at,
+        (SELECT count(*) FROM jsonb_array_elements(l.payload->'fixtures') f WHERE f->>'providerCompetitionId'=l.tournament_id)::int AS fixtures,
+        (SELECT count(*) FROM jsonb_array_elements(l.payload->'quotes') q WHERE q->>'providerFixtureId' IN
+          (SELECT f->>'providerId' FROM jsonb_array_elements(l.payload->'fixtures') f WHERE f->>'providerCompetitionId'=l.tournament_id))::int AS quotes,
         (SELECT count(*) FROM near n WHERE n.bookmaker=l.bookmaker AND n.tournament_id=l.tournament_id)::int AS near_fixtures,
         (SELECT count(*) FROM jsonb_array_elements(l.payload->'quotes') q WHERE q->>'providerFixtureId' IN (SELECT provider_fixture_id FROM near n WHERE n.bookmaker=l.bookmaker AND n.tournament_id=l.tournament_id))::int AS near_quotes
       FROM latest l`),
@@ -70,7 +76,7 @@ export async function readReliabilityHealth(db:QueryExecutor,now=new Date(),opti
       WHERE o.status='ACTIVE' AND o.phase='PREGAME' AND o.freshness_ttl_minutes>0 AND f.status='SCHEDULED' AND f.kickoff>now() AND f.kickoff<=now()+interval '7 days' GROUP BY c.slug`),
     optional(()=>db.query(`SELECT DISTINCT ON (competition) competition,evaluated_at,fixtures_7d,any_7d,betano_7d,betsson_7d,proxy_7d FROM odds_health_rollups
       WHERE evaluated_at BETWEEN now()-interval '28 hours' AND now()-interval '20 hours' ORDER BY competition,evaluated_at DESC`)),
-    optional(()=>db.query(`SELECT tournament_id,tournament_slug,tournament_name,category_slug,mapping_state,mapped_competition,mapping_reason,metadata,last_seen_at FROM odds_catalog_rows ORDER BY mapping_state,category_slug,tournament_slug`)),
+    optional(()=>db.query(`SELECT * FROM odds_catalog_rows ORDER BY mapping_state,category_slug,tournament_slug`)),
     optional(()=>db.query(`SELECT * FROM odds_incidents WHERE state<>'RESOLVED' OR resolved_at>now()-interval '7 days' ORDER BY (state='RESOLVED'),severity DESC,opened_at DESC LIMIT 200`)),
     optional(()=>db.query(`SELECT * FROM odds_recovery_actions ORDER BY at DESC LIMIT 60`)),
     db.query('SELECT * FROM odds_scheduler_health WHERE id=true'),
@@ -83,7 +89,7 @@ export async function readReliabilityHealth(db:QueryExecutor,now=new Date(),opti
     const id=String(t.tournament_id);const list=feedsByTournament.get(id)??[];
     const snap=snapshots.rows.find(s=>s.bookmaker===t.bookmaker&&String(s.tournament_id)===id);
     const req=requests.rows.find(r=>r.bookmaker===t.bookmaker&&String(r.tournament_id)===id);
-    list.push({bookmaker:String(t.bookmaker),lastSuccessAt:iso(t.last_success_at),lastAttemptAt:iso(t.last_attempt_at),retryAfter:iso(t.retry_after),
+    list.push({bookmaker:String(t.bookmaker),lastOutcome:typeof t.last_outcome==='string'?t.last_outcome:null,lastSuccessAt:iso(t.last_success_at),lastAttemptAt:iso(t.last_attempt_at),retryAfter:iso(t.retry_after),
       consecutiveFailures:Number(t.consecutive_failures??0),lastError:t.last_error?String(t.last_error):null,
       snapshot:snap?{observedAt:iso(snap.observed_at)!,returnedFixtures:Number(snap.fixtures),quotes:Number(snap.quotes),nearTermFixtures:Number(snap.near_fixtures),nearTermQuotes:Number(snap.near_quotes)}:null,
       request:req?{startedAt:iso(req.started_at)!,outcome:String(req.outcome),httpStatus:req.http_status===null?null:Number(req.http_status)}:null});
@@ -128,12 +134,34 @@ export async function readReliabilityHealth(db:QueryExecutor,now=new Date(),opti
   if(nativeCoverage&&(nativeCoverage.pipelineLoss||nativeCoverage.counts.UNKNOWN_PIPELINE_DEFECT))global.push({classification:'NORMALIZATION_REJECTED',severity:'CRITICAL',evidence:`Native quote pipeline loss: ${nativeCoverage.pipelineLoss}; unexplained gaps: ${nativeCoverage.counts.UNKNOWN_PIPELINE_DEFECT}`,affectedFixtures:nativeCoverage.fixtures});
   if(nativeCoverage?.regressions.length)global.push({classification:'PROXY_DOMINANT',severity:'WARNING',evidence:`Rolling native coverage regression: ${nativeCoverage.regressions.map(r=>r.key).join(', ')}`,affectedFixtures:nativeCoverage.fixtures});
   if(fourSource.windows['7d'].degraded)global.push({classification:'PROXY_DOMINANT',severity:'WARNING',evidence:'Visible REAL feed coverage is degraded; hidden insurance must not mask it',affectedFixtures:fourSource.windows['7d'].fixtures});
-  const overall=worstHealth([...competitions.map(c=>c.health),...global.map(g=>g.severity==='CRITICAL'?'CRITICAL' as const:'DEGRADED' as const)]);
+  const dataTargets=dataPlaneTargets(inputs.map(c=>({competition:c.competition,tournamentId:c.tournamentId,nearestKickoff:c.nearestKickoff,fixtures7d:c.windows['7d'].fixtures})),targets.rows.map(r=>({...r,bookmaker:String(r.bookmaker),tournament_id:String(r.tournament_id)})),nativeCoverage?.cells??[],now,
+    budget.verified!==true||('governor' in budget&&budget.governor.routineHeadroom<=0));
+  for(const c of competitions){
+    for(const t of dataTargets.filter(t=>t.competition===c.competition&&!t.hiddenInsurance&&t.fixtures>0)){
+      const classification=t.state==='REFRESH_OVERDUE'?'REFRESH_NOT_EXECUTED':t.state==='MAPPING_DEGRADED'?'MAPPING_FAILED':t.state==='BUDGET_DEFERRED'?'BUDGET_STOPPED':
+        t.state==='AUTH_ERROR'?'PROVIDER_AUTH_FAILURE':t.state==='PROVIDER_DOWN'?'PROVIDER_TIMEOUT':t.state==='RATE_LIMITED'?'PROVIDER_RATE_LIMITED':t.state==='TARGET_NOT_FOUND'&&t.responsibility==='LIVASPORTS'?'TARGET_MISSING':t.state==='PROVIDER_EMPTY'||t.state==='TARGET_NOT_FOUND'?'PROVIDER_NOT_OFFERED':null;
+      if(classification&&!c.issues.some(i=>i.classification===classification&&i.bookmaker===t.bookmaker)){
+        c.issues.push({classification,severity:'WARNING',bookmaker:t.bookmaker,affectedFixtures:t.fixtures,evidence:`${t.bookmaker}: ${t.staleReason}; retry ${t.retryAfter??'next budget-eligible tick'}`});
+        if(c.health==='HEALTHY'||c.health==='IDLE')c.health='DEGRADED';c.primary??=classification;
+      }
+    }
+  }
+  const publicTargets=dataTargets.filter(t=>!t.hiddenInsurance&&t.fixtures>0);
+  for(const k of Object.keys(counts) as HealthState[])counts[k]=0;
+  for(const c of competitions)counts[c.health]++;
+  for(const window of COVERAGE_WINDOWS){const active=competitions.filter(c=>c.windows[window].fixtures>0);
+    horizons[window].criticalCompetitions=active.filter(c=>['CRITICAL','UNMAPPED'].includes(c.health)).map(c=>c.competition);
+    horizons[window].degradedCompetitions=active.filter(c=>['DEGRADED','UNKNOWN'].includes(c.health)).map(c=>c.competition);
+  }
+  const dataState=publicTargets.some(t=>!['HEALTHY','RECOVERING'].includes(t.state))||fourSource.windows['7d'].degraded?'DEGRADED':nativeCoverageError?'UNKNOWN':'HEALTHY';
+  const overall=worstHealth([...competitions.map(c=>c.health),dataState==='DEGRADED'?'DEGRADED':dataState==='UNKNOWN'?'UNKNOWN':'HEALTHY',...global.map(g=>g.severity==='CRITICAL'?'CRITICAL' as const:'DEGRADED' as const)]);
   const continuity=await readContinuity(db);
-  const platformHealth=nativeCoverageError||nativeCoverage?.pipelineLoss||nativeCoverage?.counts.UNKNOWN_PIPELINE_DEFECT||nativeCoverage?.unresolvedInWindow||
+  const platformHealth=dataTargets.some(t=>t.fixtures>0&&t.responsibility==='LIVASPORTS')||nativeCoverageError||nativeCoverage?.pipelineLoss||nativeCoverage?.counts.UNKNOWN_PIPELINE_DEFECT||nativeCoverage?.unresolvedInWindow||
     nativeCoverage?.delayCounts.EXPIRY_REFRESH_MISSED||global.some(g=>g.classification==='SCHEDULER_STALLED')?'DEGRADED':
     nativeCoverage?.counts.STALE_OR_EXPIRED||nativeCoverage?.counts.QUOTA_OR_BACKOFF_DELAY?'CONSTRAINED':'HEALTHY';
-  return {continuity,platformHealth,upstreamCoverageHealth:nativeCoverage?.counts.PROVIDER_GAP?'LIMITED':'AVAILABLE',nativeCoverage,nativeCoverageError,fourSource,version:HEALTH_CONTRACT_VERSION,generatedAt:now.toISOString(),overall:overall==='IDLE'&&competitions.length?'HEALTHY':overall,counts,horizons,
+  return {dataPlane:{state:dataState,targets:dataTargets,maxOverdueMinutes:Math.max(0,...dataTargets.map(t=>t.overdueMinutes)),providerRequests:0},
+    controlPlane:{state:String(lastJob.rows[0]?.result?.controlPlaneState??row?.state??'UNKNOWN'),lastInvocationAt:iso(row?.last_automatic_invocation_at)},
+    continuity,platformHealth,upstreamCoverageHealth:nativeCoverage?.counts.PROVIDER_GAP?'LIMITED':'AVAILABLE',nativeCoverage,nativeCoverageError,fourSource,version:HEALTH_CONTRACT_VERSION,generatedAt:now.toISOString(),overall:overall==='IDLE'&&competitions.length?'HEALTHY':overall,counts,horizons,
     bookmakers:{betanoRealPct:seven.betanoRealPct,betssonRealPct:seven.betssonRealPct,bothRealPct:seven.fixtures?Math.round(seven.bothReal/seven.fixtures*1000)/10:0,proxyPct:seven.proxyPct,neitherPct:seven.neitherPct,stalePct:seven.stalePct,window:'7d'},
     quoteAges,competitions,global,
     scheduler:{state:String(row?.state??'READY'),lastAutomaticInvocationAt:iso(row?.last_automatic_invocation_at),lastSuccessfulRefreshAt:iso(row?.last_refresh_at),nextDueAt:iso(row?.next_due_at),automationEnabled,lastError:row?.last_error?String(row.last_error):null,
@@ -141,7 +169,7 @@ export async function readReliabilityHealth(db:QueryExecutor,now=new Date(),opti
     budget:'governor' in budget?budget.governor as BudgetGovernor:null,budgetVerified:budget.verified===true,
     catalog:{mapped:catalogRows.rows.filter(r=>r.mapping_state==='MAPPED').length,unmatched:catalogRows.rows.filter(r=>r.mapping_state==='UNMATCHED').length,ambiguous:catalogRows.rows.filter(r=>r.mapping_state==='AMBIGUOUS').length,
       ignored:catalogRows.rows.filter(r=>r.mapping_state==='IGNORED_WITH_REASON').length,disabled:catalogRows.rows.filter(r=>r.mapping_state==='DISABLED').length,
-      rows:catalogRows.rows.filter(r=>r.mapping_state==='UNMATCHED'||r.mapping_state==='AMBIGUOUS').map(r=>({tournamentId:String(r.tournament_id),slug:String(r.tournament_slug),name:String(r.tournament_name),category:String(r.category_slug),state:String(r.mapping_state),competition:r.mapped_competition?String(r.mapped_competition):null,reason:String(r.mapping_reason),futureFixtures:typeof (r.metadata as {futureFixtures?:unknown})?.futureFixtures==='number'?(r.metadata as {futureFixtures:number}).futureFixtures:null,lastSeenAt:iso(r.last_seen_at)!}))},
+      rows:catalogRows.rows.filter(r=>r.mapping_state==='UNMATCHED'||r.mapping_state==='AMBIGUOUS').map(r=>({tournamentId:String(r.tournament_id),slug:String(r.tournament_slug),name:String(r.tournament_name),category:String(r.category_slug),state:String(r.mapping_state),competition:r.mapped_competition?String(r.mapped_competition):null,reason:String(r.mapping_reason),futureFixtures:typeof (r.metadata as {futureFixtures?:unknown})?.futureFixtures==='number'?(r.metadata as {futureFixtures:number}).futureFixtures:null,lastSeenAt:iso(r.last_seen_at)!,firstSeenAt:iso(r.first_seen_at),normalizedName:String(r.normalized_name??''),confidence:String(r.confidence??'UNRESOLVED'),candidates:Array.isArray(r.candidate_competitions)?r.candidate_competitions:[],occurrences:Number(r.occurrence_count??1)}))},
     incidents:incidents.rows.map(r=>({id:String(r.id),competition:String(r.competition),classification:String(r.classification),severity:r.severity as IncidentRecord['severity'],state:r.state as IncidentRecord['state'],openedAt:iso(r.opened_at)!,lastSeenAt:iso(r.last_seen_at)!,acknowledgedAt:iso(r.acknowledged_at),resolvedAt:iso(r.resolved_at),
       affectedFixtures:Number(r.affected_fixtures),recoveryAttempts:Number(r.recovery_attempts),detail:(r.detail as Record<string,unknown>)??{},resolution:r.resolution?String(r.resolution):null,alertSentAt:iso(r.alert_sent_at),alertSeverity:r.alert_severity?String(r.alert_severity):null,alertChannel:r.alert_channel?String(r.alert_channel):null})),
     recovery:recovery.rows.map(r=>({id:Number(r.id),at:iso(r.at)!,trigger:String(r.trigger_source),action:String(r.action),competition:r.competition?String(r.competition):null,bookmaker:r.bookmaker?String(r.bookmaker):null,tournamentId:r.tournament_id?String(r.tournament_id):null,

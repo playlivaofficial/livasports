@@ -23,6 +23,7 @@ export const TOURNAMENT_IDENTITY_RULES: readonly {slug: string; category: string
   {slug: 'copa-do-brasil', category: 'brazil', canonical: 'copa-do-brasil'},
   {slug: 'campeonato-paulista', category: 'brazil', canonical: 'paulista-a1'},
   {slug: 'paulista-a1', category: 'brazil', canonical: 'paulista-a1'},
+  {slug: 'paulista-serie-a1', category: 'brazil', canonical: 'paulista-a1'},
   {slug: 'campeonato-carioca', category: 'brazil', canonical: 'carioca-serie-a'},
   {slug: 'carioca-serie-a', category: 'brazil', canonical: 'carioca-serie-a'},
   {slug: 'copa-do-nordeste', category: 'brazil', canonical: 'copa-do-nordeste'},

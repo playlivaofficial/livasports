@@ -37,4 +37,14 @@ describe('odds ingestion integrity and recovery',()=>{
       bookmaker:'betano.bet.br',fixtureIds:[],providerFixtureIds:[],
     });
   });
+  it('rolls back a failed post-write assertion before crediting success or applying the snapshot',async()=>{
+    const query=vi.fn(async(sql:string)=>({rows:[],rowCount:sql.includes('UPDATE odds_sync_jobs')||sql.includes("classification='INGESTION_BUG' LIMIT")?1:0}));
+    const typed=query as unknown as QueryExecutor['query'];
+    const db:DatabaseClient={query:typed,transaction:async work=>work({query:typed}),close:async()=>{}};
+    const snapshot:OddsSnapshot={bookmaker:'betsson',observedAt:new Date().toISOString(),tournamentIds:['325'],fixtures:[],quotes:[],rejected:{}};
+    await expect(persistSnapshot(db,'job',snapshot)).rejects.toThrow('ODDS_PERSISTENCE_VERIFICATION_FAILED');
+    expect(query.mock.calls.some(([sql])=>sql.includes('INSERT INTO odds_refresh_targets'))).toBe(false);
+    expect(query.mock.calls.some(([sql])=>sql.includes('SET applied_at'))).toBe(false);
+    expect(query.mock.calls.some(([sql])=>sql.includes("SET status='CLOSED'"))).toBe(false);
+  });
 });

@@ -59,14 +59,14 @@ export const CLASSIFICATION_SEVERITY:Record<IssueClassification,Severity>={
 /** Map a ledger/provider error code (as persisted on targets and jobs) to a classification. */
 export function classifyErrorCode(code:string|null|undefined):IssueClassification|null{
   if(!code)return null;
-  if(code.startsWith('ODDS_BUDGET'))return 'BUDGET_STOPPED';
+  if(code.startsWith('ODDS_BUDGET')||code==='ODDS_HOURLY_BUDGET_EXHAUSTED')return 'BUDGET_STOPPED';
   if(code==='ODDSPAPI_HTTP_404')return 'PROVIDER_NOT_OFFERED';
   if(code==='ODDSPAPI_HTTP_401'||code==='ODDSPAPI_HTTP_403')return 'PROVIDER_AUTH_FAILURE';
   if(code==='ODDSPAPI_HTTP_429')return 'PROVIDER_RATE_LIMITED';
-  if(code.startsWith('ODDSPAPI_HTTP_5')||code==='ODDSPAPI_NETWORK_ERROR'||code==='ODDS_RUN_DEADLINE')return 'PROVIDER_TIMEOUT';
+  if(code.startsWith('ODDSPAPI_HTTP_5')||code==='ODDSPAPI_NETWORK_ERROR'||code==='ODDS_NETWORK_ERROR'||code==='ODDS_RUN_DEADLINE')return 'PROVIDER_TIMEOUT';
   if(code==='ODDS_IDENTITY_CONFLICT'||code==='ODDS_MAPPING_FAILED')return 'MAPPING_FAILED';
   if(code==='ODDS_CATALOG_UNVERIFIED'||code==='ODDSPAPI_TOURNAMENTS_UNUSABLE'||code==='ODDS_SNAPSHOT_UNUSABLE')return 'PROVIDER_SCHEMA_CHANGE';
-  if(code==='ODDS_WORKER_LEASE_LOST'||code==='SAFE_WORKER_FAILURE'||code==='ODDS_STORE_WRITE_FAILED')return 'STORE_WRITE_FAILED';
+  if(code==='ODDS_WORKER_LEASE_LOST'||code==='SAFE_WORKER_FAILURE'||code==='ODDS_STORE_WRITE_FAILED'||code==='ODDS_PERSISTENCE_VERIFICATION_FAILED'||code==='ODDS_RETRY_STATE_WRITE_FAILED')return 'STORE_WRITE_FAILED';
   if(code==='ODDS_DATABASE_UNAVAILABLE')return 'CACHE_READ_FAILURE';
   return 'UNKNOWN';
 }

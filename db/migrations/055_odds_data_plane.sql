@@ -1,0 +1,20 @@
+BEGIN;
+-- Additive target queue. Existing quotes, mappings, budgets and observation times are preserved.
+ALTER TABLE odds_refresh_targets ADD COLUMN IF NOT EXISTS last_checked_at timestamptz;
+ALTER TABLE odds_refresh_targets ADD COLUMN IF NOT EXISTS last_native_persist_at timestamptz;
+ALTER TABLE odds_refresh_targets ADD COLUMN IF NOT EXISTS last_outcome text;
+ALTER TABLE odds_refresh_targets ADD COLUMN IF NOT EXISTS outcome_evidence jsonb NOT NULL DEFAULT '{}'::jsonb;
+ALTER TABLE odds_refresh_targets ADD COLUMN IF NOT EXISTS queue_state text NOT NULL DEFAULT 'WAITING';
+ALTER TABLE odds_refresh_targets ADD COLUMN IF NOT EXISTS due_at timestamptz;
+ALTER TABLE odds_refresh_targets ADD COLUMN IF NOT EXISTS stale_after timestamptz;
+ALTER TABLE odds_refresh_targets ADD COLUMN IF NOT EXISTS pending_since timestamptz;
+ALTER TABLE odds_refresh_targets ADD COLUMN IF NOT EXISTS lease_job_id uuid REFERENCES odds_sync_jobs(id);
+ALTER TABLE odds_refresh_targets ADD COLUMN IF NOT EXISTS lease_until timestamptz;
+CREATE INDEX IF NOT EXISTS odds_refresh_queue_due ON odds_refresh_targets(queue_state,due_at);
+ALTER TABLE odds_catalog_rows ADD COLUMN IF NOT EXISTS normalized_name text;
+ALTER TABLE odds_catalog_rows ADD COLUMN IF NOT EXISTS candidate_competitions jsonb NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE odds_catalog_rows ADD COLUMN IF NOT EXISTS confidence text NOT NULL DEFAULT 'UNRESOLVED';
+ALTER TABLE odds_catalog_rows ADD COLUMN IF NOT EXISTS occurrence_count integer NOT NULL DEFAULT 1;
+ALTER TABLE odds_catalog_rows ADD COLUMN IF NOT EXISTS source_observed_at timestamptz;
+ALTER TABLE odds_catalog_rows ADD COLUMN IF NOT EXISTS reconciled_at timestamptz;
+COMMIT;

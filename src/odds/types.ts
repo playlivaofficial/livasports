@@ -23,6 +23,7 @@ export interface NormalizedOddsQuote {
   providerUpdatedAt: string | null; observedAt: string; sourceDomain: string | null;
 }
 export interface OddsSnapshot {
+  offerFlags?:Array<{providerFixtureId:string;market:string;outcome:string;bookmakerActive:boolean|null;bookmakerSuspended:boolean|null;marketActive:boolean|null;priceActive:boolean|null}>;
   diagnostics?:Array<{providerFixtureId:string;tournamentId:string;market:string;outcome:string;reason:string;evidence:Record<string,unknown>}>;
   cadenceScale?: number;
   provider?: string; bookmaker: string; observedAt: string; fixtures: ProviderOddsFixture[]; quotes: NormalizedOddsQuote[];
