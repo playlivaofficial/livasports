@@ -32,22 +32,22 @@ Baseline rolling24h115; last3d365 (~122/day); current UTC day38;2 controlled dia
 
 ## M. Before/after
 
-Full136competition/bookmaker matrix and309fixture/public-book rows are in the baseline JSON companion. The sanitized production companion is `output/p0-odds-production-acceptance.json`. Consistent production snapshot at09:40:55 UTC:
+Full136competition/bookmaker matrix and309fixture/public-book rows are in the baseline JSON companion. The sanitized production companion is `output/p0-odds-production-acceptance.json`. Consistent production snapshot at09:45:39 UTC:
 
-| Measure | Before08:37 | After09:40 |
+| Measure | Before08:37 | After09:45 |
 |---|---:|---:|
 | Upcoming fixtures7d |103|103|
 | Betsson native fixtures |43|43|
 | Sportingbet BR native fixtures |0|0|
-| 1xBet native fixtures |18|25|
+| 1xBet native fixtures |18|40|
 | Hidden Betano native fixtures |62|62|
 | Unmatched catalog identities |141|6|
 | Open incidents |15|8|
 | REFRESH_NOT_EXECUTED incidents |14|1|
-| Oldest currently usable quote,minutes |292|356|
+| Oldest currently usable quote,minutes |292|330|
 | Expired stored quote rows,excluded publicly |70|70|
 
-Oldest-quote age increased with elapsed time; it is not a recovery claim or proof of expiry violation. Quote expiry is frozen at observation. The public consistency audit found zero expired active prices. Six elapsed stale-after targets remain explicit provider404/backoff cases, not hidden scheduler success. The new matrix has108outside-window,6TARGET_NOT_FOUND,2MAPPING_DEGRADED,16HEALTHY,3PARTIAL_PROVIDER_COVERAGE,1PROVIDER_EMPTY target states. There are zero REFRESH_OVERDUE states in that snapshot. The baseline did not have comparable durable queue states:14legacy refresh incidents must not be equated to14actually due targets. Thirteen outside-window false incidents resolved automatically; the remaining historical Copa del Rey refresh incident stays visible during the existing recovery observation grace period. Freshness diagnostics count93stale rows versus70before;70are expired. This report does not hide that aging metric. Proxy selection share fell75%to71.6%; broad public coverage remains degraded.
+Oldest-quote age increased with elapsed time; it is not a recovery claim or proof of expiry violation. Quote expiry is frozen at observation. The public consistency audit found zero expired active prices. Six elapsed stale-after targets remain explicit provider404/backoff cases, not hidden scheduler success; a newly attempted hiddenBetanoMLS404 adds another target-not-found state. The new matrix has108outside-window,7TARGET_NOT_FOUND,2MAPPING_DEGRADED,15HEALTHY,3PARTIAL_PROVIDER_COVERAGE,1PROVIDER_EMPTY target states. There are zero REFRESH_OVERDUE states in that snapshot. The baseline did not have comparable durable queue states:14legacy refresh incidents must not be equated to14actually due targets. Thirteen outside-window false incidents resolved automatically; the remaining historical Copa del Rey refresh incident stays visible during the existing recovery observation grace period. Freshness diagnostics count72stale rows versus70before;70are expired. This report does not hide that aging metric. Proxy selection share had fallen75%to71.6%by09:40; broad public coverage remains degraded.
 
 ## N–O. Acceptance and limitations
 
@@ -56,6 +56,8 @@ Migration ran twice and real saved Betsson Brazil Serie B/MLS payload replayed t
 Automatic production cycles09:25,09:30,09:35 completed with controlSUCCEEDED/dataDEGRADED/overallPARTIAL. The09:35 tick crossed the MLS1xBet due boundary, used exactly1provider request, verified2upcoming mapped fixtures/14native selections, committed119current writes across the payload and released all leases. Native fixture coverage increased18to19. Queue has123WAITING,3PENDING,6BACKOFF; no active lease remained. No manual refresh or uncontrolled backfill was used.
 
 The09:40 cycle used2requests: a1xBet batch(390BrazilSerieB,329CopaRey) and SportingbetMLS242. BrazilSerieB verified10mapped fixtures/49native selections; CopaRey returned9unmatched events and correctly becameMAPPING_EMPTY/BLOCKED without success credit. SportingbetMLS becameVALID_EMPTY with0native selections. Control correctly becamePARTIAL; data remainedDEGRADED. Current coverage rose to25/1031xBet. Afterward124WAITING,1PENDING,1BLOCKED,6BACKOFF and0active leases. Acceptance thus observed4automatic cycles including2actual refresh cycles/3requests, plus the2earlier accounted diagnostic requests. Budget now2812used,1838routine remaining,43UTCtoday,117rolling24h,automatic stop1384atdynamic allowance1730. No usage spike or quota bypass.
+
+The09:45 cycle processed the remaining pendingFA Cup1xBet target19:40returned fixtures,25mapped,15quarantined,154verified native selections,175current writes. Coverage reached40/103(+22fixtures frombaseline). A second request for hiddenBetanoMLS returned404 and entered bounded backoff; fresh saved odds were not mass-closed. Final queue124WAITING,1BLOCKED,7BACKOFF,0PENDING,0active leases. Five automatic cycles/5scheduled requests observed over22minutes afterREADY, plus2controlled diagnostics (7accounted requests total in this validation window). No retry storm; the failed target was not retried immediately. Final budget details are in the JSON companion. This is evidence of bounded production failure handling, not an injected5xxrecovery test.
 
 Read-only production smoke: HTTPS/apex/www redirect,BR/MX/EN routes,twoBRmatch pages,sitemap.xml andsports-sitemaps.xml PASS;34competition links preserved. Public API/DB consistency:10REALprices matched verifiedODDSPAPI source rows,32PROXYprices explicitly attributed,0expired active prices,0publicBetano rows,providerRequests0. Existing finished slip selection was inspected without modification. Runtime log inspection found0warnings/errors/fatal entries. Remote15document/client secret scan found0leaks. No live outage was injected; network/backoff/stale-lease recovery was verified in tests and transactional rehearsal, not misreported as an observed production outage.
 

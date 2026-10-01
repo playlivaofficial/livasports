@@ -1,5 +1,5 @@
 {
-  "observedAt": "2026-10-01T09:40:55.747Z",
+  "observedAt": "2026-10-01T09:45:39.718Z",
   "implementation": {
     "pr": 35,
     "sha": "1b15ce68503d1b3e05e5834213f2c33f8bd8a401",
@@ -821,11 +821,11 @@
         "staleAfter": "2026-09-23T04:15:18.564Z",
         "staleReason": "Provider returned 404; bounded recheck, not permanent suppression",
         "retryAfter": "2026-10-01T17:33:27.567Z",
-        "overdueMinutes": 11846,
+        "overdueMinutes": 11850,
         "queueState": "BACKOFF",
         "outcome": null,
         "nativeSelections": 0,
-        "fallbackSelections": 168
+        "fallbackSelections": 175
       },
       {
         "competition": "fa-cup",
@@ -843,11 +843,11 @@
         "staleAfter": "2026-09-23T04:15:20.725Z",
         "staleReason": "Provider returned 404; bounded recheck, not permanent suppression",
         "retryAfter": "2026-10-01T17:35:17.368Z",
-        "overdueMinutes": 11846,
+        "overdueMinutes": 11850,
         "queueState": "BACKOFF",
         "outcome": null,
         "nativeSelections": 0,
-        "fallbackSelections": 168
+        "fallbackSelections": 175
       },
       {
         "competition": "fa-cup",
@@ -857,19 +857,19 @@
         "tournamentId": "19",
         "state": "MAPPING_DEGRADED",
         "responsibility": "LIVASPORTS",
-        "lastAttemptAt": "2026-10-01T03:45:17.519Z",
-        "lastSuccessAt": "2026-10-01T03:45:17.519Z",
-        "lastNativePersistAt": null,
-        "lastCheckedAt": null,
-        "nextDueAt": "2026-10-01T09:40:17.519Z",
-        "staleAfter": "2026-10-01T09:50:17.519Z",
-        "staleReason": "SAVED_DIAGNOSTICS; unresolved identities/schema require deterministic repair, not repeated provider requests",
+        "lastAttemptAt": "2026-10-01T09:45:17.649Z",
+        "lastSuccessAt": "2026-10-01T09:45:18.356Z",
+        "lastNativePersistAt": "2026-10-01T09:45:18.356Z",
+        "lastCheckedAt": "2026-10-01T09:45:18.356Z",
+        "nextDueAt": "2026-10-01T15:40:18.356Z",
+        "staleAfter": "2026-10-01T15:50:18.356Z",
+        "staleReason": "NATIVE_PERSISTED; unresolved identities/schema require deterministic repair, not repeated provider requests",
         "retryAfter": null,
         "overdueMinutes": 0,
-        "queueState": "PENDING",
-        "outcome": null,
-        "nativeSelections": 49,
-        "fallbackSelections": 119
+        "queueState": "WAITING",
+        "outcome": "NATIVE_PERSISTED",
+        "nativeSelections": 154,
+        "fallbackSelections": 21
       },
       {
         "competition": "fa-cup",
@@ -1493,18 +1493,18 @@
         "hiddenInsurance": true,
         "fixtures": 2,
         "tournamentId": "242",
-        "state": "HEALTHY",
-        "responsibility": "NONE",
-        "lastAttemptAt": "2026-10-01T07:40:19.936Z",
+        "state": "TARGET_NOT_FOUND",
+        "responsibility": "PROVIDER",
+        "lastAttemptAt": "2026-10-01T09:45:20.291Z",
         "lastSuccessAt": "2026-10-01T07:40:19.936Z",
         "lastNativePersistAt": null,
         "lastCheckedAt": null,
-        "nextDueAt": "2026-10-01T09:40:19.936Z",
+        "nextDueAt": "2026-10-01T10:18:20.291Z",
         "staleAfter": "2026-10-01T09:45:19.936Z",
-        "staleReason": null,
-        "retryAfter": null,
+        "staleReason": "Provider returned 404; bounded recheck, not permanent suppression",
+        "retryAfter": "2026-10-01T10:18:20.291Z",
         "overdueMinutes": 0,
-        "queueState": "WAITING",
+        "queueState": "BACKOFF",
         "outcome": null,
         "nativeSelections": 0,
         "fallbackSelections": 0
@@ -1547,7 +1547,7 @@
         "staleAfter": "2026-09-30T20:00:17.263Z",
         "staleReason": "Provider returned 404; bounded recheck, not permanent suppression",
         "retryAfter": "2026-10-01T17:30:20.040Z",
-        "overdueMinutes": 821,
+        "overdueMinutes": 825,
         "queueState": "BACKOFF",
         "outcome": null,
         "nativeSelections": 0,
@@ -2229,7 +2229,7 @@
         "staleAfter": "2026-09-26T15:35:00.000Z",
         "staleReason": "Provider returned 404; bounded recheck, not permanent suppression",
         "retryAfter": "2026-10-01T17:51:19.419Z",
-        "overdueMinutes": 6846,
+        "overdueMinutes": 6851,
         "queueState": "BACKOFF",
         "outcome": null,
         "nativeSelections": 0,
@@ -2251,7 +2251,7 @@
         "staleAfter": "2026-09-26T15:35:00.000Z",
         "staleReason": "Provider returned 404; bounded recheck, not permanent suppression",
         "retryAfter": "2026-10-01T17:37:19.743Z",
-        "overdueMinutes": 6846,
+        "overdueMinutes": 6851,
         "queueState": "BACKOFF",
         "outcome": null,
         "nativeSelections": 0,
@@ -2295,7 +2295,7 @@
         "staleAfter": "2026-09-26T15:35:00.000Z",
         "staleReason": "Provider returned 404; bounded recheck, not permanent suppression",
         "retryAfter": "2026-10-01T17:39:22.271Z",
-        "overdueMinutes": 6846,
+        "overdueMinutes": 6851,
         "queueState": "BACKOFF",
         "outcome": null,
         "nativeSelections": 0,
@@ -3006,7 +3006,7 @@
         "fallbackSelections": 0
       }
     ],
-    "maxOverdueMinutes": 11846,
+    "maxOverdueMinutes": 11850,
     "providerRequests": 0
   },
   "coverage": {
@@ -3043,12 +3043,12 @@
         "name": "1xBet",
         "role": "VISIBLE_PRIMARY",
         "fixtures": 70,
-        "currentFixtures": 25,
-        "staleOrSuspended": 315,
+        "currentFixtures": 40,
+        "staleOrSuspended": 210,
         "markets": {
-          "MATCH_WINNER": 25,
-          "TOTAL_GOALS": 25,
-          "BTTS": 25
+          "MATCH_WINNER": 40,
+          "TOTAL_GOALS": 40,
+          "BTTS": 40
         }
       },
       {
@@ -3069,49 +3069,49 @@
       {
         "bookmaker": "betsson",
         "real": 229,
-        "proxy": 246,
-        "unavailable": 246,
+        "proxy": 253,
+        "unavailable": 239,
         "BETANO_INSURANCE_USED": 240,
         "BETANO_INSURANCE_FAILED": 252,
-        "ALTERNATE_INSURANCE_USED": 6,
-        "NO_INSURANCE_AVAILABLE": 246
+        "ALTERNATE_INSURANCE_USED": 13,
+        "NO_INSURANCE_AVAILABLE": 239
       },
       {
         "bookmaker": "sportingbet.bet.br",
         "real": 0,
-        "proxy": 475,
-        "unavailable": 246,
+        "proxy": 482,
+        "unavailable": 239,
         "BETANO_INSURANCE_USED": 434,
         "BETANO_INSURANCE_FAILED": 287,
-        "ALTERNATE_INSURANCE_USED": 41,
-        "NO_INSURANCE_AVAILABLE": 246
+        "ALTERNATE_INSURANCE_USED": 48,
+        "NO_INSURANCE_AVAILABLE": 239
       },
       {
         "bookmaker": "1xbet",
-        "real": 175,
-        "proxy": 300,
-        "unavailable": 246,
-        "BETANO_INSURANCE_USED": 280,
-        "BETANO_INSURANCE_FAILED": 266,
+        "real": 280,
+        "proxy": 202,
+        "unavailable": 239,
+        "BETANO_INSURANCE_USED": 182,
+        "BETANO_INSURANCE_FAILED": 259,
         "ALTERNATE_INSURANCE_USED": 20,
-        "NO_INSURANCE_AVAILABLE": 246
+        "NO_INSURANCE_AVAILABLE": 239
       }
     ],
     "visibleReal": {
       "three": 0,
       "two": 17,
-      "one": 34,
-      "none": 52
+      "one": 49,
+      "none": 37
     },
-    "proxyPct": 71.6,
+    "proxyPct": 64.8,
     "degraded": true
   },
   "quoteAges": {
-    "p50Minutes": 202,
-    "p95Minutes": 356,
-    "oldestMinutes": 356,
-    "currentQuotes": 838,
-    "staleQuotes": 93,
+    "p50Minutes": 207,
+    "p95Minutes": 330,
+    "oldestMinutes": 330,
+    "currentQuotes": 943,
+    "staleQuotes": 72,
     "expiredQuotes": 70
   },
   "catalog": {
@@ -3226,6 +3226,16 @@
       "state": "OPEN"
     },
     {
+      "competition": "fa-cup",
+      "classification": "PROVIDER_NOT_OFFERED",
+      "state": "OPEN"
+    },
+    {
+      "competition": "fa-cup",
+      "classification": "MAPPING_FAILED",
+      "state": "OPEN"
+    },
+    {
       "competition": "copa-del-rey",
       "classification": "PROVIDER_NOT_OFFERED",
       "state": "OPEN"
@@ -3238,16 +3248,6 @@
     {
       "competition": "brasileirao-serie-b",
       "classification": "PROVIDER_NOT_OFFERED",
-      "state": "OPEN"
-    },
-    {
-      "competition": "fa-cup",
-      "classification": "PROVIDER_NOT_OFFERED",
-      "state": "OPEN"
-    },
-    {
-      "competition": "fa-cup",
-      "classification": "MAPPING_FAILED",
       "state": "OPEN"
     },
     {
@@ -3385,6 +3385,40 @@
           "historyChanges": 0
         }
       ]
+    },
+    {
+      "startedAt": "2026-10-01T09:45:16.291Z",
+      "completedAt": "2026-10-01T09:45:22.585Z",
+      "status": "PARTIAL",
+      "providerRequests": 2,
+      "errorCode": null,
+      "control": "SUCCEEDED",
+      "data": "DEGRADED",
+      "feeds": [
+        {
+          "bookmaker": "1xbet",
+          "tournamentIds": [
+            "19"
+          ],
+          "outcomes": [
+            {
+              "outcome": "NATIVE_PERSISTED",
+              "rejected": 0,
+              "meaningful": true,
+              "tournamentId": "19",
+              "mappedFixtures": 25,
+              "nativeSelections": 154,
+              "returnedFixtures": 40,
+              "unmappedFixtures": 15,
+              "upcomingFixtures": 40,
+              "normalizedSelections": 175
+            }
+          ],
+          "verifiedRefresh": true,
+          "currentWrites": 175,
+          "historyChanges": 133
+        }
+      ]
     }
   ],
   "automaticRequests": [
@@ -3425,6 +3459,32 @@
       },
       "outcome": "SUCCEEDED",
       "http_status": 200,
+      "purpose": "SCHEDULED"
+    },
+    {
+      "started_at": "2026-10-01T09:45:17.649Z",
+      "safe_query": {
+        "language": "en",
+        "bookmaker": "1xbet",
+        "verbosity": "3",
+        "oddsFormat": "decimal",
+        "tournamentIds": "19"
+      },
+      "outcome": "SUCCEEDED",
+      "http_status": 200,
+      "purpose": "SCHEDULED"
+    },
+    {
+      "started_at": "2026-10-01T09:45:20.151Z",
+      "safe_query": {
+        "language": "en",
+        "bookmaker": "betano.bet.br",
+        "verbosity": "3",
+        "oddsFormat": "decimal",
+        "tournamentIds": "242"
+      },
+      "outcome": "HTTP_ERROR",
+      "http_status": 404,
       "purpose": "SCHEDULED"
     }
   ],
@@ -3683,27 +3743,27 @@
   "budget": {
     "periodAllowance": 4750,
     "routineAllowance": 4650,
-    "used": 2812,
-    "remaining": 1938,
-    "routineRemaining": 1838,
+    "used": 2814,
+    "remaining": 1936,
+    "routineRemaining": 1836,
     "remainingDays": 1.06,
-    "rollingDay": 117,
-    "dailyCap": 1730,
-    "headroom": 1613,
-    "projectedDailyRequests": 121,
-    "projectedEndOfPeriodUsage": 2941,
+    "rollingDay": 119,
+    "dailyCap": 1733,
+    "headroom": 1614,
+    "projectedDailyRequests": 122,
+    "projectedEndOfPeriodUsage": 2943,
     "projectedOverrun": false,
-    "urgentReserve": 346,
-    "recoveryReserve": 173,
+    "urgentReserve": 347,
+    "recoveryReserve": 174,
     "discoveryReserve": 2,
-    "routineCeiling": 1384,
+    "routineCeiling": 1386,
     "routineHeadroom": 1267,
     "pressure": "NORMAL",
-    "utilizationPct": 6.8,
+    "utilizationPct": 6.9,
     "quotaState": "NORMAL",
-    "normalStop": 1384,
-    "controlledStop": 1557,
-    "requestsTodayUtc": 43,
-    "projectedEndOfDayUsage": 107
+    "normalStop": 1386,
+    "controlledStop": 1559,
+    "requestsTodayUtc": 45,
+    "projectedEndOfDayUsage": 111
   }
 }
