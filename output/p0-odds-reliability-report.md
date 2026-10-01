@@ -1,6 +1,6 @@
 # P0 odds reliability — incident and release evidence
 
-Baseline: `647ae06a7fc5c4102a09dee7dca9ad6a33021b7b`, 2026-10-01 08:37:07 UTC. Release acceptance is pending; this report does not claim production recovery yet.
+Baseline: `647ae06a7fc5c4102a09dee7dca9ad6a33021b7b`, 2026-10-01 08:37:07 UTC. Implementation released through PR #35 as `1b15ce68503d1b3e05e5834213f2c33f8bd8a401`; production READY at 09:23:59 UTC. Systemic guardrails are operational. Native coverage remains DEGRADED for the explicitly documented provider/mapping gaps; this is not a claim of permanent recovery.
 
 ## A–B. Why cron success concealed degraded data
 
@@ -16,7 +16,7 @@ Betsson 43/103 native 1X2: 20 missing fixtures have no quote in their latest ide
 
 ## F. Catalog141 unmatched
 
-135 Brazilian rows remained unmatched because the missing exact Paulista A1 alias kept a canonical Brazil competition unresolved. Deterministic reconciliation maps that competition and classifies unrelated rows outside the approved registry. Rolled-back DB rehearsal:1920 catalog rows,33mapped,1881ignored with reason,6unmatched,0ambiguous. Six Saudi rows are Crown Prince Cup1634,Division12298,Kings Cup2110,Second Division48511,Super Cup2296,U21Elite48513; none is safely Saudi Pro League Play-offs. No active playoff fixture was present. Repeat reconciliation did not inflate source occurrence counts.
+135 Brazilian rows remained unmatched because the missing exact Paulista A1 alias kept a canonical Brazil competition unresolved. Deterministic reconciliation maps that competition and classifies unrelated rows outside the approved registry. Production and rolled-back rehearsal:1920 catalog rows,33mapped,1881ignored with reason,6unmatched,0ambiguous. Six Saudi rows are Crown Prince Cup1634,Division12298,Kings Cup2110,Second Division48511,Super Cup2296,U21Elite48513; none is safely Saudi Pro League Play-offs. No active playoff fixture was present. Repeat reconciliation did not inflate source occurrence counts. The 141-to-6 reduction includes justified out-of-scope classification, not 135 newly enabled leagues.
 
 ## G. REFRESH_NOT_EXECUTED
 
@@ -28,16 +28,39 @@ See `docs/ODDS_DATA_PLANE_RECOVERY.md`:136 target rows, separate control/data he
 
 ## L. Request impact
 
-Baseline rolling24h115; last3d365 (~122/day); current UTC day38;2 controlled diagnostic requests added (accounted, no retries). No Sportmonks calls. Baseline forecast204/day,peak206, within an unusually high end-of-subscription paced cap1665/day. The cap is dynamic, not a new operating target. Fixed103-fixture reconstruction is also204/day. Under a representative full-period150/day paced ceiling, that cohort scales to71/day average,112 peak,52.7% reserve,scale3.81. Later fixtures entering seven days are excluded from this reconstruction; release acceptance must record the full current forecast. Hourly hard cap72; automatic daily hard stop80% of paced allowance, controlled90%; monthly5000/4650routine/4750internal unchanged.
+Baseline rolling24h115; last3d365 (~122/day); current UTC day38;2 controlled diagnostic requests added (accounted, no retries). No Sportmonks calls. Baseline forecast204/day,peak206, within an unusually high end-of-subscription paced cap1665/day. The cap is dynamic, not a new operating target. Full current forecast at09:16:21:209/day,peak210,cap1705/day,87.7% reserve. Under a representative full-period150/day paced ceiling, including later fixtures entering seven days:73/day average,110 peak,51.3% average reserve (26.7% peak),scale5.95. As time advances forecasts change; the09:35 worker forecast was218/day atcap1726. Hourly hard cap72; automatic daily hard stop80% of paced allowance (1364 atcap1705), controlled90%; monthly5000/4650routine/4750internal unchanged. No cap/cadence increase or subscription change. Normal navigation consumed zero provider requests.
 
 ## M. Before/after
 
-Before:103 fixtures,Betsson43,Sportingbet0,1xBet18,hiddenBetano62;proxy75%;current quote oldest292min;70expired stored rows;141unmatched;15open incidents (14refresh,1proxy dominant). Full136competition/bookmaker matrix and309fixture/public-book rows are in the JSON companion. After: pending production acceptance. Catalog33/6 result is a rolled-back rehearsal, not yet production state.
+Full136competition/bookmaker matrix and309fixture/public-book rows are in the baseline JSON companion. The sanitized production companion is `output/p0-odds-production-acceptance.json`. Consistent production snapshot at09:40:55 UTC:
+
+| Measure | Before08:37 | After09:40 |
+|---|---:|---:|
+| Upcoming fixtures7d |103|103|
+| Betsson native fixtures |43|43|
+| Sportingbet BR native fixtures |0|0|
+| 1xBet native fixtures |18|25|
+| Hidden Betano native fixtures |62|62|
+| Unmatched catalog identities |141|6|
+| Open incidents |15|8|
+| REFRESH_NOT_EXECUTED incidents |14|1|
+| Oldest currently usable quote,minutes |292|356|
+| Expired stored quote rows,excluded publicly |70|70|
+
+Oldest-quote age increased with elapsed time; it is not a recovery claim or proof of expiry violation. Quote expiry is frozen at observation. The public consistency audit found zero expired active prices. Six elapsed stale-after targets remain explicit provider404/backoff cases, not hidden scheduler success. The new matrix has108outside-window,6TARGET_NOT_FOUND,2MAPPING_DEGRADED,16HEALTHY,3PARTIAL_PROVIDER_COVERAGE,1PROVIDER_EMPTY target states. There are zero REFRESH_OVERDUE states in that snapshot. The baseline did not have comparable durable queue states:14legacy refresh incidents must not be equated to14actually due targets. Thirteen outside-window false incidents resolved automatically; the remaining historical Copa del Rey refresh incident stays visible during the existing recovery observation grace period. Freshness diagnostics count93stale rows versus70before;70are expired. This report does not hide that aging metric. Proxy selection share fell75%to71.6%; broad public coverage remains degraded.
 
 ## N–O. Acceptance and limitations
 
-Migration ran twice and real saved Betsson Brazil Serie B/MLS payload replayed twice in a rolled-back transaction:second history/current writes0;provider calls0. A new strict source-table assertion initially misclassified beyond-seven-day prices as lost writes; it was corrected to match the existing horizon and regression-tested. Actual owner component rendered with saved production evidence at1440/390px:136rows,scrollable tables,no page overflow. This is local component QA, not production data recovery. Required10competitions are included in the matrix; all but Brazil Serie A currently lack next-seven-day fixtures, so native acceptance for them is NO SAMPLE, not fabricated PASS. Production cycles, due-boundary rollover, final counts/API/UI consistency and deployment remain pending.
+Migration ran twice and real saved Betsson Brazil Serie B/MLS payload replayed twice in a rolled-back transaction:second history/current writes0;provider calls0. A new strict source-table assertion initially misclassified beyond-seven-day prices as lost writes; it was corrected to match the existing horizon and regression-tested. Actual owner component and production owner/public pages rendered at1440/390px:136target rows,scrollable tables,no page overflow. Required10competitions are included in the matrix; all but Brazil Serie A currently lack next-seven-day fixtures, so native acceptance for them is NO SAMPLE, not fabricated PASS.
+
+Automatic production cycles09:25,09:30,09:35 completed with controlSUCCEEDED/dataDEGRADED/overallPARTIAL. The09:35 tick crossed the MLS1xBet due boundary, used exactly1provider request, verified2upcoming mapped fixtures/14native selections, committed119current writes across the payload and released all leases. Native fixture coverage increased18to19. Queue has123WAITING,3PENDING,6BACKOFF; no active lease remained. No manual refresh or uncontrolled backfill was used.
+
+The09:40 cycle used2requests: a1xBet batch(390BrazilSerieB,329CopaRey) and SportingbetMLS242. BrazilSerieB verified10mapped fixtures/49native selections; CopaRey returned9unmatched events and correctly becameMAPPING_EMPTY/BLOCKED without success credit. SportingbetMLS becameVALID_EMPTY with0native selections. Control correctly becamePARTIAL; data remainedDEGRADED. Current coverage rose to25/1031xBet. Afterward124WAITING,1PENDING,1BLOCKED,6BACKOFF and0active leases. Acceptance thus observed4automatic cycles including2actual refresh cycles/3requests, plus the2earlier accounted diagnostic requests. Budget now2812used,1838routine remaining,43UTCtoday,117rolling24h,automatic stop1384atdynamic allowance1730. No usage spike or quota bypass.
+
+Read-only production smoke: HTTPS/apex/www redirect,BR/MX/EN routes,twoBRmatch pages,sitemap.xml andsports-sitemaps.xml PASS;34competition links preserved. Public API/DB consistency:10REALprices matched verifiedODDSPAPI source rows,32PROXYprices explicitly attributed,0expired active prices,0publicBetano rows,providerRequests0. Existing finished slip selection was inspected without modification. Runtime log inspection found0warnings/errors/fatal entries. Remote15document/client secret scan found0leaks. No live outage was injected; network/backoff/stale-lease recovery was verified in tests and transactional rehearsal, not misreported as an observed production outage.
+
+Remaining gaps: Sportingbet source flags are inactive/suspended; FA Cup/BrazilSerieB/CopaRey404targets retain bounded retry;24baseline1xBet identities remain quarantined pending deterministic evidence. No ambiguous mapping, fake quote or public-feed masking was introduced. A short production observation across multiple cycles is not several hours of soak testing and cannot prove permanent reliability.
 
 ## P. Release gates
 
-Frozen install PASS. Final full suite1883PASS (1866 Vitest +17 Node); lint, typecheck, production build and secret scan PASS. Migration055 additive/idempotent, not applied. PR/CI/deployment pending. No production secrets or local helpers are intended for commit. No standings,SEO,GSC,social,affiliate,GEO,MySlip or public-design changes.
+Frozen install PASS. Final full suite1883PASS (1866 Vitest +17 Node); lint, typecheck, production build and secret scan PASS. Hosted PR and main CI PASS; Vercel preview PASS. Migration055 applied09:16:16.678UTC through the existing runner; immediate second run applied nothing. PR #35 merged; implementationSHA`1b15ce68503d1b3e05e5834213f2c33f8bd8a401`, deployment`dpl_GKW9K1ekUCaX28HW4fTbSwGjqFKo` READY/Current onhttps://livasports.com. Runtime releaseSHA matched. No production secrets or local helpers committed. No standings,SEO,GSC,social,affiliate,GEO,MySlip or public-design changes. Original unrelated dirty workspace preserved; release checkout synchronized withmain before this report-only follow-up.
