@@ -22,6 +22,7 @@ export interface CompetitionHub {
   /** Season resolved when no ?season is requested (P2 canonical policy). */
   defaultSeasonId:string|null;
   upcoming:SportsFixture[];results:SportsFixture[];standings:SportsStanding[];scorers:SportsScorer[];teams:SportsTeam[];
+  standingsFreshness?:import('./standings-read').StandingsFreshness|null;
   counts:{upcoming:number;results:number};page:number;pageSize:number;providerRequests:0;
   availability:Record<string,{status:string;checkedAt:string|null}>;
   pending:PendingSportsFixture[];pendingTotal:number;

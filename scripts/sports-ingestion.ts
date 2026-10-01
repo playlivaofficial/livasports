@@ -62,7 +62,7 @@ try{
     assert.ok(unlinkedFixture,'Rehearsal requires a captured unlinked lineup example');
     fixtures.data=[...new Map([...fixtures.data.filter(r=>records(r.lineups).length>0).slice(0,2),unlinkedFixture,...pendingRows].map(r=>[r.id,r])).values()];
     assert.ok(pendingRows.length);
-    const standings=await provider.all<ProviderRow>(`football/standings/seasons/${s.id}`,{include:'participant;details.type;stage;group;rule;form'});
+    const standings=await provider.all<ProviderRow>(`football/standings/seasons/${s.id}`,{include:'participant;details.type;stage;group;rule;form;season'});
     const scorers=await provider.page<ProviderRow>(`football/topscorers/seasons/${s.id}`,{include:'player;participant;type',per_page:'10',page:'1'});
     const teams=await provider.all<ProviderRow>(`football/teams/seasons/${s.id}`,{include:'country;venue;statistics.details.type',filters:`teamStatisticSeasons:${s.id}`});
     const teamId=Number(records(fixtures.data[0]?.participants)[0]?.id);
@@ -75,7 +75,7 @@ try{
       const testStore=new SportsIngestionStore(nested);
       const contexts=await testStore.seasons(c.id,c.league,seasonRows);const context=contexts.find(c=>c.providerId===s.id)!;
       for(let repeat=0;repeat<2;repeat++){
-        await testStore.teamCatalogue(context,teams.data);await testStore.standings(context,standings.data);
+        await testStore.teamCatalogue(context,teams.data);await testStore.standings(context,standings.data,standings.checkedAt);
         await testStore.scorers(context,scorers.data);await testStore.squad(context,teamId,squad.data);await testStore.fixtures(context,fixtures.data);
       }
       const count=(await tx.query<{n:number}>('SELECT count(*)::int AS n FROM season_topscorers WHERE season_id=$1',[context.id])).rows[0].n;
@@ -108,12 +108,12 @@ try{
       for(const capability of ['STANDINGS','SCORERS','TEAMS'] as const){
         const key=`${prefix}:${capability}`;if(checkpoint.has(key))continue;
         const path=capability==='STANDINGS'?`football/standings/seasons/${prefix}`:capability==='SCORERS'?`football/topscorers/seasons/${prefix}`:`football/teams/seasons/${prefix}`;
-        const query:Record<string,string>=capability==='STANDINGS'?{include:'participant;details.type;stage;group;rule;form'}:capability==='SCORERS'?{include:'player;participant;type'}:{include:'country;venue;statistics.details.type',filters:`teamStatisticSeasons:${prefix}`};
+        const query:Record<string,string>=capability==='STANDINGS'?{include:'participant;details.type;stage;group;rule;form;season'}:capability==='SCORERS'?{include:'player;participant;type'}:{include:'country;venue;statistics.details.type',filters:`teamStatisticSeasons:${prefix}`};
         endpoint=path;httpStatus=null;sourcePage=null;
         const response=await provider.all<ProviderRow>(path,query);httpStatus=response.status;
         if(![200,403,404].includes(response.status))throw new SportsProviderError(response.status);
         if(capability==='TEAMS')seasonTeams=response;
-        const persisted=response.status!==200?0:capability==='STANDINGS'?await store.standings(season,response.data):capability==='SCORERS'?await store.scorers(season,response.data):await store.teamCatalogue(season,response.data);
+        const persisted=response.status!==200?0:capability==='STANDINGS'?await store.standings(season,response.data,response.checkedAt):capability==='SCORERS'?await store.scorers(season,response.data):await store.teamCatalogue(season,response.data);
         await store.coverage(season,capability,response.status,response.data.length,persisted);await checkpointDone(key);
       }
       if(!checkpoint.has(`${prefix}:FIXTURES`)){
