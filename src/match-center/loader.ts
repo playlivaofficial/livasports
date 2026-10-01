@@ -34,7 +34,8 @@ export class MatchCenterLoader {
       this.cached(header.id, locale, 'statistics', 120, () => this.repository.statistics(header.id)),
       this.cached(header.id, locale, 'lineups', 300, () => this.repository.lineups(header.id)),
       this.cached(header.id, locale, 'player-statistics', 300, () => this.repository.playerPerformances(header.id)),
-      this.cached(header.id, locale, 'standings', 600, () => this.repository.standings(header)),
+      // Small season table read: never hide a freshly committed revision in fixture-scoped caches.
+      this.repository.standings(header),
       this.cached(header.id, locale, 'form-v2', 120, () => this.repository.form(header)),
       loadOddsComparisons(header.id,geo),
       // M1: a finished match is otherwise a dead end, so it carries the next relevant upcoming fixtures.

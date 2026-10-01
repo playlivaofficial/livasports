@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import {SportsIngestionStore,type ProviderRow} from '@/sports/ingestion-store';
 import type { DatabaseClient, QueryExecutor } from '@/database/client';
 import type { SportmonksFixturePayload, SportmonksGateway, SportmonksStandingPayload } from '@/providers/sportmonks/types';
 import { sanitizeText } from '@/providers/safe-error';
@@ -166,24 +167,15 @@ export class MatchCenterSyncService {
       ...(raw.formations ?? []).flatMap(row=>row.participant_id?[row.participant_id]:[]),...(raw.coaches ?? []).flatMap(row=>row.participant_id?[row.participant_id]:[])])];
   }
 
-  private standingValue(row: SportmonksStandingPayload, id: number): number | null {
-    const value=row.details?.find(item=>item.type_id===id)?.value; return typeof value==='number'?value:typeof value==='string'&&value.trim()!==''?Number(value):null;
-  }
-
   private async persistStandings(target: SyncTarget, rows: SportmonksStandingPayload[], teams: Map<number,string>) {
-    await this.database.transaction(async db => {
-      for (const row of rows) { const teamId=teams.get(row.participant_id); if(!teamId||!target.seasonId) continue;
-        const gf=this.standingValue(row,133),ga=this.standingValue(row,134);
-        await db.query(`INSERT INTO standings_current(season_id,stage_id,group_id,team_id,provider_standing_id,competition_id,stage_name,group_name,position,played,won,drawn,lost,goals_for,goals_against,goal_difference,points,observed_at)
-          VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,now()) ON CONFLICT(season_id,stage_id,group_id,team_id) DO UPDATE SET
-          provider_standing_id=EXCLUDED.provider_standing_id,competition_id=EXCLUDED.competition_id,stage_name=EXCLUDED.stage_name,group_name=EXCLUDED.group_name,
-          position=EXCLUDED.position,played=EXCLUDED.played,won=EXCLUDED.won,drawn=EXCLUDED.drawn,lost=EXCLUDED.lost,goals_for=EXCLUDED.goals_for,
-          goals_against=EXCLUDED.goals_against,goal_difference=EXCLUDED.goal_difference,points=EXCLUDED.points,observed_at=now()`,
-        [target.seasonId,row.stage_id??0,row.group_id??0,teamId,row.id,target.competitionId,row.stage?.name??null,row.group?.name??null,row.position,
-          this.standingValue(row,129),this.standingValue(row,130),this.standingValue(row,131),this.standingValue(row,132),gf,ga,gf!==null&&ga!==null?gf-ga:null,row.points??null]); }
-      const state=rows.length?'AVAILABLE':target.competitionType==='DOMESTIC_CUP'?'NOT_APPLICABLE':'NO_DATA_IN_WINDOW';
-      await this.setState(db,target.fixtureId,'STANDINGS',state,null,1);
-    });
+    void teams;
+    if(target.seasonId&&target.providerSeasonId){
+      const mapping=(await this.database.query<{provider_entity_id:string}>(`SELECT provider_entity_id FROM provider_entity_mappings WHERE provider='SPORTMONKS' AND entity_type='COMPETITION' AND livasports_entity_id=$1`,[target.competitionId])).rows[0];
+      if(!mapping)throw new Error('Standings mapping incomplete');
+      await new SportsIngestionStore(this.database).standings({id:target.seasonId,competitionId:target.competitionId,league:mapping.provider_entity_id,providerId:Number(target.providerSeasonId),name:''},rows as unknown as ProviderRow[]);
+    }
+    const state=rows.length?'AVAILABLE':target.competitionType==='DOMESTIC_CUP'?'NOT_APPLICABLE':'NO_DATA_IN_WINDOW';
+    await this.setState(this.database,target.fixtureId,'STANDINGS',state,null,1);
   }
 
   async runSample(): Promise<{ jobId: string; resumed: boolean; resumeCursor: number; fixtures: Array<{ slug:string; fixtureId:string; modules:Record<string,string> }>; providerRequests: number }> {

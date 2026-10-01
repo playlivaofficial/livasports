@@ -106,7 +106,7 @@ export class HttpSportmonksGateway implements SportmonksGateway {
   }
 
   standings(providerSeasonId: string) {
-    return this.request<SportmonksStandingPayload[]>(`football/standings/seasons/${providerSeasonId}`, { include: 'participant;details.type;stage;group' });
+    return this.request<SportmonksStandingPayload[]>(`football/standings/seasons/${providerSeasonId}`, { include: 'participant;details.type;stage;group;season' });
   }
 
   async lineups(providerFixtureId: string) {

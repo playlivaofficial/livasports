@@ -1,4 +1,5 @@
 import 'server-only';
+import {readStandingsFreshness} from './standings-read';
 import {standingExtras} from './standing-policy';
 import {unlinkedStanding,unlinkedScorers} from './unlinked-competition';
 import type {QueryExecutor} from '@/database/client';
@@ -110,7 +111,7 @@ export class SportsRepository {
     base.scorers.push(...unlinkedScorers(unlinkedRows.rows.filter(r=>r.capability==='SCORERS'),locale));
     base.scorers.sort((a,b)=>b.goals-a.goals||a.name.localeCompare(b.name));
     base.scorers.forEach((r,i,rows)=>{r.rank=i&&rows[i-1].goals===r.goals?rows[i-1].rank:i+1;});
-    base.teams=teamRows.rows.map(r=>team(r));return base;
+    base.teams=teamRows.rows.map(r=>team(r));base.standingsFreshness=await readStandingsFreshness(this.db,season.id);return base;
   }
   async search(query:string,locale:InterfaceLocale):Promise<SportsSearchResult[]>{
     if(query.length<1)return [];

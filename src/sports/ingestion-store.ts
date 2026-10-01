@@ -2,6 +2,7 @@ import type {DatabaseClient,QueryExecutor} from '@/database/client';
 import {mapSportmonksFixtureStatus} from '@/providers/sportmonks/normalizer';
 import {sportmonksUtc} from '@/providers/sportmonks/utc';
 import {fixtureCoachSources,fixtureFormationSources,fixtureLineupSources} from './source-integrity';
+import {standingsEvidence,lockStandingsSnapshot,commitStandingsSnapshot} from './standings-snapshot';
 
 export type ProviderRow=Record<string,unknown>;
 export const records=(v:unknown):ProviderRow[]=>Array.isArray(v)?v.filter((r):r is ProviderRow=>!!r&&typeof r==='object'):[];
@@ -112,9 +113,11 @@ export class SportsIngestionStore {
       return {players:map.size,statistics:statistics.length};
     });
   }
-  async standings(season:SeasonContext,rows:ProviderRow[]){
+  async standings(season:SeasonContext,rows:ProviderRow[],fetchedAt=new Date().toISOString()){
     if(rows.some(r=>Number(r.season_id)!==season.providerId||String(r.league_id)!==season.league))throw new Error('Standings context mismatch');
+    const evidence=standingsEvidence(rows,fetchedAt);
     return this.db.transaction(async db=>{
+      await lockStandingsSnapshot(db,season.id,season.competitionId,evidence);
       const teams=await this.teams(db,season,rows.map(r=>object(r.participant)));
       await this.existingTeams(db,rows.map(r=>r.participant_id),teams);
       const total=rows.length;
@@ -123,6 +126,7 @@ export class SportsIngestionStore {
       const metric=(r:ProviderRow,id:number)=>{const v=records(r.details).find(d=>d.type_id===id)?.value;return typeof v==='string'&&v.trim()&&Number.isFinite(Number(v))?Number(v):numeric(v);};
       await db.query('DELETE FROM standings_current WHERE season_id=$1',[season.id]);
       await upsert(db,'standings_current',rows.map(r=>{const gf=metric(r,133),ga=metric(r,134);return {season_id:season.id,competition_id:season.competitionId,stage_id:r.stage_id??0,group_id:r.group_id??0,team_id:teams.get(String(r.participant_id)),provider_standing_id:r.id,stage_name:object(r.stage).name,group_name:object(r.group).name,position:r.position,played:metric(r,129),won:metric(r,130),drawn:metric(r,131),lost:metric(r,132),goals_for:gf,goals_against:ga,goal_difference:gf!==null&&ga!==null?gf-ga:null,points:r.points,provider_rule:r.rule??null,provider_form:r.form??null,provider_details:r.details??null};}));
+      await commitStandingsSnapshot(db,season.id,evidence);
       return total;
     });
   }
