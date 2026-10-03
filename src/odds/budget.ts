@@ -10,14 +10,14 @@ export const DAILY_ROUTINE_LIMIT=ROUTINE_LIMIT;
 export class OddsBudgetStopped extends Error {constructor(public readonly code:string){super(code);this.name='OddsBudgetStopped';}}
 export interface AccountPeriod {start:string;end:string;limit:number;used:number;}
 /** Only documented, bounded subscription windows are accepted. Never derive a calendar-month reset. */
-export function verifiedAccountPeriod(value:unknown,now=new Date()):AccountPeriod {
+export function verifiedAccountPeriod(value:unknown,now=new Date(),requiredBookmakers:readonly string[]=ACTIVE_BOOKMAKER_IDS):AccountPeriod {
   const body=value as {subscriptions?:Array<{is_active?:boolean;valid_from?:string;valid_until?:string;request_limit?:number;request_count?:number;sport_ids?:number[];bookmakers?:Record<string,{has_live_odds?:boolean;has_player_props?:boolean}>}>};
   const active=body?.subscriptions?.filter(s=>s.is_active)??[];
   if(active.length!==1)throw new OddsBudgetStopped('ACCOUNT_SCOPE_UNVERIFIED');
   const s=active[0];const start=Date.parse(s.valid_from??'');const end=Date.parse(s.valid_until??'');
   if(!Number.isFinite(start)||!Number.isFinite(end)||start>now.getTime()||end<=now.getTime()||end<=start||end-start>32*86400000||
     !Number.isInteger(s.request_count)||s.request_count!<0||s.request_limit!==5000||!s.sport_ids?.includes(10)||
-    ACTIVE_BOOKMAKER_IDS.some(book=>s.bookmakers?.[book]?.has_live_odds!==false||s.bookmakers?.[book]?.has_player_props!==false))
+    requiredBookmakers.some(book=>s.bookmakers?.[book]?.has_live_odds!==false||s.bookmakers?.[book]?.has_player_props!==false))
     throw new OddsBudgetStopped('ACCOUNT_PERIOD_OR_SCOPE_UNVERIFIED');
   return {start:new Date(start).toISOString(),end:new Date(end).toISOString(),limit:s.request_limit,used:s.request_count!};
 }

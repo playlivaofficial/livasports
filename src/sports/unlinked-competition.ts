@@ -1,3 +1,4 @@
+import {isSpanishLocale} from '@/config/geo';
 import type {InterfaceLocale} from '@/localization/interface';
 import type {SportsScorer,SportsStanding,SportsTeam} from './types';
 import {standingExtras} from './standing-policy';
@@ -5,7 +6,7 @@ type Row=Record<string,unknown>;
 const object=(value:unknown):Row=>value&&typeof value==='object'&&!Array.isArray(value)?value as Row:{};
 const text=(value:unknown)=>typeof value==='string'&&value.trim()?value:null;
 const number=(value:unknown)=>value!==null&&value!==undefined&&value!==''&&Number.isFinite(Number(value))?Number(value):null;
-export const unlinkedTeamLabel=(locale:InterfaceLocale)=>locale==='br'?'Time não informado pela fonte':locale==='mx'?'Equipo no informado por la fuente':'Team not supplied by the source';
+export const unlinkedTeamLabel=(locale:InterfaceLocale)=>locale==='br'?'Time não informado pela fonte':isSpanishLocale(locale)?'Equipo no informado por la fuente':'Team not supplied by the source';
 const knownTeam=(r:Row):SportsTeam|null=>r.team_id&&r.team_public_id&&r.team_name?{id:String(r.team_id),publicId:String(r.team_public_id),name:String(r.team_name),imageUrl:text(r.team_image_url)}:null;
 /** Only display source facts. Missing entities have no public ID and cannot become profile links. */
 export function unlinkedStanding(r:Row):SportsStanding{
@@ -20,6 +21,6 @@ export function unlinkedScorers(rows:Row[],locale:InterfaceLocale):SportsScorer[
     const goal=group.find(r=>Number(object(r.payload).type_id)===208),goals=number(object(goal?.payload).total);
     if(!goal||goals===null||goals<=0)return [];
     const assist=group.find(r=>Number(object(r.payload).type_id)===209);
-    return [{publicId:text(goal.player_public_id),sourceKey:`unlinked-scorer:${goal.provider_record_id}`,name:text(goal.player_name)??text(object(object(goal.payload).player).display_name)??(locale==='br'?'Jogador não informado pela fonte':locale==='mx'?'Jugador no informado por la fuente':'Player not supplied by the source'),team:knownTeam(goal),nationality:null,countryCode:null,goals,assists:assist?number(object(assist.payload).total):null,appearances:null,minutes:null,rank:0}];
+    return [{publicId:text(goal.player_public_id),sourceKey:`unlinked-scorer:${goal.provider_record_id}`,name:text(goal.player_name)??text(object(object(goal.payload).player).display_name)??(locale==='br'?'Jogador não informado pela fonte':isSpanishLocale(locale)?'Jugador no informado por la fuente':'Player not supplied by the source'),team:knownTeam(goal),nationality:null,countryCode:null,goals,assists:assist?number(object(assist.payload).total):null,appearances:null,minutes:null,rank:0}];
   });
 }

@@ -10,6 +10,7 @@ import type {GrowthChannelStatus} from './types';
 import {markGrowthPosted,readPublishingOverview,type MarkPostedInput} from './manual-repository';
 import {VIDEO_CHANNELS} from './config';
 import {validExternalPostUrl} from './manual-publishing';
+import {isCoreGeo} from '@/config/geo';
 
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const reply=(body:unknown,status=200)=>Response.json(body,{status,headers:ownerHeaders});
@@ -27,10 +28,11 @@ const productionDependencies:GrowthOwnerDependencies={database:()=>{
 },dashboard:readGrowthDashboard,run:runGrowthSelection,transition:transitionGrowthChannel,regeneratePlatform:regenerateGrowthPlatform};
 
 export async function growthOwnerStatus(request:Request,deps:GrowthOwnerDependencies=productionDependencies){
-  if(new URL(request.url).search)return reply({error:'INVALID_REQUEST'},400);
+  const params=new URL(request.url).searchParams,geo=params.get('geo')??'MX';
+  if([...params.keys()].some(k=>k!=='geo')||params.getAll('geo').length>1||!isCoreGeo(geo))return reply({error:'INVALID_REQUEST'},400);
   if(!requestOwnerSession(request.headers))return reply({error:'UNAUTHORIZED'},401);
   let db:DatabaseClient;try{db=deps.database();}catch{return reply({error:'GROWTH_DATABASE_UNAVAILABLE'},503);}
-  try{return reply({...await deps.dashboard(db),providerRequests:0});}catch{return reply({error:'GROWTH_READ_FAILED'},503);}finally{await db.close();}
+  try{return reply({...await deps.dashboard(db,new Date(),geo),providerRequests:0});}catch{return reply({error:'GROWTH_READ_FAILED'},503);}finally{await db.close();}
 }
 export async function growthOwnerAction(request:Request,deps:GrowthOwnerDependencies=productionDependencies){
   const url=new URL(request.url);
@@ -42,7 +44,7 @@ export async function growthOwnerAction(request:Request,deps:GrowthOwnerDependen
   try{body=await boundedJson(request,2048) as Record<string,unknown>;}catch{return reply({error:'INVALID_REQUEST'},400);}
   if(!body||Array.isArray(body))return reply({error:'INVALID_REQUEST'},400);
   const action=body.action;
-  const allowed=action==='mark-posted'?['action','itemId','channel','sha256','creativeVersion','externalPostUrl','notes']:action==='refresh'?['action']:action==='preview'?['action','fixtureId','channel']:action==='regenerate'?['action','fixtureId']:action==='regenerate-platform'?['action','itemId','channel']:action==='transition'?['action','itemId','channel','status']:[];
+  const allowed=action==='mark-posted'?['action','itemId','channel','sha256','creativeVersion','externalPostUrl','notes']:action==='refresh'?['action','geo']:action==='preview'?['action','fixtureId','channel']:action==='regenerate'?['action','fixtureId']:action==='regenerate-platform'?['action','itemId','channel']:action==='transition'?['action','itemId','channel','status']:[];
   if(!allowed.length||Object.keys(body).some(key=>!allowed.includes(key)))return reply({error:'INVALID_REQUEST'},400);
   // Deny before DB access: even a stale owner tab cannot restart media production.
   if(action==='regenerate'||action==='regenerate-platform')return reply({error:'MEDIA_GENERATION_DISABLED',providerRequests:0},410);
@@ -65,7 +67,8 @@ export async function growthOwnerAction(request:Request,deps:GrowthOwnerDependen
         'X-Growth-Characters':video.renderMetadata?.characterMode??'NONE','X-Growth-Render-Ms':String(video.renderMetadata?.renderMs??0),'ETag':`"${video.sha256}"`}});
     }
     if(action==='refresh'){
-      const result=await deps.run(db,'OWNER');return reply(result,result.state==='FAILED'?409:200);
+      if(body.geo!==undefined&&!isCoreGeo(body.geo))return reply({error:'INVALID_GEO'},400);
+      const result=await deps.run(db,'OWNER',body.geo?{geo:body.geo as import('@/config/geo').CoreGeo}:{});return reply(result,result.state==='FAILED'?409:200);
     }
     const channel=String(body.channel??'') as GrowthChannel,status=String(body.status??'') as GrowthChannelStatus;
     if(!uuid.test(String(body.itemId??''))||!GROWTH_CHANNELS.includes(channel)||!['APPROVED','REJECTED','PUBLISHED'].includes(status))return reply({error:'INVALID_REQUEST'},400);

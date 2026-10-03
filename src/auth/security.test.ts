@@ -31,6 +31,17 @@ describe('callback, cookie and owner isolation',()=>{
     expect(canonicalAuthUrl('not-a-url')).toBe('');
   });
 
+  it.each(['co','pe'] as const)('retains %s auth destinations and sign-in attribution without changing origin guards',locale=>{
+    expect(safeAuthPath(`/${locale}/cuenta`,locale)).toBe(`/${locale}/cuenta`);
+    expect(authCallbackUrl(locale,'https://evil.test')).toBe(`/${locale}/cuenta`);
+    expect(safeAuthPath(`/${locale}/mis-partidos`,locale)).toBe(`/${locale}/mis-partidos`);
+    expect(config).toContain("locale=pathLocale(new URL(ref).pathname)??'en'");
+    expect(config).toContain("const locale=pathLocale(target)??'en'");
+    expect(readFileSync('src/auth/SignInForm.tsx','utf8')).toContain("locale==='en'?'or':locale==='br'?'ou':'o'");
+    expect(readFileSync(`src/app/${locale}/iniciar-sesion/page.tsx`,'utf8')).toContain(`locale='${locale}'`);
+    expect(readFileSync(`src/app/${locale}/cuenta/page.tsx`,'utf8')).toContain(`locale='${locale}'`);
+  });
+
   it('uses a distinct HttpOnly Lax user cookie and never reuses owner secrets or cookies',()=>{
     expect(USER_SESSION_COOKIE).toBe('livasports-user');
     expect(USER_SESSION_COOKIE_SECURE).toBe('__Secure-livasports-user');
@@ -59,7 +70,7 @@ describe('callback, cookie and owner isolation',()=>{
 
 describe('auth surfaces stay public-sports safe',()=>{
   it('does not replace proxy.ts or globally gate sports pages',()=>{
-    expect(proxy).toContain("matcher: ['/','/br/:path*','/mx/:path*','/en/:path*']");
+    expect(proxy).toContain("matcher: ['/','/br/:path*','/mx/:path*','/co/:path*','/pe/:path*','/en/:path*']");
     expect(proxy).not.toContain('next-auth');
     expect(layout).not.toContain('SessionProvider');
     expect(layout).not.toContain('@/auth/');

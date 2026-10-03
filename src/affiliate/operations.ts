@@ -5,7 +5,7 @@ import {signingKey} from './tokens';
 import {POSTBACK_OPERATIONAL} from './conversions';
 import {campaignDestination} from './policy';
 export async function affiliateHealth(db:QueryExecutor){
-  const campaigns=[...await readCampaigns(db,'br'),...await readCampaigns(db,'mx')];
+  const campaigns=(await Promise.all((['br','mx','co','pe'] as const).map(locale=>readCampaigns(db,locale)))).flat();
   const metrics=(await db.query(`WITH i AS (SELECT campaign_id,placement_id,locale,geo,page_type,count(*) FILTER(WHERE traffic_class='HUMAN_VIEW') AS impressions,count(*) FILTER(WHERE traffic_class='QA_TEST') AS qa_impressions
     FROM affiliate_impressions WHERE occurred_at>now()-interval '30 days' GROUP BY 1,2,3,4,5),
     c AS (SELECT campaign_id,placement_id,locale,geo,page_type,count(*) FILTER(WHERE traffic_class='HUMAN_CLICK') AS clicks,count(*) FILTER(WHERE traffic_class='QA_TEST') AS qa_clicks,

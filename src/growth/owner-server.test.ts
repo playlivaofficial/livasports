@@ -17,6 +17,15 @@ beforeEach(()=>{vi.stubEnv('OWNER_QA_SESSION_SECRET','s'.repeat(43));vi.stubEnv(
 afterEach(()=>vi.unstubAllEnvs());
 
 describe('Traffic Engine V1 owner control plane',()=>{
+  it('validates GEO tabs without enabling a public override or BR priority refresh',async()=>{
+    const dashboard=vi.fn<GrowthOwnerDependencies['dashboard']>(async()=>({geo:'CO',generatedAt:new Date().toISOString(),social:[],content:[],items:[],considered:0,producible:0}));
+    const dependencies=deps({dashboard});
+    expect((await growthOwnerStatus(new Request(origin+'/api/owner/growth?geo=CO'),dependencies)).status).toBe(401);
+    expect((await growthOwnerStatus(new Request(origin+'/api/owner/growth?geo=CO',{headers:owner()}),dependencies)).status).toBe(200);
+    expect(dashboard.mock.calls[0][2]).toBe('CO');
+    expect((await growthOwnerStatus(new Request(origin+'/api/owner/growth?geo=BR',{headers:owner()}),dependencies)).status).toBe(400);
+    expect((await growthOwnerAction(post({action:'refresh',geo:'BR'},owner()),dependencies)).status).toBe(400);
+  });
   it('records manual posts without invoking any renderer/generator and keeps auth/CSRF/version guards',async()=>{
     const body={action:'mark-posted',itemId:'22222222-2222-4222-8222-222222222222',channel:'TIKTOK',sha256:'a'.repeat(64),creativeVersion:'current-stack'};
     const markPosted=vi.fn(async()=>({id:'receipt',postedAt:'2026-09-27T10:00:00Z'})),dependencies=deps({markPosted});

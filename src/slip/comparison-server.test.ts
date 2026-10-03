@@ -6,7 +6,6 @@ import {parseComparisonEvent,recordComparisonEvent} from './comparison-analytics
 import {readSlipComparison} from '@/odds/read-repository';
 import {comparisonFixture} from './comparison-fixtures.test-support';
 import {campaign,dependencies,key} from '@/affiliate/fixtures.test-support';
-import {ACTIVE_BOOKMAKER_IDS} from '@/odds/registry';
 
 afterEach(()=>vi.restoreAllMocks());
 const payload=()=>({locale:'br',selections:comparisonFixture().selections});
@@ -55,22 +54,17 @@ describe('M7 request/security boundary',()=>{
     expect(r.status).toBe(303);expect(r.headers.get('referrer-policy')).toBe('no-referrer');expect(r.headers.get('cache-control')).toContain('no-store');
   });
   it('queries only current quotes and bookmaker configuration in two bounded queries for ten selections',async()=>{
-    const query=vi.fn().mockResolvedValueOnce({rows:[]}).mockResolvedValueOnce({rows:[{provider_slug:'betsson',display_name:'Betsson',affiliate_status:'ACTIVE',verification_state:'VERIFIED_BR',destination:'https://betsson.bet.br/?partner=test-only',active_campaigns:[{type:'HOMEPAGE',placements:['slip_bookmaker_comparison'],domains:['betsson.bet.br']}]}]});
-    const fetch=vi.spyOn(globalThis,'fetch');const r=await readSlipComparison({query},comparisonFixture(10).selections.map(s=>s.fixturePublicId),'BR');
+    const query=vi.fn().mockResolvedValueOnce({rows:[]}).mockResolvedValueOnce({rows:[{provider_slug:'betsson',display_name:'Betsson',commercial_status:'ACTIVE',verification_state:'VERIFIED',destination_domains:['betsson.mx'],destination:'https://betsson.mx/?partner=test-only',active_campaigns:[{type:'HOMEPAGE',placements:['slip_bookmaker_comparison'],domains:['betsson.mx']}]}]});
+    const fetch=vi.spyOn(globalThis,'fetch');const r=await readSlipComparison({query},comparisonFixture(10).selections.map(s=>s.fixturePublicId),'MX');
     expect(query).toHaveBeenCalledTimes(2);expect(query.mock.calls[0][0]).toContain('ANY($1::text[])');expect(query.mock.calls[0][0]).toContain('LIMIT 500');
     expect(query.mock.calls.every(c=>!c[0].includes('odds_history'))).toBe(true);expect(r.bookmakers[0].affiliateEligibility.destinationConfigured).toBe(true);expect(fetch).not.toHaveBeenCalled();
   });
-  it('compares BR odds worldwide without attaching affiliate destinations outside commercial GEO',async()=>{
-    const query=vi.fn().mockResolvedValueOnce({rows:[]}).mockResolvedValueOnce({rows:[
-      {provider_slug:'betano.bet.br',display_name:'Betano BR',affiliate_status:'PENDING',verification_state:'VERIFIED_BR',destination:'https://betano.bet.br/?partner=test-only',active_campaigns:[]},
-      {provider_slug:'betsson',display_name:'Betsson',affiliate_status:'ACTIVE',verification_state:'VERIFIED_BR',destination:'https://betsson.bet.br/?partner=test-only',active_campaigns:[{type:'HOMEPAGE',placements:['slip_bookmaker_comparison'],domains:['betsson.bet.br']}]}]});
-    const r=await readSlipComparison({query},comparisonFixture(2).selections.map(s=>s.fixturePublicId),null);
-    expect(query.mock.calls[1][1]).toEqual(['BR',[...ACTIVE_BOOKMAKER_IDS]]);
-    expect(r.destinations).toEqual({});
-    expect(r.bookmakers).toEqual([
-      {bookmakerId:'betano.bet.br',displayName:'Betano BR',geoEligibility:{locale:'br',eligible:true},affiliateEligibility:{approved:false,destinationConfigured:false}},
-      {bookmakerId:'betsson',displayName:'Betsson',geoEligibility:{locale:'br',eligible:true},affiliateEligibility:{approved:false,destinationConfigured:false}},
-    ]);
+  it('keeps unknown and retired BR jurisdictions neutral without querying a BR pool',async()=>{
+    for(const geo of [null,'BR'] as const){
+      const query=vi.fn().mockResolvedValue({rows:[]});
+      const r=await readSlipComparison({query},comparisonFixture(2).selections.map(s=>s.fixturePublicId),geo);
+      expect(query).toHaveBeenCalledTimes(1);expect(r.destinations).toEqual({});expect(r.bookmakers).toEqual([]);
+    }
   });
 });
 

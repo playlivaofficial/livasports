@@ -2,7 +2,8 @@ import 'server-only';
 import type {DatabaseClient,QueryExecutor} from '@/database/client';
 import {databaseUrl,PostgresDatabaseClient} from '@/database/client';
 import {requestOwnerSession} from '@/owner/session';
-import {requestCommercialGeo} from '@/odds/commercial-geo';
+import {requestCountry} from '@/odds/commercial-geo';
+import {geoFromCountry,type Geo} from '@/config/geo';
 import {BOT_UA,EVENT_VERSION,ID_PATTERN,MAX_BATCH_EVENTS,classifyPage,classifyReferrer,isClientEvent,isServerEvent,parseClientEvent,parseUtm,type ClientEvent,type EventEntities,type Locale,type ServerEventName,type TrafficClass} from './taxonomy';
 
 export interface IngestionSummary {status:number;accepted:number;duplicates:number;rejected:number;unknown:number;missingSession:number;oversized:number;trafficClass:TrafficClass|null;}
@@ -48,8 +49,10 @@ async function quality(db:QueryExecutor,delta:Partial<Record<'accepted'|'duplica
     oversized=analytics_ingestion_quality.oversized+excluded.oversized,server_events=analytics_ingestion_quality.server_events+excluded.server_events,max_lag_seconds=GREATEST(analytics_ingestion_quality.max_lag_seconds,excluded.max_lag_seconds)`,
     [delta.accepted??0,delta.duplicates??0,delta.rejected??0,delta.unknown_events??0,delta.missing_session??0,delta.oversized??0,delta.server_events??0,Math.max(0,Math.round(lagSeconds))]);}catch{/* counters are best effort */}
 }
-const INTERACTION=new Set(['odds_selected','slip_created','slip_leg_added','slip_opened','bookmaker_comparison_viewed','affiliate_cta_clicked','search_used','sign_in_started','stake_changed']);
-async function upsertSessions(db:QueryExecutor,events:readonly ClientEvent[],traffic:TrafficClass,geo:'BR'|'MX'|null,userId:string|null){
+const INTERACTION=new Set(['market_open','odds_selected','slip_created','slip_leg_added','slip_opened','bookmaker_comparison_viewed','affiliate_cta_clicked','search_used','sign_in_started','stake_changed']);
+/** Analytics measures trusted physical GEO, never a route or signed owner preview. */
+export const analyticsGeo=(headers:Headers):Geo=>geoFromCountry(requestCountry(headers));
+async function upsertSessions(db:QueryExecutor,events:readonly ClientEvent[],traffic:TrafficClass,geo:Geo,userId:string|null){
   for(const e of events){
     if(e.session&&(e.eventName==='session_started'||e.eventName==='returning_session_started')){
       const ref=classifyReferrer(e.session.referrerHost?`https://${e.session.referrerHost}/`:null,'livasports.com',e.utm.medium,e.utm.source);
@@ -104,7 +107,7 @@ export async function ingestClientBatch(request:Request,body:unknown,db?:Databas
     if(Number(rate.rows[0]?.n??0)+events.length>240){await quality(client,{rejected:events.length});return ok({...summary,status:429,rejected:summary.rejected+events.length});}
     // The auth module is loaded lazily so analytics never pulls the auth runtime into unrelated request paths.
     const user=traffic==='HUMAN'||traffic==='QA'?await import('@/auth/session').then(m=>m.currentUser()).catch(()=>null):null;const userId=user?.id??null;
-    const geo=requestCommercialGeo(request.headers);
+    const geo=analyticsGeo(request.headers);
     const entities=await resolveEntities(client,events);
     let lag=0;const inserted:ClientEvent[]=[];
     for(const e of events){
@@ -145,7 +148,7 @@ export async function recordServerEvent(input:ServerEventInput,db?:DatabaseClien
     const traffic=input.trafficClass&&!(input.trafficClass==='HUMAN'&&detected==='OWNER')?input.trafficClass:detected;
     const path=(input.canonicalPath??'/').slice(0,240);const page=classifyPage(path);const utm=parseUtm(path.includes('?')?path.slice(path.indexOf('?')):'');
     const ref=classifyReferrer(input.headers.get('referer'),'livasports.com',utm.medium,utm.source);
-    const geo=requestCommercialGeo(input.headers);
+    const geo=analyticsGeo(input.headers);
     const eventId=input.eventId??crypto.randomUUID();
     const inserted=await client.query(`INSERT INTO analytics_events(event_id,event_name,event_version,source,occurred_at,session_id,anonymous_id,user_id,traffic_class,locale,geo,page_type,canonical_path,referrer_class,
         utm_source,utm_medium,utm_campaign,competition_id,fixture_id,team_id,bookmaker,market,slip_leg_count,comparison_state,campaign_id,placement,props)

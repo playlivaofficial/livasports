@@ -15,6 +15,8 @@ import {isProducible,type FixturePriority} from './scoring';
 export interface ShortlistOptions {
   /** Fixtures produced recently; offered again only after the duplicate window passes. */
   excludeFixtureIds?:ReadonlySet<string>;
+  /** Current GEO acquisition lists use five; old media/history callers may retain the legacy Top10 shape. */
+  size?:number;
 }
 export interface Shortlist {
   social:FixturePriority[];
@@ -81,7 +83,8 @@ export function buildShortlist(priorities:readonly FixturePriority[],options:Sho
   const exclude=options.excludeFixtureIds??new Set<string>();
   const producible=rankPriorities(priorities.filter(isProducible));
   const fresh=producible.filter(priority=>!exclude.has(priority.fixtureId));
-  const content=pickWithDiversity(fresh,SHORTLIST.contentSize,SHORTLIST.maxPerCompetitionContent);
+  const size=options.size??SHORTLIST.contentSize;
+  const content=pickWithDiversity(fresh,size,size<=5?SHORTLIST.maxPerCompetitionSocial:SHORTLIST.maxPerCompetitionContent);
   // VNext: ranks 1–5 are social; 6–10 are SEO only. Preserve the existing diversity-aware
   // Top 10 order/weights rather than promoting a rank-6 fixture past an unchanged rank-5.
   const social=content.slice(0,SHORTLIST.socialSize);

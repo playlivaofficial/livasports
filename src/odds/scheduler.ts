@@ -6,10 +6,10 @@ import {COVERAGE_DISCOVERY_REQUEST_CAP} from '@/providers/oddspapi/request-limit
 import {canonicalFixtures,persistSnapshot,startOddsJob} from './ingestion';
 import {budgetHealth,OddsBudgetStopped,reconcileAccountPeriod} from './budget';
 import {LIVE_ODDS_CAPABILITY} from './live-capability';
-import {readBookmakerCoverageHealth} from './bookmaker-coverage-health';
-import {readCoverageHealth} from './coverage-health';
 import {isProviderFixtureAbsent} from './canary';
-import {planScheduler,SCHEDULER_BOOKMAKERS,SCHEDULER_TICK_MINUTES,type RefreshTarget} from './scheduler-policy';
+import {planScheduler,SCHEDULER_TICK_MINUTES,type RefreshTarget} from './scheduler-policy';
+import {readVerifiedOperatorFeeds,type VerifiedOperatorFeed} from './operator-feeds';
+import {currentQuoteSql} from './current-quote-sql';
 import {evaluateReliability,logRecoveryAction} from './reliability/incidents';
 import {persistCatalogRows} from './reliability/catalog';
 import {HEALTH_CONTRACT_VERSION,type IssueClassification,type Severity} from './reliability/model';
@@ -45,52 +45,43 @@ export function safeSchedulerError(error:unknown):string {
   return 'ODDS_REFRESH_FAILED';
 }
 export async function schedulerInputs(db:DatabaseClient,tournaments:readonly CatalogTournament[]=[]){
-  const [budget,fixtures,records]=await Promise.all([budgetHealth(db),canonicalFixtures(db),db.query(`SELECT b.provider_slug,
-    EXISTS(SELECT 1 FROM bookmaker_geo_availability g WHERE g.bookmaker_id=b.id AND g.odds_enabled AND g.comparison_enabled
-      AND g.verified_at IS NOT NULL AND g.verification_state IN ('VERIFIED_BR','VERIFIED_MX','VERIFIED_BR_MX')) AS public_eligible,
+  const feeds=await readVerifiedOperatorFeeds(db);
+  const providerIds=[...new Set(feeds.map(f=>f.providerBookmakerId))];
+  const [budget,fixtures,records]=await Promise.all([budgetHealth(db),canonicalFixtures(db),db.query(`SELECT t.bookmaker AS provider_slug,
+    true AS public_eligible,
     t.tournament_id,t.last_success_at,t.last_attempt_at,t.last_checked_at,t.pending_since,t.retry_after,t.consecutive_failures,t.last_error,
     t.failure_class,t.backoff_reason,t.next_recheck_at,t.failure_evidence,t.last_outcome,
-    EXISTS(SELECT 1 FROM odds_current legacy JOIN fixtures lf ON lf.id=legacy.fixture_id
-      JOIN provider_entity_mappings lm ON lm.provider='ODDSPAPI' AND lm.entity_type='COMPETITION' AND lm.livasports_entity_id=lf.competition_id
-      WHERE lm.provider_entity_id=t.tournament_id AND legacy.bookmaker_id=b.id AND legacy.status='ACTIVE'
-        AND legacy.freshness_ttl_minutes IS NULL AND lf.status='SCHEDULED' AND lf.kickoff>now()) AS needs_cadence_refresh,
-    EXISTS(SELECT 1 FROM odds_current o JOIN fixtures f ON f.id=o.fixture_id
+    false AS needs_cadence_refresh,
+    EXISTS(SELECT 1 FROM odds_geo_current o JOIN fixtures f ON f.id=o.fixture_id
       JOIN provider_entity_mappings m ON m.entity_type='COMPETITION' AND m.provider='ODDSPAPI' AND m.livasports_entity_id=f.competition_id
-      WHERE m.provider_entity_id=t.tournament_id AND o.bookmaker_id=b.id AND o.status='ACTIVE' AND o.phase='PREGAME'
-        AND o.scope='FULL_TIME_REGULATION' AND o.freshness_ttl_minutes>0
-        AND o.observed_at+(o.freshness_ttl_minutes*interval '1 minute')>now()
-        AND o.provider_kickoff IS NOT NULL AND abs(extract(epoch FROM (f.kickoff-o.provider_kickoff)))<=600
-        AND f.status='SCHEDULED' AND f.kickoff>now() AND f.kickoff<=now()+interval '7 days') AS useful_coverage
-    FROM bookmakers b LEFT JOIN odds_refresh_targets t ON t.bookmaker=b.provider_slug WHERE b.enabled AND b.provider_slug=ANY($1::text[])`,[SCHEDULER_BOOKMAKERS])]);
+      WHERE m.provider_entity_id=t.tournament_id AND o.source_provider='ODDSPAPI' AND o.provider_bookmaker_id=t.bookmaker
+        AND ${currentQuoteSql()} AND f.kickoff<=now()+interval '7 days') AS useful_coverage
+    FROM odds_refresh_targets t WHERE t.bookmaker=ANY($1::text[])`,[providerIds])]);
   const catalog=tournaments.length?tournaments:schedulerTournaments([]);
-  const native=(await db.query(`SELECT b.provider_slug,m.provider_entity_id AS tournament_id,
+  const native=(await db.query(`SELECT o.provider_bookmaker_id AS provider_slug,m.provider_entity_id AS tournament_id,
     min(LEAST(o.observed_at,o.last_successful_refresh_at)+o.freshness_ttl_minutes*interval '1 minute') AS expiry
-    FROM odds_current o JOIN bookmakers b ON b.id=o.bookmaker_id JOIN fixtures f ON f.id=o.fixture_id
+    FROM odds_geo_current o JOIN fixtures f ON f.id=o.fixture_id
     JOIN provider_entity_mappings m ON m.provider='ODDSPAPI' AND m.entity_type='COMPETITION' AND m.livasports_entity_id=f.competition_id
-    LEFT JOIN odds_refresh_targets rt ON rt.bookmaker=b.provider_slug AND rt.tournament_id=m.provider_entity_id
-    WHERE o.status='ACTIVE' AND o.phase='PREGAME' AND o.scope='FULL_TIME_REGULATION' AND o.freshness_ttl_minutes>0
+    LEFT JOIN odds_refresh_targets rt ON rt.bookmaker=o.provider_bookmaker_id AND rt.tournament_id=m.provider_entity_id
+    WHERE o.source_provider='ODDSPAPI' AND o.provider_bookmaker_id=ANY($1::text[]) AND o.status='ACTIVE' AND o.phase='PREGAME' AND o.scope='FULL_TIME_REGULATION' AND o.freshness_ttl_minutes>0
       AND f.status='SCHEDULED' AND f.kickoff>now() AND f.kickoff<=now()+interval '7 days'
       AND (o.observed_at>now()-interval '2 days' OR LEAST(o.observed_at,o.last_successful_refresh_at)+o.freshness_ttl_minutes*interval '1 minute'>now())
       AND abs(extract(epoch FROM(f.kickoff-o.provider_kickoff)))<=600
       AND o.observed_at>=COALESCE(rt.last_success_at,o.observed_at)-interval '1 second'
-    GROUP BY b.provider_slug,m.provider_entity_id`)).rows;
+    GROUP BY o.provider_bookmaker_id,m.provider_entity_id`,[providerIds])).rows;
   const support=(await db.query("SELECT bookmaker,tournament_id FROM odds_target_support WHERE provider='ODDSPAPI' AND state='UNSUPPORTED'")).rows;
-  const latestNative=await db.query("SELECT report FROM odds_native_rollups WHERE bucket>now()-interval '2 hours' ORDER BY bucket DESC LIMIT 1");
-  const nativeGroups=(latestNative.rows[0]?.report?.groups??[]) as Array<{bookmaker:string;competition:string;fallback:number;reasons:Record<string,number>}>;
-  const targets:RefreshTarget[]=SCHEDULER_BOOKMAKERS.flatMap(bookmaker=>catalog.map(t=>{
+  const targets:RefreshTarget[]=providerIds.flatMap(bookmaker=>catalog.map(t=>{
     const row=records.rows.find(r=>r.provider_slug===bookmaker&&r.tournament_id===t.id);
-    const source=records.rows.find(r=>r.provider_slug===bookmaker);
     const expiry=native.find(r=>r.provider_slug===bookmaker&&r.tournament_id===t.id)?.expiry;
-    const gaps=nativeGroups.filter(g=>g.bookmaker===bookmaker&&g.competition===t.canonical);
-    // Reorder only already-due requests. Known provider gaps do not earn extra polling; cadence/caps/backoff are unchanged.
-    const nativePriority=bookmaker==='betano.bet.br'?0:gaps.reduce((n,g)=>n+Math.max(0,g.fallback-(g.reasons.PROVIDER_GAP??0))+(g.reasons.STALE_OR_EXPIRED??0)+(g.reasons.INGESTION_BUG??0),0);
+    // Country feeds share the existing freshness/cadence/fairness policy; no legacy BR-insurance preference.
+    const nativePriority=0;
     return {bookmaker,tournamentId:t.id,nativePriority,nativeExpiryAt:expiry?.toISOString()??null,recentNative:!!expiry,
       unsupported:support.some(r=>r.bookmaker===bookmaker&&r.tournament_id===t.id),
       // Re-fetching the same unmappable payload cannot repair identity/configuration. Saved-response
       // recovery still runs without provider spend; verified persistence clears this block.
       mappingBlocked:['MAPPING_EMPTY','PARSER_EMPTY'].includes(row?.last_outcome)||['MAPPING','MARKET'].includes(row?.failure_class),
       catalogEmpty:t.catalogEmpty===true&&row?.last_error==='ODDSPAPI_HTTP_404'&&!row?.last_success_at,
-      fixtures:source?fixtures.filter(f=>f.competition===t.canonical):[],publicEligible:source?.public_eligible===true,
+      fixtures:fixtures.filter(f=>f.competition===t.canonical),publicEligible:true,
       hasUsefulCoverage:row?.useful_coverage===true,lastSuccessAt:row?.last_success_at?.toISOString()??null,retryAfter:row?.retry_after?.toISOString()??null,
       lastError:typeof row?.last_error==='string'?row.last_error:null,needsCadenceRefresh:row?.needs_cadence_refresh===true,
       lastAttemptAt:row?.last_attempt_at?.toISOString?.()??null,consecutiveFailures:Number(row?.consecutive_failures??0),
@@ -134,7 +125,11 @@ export async function runOddsScheduler(db:DatabaseClient,key:string,trigger:'CON
   let state:SchedulerState='SUCCEEDED';let errorCode:string|null=null;
   const results:Array<Record<string,unknown>>=[];let recovered=0;let catalogExpanded=false;const integrity:IntegrityFinding[]=[];
   let tournaments:CatalogTournament[]=schedulerTournaments([]);
+  let verifiedFeeds:VerifiedOperatorFeed[]=[];
   try{
+    const feeds=await readVerifiedOperatorFeeds(db);
+    verifiedFeeds=feeds;
+    provider.setOperatorFeeds(feeds);
     await db.query("UPDATE odds_sync_jobs SET trigger_source=$2 WHERE id=$1",[job,trigger]);
     await db.query(`UPDATE odds_scheduler_health SET state='RUNNING',last_job_id=$1,updated_at=now(),
       last_automatic_invocation_at=CASE WHEN $2 THEN now() ELSE last_automatic_invocation_at END WHERE id=true`,[job,trigger==='AUTOMATIC']);
@@ -145,7 +140,7 @@ export async function runOddsScheduler(db:DatabaseClient,key:string,trigger:'CON
     // P0 incident: a competition that is enabled, has upcoming fixtures and no catalog row must not wait for a manual
     // discovery run. One bounded /v4/tournaments call per 24h merges new provider rows (IDs are never invented).
     const upcoming=[...new Set((await canonicalFixtures(db)).filter(f=>f.status==='SCHEDULED'&&Date.parse(f.kickoff)>started&&Date.parse(f.kickoff)<started+14*86400000).map(f=>f.competition))];
-    if(catalogNeedsExpansion(catalog.tournaments,upcoming)||tournaments.some(t=>t.catalogEmpty&&upcoming.includes(t.canonical))){
+    if(feeds.length&&(catalogNeedsExpansion(catalog.tournaments,upcoming)||tournaments.some(t=>t.catalogEmpty&&upcoming.includes(t.canonical)))){
       const recent=await db.query("SELECT 1 FROM odds_provider_requests WHERE endpoint='/v4/tournaments' AND started_at>now()-interval '24 hours' LIMIT 1");
       const health=await budgetHealth(db);
       if(!recent.rowCount&&health.verified&&Number(health.safeRemaining)>=COVERAGE_DISCOVERY_REQUEST_CAP){
@@ -182,7 +177,7 @@ export async function runOddsScheduler(db:DatabaseClient,key:string,trigger:'CON
     }
     recovered+=(await recoverNativeIdentities(db,job)).repaired;
     if(replayed===SNAPSHOT_REPLAY_LIMIT)throw new Error('ODDS_RECOVERY_PENDING');
-    if(!(await budgetHealth(db)).verified)await reconcileAccountPeriod(db,await provider.accountPeriod());
+    if(feeds.length&&!(await budgetHealth(db)).verified)await reconcileAccountPeriod(db,await provider.accountPeriod());
     const plan=await schedulerPlan(db,new Date(),tournaments);
     await reconcileRefreshQueue(db,plan);
     await db.query(`INSERT INTO odds_scheduler_decisions(job_id,targets,budget) VALUES($1,$2::jsonb,$3::jsonb)
@@ -191,7 +186,7 @@ export async function runOddsScheduler(db:DatabaseClient,key:string,trigger:'CON
         plan.pacing.headroom===0||!plan.cadence.budgetAvailable?'DEFERRED_BY_DAILY_BUDGET':'DEFERRED_BY_PRIORITY')}))),JSON.stringify(plan.pacing)]);
     if(!plan.cadence.budgetAvailable&&plan.targets.some(t=>t.fixtures>0))throw new OddsBudgetStopped('ODDS_BUDGET_UNVERIFIED_OR_EXHAUSTED');
     await db.query('UPDATE odds_scheduler_health SET last_discovery_at=now(),fixtures_considered=$1,next_due_at=$2 WHERE id=true',
-      [plan.targets.filter(t=>t.bookmaker==='betano.bet.br').reduce((n,t)=>n+t.fixtures,0),plan.nextDueAt]);
+      [[...new Map(plan.targets.map(t=>[t.tournamentId,t.fixtures])).values()].reduce((n,count)=>n+count,0),plan.nextDueAt]);
     if(plan.batches.length){
       const fresh=await db.query("SELECT 1 FROM odds_budget_baselines WHERE now()>=period_start AND now()<period_end AND reconciliation_at>now()-interval '24 hours'");
       if(!fresh.rowCount)await reconcileAccountPeriod(db,await provider.accountPeriod());
@@ -268,7 +263,11 @@ export async function runOddsScheduler(db:DatabaseClient,key:string,trigger:'CON
   try{
     if(catalogExpanded||await catalogRowsStale(db))await persistCatalogRows(db,(await db.query("SELECT tournaments FROM odds_provider_catalog WHERE provider='ODDSPAPI'")).rows[0]?.tournaments??[]);
     const evaluation=await evaluateReliability(db,{automationEnabled:trigger==='AUTOMATIC'?true:undefined,source:'scheduler',
-      extraIssues:integrity.map(i=>({competition:tournaments.find(t=>t.id===i.tournamentIds[0])?.canonical??'*',issue:{classification:i.classification,severity:i.severity,evidence:i.reason,affectedFixtures:i.returnedFixtures,bookmaker:i.bookmaker}}))});
+      extraIssues:integrity.flatMap(i=>{
+        const canonical=tournaments.find(t=>t.id===i.tournamentIds[0])?.canonical;
+        const geos=[...new Set(verifiedFeeds.filter(f=>f.providerBookmakerId===i.bookmaker).map(f=>f.geo))];
+        return (canonical&&geos.length?geos.map(geo=>`${geo}:${canonical}`):['*']).map(competition=>({competition,issue:{classification:i.classification,severity:i.severity,evidence:i.reason,affectedFixtures:i.returnedFixtures,bookmaker:i.bookmaker}}));
+      })});
     reliability={overall:evaluation.health.overall,opened:evaluation.opened,resolved:evaluation.resolved,alerts:evaluation.alerts,counts:evaluation.health.counts};
   }catch(error){reliability={error:safeSchedulerError(error)};}
   const controlPlaneState=state;
@@ -286,10 +285,9 @@ export async function runOddsScheduler(db:DatabaseClient,key:string,trigger:'CON
   return result;
 }
 export async function schedulerHealth(db:DatabaseClient,automationConfigured=false){
-  const [budget,status,lease,feeds,bookmakerHealth,coverage,catalog,reliability]=await Promise.all([budgetHealth(db),db.query('SELECT * FROM odds_scheduler_health WHERE id=true'),
+  const [budget,status,lease,feeds,catalog,reliability]=await Promise.all([budgetHealth(db),db.query('SELECT * FROM odds_scheduler_health WHERE id=true'),
     db.query("SELECT status,heartbeat_at,lease_expires_at,provider_requests FROM odds_sync_jobs WHERE status='RUNNING' ORDER BY started_at DESC LIMIT 1"),
     db.query('SELECT bookmaker,tournament_id,last_success_at,retry_after,consecutive_failures,last_error FROM odds_refresh_targets ORDER BY bookmaker,tournament_id'),
-    readBookmakerCoverageHealth(db),readCoverageHealth(db).catch(error=>({state:'unknown' as const,error:safeSchedulerError(error)})),
     db.query("SELECT tournaments FROM odds_provider_catalog WHERE provider='ODDSPAPI'").catch(()=>({rows:[]})),
     readReliabilityHealth(db,new Date(),{automationEnabled:automationConfigured}).catch(error=>({error:safeSchedulerError(error)}))]);
   const row=status.rows[0];
@@ -301,7 +299,7 @@ export async function schedulerHealth(db:DatabaseClient,automationConfigured=fal
     nextExpectedRun:automationConfigured?row?.next_due_at??null:null,
     nextPolicyDueAt:row?.next_due_at??null,fixturesConsidered:row?.fixtures_considered??0,feedsRefreshed:row?.feeds_refreshed??[],
     lastError:row?.last_error??null,activeLease:lease.rows[0]??null,feedStatus:feeds.rows,budget,providerRequests:0,
-    liveOdds:LIVE_ODDS_CAPABILITY,bookmakerHealth,coverage,
+    liveOdds:LIVE_ODDS_CAPABILITY,bookmakerHealth:'geoPools' in reliability?reliability.geoPools:[],coverage:'horizons' in reliability?reliability.horizons:null,
     scheduledTournaments:schedulerTournaments((catalog.rows[0]?.tournaments as unknown[])??[]).map(t=>({id:t.id,canonical:t.canonical})),
     unmatchedCatalogRows:unmatchedCatalogRows((catalog.rows[0]?.tournaments as unknown[])??[]),reliability};
 }

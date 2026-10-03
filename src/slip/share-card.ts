@@ -41,6 +41,7 @@ export interface SlipSharePayload {
 
 export function slipSharePayload(args:{
   locale:SlipUiLocale;
+  currencyLocale?:SlipUiLocale;
   slipId:string;
   stake:string;
   generatedAt:string;
@@ -48,15 +49,15 @@ export function slipSharePayload(args:{
   resolved:ResolvedSelection[];
   comparison:SlipComparison|null;
 }):SlipSharePayload {
-  const text=slipCopy[args.locale];
+  const text=slipCopy[args.locale],currencyLocale=args.currencyLocale??args.locale;
   const byKey=new Map(args.resolved.map(v=>[`${v.selection.fixturePublicId}:${v.selection.market}:${v.selection.outcome}`,v]));
   const complete=args.comparison?.bookmakers.filter(b=>b.complete)??[];
   const best=complete.find(b=>b.best)??complete[0]??null;
   return {
-    slipId:args.slipId,generatedAt:args.generatedAt,stake:formatMoney(args.stake,args.locale)??args.stake,
+    slipId:args.slipId,generatedAt:args.generatedAt,stake:formatMoney(args.stake,currencyLocale)??args.stake,
     stakeLabel:text.stake,returnLabel:comparisonCopy[args.locale].estimatedPotentialReturn,
     bestCombined:best?.combinedDecimalOdds?`≈${formatCombinedOdds(best.combinedDecimalOdds,args.locale)}`:null,
-    bestReturn:best?.combinedDecimalOdds?formatMoney(estimateReturn(args.stake,best.combinedDecimalOdds)??'',args.locale):null,
+    bestReturn:best?.combinedDecimalOdds?formatMoney(estimateReturn(args.stake,best.combinedDecimalOdds)??'',currencyLocale):null,
     bestName:best?.displayName??null,
     legs:args.selections.map(s=>{
       const view=byKey.get(`${s.fixturePublicId}:${s.market}:${s.outcome}`);
@@ -72,7 +73,7 @@ export function slipSharePayload(args:{
     bookmakers:(args.comparison?.bookmakers??[]).map(b=>({
       name:b.displayName,complete:b.complete,best:b.best,estimated:b.estimated,
       combined:b.combinedDecimalOdds?`≈${formatCombinedOdds(b.combinedDecimalOdds,args.locale)}`:null,
-      potentialReturn:b.combinedDecimalOdds?formatMoney(estimateReturn(args.stake,b.combinedDecimalOdds)??'',args.locale):null,
+      potentialReturn:b.combinedDecimalOdds?formatMoney(estimateReturn(args.stake,b.combinedDecimalOdds)??'',currencyLocale):null,
       missing:b.selectionQuotes.filter(q=>!q.decimalOdds).map(q=>`${q.fixture?`${q.fixture.home} × ${q.fixture.away}`:text.missing} — ${text.markets[q.selection.market]} ${selectionLabel(q.selection,args.locale,q.fixture)}`),
       incompleteLabel:b.complete?'':comparisonCopy[args.locale].partial,
     })),

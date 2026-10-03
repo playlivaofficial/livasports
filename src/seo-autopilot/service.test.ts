@@ -7,24 +7,25 @@ vi.mock('./sitemaps',()=>({maintainSeoSitemaps:mocks.sitemaps}));
 vi.mock('./optimization',()=>({runGrowthOptimization:mocks.feedback}));
 import {runSeoAutopilot} from './service';
 import {testSignals,testNow} from '@/growth/fixtures.test-support';
-import {matchPath} from '@/localization/interface';
+import {CORE_GEOS,geoProfile,type CoreGeo} from '@/config/geo';
+import {languageTags,matchPath} from '@/localization/interface';
 import type {DatabaseClient} from '@/database/client';
 
-function candidates(){return Array.from({length:8},(_,i)=>{
+function candidates(geo:CoreGeo='MX'){const locale=geoProfile(geo).locale as 'mx'|'co'|'pe';return Array.from({length:8},(_,i)=>{
   const signals=testSignals({fixtureId:`00000000-0000-4000-8000-00000000000${i}`,publicId:`111111111111111${i}`});
-  const destinationUrl='https://livasports.com'+matchPath('br',signals.publicId,signals.home.name,signals.away.name);
-  return {signals,destinationUrl,score:{total:80,tier:'A'},row:{has_experiment:true},evidence:{brazil:true,impressions:30,clicks:1,relatedImpressions:0,queryImpressions:0,
+  const destinationUrl='https://livasports.com'+matchPath(locale,signals.publicId,signals.home.name,signals.away.name);
+  return {geo,locale,signals,destinationUrl,score:{total:80,tier:'A'},row:{has_experiment:true},evidence:{geo,impressions:30,clicks:1,relatedImpressions:0,queryImpressions:0,
     uniqueSignals:['fixture','venue','form'],fresh:true,shortlisted:true,inboundSources:0,clusterBoost:0}};
 });}
 function database(publishedToday=0){
-  const query=vi.fn(async(sql:string)=>({rows:sql.includes('SELECT count(*)')?[{n:sql.includes('FROM seo_autopilot_pages')?publishedToday:0}]:[]}));
+  const query=vi.fn(async(sql:string)=>({rows:sql.includes('SELECT count(*)')?[{n:sql.includes('FROM seo_all_pages')?publishedToday:0}]:[]}));
   const db={query,transaction:async<T>(fn:(tx:unknown)=>Promise<T>)=>fn({query}),close:async()=>undefined};
   return {db:db as unknown as DatabaseClient,query};
 }
 beforeEach(()=>{
-  vi.clearAllMocks();mocks.acquire.mockResolvedValue('run');mocks.inventory.mockResolvedValue(candidates());mocks.feedback.mockResolvedValue({mode:'ACTIVE',changed:0});mocks.sitemaps.mockResolvedValue([]);
+  vi.clearAllMocks();mocks.acquire.mockResolvedValue('run');mocks.inventory.mockImplementation(async(_db:unknown,_now:Date,geo:CoreGeo)=>candidates(geo));mocks.feedback.mockResolvedValue({mode:'ACTIVE',changed:0});mocks.sitemaps.mockResolvedValue([]);
   mocks.crawl.mockImplementation(async(url:string)=>({url,status:200,title:url,h1:'Fixture',canonical:url,indexFollow:true,primaryLength:900,structuredDataValid:true,
-    alternates:[{lang:'pt-BR',href:url}],links:candidates().map(c=>c.destinationUrl),problems:[]}));
+    alternates:[{lang:languageTags[url.split('/')[3] as 'mx'|'co'|'pe'],href:url}],links:CORE_GEOS.flatMap(geo=>candidates(geo).map(c=>c.destinationUrl)),problems:[]}));
 });
 describe('bounded autonomous execution',()=>{
   it('starts the sitemap lease after elapsed SEO processing, with only the remaining runtime budget',async()=>{
@@ -49,13 +50,27 @@ describe('bounded autonomous execution',()=>{
     const {db,query}=database();const r=await runSeoAutopilot(db,{now:testNow,maintainSitemaps:false});
     if(!('published' in r))throw Error('EXPECTED_COMPLETED_RUN');
     expect(r.state).toBe('SUCCEEDED');expect(r.published).toBe(5);expect(r.providerRequests).toBe(0);
-    expect(r.outcomes?.filter(o=>o.reasons.includes('DAILY_PUBLICATION_CAP'))).toHaveLength(3);
-    expect(mocks.record).toHaveBeenCalledTimes(8);
-    expect(query.mock.calls.filter(([sql])=>/^(INSERT|UPDATE|DELETE)/.test(sql)).every(([sql])=>sql.includes('seo_autopilot_'))).toBe(true);
+    expect(r.outcomes?.filter(o=>o.reasons.includes('DAILY_PUBLICATION_CAP'))).toHaveLength(7);
+    expect(mocks.record).toHaveBeenCalledTimes(12);
+    expect(query.mock.calls.filter(([sql])=>/^(INSERT|UPDATE|DELETE)/.test(sql)).every(([sql])=>/^(INSERT INTO|UPDATE) (seo_geo_pages|seo_autopilot_runs|seo_autopilot_technical)\b/.test(sql))).toBe(true);
+    expect(query.mock.calls.some(([sql])=>/^(INSERT INTO|UPDATE|DELETE FROM) (seo_autopilot_pages|seo_all_pages)\b/.test(sql))).toBe(false);
   });
   it('persisted daily counts protect against retries creating more pages',async()=>{const {db}=database(5);const r=await runSeoAutopilot(db,{now:testNow,maintainSitemaps:false});expect('published' in r?r.published:null).toBe(0);});
+  it('fairly allocates the existing cap across independent country URL identities',async()=>{
+    const {db,query}=database();const r=await runSeoAutopilot(db,{now:testNow,maintainSitemaps:false});
+    if(!('outcomes' in r))throw Error('Expected run');
+    expect(r.outcomes?.filter(o=>o.state==='PUBLISHED').map(o=>new URL(o.url).pathname.split('/')[1])).toEqual(['mx','co','pe','mx','co']);
+    expect(mocks.inventory.mock.calls.map(c=>c[2])).toEqual(['MX','CO','PE']);
+    const writes=query.mock.calls.filter(([q])=>q.startsWith('INSERT INTO seo_geo_pages'));
+    expect(writes).toHaveLength(12);expect(writes.every(([q])=>q.includes('ON CONFLICT(fixture_id,locale)'))).toBe(true);
+  });
+  it('does not waste evaluation slots when one country has insufficient inventory',async()=>{
+    mocks.inventory.mockImplementation(async(_db:unknown,_now:Date,geo:CoreGeo)=>geo==='MX'?candidates(geo):[]);
+    const r=await runSeoAutopilot(database().db,{now:testNow,maintainSitemaps:false});
+    expect('evaluated' in r?r.evaluated:null).toBe(8);
+  });
   it('does not start a second overlapping worker',async()=>{mocks.acquire.mockResolvedValue(null);expect((await runSeoAutopilot(database().db)).state).toBe('ALREADY_RUNNING');expect(mocks.crawl).not.toHaveBeenCalled();});
   it('never publishes on a failed HTML request',async()=>{mocks.crawl.mockRejectedValue(Error('network'));const r=await runSeoAutopilot(database().db,{now:testNow,maintainSitemaps:false});expect('published' in r?r.published:null).toBe(0);});
-  it('deduplicates shared team/competition crawls',async()=>{await runSeoAutopilot(database().db,{now:testNow,maintainSitemaps:false});const urls=mocks.crawl.mock.calls.map(c=>c[0]);expect(new Set(urls).size).toBe(urls.length);expect(urls.length).toBe(11);});
+  it('deduplicates shared team/competition crawls',async()=>{await runSeoAutopilot(database().db,{now:testNow,maintainSitemaps:false});const urls=mocks.crawl.mock.calls.map(c=>c[0]);expect(new Set(urls).size).toBe(urls.length);expect(urls.length).toBe(21);});
   it('records a bounded failure without echoing thrown credentials or raw errors',async()=>{mocks.inventory.mockRejectedValue(Error('private error text'));const r=await runSeoAutopilot(database().db);expect(r.state).toBe('FAILED');expect(JSON.stringify(r)).not.toContain('private error text');});
 });

@@ -63,10 +63,10 @@ export function canonicalSelection(value:unknown,strict=false):CanonicalSelectio
 export function parseResolutionRequest(value:unknown):{locale:SiteLocale;selections:CanonicalSelection[]}|null {
   if(!value||typeof value!=='object'||Array.isArray(value))return null;
   const v=value as Record<string,unknown>;
-  if(Object.keys(v).some(k=>!['locale','selections'].includes(k))||(v.locale!=='br'&&v.locale!=='mx')||!Array.isArray(v.selections)||v.selections.length>SLIP_LIMIT)return null;
+  if(Object.keys(v).some(k=>!['locale','selections'].includes(k))||!['br','mx','co','pe'].includes(String(v.locale))||!Array.isArray(v.selections)||v.selections.length>SLIP_LIMIT)return null;
   const selections=v.selections.map(s=>canonicalSelection(s,true));
   if(selections.some(s=>s===null))return null;
   const valid=selections as CanonicalSelection[];
   if(new Set(valid.map(selectionKey)).size!==valid.length||new Set(valid.map(marketKey)).size!==valid.length)return null;
-  return {locale:v.locale,selections:valid};
+  return {locale:v.locale as SiteLocale,selections:valid};
 }

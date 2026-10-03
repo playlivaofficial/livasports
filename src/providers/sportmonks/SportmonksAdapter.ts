@@ -93,7 +93,8 @@ export class SportmonksAdapter implements SportsDataProvider, FootballIngestionP
   }
 
   async discoverCompetitions(targets: readonly FootballCompetitionTarget[]): Promise<CompetitionCatalog> {
-    const enabled = targets.filter(target => target.enabled).sort((a, b) => a.priority.br - b.priority.br);
+    // Ingestion order is not acquisition ranking and must not inherit BR priority.
+    const enabled = targets.filter(target => target.enabled).sort((a, b) => a.slug.localeCompare(b.slug));
     const countries = new Map<string, Country>(Object.values(PRODUCT_COUNTRIES).map(country => [country.id, country]));
     const competitions: CompetitionCatalog['competitions'] = [];
     const coverage = classifyAccessibleCoverage(enabled, await this.gateway.competitions());
@@ -107,6 +108,9 @@ export class SportmonksAdapter implements SportsDataProvider, FootballIngestionP
       competition.countryId = country?.id ?? null;
       await this.mappings.bind(ProviderCode.SPORTMONKS, ProviderEntityType.COMPETITION, String(raw.id), competition.id, {
         targetKey: result.target.key, providerName: raw.name, teamType: result.target.teamType, seasonStrategy: result.target.seasonStrategy,
+        verifiedSportmonksId: result.target.sportmonksId ?? null,
+        acquisitionEligible: result.target.approvedInventory === true && !result.target.parentSlug,
+        parentSlug: result.target.parentSlug ?? null,
       });
       competitions.push({ targetKey: result.target.key, competition, target: result.target,
         coverageStatus: CompetitionCoverageStatus.SUPPORTED, providerName: raw.name });

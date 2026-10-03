@@ -4,13 +4,14 @@ import {safeAffiliateDestination} from '@/odds/affiliate';
 import {embedDimensions,safeBetssonEmbed} from './embed-policy';
 import {placements,type Campaign,type CommercialContext,type Creative,type PageType,type TrafficClass} from './types';
 import {isVisibleBookmaker,bookmakerConfig} from '@/odds/registry';
+import type {SiteLocale} from '@/config/i18n';
 
 export function pageType(path:string):PageType|null {
-  if(/^\/(br|mx)(\/(futebol|futbol|ao-vivo|en-vivo|jogos\/hoje|partidos\/hoy))?$/.test(path))return 'HOME';
-  if(/^\/br\/jogo\/[a-z0-9-]+-[a-f0-9]{16}$/.test(path)||/^\/mx\/partido\/[a-z0-9-]+-[a-f0-9]{16}$/.test(path)||/^\/en\/match\/[a-z0-9-]+-[a-f0-9]{16}$/.test(path))return 'MATCH';
-  if(/^\/br\/time\/[a-z0-9-]+-[a-f0-9]{16}$/.test(path)||/^\/mx\/equipo\/[a-z0-9-]+-[a-f0-9]{16}$/.test(path))return 'TEAM';
-  if(/^\/br\/jogador\/[a-z0-9-]+-[a-f0-9]{16}$/.test(path)||/^\/mx\/jugador\/[a-z0-9-]+-[a-f0-9]{16}$/.test(path))return 'PLAYER';
-  if(/^\/(br|mx)\/(competicoes|competiciones)\/[a-z0-9-]+$/.test(path))return 'COMPETITION';
+  if(/^\/(br|mx|co|pe)(\/(futebol|futbol|ao-vivo|en-vivo|jogos\/hoje|partidos\/hoy))?$/.test(path))return 'HOME';
+  if(/^\/br\/jogo\/[a-z0-9-]+-[a-f0-9]{16}$/.test(path)||/^\/(mx|co|pe)\/partido\/[a-z0-9-]+-[a-f0-9]{16}$/.test(path)||/^\/en\/match\/[a-z0-9-]+-[a-f0-9]{16}$/.test(path))return 'MATCH';
+  if(/^\/br\/time\/[a-z0-9-]+-[a-f0-9]{16}$/.test(path)||/^\/(mx|co|pe)\/equipo\/[a-z0-9-]+-[a-f0-9]{16}$/.test(path))return 'TEAM';
+  if(/^\/br\/jogador\/[a-z0-9-]+-[a-f0-9]{16}$/.test(path)||/^\/(mx|co|pe)\/jugador\/[a-z0-9-]+-[a-f0-9]{16}$/.test(path))return 'PLAYER';
+  if(/^\/(br|mx|co|pe)\/(competicoes|competiciones)\/[a-z0-9-]+$/.test(path))return 'COMPETITION';
   return null;
 }
 export function isSlipPlacement(p:string){return p==='slip_bookmaker_comparison'||p==='match_slip_comparison';}
@@ -18,7 +19,7 @@ export function isSponsorPlacement(p:string){return !isSlipPlacement(p)&&p!=='ma
 export function parseContext(value:unknown):CommercialContext|null {
   if(!value||typeof value!=='object'||Array.isArray(value))return null;const v=value as Record<string,unknown>;
   if(Object.keys(v).some(k=>!['locale','pagePath','placement','bookmaker','fixturePublicId','market','selections','competitionSlug','slipId'].includes(k))||
-    (v.locale!=='br'&&v.locale!=='mx')||typeof v.pagePath!=='string'||v.pagePath.length>240||
+    !['br','mx','co','pe'].includes(String(v.locale))||typeof v.pagePath!=='string'||v.pagePath.length>240||
     !placements.includes(v.placement as never)||(v.bookmaker!==undefined&&!isVisibleBookmaker(String(v.bookmaker))))return null;
   const type=pageType(v.pagePath),placement=String(v.placement);if(!type)return null;
   const pathOk=v.pagePath.startsWith('/'+v.locale)||(placement==='match_odds_table'&&/^\/en\/match\/[a-z0-9-]+-[a-f0-9]{16}$/.test(v.pagePath));
@@ -36,12 +37,12 @@ export function parseContext(value:unknown):CommercialContext|null {
   return v as unknown as CommercialContext;
 }
 export function campaignDestination(c:Campaign,context:CommercialContext,now:number):string|null {
-  if(!isVisibleBookmaker(c.bookmaker)||!bookmakerConfig(c.bookmaker)?.countries.some(country=>country===context.locale.toUpperCase()))return null;
+  if(!isVisibleBookmaker(c.bookmaker)||!c.operatorDomains&&!bookmakerConfig(c.bookmaker)?.countries.some(country=>country===context.locale.toUpperCase()))return null;
   if(!c.enabled||!c.approved||!c.affiliateApproved||!c.geoEligible||c.locale!==context.locale||context.bookmaker&&c.bookmaker!==context.bookmaker||
     c.bookmaker==='betano.bet.br'&&context.locale!=='br'||!c.placements.includes(context.placement)||
     !['HOMEPAGE','SPORTSBOOK'].includes(c.destinationType)||!Number.isFinite(Date.parse(c.startsAt))||!Number.isFinite(Date.parse(c.endsAt))||
     now<Date.parse(c.startsAt)||now>=Date.parse(c.endsAt)||!c.operatorCampaignId.trim())return null;
-  const destination=safeAffiliateDestination(c.bookmaker,c.locale,c.destination);if(!destination)return null;
+  const destination=safeAffiliateDestination(c.bookmaker,c.locale,c.destination,c.operatorDomains);if(!destination)return null;
   return c.domains.includes(new URL(destination).hostname)?destination:null;
 }
 export function validCreative(c:Creative,context:CommercialContext,now:number,campaignId?:string){
@@ -51,7 +52,7 @@ export function validCreative(c:Creative,context:CommercialContext,now:number,ca
       (!c.delivery||c.delivery==='IMAGE')&&!c.embedSourceUrl&&typeof c.imageUrl==='string'&&/^\/sponsors\/[a-zA-Z0-9/_-]+\.(png|webp|jpg|jpeg|avif)$/.test(c.imageUrl))&&c.imageAlt.trim().length>0&&c.imageAlt.length<=300&&
     Number.isInteger(c.width)&&c.width>=100&&c.width<=2400&&Number.isInteger(c.height)&&c.height>=40&&c.height<=1600;
 }
-export function geoAllowed(request:Request,locale:'br'|'mx',env:Readonly<Record<string,string|undefined>>=process.env){
+export function geoAllowed(request:Request,locale:SiteLocale,env:Readonly<Record<string,string|undefined>>=process.env){
   const country=requestCommercialGeo(request.headers,env);
   return country===locale.toUpperCase();
 }

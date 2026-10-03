@@ -1,4 +1,6 @@
 'use client';
+import {isSpanishLocale} from '@/config/geo';
+
 import {usePathname,useRouter,useSearchParams} from 'next/navigation';
 import Link from 'next/link';
 import type {SquadContext} from '@/profiles/types';
@@ -15,8 +17,8 @@ export function SquadBrowser({locale,contexts}:{locale:InterfaceLocale;contexts:
     const next=new URLSearchParams(query.toString());next.set('squadSeason',season);
     router.push(`${pathname}?${next}#squad`,{scroll:false});
   };
-  const label=locale==='br'?'Elenco por temporada':locale==='mx'?'Plantilla por temporada':'Squad by season';
-  const positions=locale==='br'?['Goleiros','Defensores','Meio-campistas','Atacantes','Outros']:locale==='mx'?['Porteros','Defensas','Mediocampistas','Delanteros','Otros']:['Goalkeepers','Defenders','Midfielders','Forwards','Other'];
+  const label=locale==='br'?'Elenco por temporada':isSpanishLocale(locale)?'Plantilla por temporada':'Squad by season';
+  const positions=locale==='br'?['Goleiros','Defensores','Meio-campistas','Atacantes','Outros']:isSpanishLocale(locale)?['Porteros','Defensas','Mediocampistas','Delanteros','Otros']:['Goalkeepers','Defenders','Midfielders','Forwards','Other'];
   if(!selected)return null;
   return <><label className="sports-season">{label}<select value={selected.seasonId} onChange={e=>selectSeason(e.target.value)}>{contexts.map(c=><option key={c.seasonId} value={c.seasonId}>{c.competition} · {c.season}</option>)}</select></label><div className="squad-groups">{positions.map((position,i)=>{
     const players=selected.players.filter(p=>i<4?p.positionId===24+i:![24,25,26,27].includes(p.positionId??0));

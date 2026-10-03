@@ -23,6 +23,9 @@ export interface NormalizedOddsQuote {
   providerUpdatedAt: string | null; observedAt: string; sourceDomain: string | null;
 }
 export interface OddsSnapshot {
+  /** Present only for a verified country-specific feed. Legacy snapshots retain their original identity. */
+  geoFeeds?:import('./operator-feeds').VerifiedOperatorFeed[];
+  providerBookmakerId?:string;
   offerFlags?:Array<{providerFixtureId:string;market:string;outcome:string;bookmakerActive:boolean|null;bookmakerSuspended:boolean|null;marketActive:boolean|null;priceActive:boolean|null}>;
   diagnostics?:Array<{providerFixtureId:string;tournamentId:string;market:string;outcome:string;reason:string;evidence:Record<string,unknown>}>;
   cadenceScale?: number;
@@ -44,7 +47,11 @@ export interface ReadOddsQuote extends NormalizedOddsQuote {
   geoEligible: boolean;
   persistedAt: string; lastSuccessfulRefreshAt: string; providerKickoff: string;
 }
-export interface OddsReadSnapshot { quotes: ReadOddsQuote[]; kickoff: string; fixtureStatus: string; approvedNativeProviders?:readonly string[]; }
+export interface OddsReadSnapshot { quotes: ReadOddsQuote[]; kickoff: string; fixtureStatus: string; approvedNativeProviders?:readonly string[];
+  /** Server-selected target pool; an explicit empty array must never expand to legacy BR cards. */
+  eligibleBookmakers?:readonly {id:string;name:string;priority:number}[];
+  insuranceEnabled?:boolean;
+}
 export interface OddsCell {
   outcome: OddsOutcome; decimalOdds: string | null; state: OddsStatus | 'UNAVAILABLE'; best: boolean; expiresAt: string | null;
   priceKind: 'REAL' | 'PROXY' | null;

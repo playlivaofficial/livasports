@@ -1,6 +1,6 @@
 import {describe,it,expect,vi} from 'vitest';
 import {SportsRepository} from './repository';
-import {FOOTBALL_COMPETITION_TARGETS} from '@/config/footballCompetitions';
+import {CANONICAL_COMPETITION_TARGETS,isAcquisitionCompetition} from '@/config/footballCompetitions';
 vi.mock('server-only',()=>({}));
 const season='01234567-89ab-cdef-0123-456789abcdef';
 function fixtureDb(seasons:Array<Record<string,unknown>>=[{id:season,name:'2026/2027',is_current:true,fixtures:45}]){
@@ -54,10 +54,12 @@ describe('sports database read model',()=>{
     for(const [sql,args] of (db.query.mock.calls as unknown as Array<[string,string[]]>).slice(3)){expect(sql).not.toContain('OR 1=1');expect(args[0]).toContain('a\\%');}
   });
   it('builds competition nav counts from the football window without listing fixtures',async()=>{
-    const rows=FOOTBALL_COMPETITION_TARGETS.map(target=>({slug:target.slug,canonical_name:target.canonicalName,display_name_pt_br:target.canonicalName,display_name_es_mx:target.canonicalName,competition_group:target.group,region:target.region,country_code:target.countryCode,country_name:target.countryNames[0]??null,n:target.slug==='premier-league'?13:target.slug==='liga-mx'?2:0}));
+    const rows=CANONICAL_COMPETITION_TARGETS.map(target=>({slug:target.slug,canonical_name:target.canonicalName,display_name_pt_br:target.canonicalName,display_name_es_mx:target.canonicalName,competition_group:target.group,region:target.region,country_code:target.countryCode,country_name:target.countryNames[0]??null,n:target.slug==='premier-league'?13:target.slug==='liga-mx'?2:0}));
     const db={query:vi.fn(async()=>({rows}))};
     const items=await new SportsRepository(db as never).boardNav('br','America/Sao_Paulo');
-    expect(items).toHaveLength(34);
+    expect(items).toHaveLength(CANONICAL_COMPETITION_TARGETS.filter(t=>isAcquisitionCompetition(t.slug)).length);
+    expect(items.some(i=>i.slug==='saudi-pro-league-playoffs')).toBe(false);
+    expect(items.some(i=>i.slug==='carioca-serie-a')).toBe(false);
     expect(items.find(item=>item.slug==='premier-league')).toMatchObject({name:'Premier League',group:'EUROPE',count:13});
     expect(items.find(item=>item.slug==='liga-mx')).toMatchObject({name:'Liga MX',group:'AMERICAS',count:2});
     expect(items.find(item=>item.slug==='copa-libertadores')?.count).toBe(0);

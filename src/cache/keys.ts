@@ -6,7 +6,7 @@ const clean = (value: string) => value.trim().toLowerCase().replace(/[^a-z0-9:_-
 export const cacheKeys = {
   competitionList: (locale: SiteLocale) => `${prefix}:competition:list:${locale}`,
   teams: (competitionId: string) => `${prefix}:teams:competition:${clean(competitionId)}`,
-  routeData: (locale: SiteLocale, page: PageKey, localDate: string) => `${prefix}:route:v3:${locale}:${page}:${localDate}`,
+  routeData: (locale: SiteLocale, page: PageKey, localDate: string) => `${prefix}:route:v4:${locale}:${page}:${localDate}`,
   fixturesToday: (locale: SiteLocale) => `${prefix}:fixtures:today:${locale}`,
   fixturesLive: (locale: SiteLocale) => `${prefix}:fixtures:live:${locale}`,
   fixturesCompetition: (competitionId: string) => `${prefix}:fixtures:competition:${clean(competitionId)}`,
@@ -32,6 +32,8 @@ export function fixtureChangeTags(fixtureIds: readonly string[]): string[] {
   return [...new Set([
     cacheKeys.fixturesToday('br'), cacheKeys.fixturesLive('br'), `${prefix}:fixtures:br`,
     cacheKeys.fixturesToday('mx'), cacheKeys.fixturesLive('mx'), `${prefix}:fixtures:mx`,
+    cacheKeys.fixturesToday('co'), cacheKeys.fixturesLive('co'), `${prefix}:fixtures:co`,
+    cacheKeys.fixturesToday('pe'), cacheKeys.fixturesLive('pe'), `${prefix}:fixtures:pe`,
     ...fixtureIds.map(cacheKeys.fixture),
   ])];
 }

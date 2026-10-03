@@ -2,11 +2,12 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import type {SiteLocale} from '@/config/i18n';
 
 const liveStates=new Set(['LIVE','HALFTIME']);
 const terminalStates=new Set(['FINISHED','CANCELLED','ABANDONED']);
 
-export function LiveRefreshBoundary({publicId,locale,status,snapshotAt}:{publicId:string;locale:'br'|'mx';status:string;snapshotAt:string|null}){
+export function LiveRefreshBoundary({publicId,locale,status,snapshotAt}:{publicId:string;locale:SiteLocale;status:string;snapshotAt:string|null}){
   const router=useRouter();
   useEffect(()=>{
     if(!liveStates.has(status)) return;

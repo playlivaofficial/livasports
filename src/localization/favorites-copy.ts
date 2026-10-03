@@ -1,14 +1,17 @@
+import {withSpanishLocales} from './spanish';
 import type {InterfaceLocale} from './interface';
 
 export const favoritesRoutes={
   br:{myMatches:'/br/meus-jogos'},
   mx:{myMatches:'/mx/mis-partidos'},
+  co:{myMatches:'/co/mis-partidos'},
+  pe:{myMatches:'/pe/mis-partidos'},
   en:{myMatches:'/en/my-matches'},
 } as const;
 
 export type FavoritesRouteKey=keyof typeof favoritesRoutes.br;
 
-export const favoritesCopy={
+export const favoritesCopy=withSpanishLocales({
   br:{
     nav:'Meus jogos',title:'Meus jogos',lead:'Jogos dos seus times, competições e partidas favoritas.',
     add:'Adicionar aos favoritos',remove:'Remover dos favoritos',saving:'Salvando favorito',loading:'Carregando seus jogos',error:'Não foi possível atualizar. Tente de novo.',
@@ -39,7 +42,7 @@ export const favoritesCopy={
     accountTitle:'Favorites',accountTeams:'Teams',accountCompetitions:'Competitions',accountMatches:'Matches',
     accountLink:'Open My Matches',header:'My Matches',
   },
-} as const satisfies Record<InterfaceLocale,Record<string,string>>;
+} as const);
 
 export function favoritesPath(locale:InterfaceLocale,key:FavoritesRouteKey='myMatches'):string {
   return favoritesRoutes[locale][key];

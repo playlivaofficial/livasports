@@ -8,5 +8,7 @@ describe('official standing metadata',()=>{
   it('does not invent qualification rules from rank or unknown provider IDs',()=>{
     expect(standingRule('br',null)).toBeNull();expect(standingRule('en',99999)).toBeNull();
     expect(standingRule('mx',182)).toEqual({label:'Descenso',tone:'relegation'});
+    expect(standingRule('co',182)).toEqual({label:'Descenso',tone:'relegation'});
+    expect(standingRule('pe',182)).toEqual({label:'Descenso',tone:'relegation'});
   });
 });

@@ -1,3 +1,4 @@
+import {withSpanishLocales} from '@/localization/spanish';
 import {primaryProfileStatistics} from '@/profiles/statistics';
 import {unlinkedTeamLabel} from '@/sports/unlinked-competition';
 import {requestTimeZone} from '@/localization/time-zone-server';
@@ -22,7 +23,7 @@ import { FavoriteButton } from '@/favorites/FavoriteButton';
 import {GrowthProminence} from '@/growth/GrowthProminence';
 import {SeoPriorityLinks} from '@/seo-autopilot/public';
 
-const copy = {
+const copy = withSpanishLocales({
   br: {
     back: 'Voltar ao futebol', overview: 'Visão geral', matches: 'Partidas', standings: 'Classificação', squad: 'Elenco', statistics: 'Estatísticas',
     next: 'Próximo jogo', recent: 'Últimos resultados', competitions: 'Competições atuais', founded: 'Fundado em', venue: 'Estádio', coach: 'Técnico',
@@ -47,16 +48,16 @@ const copy = {
     starter: 'Titular', substitute: 'Suplente', opponent: 'Rival', unavailable: 'No informado', sponsor: 'Publicidad',
     minutes: 'min', shots: 'tiros', onTarget: 'a puerta', saves: 'atajadas', rating: 'nota',
   },
-} as const;
+} as const);
 
-const metricLabels: Record<SiteLocale, Record<string, string>> = {
+const metricLabels: Record<SiteLocale, Record<string, string>> = withSpanishLocales({
   br: { WIN:'Vitórias',DRAW:'Empates',LOST:'Derrotas',GOALS:'Gols marcados',GOALS_CONCEDED:'Gols sofridos',CLEANSHEET:'Jogos sem sofrer gol',
     YELLOWCARDS:'Cartões amarelos',REDCARDS:'Cartões vermelhos',CORNERS:'Escanteios',BALL_POSSESSION:'Posse média',APPEARANCES:'Jogos',LINEUPS:'Titularidades',
     MINUTES_PLAYED:'Minutos',ASSISTS:'Assistências',SHOTS:'Finalizações',SHOTS_ON_TARGET:'Finalizações no gol',SAVES:'Defesas',RATING:'Nota média' },
   mx: { WIN:'Victorias',DRAW:'Empates',LOST:'Derrotas',GOALS:'Goles anotados',GOALS_CONCEDED:'Goles recibidos',CLEANSHEET:'Porterías a cero',
     YELLOWCARDS:'Tarjetas amarillas',REDCARDS:'Tarjetas rojas',CORNERS:'Tiros de esquina',BALL_POSSESSION:'Posesión media',APPEARANCES:'Partidos',LINEUPS:'Titularidades',
     MINUTES_PLAYED:'Minutos',ASSISTS:'Asistencias',SHOTS:'Tiros',SHOTS_ON_TARGET:'Tiros a puerta',SAVES:'Atajadas',RATING:'Calificación media' },
-};
+});
 
 function initials(name: string) {
   const parts = name.trim().split(/\s+/); return (parts.length > 1 ? [parts[0], parts.at(-1)] : parts).map(item => item?.[0] ?? '').join('').toUpperCase();

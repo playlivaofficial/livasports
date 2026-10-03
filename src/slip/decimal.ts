@@ -1,4 +1,5 @@
 // Fixed decimal strings + BigInt: no per-quote rounding or floating point product.
+import {geoForLocale,geoProfile,type GeoLocale} from '@/config/geo';
 export const DEFAULT_STAKE='10';
 export const MAX_STAKE=1_000_000;
 
@@ -42,13 +43,13 @@ function fromCents(cents:bigint):string {
   return `${sign}${abs/100n}.${String(abs%100n).padStart(2,'0')}`;
 }
 
-export function formatSlipOdds(value:string,locale:'br'|'mx'|'en'):string|null {
+export function formatSlipOdds(value:string,locale:GeoLocale):string|null {
   const cents=roundHalfUpCents(value);if(cents===null)return null;
-  const language=locale==='br'?'pt-BR':locale==='mx'?'es-MX':'en-GB';
-  const separator=locale==='br'?',':'.';
+  const language=geoProfile(geoForLocale(locale)).languageTag;
+  const separator=new Intl.NumberFormat(language).formatToParts(1.1).find(p=>p.type==='decimal')?.value??'.';
   return `${new Intl.NumberFormat(language,{maximumFractionDigits:0}).format(cents/100n)}${separator}${String(cents%100n).padStart(2,'0')}`;
 }
-export function formatCombinedOdds(value:string,locale:'br'|'mx'|'en'):string {
+export function formatCombinedOdds(value:string,locale:GeoLocale):string {
   return formatSlipOdds(value,locale)??'';
 }
 
@@ -78,11 +79,13 @@ export function moneyDiff(value:string,best:string):string|null {
   return fromCents(left-right);
 }
 
-export function formatMoney(value:string,locale:'br'|'mx'|'en'):string|null {
+export function formatMoney(value:string,locale:GeoLocale):string|null {
   const cents=roundHalfUpCents(value);if(cents===null)return null;
   const negative=cents<0n;const abs=negative?-cents:cents;
-  const language=locale==='br'?'pt-BR':locale==='mx'?'es-MX':'en-GB';
-  const separator=locale==='br'?',':'.';
+  const profile=geoProfile(geoForLocale(locale)),language=profile.languageTag;
+  const separator=new Intl.NumberFormat(language).formatToParts(1.1).find(p=>p.type==='decimal')?.value??'.';
   const amount=`${new Intl.NumberFormat(language,{maximumFractionDigits:0}).format(abs/100n)}${separator}${String(abs%100n).padStart(2,'0')}`;
-  return `${negative?'- ':''}${locale==='mx'?'MX$':'R$'} ${amount}`;
+  const currency=profile.currency;
+  const symbol=currency==='BRL'?'R$':currency==='MXN'?'MX$':currency==='COP'?'COP$':currency==='PEN'?'S/':currency??'';
+  return `${negative?'- ':''}${symbol?symbol+' ':''}${amount}`;
 }

@@ -11,5 +11,5 @@ export const HOME_WINDOW_DAYS=7;
 export function weekHomeSections(sections:readonly CompetitionSectionView[],window:{from:number;to:number},now:number){
   return sections.map(section=>({...section,fixtures:section.fixtures.filter(f=>{const t=Date.parse(f.kickoff);return t>=window.from&&t<window.to;}).sort((a,b)=>boardSort(a,b,now))}))
     .filter(section=>section.fixtures.length)
-    .sort((a,b)=>Math.min(...a.fixtures.map(f=>Date.parse(f.kickoff)))-Math.min(...b.fixtures.map(f=>Date.parse(f.kickoff)))||a.competition.localeCompare(b.competition));
+    .sort((a,b)=>a.priority-b.priority||Math.min(...a.fixtures.map(f=>Date.parse(f.kickoff)))-Math.min(...b.fixtures.map(f=>Date.parse(f.kickoff)))||a.competition.localeCompare(b.competition));
 }

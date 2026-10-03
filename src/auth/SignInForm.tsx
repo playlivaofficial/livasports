@@ -12,7 +12,7 @@ export function SignInForm({locale,google,email,callbackUrl}:{locale:InterfaceLo
   return <div className="auth-methods">
     {google?<form action={startGoogleSignIn} onSubmit={()=>track('sign_in_started',{},{dedupeKey:'google',props:{method:'google'}})}><input type="hidden" name="locale" value={locale}/><input type="hidden" name="callbackUrl" value={callbackUrl}/>
       <button type="submit" className="auth-google">{text.google}</button></form>:null}
-    {google&&email?<p className="auth-or">{locale==='en'?'or':locale==='mx'?'o':'ou'}</p>:null}
+    {google&&email?<p className="auth-or">{locale==='en'?'or':locale==='br'?'ou':'o'}</p>:null}
     {email?<form action={async formData=>{track('sign_in_started',{},{dedupeKey:'email',props:{method:'email'}});await requestMagicLink(formData);setSent(true);}} className="auth-email-form">
       <p className="auth-method-label">{text.email}</p>
       <input type="hidden" name="locale" value={locale}/><input type="hidden" name="callbackUrl" value={callbackUrl}/>

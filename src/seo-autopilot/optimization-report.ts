@@ -8,7 +8,7 @@ export async function readOptimizationReport(db:QueryExecutor,now=new Date()){
       db.query('SELECT * FROM seo_growth_actions ORDER BY id DESC LIMIT 60'),
       db.query('SELECT * FROM seo_growth_experiments ORDER BY started_at DESC LIMIT 30'),
       db.query('SELECT * FROM seo_growth_observations ORDER BY measured_at DESC LIMIT 90'),
-      db.query('SELECT *,evaluated_week::text AS evaluated_week FROM seo_growth_cluster_weights ORDER BY adjustment DESC,cluster'),
+      db.query('SELECT *,evaluated_week::text AS evaluated_week FROM seo_all_cluster_weights ORDER BY adjustment DESC,cluster'),
       db.query(`SELECT count(*)::int AS sessions,count(*) FILTER(WHERE s.engaged)::int AS engaged,
         count(*) FILTER(WHERE EXISTS(SELECT 1 FROM analytics_events e WHERE e.session_id=s.session_id AND e.traffic_class='HUMAN' AND e.event_name='bookmaker_comparison_viewed'))::int AS comparisons,
         count(*) FILTER(WHERE EXISTS(SELECT 1 FROM analytics_events e WHERE e.session_id=s.session_id AND e.traffic_class='HUMAN' AND e.event_name='outbound_redirect_completed' AND e.source='server'))::int AS outbounds

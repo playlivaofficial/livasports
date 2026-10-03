@@ -17,7 +17,7 @@ describe('Traffic Engine V1.1 strategy',()=>{
   it('keeps player-led templates dormant when evidence exists but commercial media rights do not',()=>{
     const home=player('home'),away=player('away');home.evidenceScore=playerEvidenceScore(home.statistics);away.evidenceScore=playerEvidenceScore(away.statistics);
     const row={...rankedFixture({away:{slug:'palmeiras',name:'Palmeiras',publicId:'b'.repeat(16),imageUrl:null}}),storySignals:{players:{home:[home],away:[away]},form:{home:null,away:null}}};
-    const chosen=selectedPlayers(row),story=selectStory(row,chosen,{rank:2,topSocial:[row]});expect(chosen).toHaveLength(2);expect(story).toMatchObject({angle:'TABLE_PRESSURE',template:'MATCH_CLASH'});
+    const chosen=selectedPlayers(row),story=selectStory(row,chosen,{rank:2,topSocial:[row]});expect(chosen).toHaveLength(2);expect(story).toMatchObject({angle:'WEEKEND_WATCHLIST',template:'MATCH_CLASH'});
     expect(chosen[0].media).toMatchObject({licenseStatus:'UNKNOWN',commercialEligible:false,assetUrl:null});
     const pack=generateV11ContentPack(row,2,[row]),assets=pack.platforms?.TIKTOK.scenes.flatMap(scene=>scene.assets)??[];
     expect(pack.players).toHaveLength(2);expect(pack.readiness?.fallbackApplied).toBe(true);expect(assets.some(asset=>asset.kind==='PLAYER_IMAGE'||asset.kind==='PLAYER_SILHOUETTE')).toBe(false);

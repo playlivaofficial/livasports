@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FOOTBALL_COMPETITION_TARGETS, targetsForGeo } from '@/config/footballCompetitions';
+import { FOOTBALL_COMPETITION_TARGETS } from '@/config/footballCompetitions';
 import { CompetitionCoverageStatus, CompetitionType, TeamType } from '@/domain/enums';
 import type { SportmonksLeaguePayload, SportmonksSeasonPayload } from '@/providers/sportmonks/types';
 import { applyFixtureAvailability, classifyAccessibleCoverage, classifyMissingAccess, selectRelevantSeasons } from './coverage';
@@ -9,19 +9,16 @@ function league(id: number, name: string, countryName: string, iso2: string, sea
 }
 
 describe('M3.6 competition registry', () => {
-  it('contains exactly the approved 34 unique canonical targets', () => {
+  it('preserves the original 34 unique canonical targets for historical routes', () => {
     expect(FOOTBALL_COMPETITION_TARGETS).toHaveLength(34);
     expect(new Set(FOOTBALL_COMPETITION_TARGETS.map(target => target.slug)).size).toBe(34);
     expect(new Set(FOOTBALL_COMPETITION_TARGETS.map(target => target.key)).size).toBe(34);
   });
 
-  it('uses only supported competition types and deterministic GEO priorities', () => {
+  it('uses only supported competition types and retires inherited BR ranking weights', () => {
     const types = new Set(Object.values(CompetitionType));
     expect(FOOTBALL_COMPETITION_TARGETS.every(target => types.has(target.type))).toBe(true);
-    expect(targetsForGeo('BR')[0].slug).toBe('brasileirao-serie-a');
-    expect(targetsForGeo('MX')[0].slug).toBe('liga-mx');
-    expect(new Set(FOOTBALL_COMPETITION_TARGETS.map(target => target.priority.br)).size).toBe(34);
-    expect(new Set(FOOTBALL_COMPETITION_TARGETS.map(target => target.priority.mx)).size).toBe(34);
+    expect(new Set(FOOTBALL_COMPETITION_TARGETS.map(target => target.priority.br))).toEqual(new Set([100]));
   });
 
   it('excludes the deferred international package and keeps this registry club-only', () => {
@@ -35,7 +32,7 @@ describe('M3.6 competition registry', () => {
 
 describe('M3.6 Sportmonks coverage classification', () => {
   it('rejects ambiguous same-confidence provider matches', () => {
-    const target = FOOTBALL_COMPETITION_TARGETS.find(item => item.slug === 'premier-league')!;
+    const target = { ...FOOTBALL_COMPETITION_TARGETS.find(item => item.slug === 'premier-league')!, sportmonksId: undefined };
     const [result] = classifyAccessibleCoverage([target], [league(1, 'Premier League', 'England', 'GB'), league(2, 'Premier League', 'England', 'GB')]);
     expect(result.classification).toBe(CompetitionCoverageStatus.AMBIGUOUS_MAPPING);
     expect(result.providerCompetition).toBeNull();
@@ -50,9 +47,9 @@ describe('M3.6 Sportmonks coverage classification', () => {
   it('classifies a discoverable but inaccessible competition without fabricating support', () => {
     const target = FOOTBALL_COMPETITION_TARGETS.find(item => item.slug === 'liga-mx')!;
     const [missing] = classifyAccessibleCoverage([target], []);
-    const result = classifyMissingAccess(missing, [league(99, 'Liga MX', 'Mexico', 'MX')]);
+    const result = classifyMissingAccess(missing, [league(743, 'Liga MX', 'Mexico', 'MX')]);
     expect(result.classification).toBe(CompetitionCoverageStatus.NO_SUBSCRIPTION_ACCESS);
-    expect(result.providerCompetition?.id).toBe(99);
+    expect(result.providerCompetition?.id).toBe(743);
   });
 
   it('classifies checked supported competitions by fixture availability', () => {
@@ -77,7 +74,7 @@ describe('M3.6 Sportmonks coverage classification', () => {
       FOOTBALL_COMPETITION_TARGETS.find(item => item.slug === 'saudi-pro-league')!,
       FOOTBALL_COMPETITION_TARGETS.find(item => item.slug === 'saudi-pro-league-playoffs')!,
     ];
-    const shared = league(1, 'Pro League Play-offs', 'Saudi Arabia', 'SA');
+    const shared = league(1678, 'Pro League Play-offs', 'Saudi Arabia', 'SA');
     const results = classifyAccessibleCoverage(targets, [shared]);
     expect(results[0].classification).toBe(CompetitionCoverageStatus.NOT_FOUND);
     expect(results[1].classification).toBe(CompetitionCoverageStatus.SUPPORTED);

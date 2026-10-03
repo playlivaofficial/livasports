@@ -6,7 +6,7 @@ import {measurePage,type PageMeasurement} from './page-breakdowns';
 import {addSearchDays,firstFullSearchDay,OBSERVATION_DAYS,observationWindow,observationAssessment,descriptiveDelta} from './experiment-windows';
 
 export interface ExperimentRegistration {
-  key:string;page:string;locale:'br'|'mx'|'en';queryCluster:string;reason:string;
+  key:string;page:string;locale:'br'|'mx'|'co'|'pe'|'en';queryCluster:string;reason:string;
   oldTitle:string;oldDescription:string;newTitle:string;newDescription:string;
   baseline:Record<'7'|'14'|'28',PageMeasurement>;
 }

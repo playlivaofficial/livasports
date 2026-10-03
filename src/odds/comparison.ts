@@ -28,12 +28,14 @@ export function quoteState(quote:ReadOddsQuote,snapshot:OddsReadSnapshot,now:num
   return 'ACTIVE';
 }
 export function buildComparison(snapshot:OddsReadSnapshot,market:OddsMarket,now=Date.now(),actions:Record<string,string>={}):OddsComparison {
+  const targets=snapshot.eligibleBookmakers?.map(b=>({bookmaker:b.id,name:b.name}))??UNION_BOOKMAKERS;
+  const pool=new Set(targets.map(b=>b.bookmaker));
   const relevant=snapshot.quotes.filter(q=>q.geoEligible&&q.market===market&&(market==='TOTAL_GOALS'?q.line===2.5:q.line===null));
   const result:OddsComparison={market,line:market==='TOTAL_GOALS'?2.5:null,rows:[],observedAt:null,providerUpdatedAt:null,expiresAt:null,eligiblePrices:0};
   const closeTimes=[snapshot.kickoff,...relevant.map(q=>q.providerKickoff)].map(Date.parse).filter(Number.isFinite);
   result.closesAt=closeTimes.length?new Date(Math.min(...closeTimes)).toISOString():null;
-  if(!relevant.some(q=>UNION_BOOKMAKERS.some(book=>book.bookmaker===q.bookmaker)))return result;
-  const nativeRows:OddsBookmakerRow[]=UNION_BOOKMAKERS.map(({bookmaker,name})=>{
+  if(!relevant.some(q=>targets.some(book=>book.bookmaker===q.bookmaker)))return result;
+  const nativeRows:OddsBookmakerRow[]=targets.map(({bookmaker,name})=>{
     const prices=relevant.filter(q=>q.bookmaker===bookmaker);
     const selectedMarket=selectNativeMarketQuotes(prices,market,snapshot,now);
     const cells=SELECTIONS[market].map(outcome=>{
@@ -50,9 +52,9 @@ export function buildComparison(snapshot:OddsReadSnapshot,market:OddsMarket,now=
     });
     return {bookmaker,name:prices[0]?.bookmakerName??name,cells,action:null};
   });
-  result.rows=nativeRows.filter(row=>isVisibleBookmaker(row.bookmaker)).map(row=>{
+  result.rows=nativeRows.filter(row=>pool.has(row.bookmaker)&&isVisibleBookmaker(row.bookmaker)).map(row=>{
     const cells=row.cells.map((cell,cellIndex)=>{
-      if(cell.priceKind==='REAL')return cell;
+      if(cell.priceKind==='REAL'||snapshot.insuranceEnabled===false)return cell;
       const source=resolveInsurance(row.bookmaker,nativeRows.map(candidate=>({bookmaker:candidate.bookmaker,
         priceKind:candidate.cells[cellIndex].priceKind,current:candidate.cells[cellIndex].state==='ACTIVE',
         decimalOdds:candidate.cells[cellIndex].decimalOdds,value:candidate.cells[cellIndex]}))).candidate?.value;

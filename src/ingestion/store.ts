@@ -1,6 +1,6 @@
 import type { Competition, Country, Fixture, Season, Sport, Team } from '@/domain/entities';
 import type { SeasonId } from '@/domain/ids';
-import type { FootballCompetitionTarget } from '@/config/footballCompetitions';
+import type { FootballCompetitionTarget,ProductGeo } from '@/config/footballCompetitions';
 import { CompetitionCoverageStatus } from '@/domain/enums';
 
 export interface WriteCounts { inserted: number; updated: number; }
@@ -114,6 +114,6 @@ export interface CompetitionReadRecord {
 }
 
 export interface FootballReadRepository {
-  listCompetitions(countryCode: 'BR' | 'MX'): Promise<CompetitionReadRecord[]>;
-  listFixtures(countryCode: 'BR' | 'MX', from: Date, to: Date, statuses?: readonly string[], competitionSlug?:string): Promise<FixtureReadRecord[]>;
+  listCompetitions(countryCode: ProductGeo): Promise<CompetitionReadRecord[]>;
+  listFixtures(countryCode: ProductGeo, from: Date, to: Date, statuses?: readonly string[], competitionSlug?:string): Promise<FixtureReadRecord[]>;
 }

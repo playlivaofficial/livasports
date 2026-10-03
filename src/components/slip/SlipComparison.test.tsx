@@ -17,6 +17,11 @@ const INSPECTED=PUBLIC_CARD_IDS[1];
 const LOWEST_ALTERNATE=PUBLIC_CARD_IDS.filter(id=>id!==INSPECTED)[0];
 
 describe('P5 compact comparison / internal provenance',()=>{
+  it.each([['mx','MX$'],['co','COP$'],['pe','S/']] as const)('uses the trusted %s currency instead of English presentation currency',(locale,symbol)=>{
+    const f=comparisonFixture(),value=buildSlipComparison(f.selections,locale,f.data.fixtures,f.data.bookmakers,f.now);
+    const html=renderToStaticMarkup(<SlipComparison locale={locale} uiLocale="en" stake="10" selections={f.selections.map(s=>({...s,addedAt:new Date(f.now).toISOString()}))} checking={false} value={value}/>);
+    expect(html).toContain(symbol);expect(html).not.toContain('USD');expect(html).not.toContain('R$');
+  });
   for(const locale of ['br','mx','en'] as const)for(const count of [1,2,5,10])for(const mode of ['native','betano','alternate','missing'] as const){
     it(`${locale} / ${count} selections / ${mode}`,()=>{
       const f=withPublicCards(comparisonFixture(count));
@@ -44,7 +49,7 @@ describe('P5 compact comparison / internal provenance',()=>{
         expect(inspected.priceClassification).toBe(mode==='native'?'REAL_COMPLETE':'ESTIMATED_COMPLETE');
         for(const b of value.bookmakers){
           expect(html).toContain(formatSlipOdds(b.combinedDecimalOdds!,locale));
-          expect(html).toContain(formatMoney(potentialReturn('10',b.combinedDecimalOdds!)!,locale));
+          expect(html).toContain(formatMoney(potentialReturn('10',b.combinedDecimalOdds!)!,'br'));
         }
         expect(html.match(/class="slip-return"/g)).toHaveLength(CARDS);
         expect(html).toContain('rel="sponsored nofollow noopener noreferrer"');

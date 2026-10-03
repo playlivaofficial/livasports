@@ -2,10 +2,11 @@
 
 import {useSyncExternalStore} from 'react';
 import type {InterfaceLocale} from '@/localization/interface';
+import {withSpanishLocales} from '@/localization/spanish';
 
 const storageKey='livasports:theme';
 const changeEvent='livasports:theme-change';
-const labels={br:{dark:'Ativar modo escuro',light:'Ativar modo claro'},mx:{dark:'Activar modo oscuro',light:'Activar modo claro'},en:{dark:'Switch to dark mode',light:'Switch to light mode'}};
+const labels=withSpanishLocales({br:{dark:'Ativar modo escuro',light:'Ativar modo claro'},mx:{dark:'Activar modo oscuro',light:'Activar modo claro'},en:{dark:'Switch to dark mode',light:'Switch to light mode'}});
 
 function subscribe(notify:()=>void){
   const storage=(event:StorageEvent)=>{

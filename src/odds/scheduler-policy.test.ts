@@ -1,7 +1,7 @@
 import {describe,it,expect} from 'vitest';
-import {budgetCadence,forecastRequests,cadenceIntervalMinutes,freshnessTtlMs,planScheduler,planTarget,splitProviderBatches,type RefreshTarget} from './scheduler-policy';
+import {budgetCadence,forecastDetail,forecastRequests,cadenceIntervalMinutes,freshnessTtlMs,planScheduler,planTarget,splitProviderBatches,type RefreshTarget} from './scheduler-policy';
 const now=new Date('2026-09-30T23:55:00Z');
-const target=(hours:number,overrides:Partial<RefreshTarget>={}):RefreshTarget=>({bookmaker:'betano.bet.br',tournamentId:'325',
+const target=(hours:number,overrides:Partial<RefreshTarget>={}):RefreshTarget=>({bookmaker:'betsson.co',tournamentId:'325',
   publicEligible:true,hasUsefulCoverage:true,lastSuccessAt:'2026-09-30T20:00:00Z',retryAfter:null,
   fixtures:[{id:'real-shape-test-only',kickoff:new Date(now.getTime()+hours*3600000).toISOString(),status:'SCHEDULED'}],...overrides});
 describe('shared adaptive pregame scheduler',()=>{
@@ -17,7 +17,7 @@ describe('shared adaptive pregame scheduler',()=>{
     expect(planTarget(target(0.1,{hasUsefulCoverage:false}),1,now)).toMatchObject({tier:'FINAL_PREGAME',intervalMinutes:15,due:true});
   });
   it('batches multiple due tournaments once per bookmaker and gives nearer matches priority',()=>{
-    const p=planScheduler([target(24,{tournamentId:'17'}),target(1),target(0.1,{bookmaker:'betsson',publicEligible:false})],now);
+    const p=planScheduler([target(24,{tournamentId:'17'}),target(1),target(0.1,{bookmaker:'betsson.pe',publicEligible:false})],now);
     expect(p.batches).toHaveLength(1);expect(p.batches[0].tournamentIds.sort()).toEqual(['17','325']);expect(p.maximumBillableRequests).toBe(1);
   });
   it('never puts more than four IDs in one OddsPapi batch, including a 22-ID regression replay',()=>{
@@ -35,19 +35,19 @@ describe('shared adaptive pregame scheduler',()=>{
     expect(splitProviderBatches(mixed).slice(1).every(batch=>batch.length===1)).toBe(true);
   });
   it('keeps the stable four in their own batch and never mixes a candidate into that request',()=>{
-    const p=planScheduler([target(1,{tournamentId:'325'}),target(1,{tournamentId:'17'}),target(0.5,{tournamentId:'326',lastSuccessAt:null})],now);
+    const p=planScheduler([target(1,{tournamentId:'325'}),target(1,{tournamentId:'17'}),target(0.5,{tournamentId:'9999',lastSuccessAt:null})],now);
     // Order follows imminence (the 0.5h unproven probe leads the 1h stable pair); membership is what must never mix.
     expect(p.batches).toHaveLength(2);
     expect(p.batches).toEqual(expect.arrayContaining([
       expect.objectContaining({tournamentIds:['325','17']}),
-      expect.objectContaining({tournamentIds:['326']}),
+      expect.objectContaining({tournamentIds:['9999']}),
     ]));
     const idleStable=planScheduler([
       target(1,{tournamentId:'325',lastSuccessAt:now.toISOString()}),
       target(1,{tournamentId:'17',lastSuccessAt:now.toISOString()}),
-      target(0.5,{tournamentId:'326',lastSuccessAt:null}),
+      target(0.5,{tournamentId:'9999',lastSuccessAt:null}),
     ],now);
-    expect(idleStable.batches).toEqual([expect.objectContaining({tournamentIds:['326']})]);
+    expect(idleStable.batches).toEqual([expect.objectContaining({tournamentIds:['9999']})]);
   });
   it('gives verified expanded coverage kickoff-sensitive refresh without a canary hold',()=>{
     expect(planTarget(target(1,{tournamentId:'390',lastSuccessAt:null}),2,now)).toMatchObject({intervalMinutes:30,due:true});
@@ -57,10 +57,18 @@ describe('shared adaptive pregame scheduler',()=>{
     expect(planTarget(target(1,{retryAfter:'2026-10-01T00:30:00Z'}),1,now).due).toBe(false);
   });
   it('paces two public feeds to the same monthly economics, and public TTL follows that 30m cadence',()=>{
-    const p=planScheduler([target(1),target(1,{bookmaker:'betsson'})],now);
+    const p=planScheduler([target(1),target(1,{bookmaker:'betsson.pe'})],now);
     expect(p.targets.every(t=>t.intervalMinutes===30)).toBe(true);
     expect(freshnessTtlMs(1,2)).toBe((30+5)*60000);
     expect(2*48*31).toBe(2976);
+  });
+  it('forecasts the exact verified CO/PE provider IDs instead of silently assigning them zero cost',()=>{
+    const feeds=[target(1,{bookmaker:'betsson.co'}),target(1,{bookmaker:'betsson.pe'})];
+    const forecast=forecastDetail(feeds,now,1,1);
+    expect(Object.keys(forecast.byBookmaker).sort()).toEqual(['betsson.co','betsson.pe']);
+    expect(forecast.byBookmaker['betsson.co']).toBeGreaterThan(0);expect(forecast.byBookmaker['betsson.pe']).toBeGreaterThan(0);
+    expect(forecast.requests).toBe(forecast.byBookmaker['betsson.co']+forecast.byBookmaker['betsson.pe']);
+    expect(forecastDetail([],now,1,1).requests).toBe(0);
   });
   it('keeps public freshness at least one tick beyond each paid interval so scheduled quotes do not vanish between ticks',()=>{
     for(const [hours,feeds,interval] of [[1,1,15],[1,2,30],[6,1,120],[24,1,120],[72,1,360],[100,4,720]] as const){
@@ -71,7 +79,7 @@ describe('shared adaptive pregame scheduler',()=>{
   });
   it('budgets all forty-four feeds over real kickoff windows and stops when the period is unverified',()=>{
     const feeds=['325','27464','17','384','390','8','35','23','679','480','242','34','238','37','18','7','155','182','53','52','328','21'].flatMap(tournamentId=>
-      ['betano.bet.br','betsson'].map(bookmaker=>target(1,{tournamentId,bookmaker,lastSuccessAt:null,
+      ['betsson.co','betsson.pe'].map(bookmaker=>target(1,{tournamentId,bookmaker,lastSuccessAt:null,
         fixtures:Array.from({length:14},(_,i)=>({id:String(i),status:'SCHEDULED',kickoff:new Date(now.getTime()+(i*12+1)*3600000).toISOString()}))})));
     const budget={verified:true,routineRemaining:1000,period_end:new Date(now.getTime()+19*86400000)};
     const policy=budgetCadence(feeds,now,budget);
@@ -89,7 +97,7 @@ describe('shared adaptive pregame scheduler',()=>{
     const budget={verified:true,routineRemaining:2970,period_end:new Date(now.getTime()+14*86400000)};
     const old=new Date(now.getTime()-12*3600000).toISOString();
     // stable four far out (routine), one proven expanded feed kicking off in 6h (urgent), one recovery probe, both bookmakers.
-    const feeds=['betano.bet.br','betsson'].flatMap(bookmaker=>[
+    const feeds=['betsson.co','betsson.pe'].flatMap(bookmaker=>[
       target(40,{bookmaker,tournamentId:'325',lastSuccessAt:old}),target(40,{bookmaker,tournamentId:'17',lastSuccessAt:old}),
       target(6,{bookmaker,tournamentId:'35',lastSuccessAt:old}),
       target(30,{bookmaker,tournamentId:'53',lastSuccessAt:null,hasUsefulCoverage:false})]);

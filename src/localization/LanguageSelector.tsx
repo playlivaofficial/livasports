@@ -1,10 +1,10 @@
 'use client';
 import {usePathname} from 'next/navigation';
-import {languageNames,languageTags,type InterfaceLocale} from './interface';
+import {languageNames,languageTags,interfaceLocales,type InterfaceLocale} from './interface';
 
 export function LanguageSelector({locale}:{locale:InterfaceLocale}){
   const pathname=usePathname();
-  const label={br:'Idioma',mx:'Idioma',en:'Language'}[locale];
+  const label=locale==='en'?'Language':'Idioma';
   return <details className="language-picker" onKeyDown={event=>{
     if(event.key==='Escape'&&event.currentTarget.open){event.preventDefault();event.currentTarget.open=false;event.currentTarget.querySelector('summary')?.focus();}
   }}><summary aria-label={`${label}: ${languageNames[locale]}`}>
@@ -14,7 +14,7 @@ export function LanguageSelector({locale}:{locale:InterfaceLocale}){
       const input=event.currentTarget.elements.namedItem('returnTo') as HTMLInputElement;
       input.value=window.location.pathname+window.location.search+window.location.hash;
     }}><input type="hidden" name="returnTo" value={pathname}/>
-      {(['br','mx','en'] as const).map(value=><button key={value} name="locale" value={value} type="submit" lang={languageTags[value]} aria-current={value===locale?'true':undefined}>
+      {interfaceLocales.map(value=><button key={value} name="locale" value={value} type="submit" lang={languageTags[value]} aria-current={value===locale?'true':undefined}>
         {languageNames[value]}<span aria-hidden="true">{value===locale?'✓':''}</span></button>)}
     </form></details>;
 }

@@ -1,3 +1,4 @@
+import {CORE_GEOS,geoProfile} from '@/config/geo';
 import 'server-only';
 import type {QueryExecutor} from '@/database/client';
 import {gscWindows} from '@/seo/gsc-ingest';
@@ -13,12 +14,12 @@ export async function readAutopilotReport(db:QueryExecutor,days:7|28|90=28,now=n
   const [raw,pages,decisions,runs,technical,sitemaps,clusters,organic,indexable]=await Promise.all([
     db.query(`SELECT day::text,dimension,key,clicks,impressions,ctr,position FROM seo_search_daily WHERE property=$1 AND day BETWEEN $2 AND $3`,[gscProperty(),previousFrom,to]),
     db.query<{url:string;state:string;tier:string;score:number;reasons:string[];published_at:string|null;first_impression:string|null}>(`SELECT p.*, (SELECT min(d.day)::text FROM seo_search_daily d WHERE d.property=$1 AND d.dimension='PAGE' AND d.key=p.url AND d.impressions>0) AS first_impression
-      FROM seo_autopilot_pages p ORDER BY p.score DESC LIMIT 100`,[gscProperty()]),
+      FROM seo_all_pages p ORDER BY p.score DESC LIMIT 100`,[gscProperty()]),
     db.query('SELECT url,action,reason,previous_state,new_state,created_at,config_version,release_sha FROM seo_autopilot_decisions ORDER BY id DESC LIMIT 80'),
     db.query('SELECT id,day::text,state,started_at,finished_at,summary FROM seo_autopilot_runs ORDER BY started_at DESC LIMIT 10'),
     db.query("SELECT url,status,problems,checked_at FROM seo_autopilot_technical WHERE problems<>'[]'::jsonb ORDER BY checked_at DESC LIMIT 60"),
     db.query('SELECT path,state,submitted_at,attempted_at,checked_at,error_code,diagnostic,next_retry_at FROM seo_autopilot_sitemaps ORDER BY path'),
-    db.query('SELECT * FROM seo_autopilot_clusters ORDER BY boost DESC,cluster'),
+    db.query('SELECT * FROM seo_all_clusters ORDER BY boost DESC,cluster'),
     db.query(`SELECT count(*)::int AS sessions,count(*) FILTER(WHERE s.engaged)::int AS engaged,
       count(*) FILTER(WHERE EXISTS(SELECT 1 FROM analytics_events e WHERE e.session_id=s.session_id AND e.traffic_class='HUMAN' AND e.event_name='match_viewed'))::int AS match_sessions,
       count(*) FILTER(WHERE EXISTS(SELECT 1 FROM analytics_events e WHERE e.session_id=s.session_id AND e.traffic_class='HUMAN' AND e.event_name IN('slip_leg_added','bookmaker_comparison_viewed')))::int AS commercial_sessions,
@@ -32,7 +33,15 @@ export async function readAutopilotReport(db:QueryExecutor,days:7|28|90=28,now=n
   const currentPages=collapse(metrics(cur('PAGE'))),queries=collapse(metrics(cur('QUERY')));
   const movements=compare(currentPages,metrics(raw.rows.filter(r=>r.dimension==='PAGE'&&String(r.day)<from)));
   const totals=aggregate(metrics(cur('TOTAL'))),daysObserved=cur('TOTAL').length;
-  return {config,days,from,to,daysObserved,totals,nonBrandClicks:aggregate(queries.filter(q=>classifyBrand(q.key)==='NON_BRAND')).clicks,
+  const geos=CORE_GEOS.map(geo=>{
+    const profile=geoProfile(geo),prefix=`https://livasports.com/${profile.locale}/`,belongs=(url:string)=>url.startsWith(prefix)||url===prefix.slice(0,-1);
+    const current=currentPages.filter(p=>belongs(p.key)),movement=movements.filter(p=>belongs(p.key));
+    return {geo,locale:profile.locale,country:profile.countryName,totals:aggregate(current),observedPages:current.length,
+      measurement:'Canonical locale/path intent; not a claim about visitor country',
+      striking:nearPageOne(current).slice(0,5),winners:growthPages(movement).slice(0,5),ctr:ctrOpportunities(current).slice(0,5),declining:losingVisibility(movement).slice(0,5),
+      pages:pages.rows.filter(p=>belongs(p.url)),clusters:clusters.rows.filter(c=>c.locale===profile.locale)};
+  });
+  return {config,geos,days,from,to,daysObserved,totals,nonBrandClicks:aggregate(queries.filter(q=>classifyBrand(q.key)==='NON_BRAND')).clicks,
     nonBrandCaveat:'Reported queries only; Google omits anonymized queries.',top10Queries:queries.filter(r=>r.position>0&&r.position<=10).length,
     top20Queries:queries.filter(r=>r.position>0&&r.position<=20).length,top10Pages:currentPages.filter(r=>r.position>0&&r.position<=10).length,
     top20Pages:currentPages.filter(r=>r.position>0&&r.position<=20).length,

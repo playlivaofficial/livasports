@@ -63,6 +63,12 @@ describe('M2 football ingestion', () => {
     expect(store.seasons).toHaveLength(1);
   });
 
+  it('invalidates every localized competition list without removing historical routes', async () => {
+    const invalidator = new RecordingCacheInvalidator();
+    await new FootballIngestionService(new FakeProvider(), new InMemoryFootballIngestionStore(), [target], () => now, invalidator).syncCompetitions();
+    expect(invalidator.tags).toEqual(['br', 'mx', 'co', 'pe'].map(locale => `livasports:v1:competition:list:${locale}`));
+  });
+
   it('keeps one provider-current season for standard competitions', async () => {
     const provider = new FakeProvider(); const store = new InMemoryFootballIngestionStore();
     provider.seasonRows = [season, { ...season, id: domainId<'Season'>('older-current-season'), name: '2025',

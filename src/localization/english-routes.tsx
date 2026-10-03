@@ -1,6 +1,6 @@
 import {matchSeoDescription,matchSeoTitle,sportsMatchSchema} from '@/sports/match-seo';
 import {isFinishedMatchDecayed,noindexRobots} from '@/seo/policy';
-import {readPublishedSeo} from '@/seo-autopilot/public';
+import {readPublishedSeo,matchLanguageAlternates} from '@/seo-autopilot/public';
 import 'server-only';
 import {JsonLd} from '@/seo/json-ld';
 import {openGraphImages} from '@/seo/open-graph';
@@ -35,9 +35,9 @@ export async function englishMatchMetadata(params:Promise<{match:string}>):Promi
   const h=result.match.header,title=matchSeoTitle('en',h),description=matchSeoDescription('en',h);
   const paths=(['br','mx','en'] as const).map(locale=>matchPath(locale,h.publicId,h.home.name,h.away.name));
   // M1 decay: same boundary as the pt-BR/es-MX routes, so the three locales never disagree about indexability.
-  const decayed=isFinishedMatchDecayed(h.status,h.kickoff)&&!(await readPublishedSeo(h.id))?.retain_indexable;
+  const decayed=isFinishedMatchDecayed(h.status,h.kickoff)&&!(await readPublishedSeo(h.id,'en'))?.retain_indexable;
   return {title,description,...(decayed?{robots:noindexRobots}:{}),
-    alternates:decayed?{canonical:paths[2]}:{canonical:paths[2],languages:languageAlternates(paths[0],paths[1],paths[2])},
+    alternates:decayed?{canonical:paths[2]}:{canonical:paths[2],languages:await matchLanguageAlternates(h.id,h.status,h.kickoff,paths[0],paths[1],paths[2])},
     openGraph:{type:'website',siteName:'LivaSports',title,description,url:paths[2],locale:'en',images:openGraphImages()},other:{'content-language':'en'}};
 }
 export async function EnglishMatchRoute({params}:{params:Promise<{match:string}>}){

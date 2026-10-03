@@ -10,8 +10,8 @@ export interface DataTarget {
 type TargetRow={bookmaker:string;tournament_id:string;[key:string]:unknown};
 const iso=(value:unknown)=>value instanceof Date?value.toISOString():typeof value==='string'&&Number.isFinite(Date.parse(value))?new Date(value).toISOString():null;
 export function dataPlaneTargets(competitions:readonly {competition:string;tournamentId:string|null;nearestKickoff:string|null;fixtures7d:number}[],
-  records:readonly TargetRow[],cells:readonly {competition:string;bookmaker:string;kind:string;reason?:string|null}[],now:Date,budgetBlocked:boolean):DataTarget[]{
-  return competitions.flatMap(c=>ACTIVE_BOOKMAKER_IDS.map(bookmaker=>{
+  records:readonly TargetRow[],cells:readonly {competition:string;bookmaker:string;kind:string;count?:number;reason?:string|null}[],now:Date,budgetBlocked:boolean,operatorIds:readonly string[]=ACTIVE_BOOKMAKER_IDS):DataTarget[]{
+  return competitions.flatMap(c=>operatorIds.map(bookmaker=>{
     const r=records.find(t=>t.bookmaker===bookmaker&&t.tournament_id===c.tournamentId);
     const checked=iso(r?.last_checked_at),success=iso(r?.last_success_at),attempt=iso(r?.last_attempt_at),retry=iso(r?.retry_after);
     const interval=c.nearestKickoff?cadenceIntervalMinutes((Date.parse(c.nearestKickoff)-+now)/3600000,4):null;
@@ -19,7 +19,7 @@ export function dataPlaneTargets(competitions:readonly {competition:string;tourn
     const staleAfter=c.fixtures7d?(iso(r?.stale_after)??(nextDue?new Date(Date.parse(nextDue)+SCHEDULER_TICK_MINUTES*60000).toISOString():null)):null;
     const overdue=staleAfter?Math.max(0,(+now-Date.parse(staleAfter))/60000):0;
     const own=cells.filter(x=>x.competition===c.competition&&x.bookmaker===bookmaker);
-    const native=own.filter(x=>x.kind==='REAL').length,fallback=own.filter(x=>x.kind==='PROXY').length;
+    const native=own.filter(x=>x.kind==='REAL').reduce((n,c)=>n+(c.count??1),0),fallback=own.filter(x=>x.kind==='PROXY').reduce((n,c)=>n+(c.count??1),0);
     const outcome=typeof r?.last_outcome==='string'?r.last_outcome:null,error=String(r?.last_error??'');
     let state='HEALTHY',responsibility:DataTarget['responsibility']='NONE',reason:string|null=null;
     if(!c.fixtures7d){state='OUTSIDE_REFRESH_WINDOW';}

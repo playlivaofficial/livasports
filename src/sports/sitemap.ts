@@ -1,4 +1,4 @@
-import {languageAlternates,matchPath,teamPath} from '@/localization/interface';
+import {languageTags,interfaceLocales,matchPath,teamPath,type InterfaceLocale} from '@/localization/interface';
 import {isNonSemanticParam,isPrivatePath,siteOrigin} from '@/seo/policy';
 
 export const sitemapBatchSize=500;
@@ -13,7 +13,7 @@ export type SitemapCounts=Record<SitemapKind,number>;
  */
 export const submittedSitemapKinds=['matches','teams'] as const satisfies readonly SitemapKind[];
 export type SubmittedSitemapKind=typeof submittedSitemapKinds[number];
-export interface SportsSitemapEntry {publicId:string;name:string;away?:string;updatedAt:Date|string;lastmodVerified?:boolean;lastmodLocales?:readonly ('br'|'mx'|'en')[];}
+export interface SportsSitemapEntry {publicId:string;name:string;away?:string;updatedAt:Date|string;lastmodVerified?:boolean;lastmodLocales?:readonly InterfaceLocale[];locales?:readonly InterfaceLocale[];alternateLocales?:readonly InterfaceLocale[];lastmodByLocale?:Partial<Record<InterfaceLocale,string>>;}
 /** Per-competition tab availability for the default season (P2 sitemap tab policy). */
 export interface CompetitionSitemapSummary {slug:string;seasonId:string;upcoming:number;results:number;standings:boolean;scorers:boolean;teams:boolean;updatedAt:Date|null;}
 const origin=siteOrigin;
@@ -32,10 +32,16 @@ export function sitemapIndexXml(counts:SitemapCounts){
 }
 export function sitemapEntriesXml(kind:SubmittedSitemapKind,entries:SportsSitemapEntry[]){
   return `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">${entries.map(entry=>{
-    const paths=(['br','mx','en'] as const).map(locale=>origin+(kind==='matches'?matchPath(locale,entry.publicId,entry.name,entry.away!):teamPath(locale,entry.publicId,entry.name)));
-    const links=Object.entries(languageAlternates(paths[0],paths[1],paths[2])).map(([lang,href])=>`<xhtml:link rel="alternate" hreflang="${lang}" href="${xml(href)}"/>`).join('');
-    const lastmod=entry.lastmodVerified!==false?`<lastmod>${new Date(entry.updatedAt).toISOString()}</lastmod>`:'';
-    return paths.map((path,i)=>`<url><loc>${xml(path)}</loc>${!entry.lastmodLocales||entry.lastmodLocales.includes((['br','mx','en'] as const)[i])?lastmod:''}${links}</url>`).join('');
+    const all=Object.fromEntries(interfaceLocales.map(locale=>[locale,origin+(kind==='matches'?matchPath(locale,entry.publicId,entry.name,entry.away!):teamPath(locale,entry.publicId,entry.name))])) as Record<InterfaceLocale,string>;
+    const available=entry.alternateLocales??interfaceLocales;
+    const languages=Object.fromEntries(available.map(locale=>[languageTags[locale],all[locale]]));
+    if(available.includes('en'))languages['x-default']=all.en;
+    const links=Object.entries(languages).map(([lang,href])=>`<xhtml:link rel="alternate" hreflang="${lang}" href="${xml(href)}"/>`).join('');
+    return (entry.locales??interfaceLocales).map(locale=>{
+      const stamp=entry.lastmodByLocale?.[locale]??((!entry.lastmodLocales||entry.lastmodLocales.includes(locale))&&entry.lastmodVerified!==false?new Date(entry.updatedAt).toISOString():null);
+      const lastmod=stamp?`<lastmod>${xml(stamp)}</lastmod>`:'';
+      return `<url><loc>${xml(all[locale])}</loc>${lastmod}${links}</url>`;
+    }).join('');
   }).join('')}</urlset>`;
 }
 

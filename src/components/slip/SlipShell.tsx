@@ -43,8 +43,8 @@ function SlipDrawer({locale,uiLocale,selections,stake,slipId,pending,onPending,o
     feedback({result:result.result});onPending(null);closeRef.current?.focus();
   }
   const currentCount=resolved.filter(v=>v.price!==null).length;
-  const browse=uiLocale==='en'?interfaceRoutes.en.football:uiLocale==='mx'?interfaceRoutes.mx.football:interfaceRoutes.br.football;
-  return <aside className="slip-panel" ref={panel} role="dialog" aria-modal="false" aria-labelledby="slip-title" aria-describedby="slip-disclaimer" lang={uiLocale==='br'?'pt-BR':uiLocale==='mx'?'es-MX':'en'}>
+  const browse=interfaceRoutes[uiLocale].football;
+  return <aside className="slip-panel" ref={panel} role="dialog" aria-modal="false" aria-labelledby="slip-title" aria-describedby="slip-disclaimer" lang={uiLocale==='br'?'pt-BR':uiLocale==='en'?'en':`es-${uiLocale.toUpperCase()}`}>
     <header className="slip-heading"><div><TicketIcon/><h2 id="slip-title">{text.title}</h2><span className="slip-count">{selections.length}</span></div><button type="button" ref={closeRef} className="slip-icon-button" aria-label={text.close} onClick={onClose}>×</button></header>
     {message?<p className="slip-inline-feedback">{message}</p>:null}
     <div className="slip-body">
@@ -57,7 +57,7 @@ function SlipDrawer({locale,uiLocale,selections,stake,slipId,pending,onPending,o
         <label className="slip-stake"><span>{text.stake}</span>
           <input inputMode="decimal" enterKeyHint="done" autoComplete="off" value={stakeValue} aria-invalid={parseStake(stakeValue)===null} aria-describedby="slip-stake-hint"
             onChange={event=>setStakeDraft(event.target.value)} onBlur={commitStake} onKeyDown={event=>{if(event.key==='Enter'){event.preventDefault();commitStake();}}}/>
-          <small id="slip-stake-hint">{text.stakeHint} · {text.oddsMayChange}</small></label>
+          <small id="slip-stake-hint">{slipCopy[locale].stakeHint} · {text.oddsMayChange}</small></label>
         {!online||failed?<p className="slip-notice">{!online?text.offline:text.retry}</p>:null}
         <SlipComparison locale={locale} uiLocale={uiLocale} selections={selections} value={comparison} checking={checking} stake={stake} slipId={slipId}/>
         {/* Below the bookmaker cards: what the visitor actually picked, always visible, removable one by one. */}
@@ -67,7 +67,7 @@ function SlipDrawer({locale,uiLocale,selections,stake,slipId,pending,onPending,o
         </section>
         <div className="slip-summary"><div><small>{text.scope}</small></div><button type="button" onClick={()=>selections.length>1?setConfirmClear(true):clear()}>{text.clear}</button></div>
         {resolvedAt?<p className="slip-verified">{currentCount}/{selections.length} {text.currentCount}</p>:null}
-        <button type="button" className="slip-share" disabled={sharing||!selections.length} onClick={async()=>{setSharing(true);await shareSlipImage(slipSharePayload({locale:uiLocale,slipId:slipId||'local',stake,generatedAt:resolvedAt??new Date().toISOString(),selections,resolved,comparison}));setSharing(false);}}>{text.share}</button>
+        <button type="button" className="slip-share" disabled={sharing||!selections.length} onClick={async()=>{setSharing(true);await shareSlipImage(slipSharePayload({locale:uiLocale,currencyLocale:locale,slipId:slipId||'local',stake,generatedAt:resolvedAt??new Date().toISOString(),selections,resolved,comparison}));setSharing(false);}}>{text.share}</button>
         <p className="slip-comparison-note">{text.shareHint}</p>
       </>}
     </div>
@@ -75,9 +75,9 @@ function SlipDrawer({locale,uiLocale,selections,stake,slipId,pending,onPending,o
   </aside>;
 }
 
-export function SlipShell(){
-  const pathname=usePathname();const segment=pathname?.split('/')[1];const locale:SiteLocale=segment==='mx'?'mx':'br';
-  const uiLocale:SlipUiLocale=segment==='en'?'en':segment==='mx'?'mx':'br';
+export function SlipShell({commercialLocale=null}:{commercialLocale?:SiteLocale|null}){
+  const pathname=usePathname();const segment=pathname?.split('/')[1];const locale:SiteLocale=commercialLocale??(segment==='br'||segment==='co'||segment==='pe'?segment:'mx');
+  const uiLocale:SlipUiLocale=segment==='br'||segment==='mx'||segment==='co'||segment==='pe'?segment:'en';
   const outboundUnavailable=useSearchParams().get('slip')==='unavailable';
   const {slip,notice:storageNotice,ready}=useSlip();const text=slipCopy[uiLocale];
   const [open,setOpen]=useState(outboundUnavailable);const [pending,setPending]=useState<SlipFeedback|null>(null);const [notice,setNotice]=useState<string|null>(outboundUnavailable?'OUTBOUND_UNAVAILABLE':null);
@@ -90,9 +90,9 @@ export function SlipShell(){
   },[]);
   useEffect(()=>{if(!notice)return;const timer=setTimeout(()=>setNotice(null),6000);return()=>clearTimeout(timer);},[notice]);
   useEffect(()=>{document.body.dataset.slipOpen=String(open);return()=>{delete document.body.dataset.slipOpen;};},[open]);
-  const close=useCallback(()=>{setOpen(false);setPending(null);requestAnimationFrame(()=>trigger.current?.focus());},[]);
+  const close=useCallback(()=>{setOpen(false);setPending(null);requestAnimationFrame(()=>trigger.current?.focus());},[setOpen,setPending]);
   const message=notice&&notice in text.notices?text.notices[notice as keyof typeof text.notices]:null;
-  return <div className="guest-slip" lang={uiLocale==='br'?'pt-BR':uiLocale==='mx'?'es-MX':'en'}>
+  return <div className="guest-slip" lang={uiLocale==='br'?'pt-BR':uiLocale==='en'?'en':`es-${uiLocale.toUpperCase()}`}>
     <div className="slip-entry"><span className="slip-feedback sr-only" role="status" aria-live="polite">{message}</span>
       <button type="button" className="slip-trigger" ref={trigger} aria-expanded={open} aria-controls="guest-slip-drawer" disabled={!ready} onClick={()=>{if(open)close();else{setNotice(null);setOpen(true);emitSlipEvent('slip_open',locale,undefined,undefined,{legCount:slipStore.getSnapshot().slip.selections.length});}}}>
         <TicketIcon/><span className="slip-trigger-text"><span>{text.title}</span>{message&&!open?<small aria-hidden="true">{message}</small>:null}</span><span className="slip-count">{slip.selections.length}</span><span aria-hidden="true">{open?'⌄':'↑'}</span>

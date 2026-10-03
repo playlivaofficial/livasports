@@ -12,14 +12,14 @@ import {focusFactualParagraphs} from './public';
 import type {DatabaseClient} from '@/database/client';
 const now=new Date('2026-09-29T12:00:00Z'),kickoff='2026-10-01T20:00:00.000Z';
 const metric:Metric={impressions:600,clicks:20,ctr:1/30,position:12,positionSpread:1,days:28};
-const page=(url:string):GrowthPage=>({url,type:'FIXTURE',locale:'br',entityId:url.slice(-16),label:'Santos x Flamengo',cluster:null,current:metric,previous:metric,queries:[{query:'santos flamengo',impressions:400,clicks:10,position:12,days:28}],countries:[],devices:[],publishedAt:'2026-07-01',firstObserved:'2026-07-01',lastChangedAt:null,managed:true,status:'SCHEDULED',technicalHealthy:true,fresh:true,activeExperiment:false,title:'Original title',description:'Original description',linkBoost:0,kickoff});
-const cohort='TITLE_PATTERN:FIXTURE:br:GENERAL:2:2026-09';
-const urls=Array.from({length:50},(_,i)=>`https://livasports.com/br/jogo/santos-flamengo-${i.toString(16).padStart(16,'0')}`);
+const page=(url:string):GrowthPage=>({url,type:'FIXTURE',locale:'mx',entityId:url.slice(-16),label:'Santos x Flamengo',cluster:null,current:metric,previous:metric,queries:[{query:'santos flamengo',impressions:400,clicks:10,position:12,days:28}],countries:[],devices:[],publishedAt:'2026-07-01',firstObserved:'2026-07-01',lastChangedAt:null,managed:true,status:'SCHEDULED',technicalHealthy:true,fresh:true,activeExperiment:false,title:'Original title',description:'Original description',linkBoost:0,kickoff});
+const cohort='TITLE_PATTERN:FIXTURE:mx:GENERAL:2:2026-09';
+const urls=Array.from({length:50},(_,i)=>`https://livasports.com/mx/partido/santos-flamengo-${i.toString(16).padStart(16,'0')}`);
 const variant=page(urls.find(u=>experimentArm(`${cohort}:${u}`)==='VARIANT')!),control=page(urls.find(u=>experimentArm(`${cohort}:${u}`)==='CONTROL')!);
 const opportunity={url:variant.url,detector:'LOW_CTR',confidence:'HIGH',reason:'Real comparable CTR evidence',proposedAction:'TITLE_PATTERN',benchmark:.06,cohortSize:5,query:'santos flamengo',evidence:variant};
 function database(options:{used?:number;duplicate?:boolean}={}){
   const query=vi.fn(async(sql:string)=>({rows:sql.includes('SELECT action,count')?[{action:'TITLE_PATTERN',n:options.used??0}]:
-    sql.includes('SELECT 1 FROM seo_autopilot_pages')&&options.duplicate?[{exists:1}]:sql.includes('INSERT INTO seo_growth_experiments')?[{id:'experiment'}]:[]}));
+    sql.includes('SELECT 1 FROM seo_all_pages')&&options.duplicate?[{exists:1}]:sql.includes('INSERT INTO seo_growth_experiments')?[{id:'experiment'}]:[]}));
   const db={query,transaction:async<T>(fn:(tx:unknown)=>Promise<T>)=>fn({query}),close:async()=>undefined} as unknown as DatabaseClient;
   return {db,query};
 }
@@ -41,7 +41,7 @@ describe('bounded optimizer integration',()=>{
   it('duplicate proposed titles never apply',async()=>{const {db}=database({duplicate:true});expect((await runGrowthOptimization(db,now)).applied).toBe(0);});
   it('incomplete baseline never applies',async()=>{mocks.measure.mockResolvedValue({complete:false,breakdownsComplete:false,totals:null,from:'2026-08-30',to:'2026-09-26'});expect((await runGrowthOptimization(database().db,now)).applied).toBe(0);expect(mocks.crawl).not.toHaveBeenCalled();});
   it('actual canonical/robots/HTML failure blocks change',async()=>{mocks.crawl.mockReset();mocks.crawl.mockResolvedValue({problems:['CANONICAL_MISMATCH'],indexFollow:false});expect((await runGrowthOptimization(database().db,now)).applied).toBe(0);});
-  it('GSC failure records observation only with no public or cluster mutation',async()=>{const e=await mocks.evidence();mocks.evidence.mockResolvedValue({...e,mode:'OBSERVE_ONLY',reasons:['GSC_SYNC_FAILED_OR_STALE']});const {db,query}=database();const r=await runGrowthOptimization(db,now);expect(r.applied).toBe(0);expect(query.mock.calls.some(([q])=>q.startsWith('UPDATE seo_autopilot_pages')||q.includes('INSERT INTO seo_growth_cluster_weights'))).toBe(false);expect(mocks.crawl).not.toHaveBeenCalled();});
+  it('GSC failure records observation only with no public or cluster mutation',async()=>{const e=await mocks.evidence();mocks.evidence.mockResolvedValue({...e,mode:'OBSERVE_ONLY',reasons:['GSC_SYNC_FAILED_OR_STALE']});const {db,query}=database();const r=await runGrowthOptimization(db,now);expect(r.applied).toBe(0);expect(query.mock.calls.some(([q])=>q.startsWith('UPDATE seo_geo_pages')||q.includes('INSERT INTO seo_geo_cluster_weights'))).toBe(false);expect(mocks.crawl).not.toHaveBeenCalled();});
   it('rolling deployment without migration is fail-safe',async()=>{mocks.evidence.mockResolvedValue({migrationReady:false,reasons:['MIGRATION_NOT_READY']});const {db,query}=database();expect((await runGrowthOptimization(db,now)).mode).toBe('OBSERVE_ONLY');expect(query).not.toHaveBeenCalled();});
   it('no matched control means no experiment',async()=>{const e=await mocks.evidence();mocks.evidence.mockResolvedValue({...e,pages:[variant]});expect((await runGrowthOptimization(database().db,now)).applied).toBe(0);});
 });

@@ -5,16 +5,18 @@ import {competitionMark} from '@/sports/country-mark';
 import {CountryMarkIcon} from './CountryMarkIcon';
 import type {CompetitionNavItem} from '@/sports/types';
 import {targetBySlug} from '@/config/footballCompetitions';
+import {competitionDemand,geoForLocale} from '@/config/geo';
+import {withSpanishLocales} from '@/localization/spanish';
 
 export type {CompetitionNavItem};
 
-const sectionOrder=['BR','GB-ENG','ES','IT','DE','FR','PT','NL','TR','AR','MX','US','SA','INT-EUROPE','INT-SOUTH_AMERICA','INT-NORTH_AMERICA','INT-GLOBAL','OTHER'] as const;
+const sectionOrder=['MX','CO','PE','GB-ENG','ES','IT','DE','FR','PT','NL','TR','AR','BR','US','SA','INT-EUROPE','INT-SOUTH_AMERICA','INT-NORTH_AMERICA','INT-GLOBAL','OTHER'] as const;
 type SectionKey=typeof sectionOrder[number];
-const sectionCopy:Record<InterfaceLocale,Record<SectionKey,string>>={
-  br:{BR:'Brasil','GB-ENG':'Inglaterra',ES:'Espanha',IT:'Itália',DE:'Alemanha',FR:'França',PT:'Portugal',NL:'Países Baixos',TR:'Turquia',AR:'Argentina',MX:'México',US:'Estados Unidos',SA:'Arábia Saudita','INT-EUROPE':'UEFA / Internacional','INT-SOUTH_AMERICA':'América do Sul','INT-NORTH_AMERICA':'América do Norte e Central','INT-GLOBAL':'Internacional',OTHER:'Outros'},
-  mx:{BR:'Brasil','GB-ENG':'Inglaterra',ES:'España',IT:'Italia',DE:'Alemania',FR:'Francia',PT:'Portugal',NL:'Países Bajos',TR:'Turquía',AR:'Argentina',MX:'México',US:'Estados Unidos',SA:'Arabia Saudita','INT-EUROPE':'UEFA / Internacional','INT-SOUTH_AMERICA':'Sudamérica','INT-NORTH_AMERICA':'Norte y Centroamérica','INT-GLOBAL':'Internacional',OTHER:'Otros'},
-  en:{BR:'Brazil','GB-ENG':'England',ES:'Spain',IT:'Italy',DE:'Germany',FR:'France',PT:'Portugal',NL:'Netherlands',TR:'Türkiye',AR:'Argentina',MX:'Mexico',US:'USA',SA:'Saudi Arabia','INT-EUROPE':'UEFA / International','INT-SOUTH_AMERICA':'South America','INT-NORTH_AMERICA':'North & Central America','INT-GLOBAL':'International',OTHER:'Other'},
-};
+const sectionCopy:Record<InterfaceLocale,Record<SectionKey,string>>=withSpanishLocales({
+  br:{BR:'Brasil',CO:'Colômbia',PE:'Peru','GB-ENG':'Inglaterra',ES:'Espanha',IT:'Itália',DE:'Alemanha',FR:'França',PT:'Portugal',NL:'Países Baixos',TR:'Turquia',AR:'Argentina',MX:'México',US:'Estados Unidos',SA:'Arábia Saudita','INT-EUROPE':'UEFA / Internacional','INT-SOUTH_AMERICA':'América do Sul','INT-NORTH_AMERICA':'América do Norte e Central','INT-GLOBAL':'Internacional',OTHER:'Outros'},
+  mx:{BR:'Brasil',CO:'Colombia',PE:'Perú','GB-ENG':'Inglaterra',ES:'España',IT:'Italia',DE:'Alemania',FR:'Francia',PT:'Portugal',NL:'Países Bajos',TR:'Turquía',AR:'Argentina',MX:'México',US:'Estados Unidos',SA:'Arabia Saudita','INT-EUROPE':'UEFA / Internacional','INT-SOUTH_AMERICA':'Sudamérica','INT-NORTH_AMERICA':'Norte y Centroamérica','INT-GLOBAL':'Internacional',OTHER:'Otros'},
+  en:{BR:'Brazil',CO:'Colombia',PE:'Peru','GB-ENG':'England',ES:'Spain',IT:'Italy',DE:'Germany',FR:'France',PT:'Portugal',NL:'Netherlands',TR:'Türkiye',AR:'Argentina',MX:'Mexico',US:'USA',SA:'Saudi Arabia','INT-EUROPE':'UEFA / International','INT-SOUTH_AMERICA':'South America','INT-NORTH_AMERICA':'North & Central America','INT-GLOBAL':'International',OTHER:'Other'},
+});
 
 function sectionKey(item:CompetitionNavItem):SectionKey {
   const target=targetBySlug(item.slug),country=target?target.countryCode:item.countryCode;
@@ -28,7 +30,9 @@ function sectionKey(item:CompetitionNavItem):SectionKey {
 }
 
 export function competitionNavSections(locale:InterfaceLocale,items:readonly CompetitionNavItem[]){
-  return sectionOrder.map(key=>({key,label:sectionCopy[locale][key],items:items.filter(item=>sectionKey(item)===key)})).filter(section=>section.items.length);
+  const priority=(item:CompetitionNavItem)=>item.priority??100-competitionDemand(geoForLocale(locale),item.slug);
+  return sectionOrder.map(key=>({key,label:sectionCopy[locale][key],items:items.filter(item=>sectionKey(item)===key).sort((a,b)=>priority(a)-priority(b)||a.slug.localeCompare(b.slug))})).filter(section=>section.items.length)
+    .sort((a,b)=>priority(a.items[0])-priority(b.items[0])||a.key.localeCompare(b.key));
 }
 
 export function CompetitionNavRow({locale,item,active,allHref,allLabel}:{locale:InterfaceLocale;item?:CompetitionNavItem;active:boolean;allHref?:string;allLabel?:string}){

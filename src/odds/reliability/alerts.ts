@@ -1,11 +1,12 @@
 import type {IncidentRecord} from './read';
+import {incidentScopeLabel} from './incident-scope';
 
 export interface AlertMessage {subject:string;text:string;}
 export type AlertTransport=(message:AlertMessage,to:string)=>Promise<void>;
 
 /** Owner alert copy: operational, no secrets, no raw payloads. */
 export function alertMessage(kind:'OPENED'|'ESCALATED'|'RESOLVED',incident:Pick<IncidentRecord,'competition'|'classification'|'severity'|'affectedFixtures'|'detail'|'openedAt'>,dashboardUrl:string):AlertMessage{
-  const scope=incident.competition==='*'?'platform':incident.competition;
+  const scope=incidentScopeLabel(incident.competition);
   const subject=`[LivaSports odds] ${kind==='RESOLVED'?'RESOLVED':incident.severity}: ${incident.classification} — ${scope}`;
   const evidence=typeof incident.detail?.evidence==='string'?incident.detail.evidence:'';
   const text=[`LivaSports odds reliability ${kind.toLowerCase()} notice`,'',`Scope: ${scope}`,`Classification: ${incident.classification}`,`Severity: ${incident.severity}`,

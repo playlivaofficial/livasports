@@ -5,11 +5,7 @@ import {buildComparison,quoteState} from './comparison';
 import {readListingOddsSnapshots} from './read-repository';
 import {SELECTIONS,type OddsReadSnapshot} from './types';
 import type {CommercialGeo} from './commercial-geo';
-import {bookmakerConfig,VISIBLE_BOOKMAKERS,type BookmakerDisplayName} from './registry';
-
-function listingBookmaker(slug:string):BookmakerDisplayName|null {
-  const book=bookmakerConfig(slug);return book?.displayRole==='VISIBLE_PRIMARY'?book.displayName:null;
-}
+import {isVisibleBookmaker} from './registry';
 
 export function listingMatchWinnerOdds(snapshot:OddsReadSnapshot,now=Date.now()):Pick<FixtureView,'odds'|'oddsState'> {
   const comparison=buildComparison(snapshot,'MATCH_WINNER',now);
@@ -17,7 +13,7 @@ export function listingMatchWinnerOdds(snapshot:OddsReadSnapshot,now=Date.now())
     outcome:outcome as OutcomeCode,
     prices:comparison.rows.flatMap(row=>{
       const cell=row.cells.find(item=>item.outcome===outcome);
-      const bookmaker=listingBookmaker(row.bookmaker);
+      const bookmaker=isVisibleBookmaker(row.bookmaker)?row.name:null;
       if(!cell||cell.state!=='ACTIVE'||!cell.decimalOdds||!bookmaker)return [];
       const decimalOdds=Number(cell.decimalOdds);
       if(!Number.isFinite(decimalOdds))return [];
@@ -30,7 +26,8 @@ export function listingMatchWinnerOdds(snapshot:OddsReadSnapshot,now=Date.now())
     ?[{market:MarketCode.MATCH_WINNER,line:null,outcomes}]:[];
   const activeBooks=new Set(outcomes.flatMap(outcome=>outcome.prices.map(price=>price.bookmaker)));
   const stale=snapshot.quotes.some(q=>q.geoEligible&&q.market==='MATCH_WINNER'&&quoteState(q,snapshot,now)==='STALE');
-  const oddsState=activeBooks.size>=VISIBLE_BOOKMAKERS.length?'complete':activeBooks.size>0?'partial':stale?'stale':'none';
+  const complete=comparison.rows.length>0&&comparison.rows.every(row=>row.cells.every(cell=>cell.state==='ACTIVE'&&cell.decimalOdds!==null));
+  const oddsState=complete?'complete':activeBooks.size>0?'partial':stale?'stale':'none';
   return {odds,oddsState};
 }
 

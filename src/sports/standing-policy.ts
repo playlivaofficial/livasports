@@ -1,3 +1,4 @@
+import {isSpanishLocale} from '@/config/geo';
 import type {InterfaceLocale} from '@/localization/interface';
 import type {SportsStanding} from './types';
 type Row=Record<string,unknown>;
@@ -42,5 +43,5 @@ export function standingRule(locale:InterfaceLocale,id:number|null):{label:strin
     307:['Eliminatórias','Eliminatorias','Play-offs','qualification'],
     1493:['Eliminatórias da Liga Europa','Eliminatorias de Europa League','Europa League play-offs','qualification'],
   };
-  const row=id===null?undefined:common[id];return row?{label:row[locale==='br'?0:locale==='mx'?1:2],tone:row[3]}:null;
+  const row=id===null?undefined:common[id];return row?{label:row[locale==='br'?0:isSpanishLocale(locale)?1:2],tone:row[3]}:null;
 }

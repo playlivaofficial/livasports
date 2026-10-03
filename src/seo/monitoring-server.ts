@@ -21,7 +21,7 @@ export const SEO_SAMPLE_SIZE=24;
 export function familyOf(url:string):SubmittedFamily|'other'{
   let parsed:URL;try{parsed=new URL(url);}catch{return 'other';}
   const path=parsed.pathname;
-  if(/^\/(br|mx|en)$/.test(path))return 'home';
+  if(/^\/(br|mx|co|pe|en)$/.test(path))return 'home';
   if(/\/(jogo|partido|match)\//.test(path))return 'match';
   if(/\/(time|equipo|team)\//.test(path))return 'team';
   if(/\/(futebol|futbol|football)$/.test(path))return parsed.searchParams.get('competition')?'competition':'football';
@@ -29,7 +29,7 @@ export function familyOf(url:string):SubmittedFamily|'other'{
   if(/\/(jogos\/hoje|partidos\/hoy|matches\/today)$/.test(path))return 'today';
   return 'content';
 }
-const localeOf=(url:string)=>{const m=/^\/(br|mx|en)(\/|$)/.exec(new URL(url).pathname);return m?m[1]:'other';};
+const localeOf=(url:string)=>{const m=/^\/(br|mx|co|pe|en)(\/|$)/.exec(new URL(url).pathname);return m?m[1]:'other';};
 
 type Fetcher=(url:string,init?:RequestInit)=>Promise<Response>;
 

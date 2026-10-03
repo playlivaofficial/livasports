@@ -6,23 +6,20 @@ import {eligibleSource,verifiedGeo} from './geo';
 import type {QueryResultRow} from 'pg';
 import type {BookmakerConfig} from '@/slip/comparison-types';
 import {commercialIso2,commercialLocale,type CommercialGeo} from './commercial-geo';
-import {ACTIVE_BOOKMAKER_IDS} from './registry';
+import {isVisibleBookmaker} from './registry';
 import {APPROVED_NATIVE_SOURCE_IDS,NATIVE_SOURCE_REGISTRY} from './source-registry';
 
 export interface InternalOddsRead extends OddsReadSnapshot { destinations:Record<string,string>; }
-// All readers share verified source/mapping checks. Visitor GEO only controls destinations.
+// A core GEO reads only its own persisted feed. Legacy BR rows stay historical;
+// neither quotes nor destinations are borrowed across countries.
 function oddsJoin(selector:'id'|'publicIds'|'fixtureIds'|'healthIds'){
   const market=selector==='fixtureIds'?" AND o.market_code='MATCH_WINNER' AND o.line IS NULL":'';
   return `LEFT JOIN LATERAL (
     SELECT id,fixture_id,bookmaker_id,market_code,outcome_code,line,decimal_odds,provider_updated_at,status,scope,phase,
       provider_fixture_id,source_domain,observed_at,persisted_at,last_successful_refresh_at,provider_kickoff,freshness_ttl_minutes,
-      'ODDSPAPI'::text AS source_provider,false AS source_mapping_verified
-    FROM odds_current WHERE fixture_id=f.id AND scope='FULL_TIME_REGULATION' AND phase='PREGAME'
-    UNION ALL
-    SELECT id,fixture_id,bookmaker_id,market_code,outcome_code,line,decimal_odds,provider_updated_at,status,scope,phase,
-      provider_fixture_id,source_domain,observed_at,persisted_at,last_successful_refresh_at,provider_kickoff,freshness_ttl_minutes,
-      source_provider,mapping_verified AS source_mapping_verified
-    FROM odds_native_source_current WHERE fixture_id=f.id AND source_provider<>'ODDSPAPI' AND scope='FULL_TIME_REGULATION' AND phase='PREGAME'
+      geo,provider_bookmaker_id,source_provider,mapping_verified AS source_mapping_verified
+    FROM odds_geo_current WHERE fixture_id=f.id AND geo=$2 AND $2 IN ('MX','CO','PE')
+      AND scope='FULL_TIME_REGULATION' AND phase='PREGAME'
   ) o ON true${market}`;
 }
 function oddsReadSql(selector:'id'|'publicIds'|'fixtureIds'|'healthIds'){
@@ -31,23 +28,24 @@ function oddsReadSql(selector:'id'|'publicIds'|'fixtureIds'|'healthIds'){
   return `SELECT f.id AS canonical_fixture_id,f.public_id,f.kickoff,f.status AS fixture_status,
     ht.name AS home_name,at.name AS away_name,
     CASE WHEN $2='BR' THEN competition.display_name_pt_br ELSE competition.display_name_es_mx END AS competition_name,
-    o.*,b.provider_slug,b.display_name,g.verification_state,${activeCampaignSql} AS active_campaigns,
-    b.enabled AND b.comparison_enabled AND g.odds_enabled AND g.comparison_enabled AND g.verified_at IS NOT NULL AS geo_eligible,
-    source_country.iso2 AS source_geo,source_geo.verification_state AS source_verification_state,
-    b.enabled AND b.comparison_enabled AND source_geo.odds_enabled AND source_geo.comparison_enabled
-      AND source_geo.verified_at IS NOT NULL AS display_eligible,
-    (o.source_mapping_verified OR (fm.livasports_entity_id=f.id AND hm.livasports_entity_id=f.home_team_id AND am.livasports_entity_id=f.away_team_id
+    o.*,b.provider_slug,b.display_name,g.verification_state,g.source_domains,g.destination_domains,g.public_priority,${activeCampaignSql} AS active_campaigns,
+    b.enabled AND g.odds_enabled AND g.comparison_enabled AND g.verified_at IS NOT NULL AS geo_eligible,
+    o.geo AS source_geo,g.verification_state AS source_verification_state,
+    b.enabled AND g.sportsbook_enabled AND g.odds_enabled AND g.comparison_enabled
+      AND g.verified_at IS NOT NULL AND g.legal_status='VERIFIED'
+      AND g.verification_state IN ('VERIFIED','VERIFIED_'||co.iso2)
+      AND g.legal_verified_at IS NOT NULL AND NULLIF(trim(g.legal_reference),'') IS NOT NULL
+      AND EXISTS(SELECT 1 FROM operator_provider_mappings opm WHERE opm.bookmaker_id=b.id AND opm.country_id=co.id
+        AND opm.provider=o.source_provider AND opm.provider_bookmaker_id=o.provider_bookmaker_id AND opm.verified_at IS NOT NULL) AS display_eligible,
+    (o.source_mapping_verified AND fm.livasports_entity_id=f.id AND hm.livasports_entity_id=f.home_team_id AND am.livasports_entity_id=f.away_team_id
       AND cm.livasports_entity_id=f.competition_id AND mr.fixture_id=f.id AND mr.state IN ('EXACT','HIGH_CONFIDENCE')
-      AND abs(extract(epoch from ((fm.metadata->>'canonicalKickoff')::timestamptz - f.kickoff))) <= 600)) AS mapping_verified,
-    CASE WHEN b.affiliate_status='ACTIVE' AND g.affiliate_enabled AND al.enabled AND al.approved_at IS NOT NULL
+      AND abs(extract(epoch from ((fm.metadata->>'canonicalKickoff')::timestamptz - f.kickoff))) <= 600) AS mapping_verified,
+    CASE WHEN g.commercial_status='ACTIVE' AND g.affiliate_enabled AND al.enabled AND al.approved_at IS NOT NULL
       AND al.campaign_verified AND al.approved_placement='match-odds' THEN al.destination_url END AS destination
     FROM fixtures f ${oddsJoin(selector)}
     JOIN teams ht ON ht.id=f.home_team_id JOIN teams at ON at.id=f.away_team_id
     JOIN competitions competition ON competition.id=f.competition_id
     LEFT JOIN bookmakers b ON b.id=o.bookmaker_id
-    LEFT JOIN countries source_country ON source_country.iso2=CASE
-      WHEN lower(o.source_domain) IN ('betsson.mx','www.betsson.mx') THEN 'MX' ELSE 'BR' END
-    LEFT JOIN bookmaker_geo_availability source_geo ON source_geo.bookmaker_id=b.id AND source_geo.country_id=source_country.id
     LEFT JOIN countries co ON co.iso2=$2 LEFT JOIN bookmaker_geo_availability g ON g.bookmaker_id=b.id AND g.country_id=co.id
     LEFT JOIN affiliate_links al ON al.bookmaker_id=b.id AND al.country_id=co.id
     LEFT JOIN provider_entity_mappings fm ON fm.provider=o.source_provider AND fm.entity_type='FIXTURE' AND fm.provider_entity_id=o.provider_fixture_id
@@ -62,11 +60,11 @@ function oddsReadSql(selector:'id'|'publicIds'|'fixtureIds'|'healthIds'){
 function hydrateOddsSnapshot(rows:QueryResultRow[],fixtureId:string,geo:CommercialGeo|null):InternalOddsRead {
   const date=(value:unknown)=>value instanceof Date?value.toISOString():typeof value==='string'?value:'';
   const locale=commercialLocale(geo);
-  const snapshot:InternalOddsRead={kickoff:date(rows[0]?.kickoff),fixtureStatus:String(rows[0]?.fixture_status??'UNKNOWN'),quotes:[],destinations:{},approvedNativeProviders:APPROVED_NATIVE_SOURCE_IDS};
+  const snapshot:InternalOddsRead={kickoff:date(rows[0]?.kickoff),fixtureStatus:String(rows[0]?.fixture_status??'UNKNOWN'),quotes:[],destinations:{},approvedNativeProviders:APPROVED_NATIVE_SOURCE_IDS,eligibleBookmakers:[],insuranceEnabled:false};
   for(const row of rows){if(!row.bookmaker_id)continue;
-    // A BR feed remains BR content wherever it is read; this grants no commercial eligibility.
-    const sourceEligible=eligibleSource(row.provider_slug,row.source_geo,row.source_verification_state,row.source_domain);
-    const commercialEligible=row.geo_eligible&&eligibleSource(row.provider_slug,geo,row.verification_state,row.source_domain);
+    // Keep this defense even though SQL already filters the exact persisted GEO.
+    const sourceEligible=!!geo&&row.source_geo===geo&&eligibleSource(row.provider_slug,geo,row.source_verification_state,row.source_domain,row.source_domains??[]);
+    const commercialEligible=row.geo_eligible&&sourceEligible&&verifiedGeo(row.verification_state,geo);
     const quote:ReadOddsQuote={quoteId:String(row.id),fixtureId,providerFixtureId:row.provider_fixture_id,bookmaker:canonicalBookmakerSlug(row.provider_slug)??row.provider_slug,bookmakerId:row.bookmaker_id,bookmakerName:row.display_name,
       market:row.market_code,outcome:row.outcome_code,line:row.line===null?null:Number(row.line),decimalOdds:String(row.decimal_odds),status:row.status,scope:row.scope,phase:row.phase,
       providerUpdatedAt:row.provider_updated_at?date(row.provider_updated_at):null,observedAt:date(row.observed_at),persistedAt:date(row.persisted_at),lastSuccessfulRefreshAt:date(row.last_successful_refresh_at),
@@ -74,7 +72,8 @@ function hydrateOddsSnapshot(rows:QueryResultRow[],fixtureId:string,geo:Commerci
     const sourceProvider=String(row.source_provider??'ODDSPAPI');
     const providerPriority=NATIVE_SOURCE_REGISTRY.find(source=>source.id===sourceProvider)?.priority??Number.MAX_SAFE_INTEGER;
     snapshot.quotes.push({...quote,provider:sourceProvider,providerPriority});
-    const destination=quote.geoEligible&&commercialEligible&&locale?availableDestination(quote.bookmaker,locale,row.destination,row.active_campaigns,'match_odds_table')?.url:null;
+    if(quote.geoEligible&&isVisibleBookmaker(quote.bookmaker)&&!snapshot.eligibleBookmakers!.some(b=>b.id===quote.bookmaker))snapshot.eligibleBookmakers=[...snapshot.eligibleBookmakers!,{id:quote.bookmaker,name:quote.bookmakerName,priority:Number(row.public_priority??100)}].sort((a,b)=>a.priority-b.priority||a.id.localeCompare(b.id));
+    const destination=quote.geoEligible&&commercialEligible&&locale?availableDestination(quote.bookmaker,locale,row.destination,row.active_campaigns,'match_odds_table',row.destination_domains??[])?.url:null;
     if(destination)snapshot.destinations[quote.bookmaker]=destination;
   }
   return snapshot;
@@ -115,7 +114,7 @@ export async function readPublicOddsFixtures(db:QueryExecutor,publicIds:readonly
     const internal=hydrateOddsSnapshot(rows,String(rows[0].canonical_fixture_id),geo);
     return [id,{fixture:{publicId:id,home:String(rows[0].home_name),away:String(rows[0].away_name),competition:String(rows[0].competition_name),kickoff:internal.kickoff,status:internal.fixtureStatus},
       // Destinations are intentionally excluded: M6 resolves intent, not commercial actions.
-      snapshot:{kickoff:internal.kickoff,fixtureStatus:internal.fixtureStatus,quotes:internal.quotes,approvedNativeProviders:internal.approvedNativeProviders}}];
+      snapshot:{kickoff:internal.kickoff,fixtureStatus:internal.fixtureStatus,quotes:internal.quotes,approvedNativeProviders:internal.approvedNativeProviders,eligibleBookmakers:internal.eligibleBookmakers,insuranceEnabled:internal.insuranceEnabled}}];
   }));
 }
 
@@ -124,27 +123,29 @@ export async function readSlipComparison(db:QueryExecutor,publicIds:readonly str
   // Two bounded queries regardless of selection/bookmaker count. No history or provider gateway.
   const fixtures=await readPublicOddsFixtures(db,publicIds,geo);
   if(!publicIds.length)return {fixtures,bookmakers:[],destinations:{}};
-  const comparisonGeo='BR'; // Verified BR source content is not a visitor's commercial authorization.
-  const locale=commercialLocale(geo)??'br';
-  const {rows}=await db.query(`SELECT b.provider_slug,b.display_name,b.affiliate_status,g.verification_state,${activeCampaignSql} AS active_campaigns,
-    CASE WHEN b.affiliate_status='ACTIVE' AND g.affiliate_enabled AND al.enabled AND al.approved_at IS NOT NULL
+  if(!geo||geo==='BR')return {fixtures,bookmakers:[],destinations:{}};
+  const locale=commercialLocale(geo)!;
+  const {rows}=await db.query(`SELECT b.provider_slug,b.display_name,g.commercial_status,g.verification_state,g.destination_domains,g.public_priority,${activeCampaignSql} AS active_campaigns,
+    CASE WHEN g.commercial_status='ACTIVE' AND g.affiliate_enabled AND al.enabled AND al.approved_at IS NOT NULL
       AND al.campaign_verified AND al.approved_placement='match-odds' THEN al.destination_url END AS destination
     FROM bookmakers b JOIN bookmaker_geo_availability g ON g.bookmaker_id=b.id
     JOIN countries c ON c.id=g.country_id
     LEFT JOIN affiliate_links al ON al.bookmaker_id=b.id AND al.country_id=c.id
-    WHERE c.iso2=$1 AND b.enabled AND b.comparison_enabled AND g.odds_enabled AND g.comparison_enabled
-      AND g.verified_at IS NOT NULL AND b.provider_slug=ANY($2::text[])
-    ORDER BY b.provider_slug LIMIT ${ACTIVE_BOOKMAKER_IDS.length}`,[comparisonGeo,ACTIVE_BOOKMAKER_IDS]);
+    WHERE c.iso2=$1 AND b.enabled AND g.sportsbook_enabled AND g.odds_enabled AND g.comparison_enabled AND g.legal_status='VERIFIED'
+      AND g.verification_state IN ('VERIFIED','VERIFIED_'||c.iso2)
+      AND g.legal_verified_at IS NOT NULL AND NULLIF(trim(g.legal_reference),'') IS NOT NULL
+      AND g.verified_at IS NOT NULL AND EXISTS(SELECT 1 FROM operator_provider_mappings p WHERE p.bookmaker_id=b.id AND p.country_id=c.id AND p.verified_at IS NOT NULL)
+    ORDER BY g.public_priority,b.provider_slug LIMIT 32`,[geo]);
   const destinations:Record<string,string>={};const bookmakers:BookmakerConfig[]=[];
   for(const row of rows){
     const slug=canonicalBookmakerSlug(row.provider_slug)??row.provider_slug;
-    if(!verifiedGeo(row.verification_state,comparisonGeo)||(slug==='betano.bet.br'&&comparisonGeo!=='BR'))continue;
+    if(!verifiedGeo(row.verification_state,geo)||!isVisibleBookmaker(slug))continue;
     if(bookmakers.some(b=>b.bookmakerId===slug))throw new Error('AMBIGUOUS_BOOKMAKER_CONFIGURATION');
-    const configured=geo?availableDestination(slug,locale,row.destination,row.active_campaigns,'slip_bookmaker_comparison'):null;
+    const configured=availableDestination(slug,locale,row.destination,row.active_campaigns,'slip_bookmaker_comparison',row.destination_domains??[]);
     const destination=configured?.url??null;
     if(destination)destinations[slug]=destination;
-    bookmakers.push({bookmakerId:slug,displayName:row.display_name,geoEligibility:{locale,eligible:true},
-      affiliateEligibility:{approved:!!geo&&row.affiliate_status==='ACTIVE',destinationConfigured:destination!==null,...(configured?{destinationType:configured.type}:{})}});
+    bookmakers.push({bookmakerId:slug,displayName:row.display_name,displayOrder:Number(row.public_priority??100),insuranceEnabled:false,geoEligibility:{locale,eligible:true},
+      affiliateEligibility:{approved:row.commercial_status==='ACTIVE',destinationConfigured:destination!==null,...(configured?{destinationType:configured.type}:{})}});
   }
   return {fixtures,bookmakers,destinations};
 }

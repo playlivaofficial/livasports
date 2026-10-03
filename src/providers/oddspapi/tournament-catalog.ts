@@ -1,4 +1,4 @@
-import {FOOTBALL_COMPETITION_TARGETS} from '@/config/footballCompetitions';
+import {APPROVED_COMPETITION_TARGETS as FOOTBALL_COMPETITION_TARGETS,isAcquisitionCompetition} from '@/config/footballCompetitions';
 import {M5_EXPANDED_TOURNAMENTS,M5_REJECTED_TOURNAMENTS,M5_TOURNAMENTS} from './m5-normalizer';
 
 export interface CatalogTournament {
@@ -80,6 +80,7 @@ export function resolveCatalogTournaments(raw: unknown[]): CatalogTournament[] {
   const rows = (Array.isArray(raw) ? raw : []).map(obj);
   const resolved: CatalogTournament[] = [];
   for (const rule of TOURNAMENT_IDENTITY_RULES) {
+    if (!isAcquisitionCompetition(rule.canonical)) continue;
     const found = rows.filter(row => String(row.tournamentSlug) === rule.slug && String(row.categorySlug) === rule.category);
     if (found.length !== 1) continue;
     const id = String(found[0].tournamentId ?? '');
@@ -92,7 +93,7 @@ export function resolveCatalogTournaments(raw: unknown[]): CatalogTournament[] {
   // provider row in the matching country/clubs category carries one of the registry's reviewed lookup names.
   // The ID is still copied from the provider row; nothing is guessed.
   for (const target of FOOTBALL_COMPETITION_TARGETS) {
-    if (!target.enabled || byCanonical.has(target.slug)) continue;
+    if (!target.enabled || !isAcquisitionCompetition(target.slug) || byCanonical.has(target.slug)) continue;
     const names = new Set([target.canonicalName, ...target.lookupNames].map(normalizeName));
     const found = rows.filter(row => registryCategoryMatches(target, row) && names.has(normalizeName(row.tournamentName)) && /^[0-9]{1,10}$/.test(String(row.tournamentId ?? '')));
     if (found.length !== 1) continue;
@@ -140,7 +141,7 @@ export function schedulerTournaments(raw: unknown[], expanded: readonly {id:stri
   const resolved = resolveCatalogTournaments(raw);
   const byId = new Map(resolved.map(row => [row.id, row]));
   const stable = M5_TOURNAMENTS.map(row => byId.get(row.id) ?? {id: row.id, slug: row.slug, category: row.category, canonical: row.canonical});
-  const enabled = new Set(FOOTBALL_COMPETITION_TARGETS.filter(target => target.enabled).map(target => target.slug));
+  const enabled = new Set(FOOTBALL_COMPETITION_TARGETS.filter(target => target.enabled && isAcquisitionCompetition(target.slug)).map(target => target.slug));
   const stableIds = new Set(stable.map(row => row.id));
   // Verified expanded rows keep their exact identity check; any other resolved row must map to an enabled competition.
   const verified = expanded.flatMap(row => {
@@ -150,7 +151,7 @@ export function schedulerTournaments(raw: unknown[], expanded: readonly {id:stri
   });
   const verifiedIds = new Set(verified.map(row => row.id));
   const discovered = resolved.filter(row => !stableIds.has(row.id) && !verifiedIds.has(row.id) && enabled.has(row.canonical));
-  return [...stable, ...verified, ...discovered];
+  return [...stable, ...verified, ...discovered].filter(row=>enabled.has(row.canonical));
 }
 /** Keep every well-formed provider row (rules apply at resolve time) so mapping gaps stay visible instead of being discarded. */
 export function mergeCatalogTournaments(existing: unknown[], incoming: unknown[]): unknown[] {
@@ -166,5 +167,5 @@ export function mergeCatalogTournaments(existing: unknown[], incoming: unknown[]
 
 export function catalogNeedsExpansion(raw: unknown[], upcomingCanonicals: readonly string[]): boolean {
   const mapped = new Set(resolveCatalogTournaments(raw).map(row => row.canonical));
-  return FOOTBALL_COMPETITION_TARGETS.some(target => target.enabled && upcomingCanonicals.includes(target.slug) && !mapped.has(target.slug));
+  return FOOTBALL_COMPETITION_TARGETS.some(target => target.enabled && isAcquisitionCompetition(target.slug) && upcomingCanonicals.includes(target.slug) && !mapped.has(target.slug));
 }

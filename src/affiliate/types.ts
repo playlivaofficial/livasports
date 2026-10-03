@@ -16,6 +16,8 @@ export interface CommercialContext {
 }
 export interface Creative {id:string;placement:Placement;locale:SiteLocale;imageUrl:string|null;imageAlt:string;width:number;height:number;approved:boolean;enabled:boolean;startsAt:string|null;endsAt:string|null;delivery?:'IMAGE'|'BETSSON_EMBED';embedSourceUrl?:string|null;}
 export interface Campaign {
+  operatorDomains?:string[];
+  commercialVersion?:number;
   id:string;operatorCampaignId:string;linkId:string;bookmaker:Bookmaker;locale:SiteLocale;enabled:boolean;approved:boolean;
   geoEligible:boolean;affiliateApproved:boolean;destination:string|null;destinationType:DestinationType;
   placements:Placement[];domains:string[];startsAt:string;endsAt:string;creatives:Creative[];
@@ -25,6 +27,6 @@ export interface VerifiedOffer {campaign:Campaign;context:CommercialContext;page
 export interface PublicOffer {campaignId?:string;qaPreview?:boolean;bookmaker:Bookmaker;placement:Placement;href:string;token:string;expiresAt:string;resolvedAt:string;destinationType:DestinationType;embedPermission?:'anonymous'|'consent';creative:Omit<Creative,'approved'|'enabled'|'startsAt'|'endsAt'|'embedSourceUrl'>|null;
   analytics?:{fixturePublicId?:string;competitionSlug?:string;market?:OddsMarket;slipLegCount?:number};
 }
-export interface OfferToken {qaSession?:string;v:1;viewId:string;campaignId:string;context:CommercialContext;expiresAt:number;embedPermission?:'anonymous'|'consent';}
+export interface OfferToken {qaSession?:string;v:1;viewId:string;campaignId:string;campaignVersion?:number;context:CommercialContext;expiresAt:number;embedPermission?:'anonymous'|'consent';}
 export type TrafficClass='HUMAN_CLICK'|'HUMAN_VIEW'|'QA_TEST'|'UNKNOWN';
 export const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;

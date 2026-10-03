@@ -1,3 +1,4 @@
+import {withSpanishLocales} from '@/localization/spanish';
 import {requestTimeZone} from '@/localization/time-zone-server';
 import {eventLabels,statisticLabels} from '@/match-center/localization';
 import {MatchHistory} from '@/sports/MatchHistory';
@@ -24,7 +25,7 @@ import {GrowthProminence} from '@/growth/GrowthProminence';
 import {MatchQueryIntro} from '@/seo/MatchQueryIntro';
 import {SeoFactualContext} from '@/seo-autopilot/public';
 
-const copy = {
+const copy = withSpanishLocales({
   br: {
     back: 'Voltar aos jogos', summary: 'Resumo', statistics: 'Estatísticas', lineups: 'Escalações', meetings: 'Confrontos', standings: 'Classificação', odds: 'Odds',
     timezone: 'Brasília', venue: 'Estádio', round: 'Rodada', stage: 'Fase', season: 'Temporada', timeline: 'Lances importantes', noEvents: 'Nenhum lance detalhado disponível.',
@@ -45,19 +46,19 @@ const copy = {
     pending: 'Aún no está disponible para este partido.', noData: 'No hay datos registrados para este partido.', notCovered: 'Este dato no está cubierto por el proveedor.', temporaryError: 'Este módulo no está disponible temporalmente.', liveStale: 'La actualización en vivo está retrasada — se muestra la última captura guardada.',
     replay: 'Reproducción de prueba — datos históricos; no es un partido en vivo.', playerPerformance:'Rendimiento individual',
   },
-} as const;
+} as const);
 
 const preferredStats = [/possession/i, /shots total/i, /shots on target/i, /corners/i, /fouls/i, /offsides/i, /yellow cards/i, /red cards/i];
-const scoreLabels: Record<SiteLocale, Record<string,string>> = {
+const scoreLabels: Record<SiteLocale, Record<string,string>> = withSpanishLocales({
   br: { PENALTIES:'Pênaltis',EXTRA_TIME:'Prorrogação',AGGREGATE:'Agregado' },
   mx: { PENALTIES:'Penales',EXTRA_TIME:'Tiempo extra',AGGREGATE:'Global' },
-};
-const playerStatisticLabels: Record<SiteLocale,Record<string,string>>={
+});
+const playerStatisticLabels: Record<SiteLocale,Record<string,string>>=withSpanishLocales({
   br:{MINUTES_PLAYED:'min',MINUTES:'min',GOALS:'gols',ASSISTS:'assist.',YELLOWCARDS:'amarelos',REDCARDS:'vermelhos',
     SHOTS:'finalizações',SHOTS_TOTAL:'finalizações',SHOTS_ON_TARGET:'no gol',SAVES:'defesas',PASSES:'passes',RATING:'nota'},
   mx:{MINUTES_PLAYED:'min',MINUTES:'min',GOALS:'goles',ASSISTS:'asist.',YELLOWCARDS:'amarillas',REDCARDS:'rojas',
     SHOTS:'tiros',SHOTS_TOTAL:'tiros',SHOTS_ON_TARGET:'a puerta',SAVES:'atajadas',PASSES:'pases',RATING:'nota'},
-};
+});
 function prioritizedStats(rows: MatchStatisticView[]) {
   const preferred = preferredStats.flatMap(rule => rows.filter(row => rule.test(row.type)));
   return [...preferred, ...rows].filter((row, index, all) => all.findIndex(item => item.type === row.type && item.scope === row.scope) === index);

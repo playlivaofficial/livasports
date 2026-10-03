@@ -1,10 +1,10 @@
 import type {Metadata} from 'next';
-import {interfaceRoutes,languageAlternates,languageTags,type InterfaceLocale} from '@/localization/interface';
+import {interfaceRoutes,interfaceLocales,languageAlternates,languageTags,type InterfaceLocale} from '@/localization/interface';
 import {authRoutes} from '@/localization/auth-copy';
 import {favoritesRoutes} from '@/localization/favorites-copy';
 import {legalKinds,legalPath} from '@/localization/legal-routes';
 import {helpKinds,helpPath} from '@/localization/help-routes';
-import {FOOTBALL_COMPETITION_TARGETS} from '@/config/footballCompetitions';
+import {CANONICAL_COMPETITION_TARGETS} from '@/config/footballCompetitions';
 import {competitionPath,competitionTabs,sportsPage,sportsSeason,type CompetitionTab} from '@/sports/policy';
 
 /**
@@ -14,7 +14,7 @@ import {competitionPath,competitionTabs,sportsPage,sportsSeason,type Competition
  * resolve data and ask this module for the answer.
  */
 export const siteOrigin='https://livasports.com';
-export const locales=['br','mx','en'] as const;
+export const locales=interfaceLocales;
 export const absoluteUrl=(path:string)=>`${siteOrigin}${path}`;
 
 export type RouteFamily='home'|'football'|'live'|'today'|'competition'|'match'|'team'|'player'|'legal'|'help'
@@ -74,7 +74,7 @@ export const noindexRobots={index:false,follow:true} as const;
 export const noindexNofollowRobots={index:false,follow:false} as const;
 
 export function alternateCluster(paths:Record<InterfaceLocale,string>){
-  return languageAlternates(paths.br,paths.mx,paths.en);
+  return languageAlternates(paths.br,paths.mx,paths.en,paths.co,paths.pe);
 }
 /** Canonical + reciprocal hreflang for one entity across the three locales. */
 export function localizedAlternates(locale:InterfaceLocale,paths:Record<InterfaceLocale,string>):NonNullable<Metadata['alternates']>{
@@ -118,7 +118,7 @@ export function competitionCanonical(view:ResolvedCompetitionView):CompetitionCa
 /** Parse the query the way the board does, so metadata and page agree before data is loaded. */
 export function competitionRequest(query:Record<string,string|string[]|undefined>){
   const slug=typeof query.competition==='string'?query.competition:'';
-  const known=FOOTBALL_COMPETITION_TARGETS.some(target=>target.slug===slug);
+  const known=CANONICAL_COMPETITION_TARGETS.some(target=>target.slug===slug);
   return {slug,known,tab:competitionTabFromQuery(query.tab),season:sportsSeason(query.season),page:sportsPage(query.p),search:query.q!==undefined};
 }
 function competitionTabFromQuery(value:unknown):CompetitionTab{return competitionTabs.includes(value as CompetitionTab)?value as CompetitionTab:'fixtures';}
@@ -128,13 +128,13 @@ function competitionTabFromQuery(value:unknown):CompetitionTab{return competitio
 // ---------------------------------------------------------------------------
 export type StaticPage='home'|'football'|'live'|'today';
 export const staticPages:readonly StaticPage[]=['home','football','live','today'];
-export function staticPaths(page:StaticPage):Record<InterfaceLocale,string>{return {br:interfaceRoutes.br[page],mx:interfaceRoutes.mx[page],en:interfaceRoutes.en[page]};}
-export function legalPaths(kind:typeof legalKinds[number]):Record<InterfaceLocale,string>{return {br:legalPath('br',kind),mx:legalPath('mx',kind),en:legalPath('en',kind)};}
-export function helpPaths(kind:typeof helpKinds[number]):Record<InterfaceLocale,string>{return {br:helpPath('br',kind),mx:helpPath('mx',kind),en:helpPath('en',kind)};}
+export function staticPaths(page:StaticPage):Record<InterfaceLocale,string>{return Object.fromEntries(locales.map(locale=>[locale,interfaceRoutes[locale][page]])) as Record<InterfaceLocale,string>;}
+export function legalPaths(kind:typeof legalKinds[number]):Record<InterfaceLocale,string>{return Object.fromEntries(locales.map(locale=>[locale,legalPath(locale,kind)])) as Record<InterfaceLocale,string>;}
+export function helpPaths(kind:typeof helpKinds[number]):Record<InterfaceLocale,string>{return Object.fromEntries(locales.map(locale=>[locale,helpPath(locale,kind)])) as Record<InterfaceLocale,string>;}
 export function competitionPaths(slug:string,options:{tab?:CompetitionTab;season?:string;page?:number}={}):Record<InterfaceLocale,string>{
-  return {br:competitionPath('br',slug,options),mx:competitionPath('mx',slug,options),en:competitionPath('en',slug,options)};
+  return Object.fromEntries(locales.map(locale=>[locale,competitionPath(locale,slug,options)])) as Record<InterfaceLocale,string>;
 }
-export const enabledCompetitionSlugs=()=>FOOTBALL_COMPETITION_TARGETS.filter(target=>target.enabled).map(target=>target.slug);
+export const enabledCompetitionSlugs=()=>CANONICAL_COMPETITION_TARGETS.filter(target=>target.enabled).map(target=>target.slug);
 
 /** Every path that must never enter a sitemap, for policy tests and sitemap validation. */
 export function privatePathPrefixes(){

@@ -26,4 +26,10 @@ describe('affiliate boundary',()=>{
     for(const suffix of ['&url=https://evil.test','&destination=evil','&locale=mx','&placement=other'])expect(validOutboundRequest('betsson',new URLSearchParams(base+suffix))).toBe(false);
     expect(validOutboundRequest('betsson',new URLSearchParams(base.replace('placement=match-odds','placement=banner')))).toBe(false);
   });
+  it('accepts exact CO/PE legacy action context while still rejecting unknown locale or destination overrides',()=>{
+    const query=new URLSearchParams({fixtureId:'efb9eb42-36e5-4aa8-9b0d-05cbe62b9dd3',locale:'co',market:'MATCH_WINNER',placement:'match-odds'});
+    for(const locale of ['mx','co','pe']){query.set('locale',locale);expect(validOutboundRequest('codere',query)).toBe(true);}
+    for(const locale of ['CO','en','es','row','us']){query.set('locale',locale);expect(validOutboundRequest('codere',query)).toBe(false);}
+    query.set('locale','co');query.append('destination','https://codere.com.co/');expect(validOutboundRequest('codere',query)).toBe(false);
+  });
 });

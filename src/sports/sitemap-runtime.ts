@@ -11,7 +11,7 @@ function repo(){const url=databaseUrl();if(!url)throw Error('Sports database is 
 const entityCache={ttlSeconds:6*3600,staleIfErrorSeconds:24*3600};
 // Data Cache survives deployments: V2 changes eligibility and adds locale-scoped lastmod.
 // Never reuse pre-V2 entry objects that lack lastmodLocales under the new renderer.
-const entityCacheVersion='sports:sitemap:v4';
+const entityCacheVersion='sports:sitemap:v5-geo';
 // Counts materialise all three eligibility sets (the slowest query); once a day is enough for batch numbering.
 export async function loadSitemapCounts(){return (await cache.getOrSet(`${entityCacheVersion}:counts`,{ttlSeconds:24*3600,staleIfErrorSeconds:48*3600},()=>repo().counts())).value;}
 export async function loadSitemapBatch(kind:SitemapKind,page:number){return (await cache.getOrSet(`${entityCacheVersion}:${kind}:${page}`,entityCache,()=>repo().entries(kind,sitemapBatchSize,page*sitemapBatchSize))).value;}

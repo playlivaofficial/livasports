@@ -54,13 +54,13 @@ describe('fixture delivery rules', () => {
     expect(groups.every(group => group.fixtures.length === 0)).toBe(true);
   });
 
-  it('orders registry sections by approved group order before locale priority', () => {
+  it('orders registry sections by the shared GEO priority, with no Brazil group override', () => {
     const groups = groupFixtureViews([], [
       { competition: 'Liga MX', slug: 'liga-mx', group: 'AMERICAS', priority: 10 },
       { competition: 'Brasileirão', slug: 'brasileirao', group: 'BRAZIL', priority: 120 },
       { competition: 'Champions League', slug: 'champions-league', group: 'EUROPE', priority: 40 },
       { competition: 'Liga Saudita', slug: 'saudi-pro-league', group: 'OTHER', priority: 80 },
     ]);
-    expect(groups.map(group => group.group)).toEqual(['BRAZIL', 'AMERICAS', 'EUROPE', 'OTHER']);
+    expect(groups.map(group => group.group)).toEqual(['AMERICAS', 'EUROPE', 'OTHER', 'BRAZIL']);
   });
 });

@@ -1,6 +1,7 @@
+import {withSpanishLocales} from '@/localization/spanish';
 import type { SiteLocale } from '@/config/i18n';
 
-const positionLabels: Record<SiteLocale, Record<string, string>> = {
+const positionLabels: Record<SiteLocale, Record<string, string>> = withSpanishLocales({
   br: {
     goalkeeper: 'Goleiro', keeper: 'Goleiro', defender: 'Defensor', centreback: 'Zagueiro', centerback: 'Zagueiro',
     leftback: 'Lateral-esquerdo', rightback: 'Lateral-direito', wingback: 'Ala', midfielder: 'Meio-campista',
@@ -17,9 +18,9 @@ const positionLabels: Record<SiteLocale, Record<string, string>> = {
     forward: 'Delantero', centreforward: 'Delantero centro', centerforward: 'Delantero centro', striker: 'Delantero centro',
     leftwing: 'Extremo izquierdo', rightwing: 'Extremo derecho', winger: 'Extremo',
   },
-};
+});
 
-const countryLabels: Record<SiteLocale, Record<string, string>> = {
+const countryLabels: Record<SiteLocale, Record<string, string>> = withSpanishLocales({
   br: {
     argentina: 'Argentina', brazil: 'Brasil', brasil: 'Brasil', chile: 'Chile', colombia: 'Colômbia', ecuador: 'Equador',
     europe:'Europa',world:'Mundo',international:'Internacional',southamerica:'América do Sul',northamerica:'América do Norte',asia:'Ásia',africa:'África',oceania:'Oceania',scotland:'Escócia',wales:'País de Gales',northernireland:'Irlanda do Norte',
@@ -34,7 +35,7 @@ const countryLabels: Record<SiteLocale, Record<string, string>> = {
     paraguay: 'Paraguay', portugal: 'Portugal', saudiarabia: 'Arabia Saudita', spain: 'España', turkey: 'Turquía',
     unitedstates: 'Estados Unidos', unitedstatesofamerica: 'Estados Unidos', uruguay: 'Uruguay', venezuela: 'Venezuela',
   },
-};
+});
 
 function positionKey(value: string): string {
   return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z]/g, '');
@@ -49,7 +50,7 @@ for(const [name,code] of Object.entries({korearepublic:'KR',republicofireland:'I
   antiguaandbarbuda:'AG',bosniaandherzegovina:'BA',koreadpr:'KP',kyrgyzrepublic:'KG',palestine:'PS',republicofthecongo:'CG',saintkittsandnevis:'KN',saintlucia:'LC',saintvincentandthegrenadines:'VC',saotomeandprincipe:'ST',trinidadandtobago:'TT',
   england:'GB',scotland:'GB',wales:'GB',northernireland:'GB',
 }))countryCodes.set(name,code);
-const displayCountries={br:new Intl.DisplayNames(['pt-BR'],{type:'region',fallback:'none'}),mx:new Intl.DisplayNames(['es-MX'],{type:'region',fallback:'none'})};
+const displayCountries=withSpanishLocales({br:new Intl.DisplayNames(['pt-BR'],{type:'region',fallback:'none'}),mx:new Intl.DisplayNames(['es-MX'],{type:'region',fallback:'none'})});
 
 export function localizedPosition(locale: SiteLocale, ...candidates: Array<string | null | undefined>): string | null {
   for (const candidate of candidates) {

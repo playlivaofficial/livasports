@@ -8,7 +8,8 @@ import {interfaceDictionary} from '@/localization/interface';
 import {localDateKey} from '@/delivery/time';
 import {competitionName,numericStatistic,resolveDefaultSeason,sportsPageSize} from './policy';
 import {rankSportsSearch} from './search-rank';
-import {targetBySlug} from '@/config/footballCompetitions';
+import {targetBySlug,APPROVED_COMPETITION_SLUGS,isAcquisitionCompetition} from '@/config/footballCompetitions';
+import {competitionDemand,geoForLocale,isSpanishLocale} from '@/config/geo';
 import {deliveryWindow} from '@/delivery/time';
 import {countryCodeFromName} from '@/profiles/localization';
 import type {CompetitionHub,CompetitionNavItem,PendingSportsFixture,SportsFixture,SportsSearchResult,SportsStanding,SportsTeam} from './types';
@@ -45,14 +46,16 @@ export class SportsRepository {
     const now=new Date();
     const window=deliveryWindow(locale==='en'?'br':locale,'football',now,timeZone);
     const rows=(await this.db.query<Row>(`SELECT c.slug,c.canonical_name,c.display_name_pt_br,c.display_name_es_mx,c.competition_group,c.region,
-      co.iso2 AS country_code,co.name AS country_name,count(f.id)::int AS n
+      co.iso2 AS country_code,co.name AS country_name,count(f.id)::int AS n,min(p.priority_rank) AS growth_rank
       FROM competitions c LEFT JOIN countries co ON co.id=c.country_id
       LEFT JOIN fixtures f ON f.competition_id=c.id AND f.kickoff>=$1 AND f.kickoff<$2
-      WHERE c.enabled GROUP BY c.id,co.iso2,co.name
-      ORDER BY CASE WHEN $3='br' THEN c.priority_br WHEN $3='mx' THEN c.priority_mx ELSE c.priority_br END NULLS LAST,c.canonical_name`,[window.from,window.to,locale])).rows;
-    return rows.map(row=>{const slug=String(row.slug),target=targetBySlug(slug),canonical=string(row.canonical_name)??target?.canonicalName??slug;return {slug,name:(locale==='br'?string(row.display_name_pt_br):locale==='mx'?string(row.display_name_es_mx):null)??competitionName(locale,slug)??canonical,
+      LEFT JOIN growth_geo_priorities p ON p.fixture_id=f.id AND p.geo=$3 AND p.active AND p.priority_rank<=5
+        AND f.status='SCHEDULED' AND f.kickoff>now() AND f.kickoff<=now()+interval '7 days'
+      WHERE c.enabled AND c.slug=ANY($4::text[]) GROUP BY c.id,co.iso2,co.name ORDER BY c.slug`,[window.from,window.to,geoForLocale(locale),APPROVED_COMPETITION_SLUGS])).rows;
+    return rows.filter(row=>isAcquisitionCompetition(String(row.slug))).map(row=>{const slug=String(row.slug),target=targetBySlug(slug),canonical=string(row.canonical_name)??target?.canonicalName??slug;return {slug,name:(locale==='br'?string(row.display_name_pt_br):isSpanishLocale(locale)?string(row.display_name_es_mx):null)??competitionName(locale,slug)??canonical,
+      priority:row.growth_rank!==null&&row.growth_rank!==undefined?-100+Number(row.growth_rank):100-competitionDemand(geoForLocale(locale),slug),
       group:['BRAZIL','AMERICAS','EUROPE'].includes(String(row.competition_group))?String(row.competition_group):'OTHER',count:Number(row.n),
-      countryCode:string(row.country_code),countryName:string(row.country_name),region:string(row.region)??target?.region??'OTHER'};});
+      countryCode:string(row.country_code),countryName:string(row.country_name),region:string(row.region)??target?.region??'OTHER'};}).sort((a,b)=>a.priority-b.priority||a.slug.localeCompare(b.slug));
   }
   async calendar(locale:InterfaceLocale,timeZone=interfaceDictionary(locale).timeZone){
     const today=localDateKey(new Date(),timeZone);

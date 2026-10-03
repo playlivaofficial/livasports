@@ -3,6 +3,7 @@
  * Isomorphic: no server or browser dependencies. First-party only; no third-party trackers.
  */
 import {SOURCE_BOOKMAKER_IDS,type BookmakerId} from '@/odds/registry';
+import type {GeoLocale} from '@/config/geo';
 export const EVENT_VERSION=1 as const;
 export const CLIENT_EVENTS=[
   // session / acquisition
@@ -10,7 +11,7 @@ export const CLIENT_EVENTS=[
   // discovery
   'competition_viewed','team_viewed','player_viewed','match_viewed','search_used',
   // odds
-  'odds_visible','odds_selected','bookmaker_comparison_viewed',
+  'odds_visible','market_open','odds_selected','bookmaker_comparison_viewed',
   // slip
   'slip_created','slip_leg_added','slip_leg_removed','slip_cleared','stake_changed','slip_opened',
   // affiliate (interaction visibility; the redirect itself is server-authoritative)
@@ -34,7 +35,7 @@ export type PageType=typeof PAGE_TYPES[number];
 export const REFERRER_CLASSES=['google_organic','bing_organic','other_search','direct','social','referral','paid','internal','unknown'] as const;
 export type ReferrerClass=typeof REFERRER_CLASSES[number];
 export type TrafficClass='HUMAN'|'QA'|'OWNER'|'BOT';
-export type Locale='br'|'mx'|'en';
+export type Locale=GeoLocale;
 export const SESSION_WINDOW_MINUTES=30;
 export const MAX_BATCH_EVENTS=25;
 export const MAX_EVENT_BYTES=2048;
@@ -72,7 +73,7 @@ export function parseClientEvent(raw:unknown):ClientEvent|null{
   if(!isClientEvent(e.eventName)||e.eventVersion!==EVENT_VERSION)return null;
   if(!UUID_PATTERN.test(String(e.eventId??''))||!ID_PATTERN.test(String(e.sessionId??''))||!ID_PATTERN.test(String(e.anonymousId??'')))return null;
   const occurred=Date.parse(String(e.occurredAt??''));if(!Number.isFinite(occurred))return null;
-  if(!['br','mx','en'].includes(String(e.locale)))return null;
+  if(!['br','mx','co','pe','en'].includes(String(e.locale)))return null;
   if(!(PAGE_TYPES as readonly string[]).includes(String(e.pageType)))return null;
   if(!(REFERRER_CLASSES as readonly string[]).includes(String(e.referrerClass)))return null;
   const canonicalPath=clean(e.canonicalPath,240);if(!canonicalPath||!canonicalPath.startsWith('/'))return null;
@@ -109,7 +110,7 @@ export function parseClientEvent(raw:unknown):ClientEvent|null{
 /** Page classification from the canonical path (locale-aware, derived from the existing route tables). */
 export function classifyPage(pathname:string,search=''):{pageType:PageType;locale:Locale|null;competitionSlug?:string;fixturePublicId?:string;teamPublicId?:string;playerPublicId?:string}{
   const parts=pathname.split('?')[0].split('/').filter(Boolean);
-  const locale=(['br','mx','en'] as const).find(l=>l===parts[0])??null;
+  const locale=(['br','mx','co','pe','en'] as const).find(l=>l===parts[0])??null;
   const params=new URLSearchParams(search.startsWith('?')?search.slice(1):search);
   const competition=params.get('competition');
   const idOf=(segment:string|undefined)=>{const m=/-([a-f0-9]{16})$/i.exec(segment??'');return m?m[1].toLowerCase():undefined;};

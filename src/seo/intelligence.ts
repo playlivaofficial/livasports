@@ -101,11 +101,13 @@ export function topBy(rows:readonly SearchRow[],metric:'clicks'|'impressions',li
  * Locale from our own canonical URL structure rather than from Google's country dimension: `/br`, `/mx`
  * and `/en` are the three published trees, so the page path is the authoritative signal.
  */
-export function localeOfPage(page:string):'pt-BR'|'es-MX'|'en'|'other'{
+export function localeOfPage(page:string):'pt-BR'|'es-MX'|'es-CO'|'es-PE'|'en'|'other'{
   let path:string;
   try{path=new URL(page).pathname;}catch{path=page;}
   if(/^\/br(\/|$)/.test(path))return 'pt-BR';
   if(/^\/mx(\/|$)/.test(path))return 'es-MX';
+  if(/^\/co(\/|$)/.test(path))return 'es-CO';
+  if(/^\/pe(\/|$)/.test(path))return 'es-PE';
   if(/^\/en(\/|$)/.test(path))return 'en';
   return 'other';
 }
@@ -122,6 +124,7 @@ export function byLocale(pageRows:readonly SearchRow[]):Array<{locale:string}&To
 
 /** Search Console reports countries as lowercase ISO-3; Brazil is 'bra'. */
 export const BRAZIL_COUNTRY='bra';
+export const CORE_GSC_COUNTRIES={MX:'mex',CO:'col',PE:'per'} as const;
 export function countryTotals(countryRows:readonly SearchRow[],country:string):Totals{
   return aggregate(collapse(countryRows).filter(row=>row.key.toLowerCase()===country.toLowerCase()));
 }

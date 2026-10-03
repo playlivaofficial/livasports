@@ -37,7 +37,7 @@ export const BUCKET_SQL=`CASE
 
 export interface GrowthFilters {
   from:Date;to:Date;
-  locale?:'br'|'mx'|'en';geo?:'BR'|'MX';source?:AcquisitionBucket;
+  locale?:import('@/config/geo').GeoLocale;geo?:import('@/config/geo').Geo;source?:AcquisitionBucket;
   competition?:string;team?:string;pageType?:string;
 }
 export interface PeriodMetrics {

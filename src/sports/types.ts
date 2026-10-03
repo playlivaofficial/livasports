@@ -28,4 +28,4 @@ export interface CompetitionHub {
   pending:PendingSportsFixture[];pendingTotal:number;
 }
 export interface SportsSearchResult {kind:'competition'|'team'|'player';publicId:string;name:string;context:string|null;slug:string|null;countryCode:string|null;countryName:string|null;region:string|null;imageUrl:string|null}
-export interface CompetitionNavItem {slug:string;name:string;group:string;count:number;countryCode:string|null;countryName:string|null;region:string|null}
+export interface CompetitionNavItem {slug:string;name:string;group:string;count:number;countryCode:string|null;countryName:string|null;region:string|null;priority?:number}

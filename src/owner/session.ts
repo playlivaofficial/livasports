@@ -1,9 +1,10 @@
 import {createHash,createHmac,randomBytes,timingSafeEqual} from 'node:crypto';
+import {isCoreGeo,type CoreGeo} from '@/config/geo';
 
 type Environment=Readonly<Record<string,string|undefined>>;
 export const ownerCookie='__Host-livasports_owner';
 export const ownerSessionSeconds=30*24*60*60;
-export interface OwnerSession {v:1;id:string;expiresAt:number;preview:boolean;}
+export interface OwnerSession {v:1;id:string;expiresAt:number;preview:boolean;previewGeo?:CoreGeo|null;}
 const equalHex=(a:string,b:string)=>{const validA=/^[a-f0-9]{64}$/.test(a),validB=/^[a-f0-9]{64}$/.test(b);const left=Buffer.from(validA?a:'0'.repeat(64),'hex'),right=Buffer.from(validB?b:'0'.repeat(64),'hex');return timingSafeEqual(left,right)&&validA&&validB;};
 const equalValue=(a:string,b:string)=>a.length===b.length&&timingSafeEqual(Buffer.from(a),Buffer.from(b));
 export const normalizeOwnerAccessKey=(value:unknown)=>typeof value==='string'?value.trim():'';
@@ -19,7 +20,11 @@ export function requestOwnerSession(headers:Headers,env:Environment=process.env,
   const values=(headers.get('cookie')??'').split(';').map(v=>v.trim()).filter(v=>v.startsWith(ownerCookie+'='));if(values.length!==1)return null;
   const token=values[0].slice(ownerCookie.length+1);if(token.length>1024||!/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]{43}$/.test(token))return null;
   const [value,signature]=token.split('.');if(!equalValue(signature,mac(value,key,env)))return null;
-  try{const p=JSON.parse(Buffer.from(value,'base64url').toString('utf8'));return p.v===1&&typeof p.id==='string'&&/^[A-Za-z0-9_-]{32}$/.test(p.id)&&typeof p.preview==='boolean'&&Number.isSafeInteger(p.expiresAt)&&p.expiresAt>now&&p.expiresAt<=now+ownerSessionSeconds*1000&&Object.keys(p).length===4?p:null;}catch{return null;}
+  try{const p=JSON.parse(Buffer.from(value,'base64url').toString('utf8'));
+    if(p.v!==1||typeof p.id!=='string'||!/^[A-Za-z0-9_-]{32}$/.test(p.id)||typeof p.preview!=='boolean'||!Number.isSafeInteger(p.expiresAt)||p.expiresAt<=now||p.expiresAt>now+ownerSessionSeconds*1000||Object.keys(p).some(k=>!['v','id','expiresAt','preview','previewGeo'].includes(k))||Object.keys(p).length<4||p.previewGeo!==undefined&&p.previewGeo!==null&&!isCoreGeo(p.previewGeo))return null;
+    // Existing signed BR preview sessions retain login but lose retired commercial impersonation.
+    return {...p,preview:!!p.preview&&isCoreGeo(p.previewGeo)};
+  }catch{return null;}
 }
 export function ownerPreview(headers:Headers,env:Environment=process.env){const session=requestOwnerSession(headers,env);return session?.preview?session:null;}
 /** Offer grants are bound to the authenticated session without publishing its cookie. */

@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { FixtureStatus, MarketCode, OutcomeCode } from '@/domain/enums';
 import type { FixtureView } from '@/delivery/types';
-import { OddsComparison } from './OddsComparison';
+import { OddsComparison,listingBookmakerRows } from './OddsComparison';
 import { oddsFreshnessCompact } from '@/slip/localization';
 
 function fixture(freshness: 'fresh' | 'stale' = 'fresh', oddsState: FixtureView['oddsState'] = 'partial'): FixtureView {
@@ -62,12 +62,34 @@ describe('listing MATCH_WINNER cells', () => {
     const value = fixture();
     value.publicId = 'aaaaaaaaaaaaaaaa';
     for (const outcome of value.odds[0].outcomes) for (const price of outcome.prices) price.expiresAt = '2030-01-01T12:00:00.000Z';
-    const html = renderToStaticMarkup(createElement(OddsComparison, { locale: 'br', fixture: value }));
+    const html = renderToStaticMarkup(createElement(OddsComparison, { locale: 'co', commercialLocale:'co', fixture: value }));
     expect(html).toContain('listing-odds-select');
     expect(html).toContain('aria-pressed="false"');
-    expect(html).toContain('Adicionar ao bilhete');
+    expect(html).toContain('Agregar al boleto');
     expect(html).toContain('type="button"');
     expect(html).toContain('data-target-bookmaker="betsson"');
+  });
+  it.each(['mx','co','pe'] as const)('renders the supplied %s candidate rows without BR targets or invented proxy cells',locale=>{
+    const value=fixture();value.publicId='aaaaaaaaaaaaaaaa';
+    value.odds=[{market:MarketCode.MATCH_WINNER,line:null,outcomes:[
+      {outcome:OutcomeCode.HOME,prices:[{bookmaker:'Codere',targetBookmaker:'codere',priceKind:'REAL',decimalOdds:2.1,providerUpdatedAt:'2026-09-07T17:59:00Z',expiresAt:'2030-01-01T00:00:00Z',freshness:'fresh'}]},
+      {outcome:OutcomeCode.DRAW,prices:[{bookmaker:'Betano',targetBookmaker:'betano',priceKind:'REAL',decimalOdds:3.2,providerUpdatedAt:'2026-09-07T17:59:00Z',expiresAt:'2030-01-01T00:00:00Z',freshness:'fresh'}]},
+      {outcome:OutcomeCode.AWAY,prices:[]},
+    ]}];
+    const rows=listingBookmakerRows(value);
+    expect(rows.map(row=>row.id)).toEqual(['codere','betano']);
+    expect(rows.map(row=>row.cells.filter(cell=>cell.price).length)).toEqual([1,1]);
+    expect(rows.flatMap(row=>row.cells).every(cell=>!cell.price||cell.price.priceKind==='REAL')).toBe(true);
+    const html=renderToStaticMarkup(createElement(OddsComparison,{locale,commercialLocale:locale,fixture:value}));
+    expect(html).toContain('data-bookmaker-logo="codere"');expect(html).toContain('data-bookmaker-logo="betano"');
+    expect(html).not.toContain('sportingbet');expect(html).not.toContain('betano.bet.br');expect(html).not.toContain('1xbet');
+    expect(html).not.toContain('PROXY');expect(html).toContain('data-affiliate-enabled="false"');
+    expect(html).not.toContain('href=');
+  });
+  it.each(['br','en'] as const)('does not enable slip actions from %s UI alone without a trusted commercial locale',locale=>{
+    const value=fixture();value.publicId='aaaaaaaaaaaaaaaa';
+    const html=renderToStaticMarkup(createElement(OddsComparison,{locale,fixture:value}));
+    expect(html).not.toContain('listing-odds-select');expect(html).not.toContain('data-target-bookmaker=');
   });
   it('keeps compact listing freshness copy locale-independent of canonical 1X2 identity',()=>{
     expect(oddsFreshnessCompact('2026-09-14T12:00:00.000Z',Date.parse('2026-09-14T12:10:20.000Z'),'br')).toBe('Há 10m');

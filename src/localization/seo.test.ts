@@ -12,15 +12,15 @@ import {loadCompetitionSitemapSummaries} from '@/sports/sitemap-runtime';
 import {primarySitemap} from '@/seo/sitemap';
 import {sitemapXmlProblems} from '@/sports/sitemap';
 import {englishMatchMetadata,englishProfileMetadata} from './english-routes';
-import {FOOTBALL_COMPETITION_TARGETS} from '@/config/footballCompetitions';
-it('lists every hub, document and competition entry in all three locales with reciprocal absolute alternates',async()=>{
+import {CANONICAL_COMPETITION_TARGETS} from '@/config/footballCompetitions';
+it('lists every hub, document and competition entry in all five locales with reciprocal absolute alternates',async()=>{
   const rows=primarySitemap(null);
-  const competitions=FOOTBALL_COMPETITION_TARGETS.filter(c=>c.enabled).length;
-  // 4 hubs + 4 legal + 3 help + competitions, each in three locales; entities live only in /sports-sitemaps.xml.
-  expect(rows).toHaveLength((4+4+3+competitions)*3);expect(new Set(rows.map(row=>row.url)).size).toBe(rows.length);
-  expect(rows.filter(row=>row.url.includes('?competition='))).toHaveLength(competitions*3);
+  const competitions=CANONICAL_COMPETITION_TARGETS.filter(c=>c.enabled).length;
+  // 4 hubs + 4 legal + 3 help + competitions, each in five locales; entities live only in /sports-sitemaps.xml.
+  expect(rows).toHaveLength((4+4+3+competitions)*5);expect(new Set(rows.map(row=>row.url)).size).toBe(rows.length);
+  expect(rows.filter(row=>row.url.includes('?competition='))).toHaveLength(competitions*5);
   expect(rows.some(row=>/\/(match|jogo|partido|team|time|equipo|player|jogador|jugador)\//.test(row.url))).toBe(false);
-  for(const row of rows){const alts=row.alternates?.languages;expect(Object.keys(alts??{})).toEqual(['pt-BR','es-MX','en','x-default']);expect(alts?.['x-default']).toBe(alts?.en);
+  for(const row of rows){const alts=row.alternates?.languages;expect(Object.keys(alts??{})).toEqual(['pt-BR','es-MX','es-CO','es-PE','en','x-default']);expect(alts?.['x-default']).toBe(alts?.en);
     expect(Object.values(alts??{})).toContain(row.url);
     for(const url of Object.values(alts??{}))expect(rows.some(item=>item.url===url)).toBe(true);
   }
@@ -35,7 +35,7 @@ it('English match metadata describes stored sports data in English',async()=>{
 it.each(['team','player'] as const)('English %s metadata has complete reciprocal entity links',async entity=>{
   const metadata=await englishProfileMetadata(Promise.resolve({profile:'sample-1123456789abcdef'}),entity);
   expect(metadata.description).toContain('Football profiles');expect(metadata.alternates?.languages?.['x-default']).toBe(metadata.alternates?.canonical);
-  expect(Object.keys(metadata.alternates?.languages??{})).toHaveLength(4);
+  expect(Object.keys(metadata.alternates?.languages??{})).toHaveLength(6);
 });
 it('a thin (noindex) profile keeps its canonical but emits no hreflang cluster',async()=>{
   const {loadTeamProfile}=await import('@/profiles/runtime');
@@ -54,7 +54,7 @@ it('/sitemap.xml is served as well-formed, escaped XML with the correct content 
   // M1: the served document matches the sitemap built from the same coverage summaries — only the
   // covered competition is submitted, so the registry's other hubs no longer spend index budget.
   expect(body.match(/<url>/g)).toHaveLength(primarySitemap(await loadCompetitionSitemapSummaries()).length);
-  expect(body.match(/<loc>[^<]*\?competition=/g)).toHaveLength(5*3);
+  expect(body.match(/<loc>[^<]*\?competition=/g)).toHaveLength(5*5);
   expect(body).not.toContain('competition=la-liga');
 });
 
@@ -75,7 +75,7 @@ describe('M1 finished-match decay in metadata',()=>{
   it('a recent finished match stays indexable with the full reciprocal cluster',async()=>{
     const metadata=await serve('00000000000000a2','FINISHED',ago(5));
     expect(metadata.robots).toBeUndefined();
-    expect(Object.keys(metadata.alternates?.languages??{})).toEqual(['pt-BR','es-MX','en','x-default']);
+    expect(Object.keys(metadata.alternates?.languages??{})).toEqual(['pt-BR','es-MX','es-CO','es-PE','en','x-default']);
     expect(metadata.title).toContain('Result and stats');
   });
   it('an upcoming match is never decayed on age and carries odds intent',async()=>{

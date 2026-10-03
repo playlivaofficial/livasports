@@ -8,8 +8,9 @@ import {affiliateDatabase} from './runtime';
 import {readCampaigns,readPageContext} from './repository';
 import {publicOffer,resolveOffer,offerDependencies} from './service';
 import type {CommercialContext} from './types';
-const campaigns=cache((locale:'br'|'mx')=>readCampaigns(affiliateDatabase(),locale));
-const page=cache((locale:'br'|'mx',pagePath:string,competitionSlug?:string)=>readPageContext(affiliateDatabase(),{locale,pagePath,placement:competitionSlug?'competition_inline':'mobile_inline',...(competitionSlug?{competitionSlug}:{})}));
+import type {SiteLocale} from '@/config/i18n';
+const campaigns=cache((locale:SiteLocale)=>readCampaigns(affiliateDatabase(),locale));
+const page=cache((locale:SiteLocale,pagePath:string,competitionSlug?:string)=>readPageContext(affiliateDatabase(),{locale,pagePath,placement:competitionSlug?'competition_inline':'mobile_inline',...(competitionSlug?{competitionSlug}:{})}));
 export async function renderOffer(context:CommercialContext){
   try{const key=signingKey();if(!key)return null;const h=await headers(),request=new Request('https://livasports.com',{headers:h});
     if(!geoAllowed(request,context.locale))return null;

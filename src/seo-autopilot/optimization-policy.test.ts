@@ -4,7 +4,7 @@ import {actionGate,assessExperiment,classifyBrand,detectGrowthOpportunities,expe
 import {growthMetric} from './optimization-data';
 const now=new Date('2026-09-29T12:00:00Z');
 const m=(x:Partial<Metric>={}):Metric=>({impressions:600,clicks:30,ctr:.05,position:12,days:28,positionSpread:1,...x});
-export const growthPage=(x:Partial<GrowthPage>={}):GrowthPage=>({url:'https://livasports.com/br/jogo/santos-x-flamengo-1111111111111111',type:'FIXTURE',locale:'br',entityId:'1111111111111111',cluster:'br-serie-a',label:'Santos x Flamengo',
+export const growthPage=(x:Partial<GrowthPage>={}):GrowthPage=>({url:'https://livasports.com/mx/partido/santos-x-flamengo-1111111111111111',type:'FIXTURE',locale:'mx',entityId:'1111111111111111',cluster:'br-serie-a',label:'Santos x Flamengo',
   current:m(),previous:m({impressions:500}),queries:[{query:'santos flamengo',impressions:300,clicks:5,position:12,days:14}],countries:[],devices:[],publishedAt:'2026-06-01',lastChangedAt:null,firstObserved:'2026-07-01',managed:true,status:'SCHEDULED',technicalHealthy:true,fresh:true,activeExperiment:false,title:'Santos x Flamengo',description:'Horário programado',linkBoost:0,...x});
 describe('growth classification and source evidence',()=>{
   it.each(['LivaSports','liva sports','LIVASPORT','livva sports','livasprots'])('recognizes brand %s',q=>expect(classifyBrand(q)).toBe('BRAND'));
@@ -37,7 +37,7 @@ describe('fail-safe, caps, cooldowns and no oscillation',()=>{
   it('enables qualified links without forcing metadata on a young dataset',()=>expect(optimizationSafety(health).mode).toBe('ACTIVE'));
   it.each([{connected:false},{complete:false},{latestDay:'2026-09-25'},{observedDays:2},{valid:false},{dailyImpressions:[50,50,50,50,50,50,1000]}])('observes only on unsafe measurement %j',patch=>expect(optimizationSafety({...health,...patch}).mode).toBe('OBSERVE_ONLY'));
   it.each(['LOW','MEDIUM'] as const)('never rewrites metadata at %s confidence',confidence=>expect(actionGate(growthPage(),'TITLE_PATTERN',confidence,now,0,'ACTIVE')).not.toBe('ELIGIBLE'));
-  it.each([{managed:false},{fresh:false},{technicalHealthy:false},{activeExperiment:true},{lastChangedAt:'2026-09-28'},{locale:'mx'}])('protects existing/unsafe page %j',patch=>expect(actionGate(growthPage(patch),'TITLE_PATTERN','HIGH',now,0,'ACTIVE')).not.toBe('ELIGIBLE'));
+  it.each([{managed:false},{fresh:false},{technicalHealthy:false},{activeExperiment:true},{lastChangedAt:'2026-09-28'},{locale:'br'}])('protects existing/unsafe page %j',patch=>expect(actionGate(growthPage(patch),'TITLE_PATTERN','HIGH',now,0,'ACTIVE')).not.toBe('ELIGIBLE'));
   it('permits mature safe page but enforces both title/meta shared daily cap',()=>{expect(actionGate(growthPage(),'TITLE_PATTERN','HIGH',now,0,'ACTIVE')).toBe('ELIGIBLE');expect(actionGate(growthPage(),'TITLE_PATTERN','HIGH',now,1,'ACTIVE')).toBe('DAILY_CAP');});
   it('enforces link cap',()=>expect(actionGate(growthPage(),'INTERNAL_LINK_BOOST','MEDIUM',now,3,'ACTIVE')).toBe('DAILY_CAP'));
   it('observation only blocks all visible changes',()=>expect(actionGate(growthPage(),'TITLE_PATTERN','HIGH',now,0,'OBSERVE_ONLY')).toBe('OBSERVE_ONLY'));

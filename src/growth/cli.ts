@@ -172,8 +172,8 @@ try{
   }else if(command==='verify'){
     const migration=(await db.query<{applied:boolean}>(`SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE filename='036_traffic_engine_v1_1.sql') AS applied`)).rows[0]?.applied??false;
     const summary=(await db.query<Record<string,string>>(`SELECT
-      (SELECT count(*) FROM growth_seo_priorities WHERE active)::text AS active_seo,
-      (SELECT count(*) FROM growth_seo_priorities WHERE active AND top_social)::text AS top_social,
+      (SELECT count(*) FROM growth_geo_priorities WHERE active)::text AS active_seo,
+      (SELECT count(*) FROM growth_geo_priorities WHERE active AND top_social)::text AS top_social,
       (SELECT count(*) FROM growth_content_items WHERE generator_version=2 AND superseded_at IS NULL)::text AS active_v11_items,
       (SELECT count(*) FROM growth_platform_assets WHERE status='READY')::text AS ready_videos,
       (SELECT count(*) FROM growth_platform_assets WHERE status='FAILED')::text AS failed_videos,

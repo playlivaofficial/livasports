@@ -6,6 +6,11 @@ const account={subscriptions:[{is_active:true,valid_from:'2026-09-02T11:10:51Z',
 const input={id:'request',jobId:'job',endpoint:'/v4/odds-by-tournaments',query:{bookmaker:'betsson'},routine:true,unmetered:false};
 function transaction(rows:unknown[]){const query=vi.fn(async(sql:string)=>({rows:sql.includes('FROM odds_budget_baselines')?rows:[],rowCount:sql.includes('UPDATE odds_sync_jobs')?1:0}));return {query:query as unknown as QueryExecutor['query'],mock:query};}
 describe('durable subscription request budget',()=>{
+  it('verifies the exact currently mapped country feeds without requiring retired BR feeds',()=>{
+    const value={subscriptions:[{...account.subscriptions[0],bookmakers:{'betsson.co':{has_live_odds:false,has_player_props:false},'betsson.pe':{has_live_odds:false,has_player_props:false}}}]};
+    expect(verifiedAccountPeriod(value,new Date('2026-09-15'),['betsson.co','betsson.pe']).used).toBe(65);
+    expect(()=>verifiedAccountPeriod(value,new Date('2026-09-15'),['betsson.mx'])).toThrow('SCOPE_UNVERIFIED');
+  });
   it('does not reset on the first of a calendar month',()=>{
     expect(verifiedAccountPeriod(account,new Date('2026-10-01T00:00:00Z'))).toMatchObject({start:'2026-09-02T11:10:51.000Z',end:'2026-10-02T11:10:51.000Z',used:65});
   });

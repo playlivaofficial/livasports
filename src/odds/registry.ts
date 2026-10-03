@@ -23,21 +23,35 @@ export const BOOKMAKER_REGISTRY=IDENTITIES.map(book=>({...book,...GATED_AFFILIAT
   // Widened past the literals above so role checks stay meaningful while no operator is retired yet.
   displayRole:book.displayRole as BookmakerDisplayRole,
   providerFlagPolicy:book.canonicalId==='betsson'||book.canonicalId==='betano.bet.br'?'VERIFIED_LISTED_MARKET':'STRICT' as 'VERIFIED_LISTED_MARKET'|'STRICT'}));
-export type BookmakerId=typeof BOOKMAKER_REGISTRY[number]['canonicalId'];
-export type BookmakerDisplayName=typeof BOOKMAKER_REGISTRY[number]['displayName'];
+/** Canonical DB operator ID; provider mappings are independently verified per GEO. */
+export type BookmakerId=string;
+export type BookmakerDisplayName=string;
 export const VISIBLE_BOOKMAKERS=BOOKMAKER_REGISTRY.filter(book=>book.displayRole==='VISIBLE_PRIMARY').sort((a,b)=>a.displayOrder-b.displayOrder);
+/** Approved inventory of candidate identities, NOT provider mappings or permission to display odds. */
+export const CANDIDATE_OPERATOR_IDS=['codere','caliente','10bet','bwin','betano','betplay','inkabet','betsafe','bet365'] as const;
+const CANDIDATE_IDENTITIES=[
+  {canonicalId:'codere',displayName:'Codere',countries:['MX','CO']},
+  {canonicalId:'caliente',displayName:'Caliente',countries:['MX']},
+  {canonicalId:'10bet',displayName:'10Bet',countries:['MX']},
+  {canonicalId:'bwin',displayName:'bwin',countries:['CO']},
+  {canonicalId:'betano',displayName:'Betano',countries:['CO','PE']},
+  {canonicalId:'betplay',displayName:'BetPlay',countries:['CO']},
+  {canonicalId:'inkabet',displayName:'Inkabet',countries:['PE']},
+  {canonicalId:'betsafe',displayName:'Betsafe',countries:['PE']},
+  {canonicalId:'bet365',displayName:'bet365',countries:['PE']},
+].map(b=>({...b,shortLabel:b.displayName,providerSlug:null,displayRole:'VISIBLE_PRIMARY' as BookmakerDisplayRole,displayOrder:100,insurancePriority:100,logoAsset:null,marketSupport:BOOKMAKER_MARKETS,providerFlagPolicy:'STRICT' as const,...GATED_AFFILIATE}));
 /**
  * Every identity the system has ever priced, retired ones included. Analytics validation and slug
  * normalization read this so historical rows and old events keep resolving after an operator leaves.
  */
-export const SOURCE_BOOKMAKER_IDS:readonly BookmakerId[]=BOOKMAKER_REGISTRY.map(book=>book.canonicalId);
+export const SOURCE_BOOKMAKER_IDS:readonly BookmakerId[]=[...BOOKMAKER_REGISTRY.map(book=>book.canonicalId),...CANDIDATE_OPERATOR_IDS];
 /**
  * The identities we still ask the provider for: the public books plus the hidden insurance source.
  * Scheduler demand and the live read queries use this, so retiring an operator stops its provider
  * spend immediately without erasing it from history.
  */
 export const ACTIVE_BOOKMAKER_IDS:readonly BookmakerId[]=BOOKMAKER_REGISTRY.filter(book=>book.displayRole!=='RETIRED').map(book=>book.canonicalId);
-export function bookmakerConfig(id:string){return BOOKMAKER_REGISTRY.find(book=>book.canonicalId===id);}
-export function isVisibleBookmaker(id:string){return bookmakerConfig(id)?.displayRole==='VISIBLE_PRIMARY';}
+export function bookmakerConfig(id:string){return BOOKMAKER_REGISTRY.find(book=>book.canonicalId===id)??CANDIDATE_IDENTITIES.find(book=>book.canonicalId===id);}
+export function isVisibleBookmaker(id:string){const known=bookmakerConfig(id);return known?known.displayRole==='VISIBLE_PRIMARY':CANDIDATE_OPERATOR_IDS.includes(id as typeof CANDIDATE_OPERATOR_IDS[number]);}
 /** A retired operator: still known for history, never public, never priced, never linked. */
 export function isRetiredBookmaker(id:string){return bookmakerConfig(id)?.displayRole==='RETIRED';}

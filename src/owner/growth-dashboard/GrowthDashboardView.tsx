@@ -26,8 +26,8 @@ function Filters({parsed,action}:{parsed:ParsedGrowthQuery;action:string}){
   return <form className="owner-health-filters" method="get" action={action} aria-label="Filters">
     <label>From <input type="date" name="from" defaultValue={toLocalDay(f.from)}/></label>
     <label>To <input type="date" name="to" defaultValue={toLocalDay(new Date(f.to.getTime()-1))}/></label>
-    <label>Locale <select name="locale" defaultValue={f.locale??''}><option value="">all</option><option value="br">PT-BR</option><option value="mx">ES-MX</option><option value="en">EN</option></select></label>
-    <label>GEO <select name="geo" defaultValue={f.geo??''}><option value="">all</option><option value="BR">BR</option><option value="MX">MX</option></select></label>
+    <label>Locale <select name="locale" defaultValue={f.locale??''}><option value="">all</option><option value="mx">ES-MX</option><option value="co">ES-CO</option><option value="pe">ES-PE</option><option value="br">PT-BR (historical)</option><option value="en">EN</option></select></label>
+    <label>GEO <select name="geo" defaultValue={f.geo??''}><option value="">all</option><option value="MX">MX</option><option value="CO">CO</option><option value="PE">PE</option><option value="BR">BR (historical)</option></select></label>
     <label>Source <select name="source" defaultValue={f.source??''}><option value="">all</option>{ACQUISITION_BUCKETS.map(bucket=><option key={bucket} value={bucket}>{BUCKET_LABELS[bucket]}</option>)}</select></label>
     <label>Competition <input name="competition" defaultValue={f.competition??''} placeholder="slug" size={14}/></label>
     <label>Club <input name="team" defaultValue={f.team??''} placeholder="team public id" size={16}/></label>

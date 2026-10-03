@@ -123,10 +123,10 @@ export function verifyCatalog(markets:unknown[],tournaments:unknown[]):void {
   }
 }
 export function normalizeM5Snapshot(data:unknown,bookmaker:string,observedAt:string,tournamentIds:readonly string[],
-  catalog:readonly {id:string;slug:string;category:string;canonical:string}[]=M5_TOURNAMENTS,marketCatalog:unknown[]=[]):OddsSnapshot {
-  if(!canonicalBookmakerSlug(bookmaker)||!isoUtc(observedAt)||!Array.isArray(data))throw new Error('Invalid pregame snapshot envelope');
+  catalog:readonly {id:string;slug:string;category:string;canonical:string}[]=M5_TOURNAMENTS,marketCatalog:unknown[]=[],operatorId?:string):OddsSnapshot {
+  if(!canonicalBookmakerSlug(operatorId??bookmaker)||!isoUtc(observedAt)||!Array.isArray(data))throw new Error('Invalid pregame snapshot envelope');
   const activeRules={...rules,...discoverCanonicalMarketRules(marketCatalog)};
-  const result:OddsSnapshot={provider:'ODDSPAPI',bookmaker:canonicalBookmakerSlug(bookmaker)??bookmaker,observedAt,fixtures:[],quotes:[],rejected:{},tournamentIds:[...tournamentIds]};
+  const result:OddsSnapshot={provider:'ODDSPAPI',bookmaker:canonicalBookmakerSlug(operatorId??bookmaker)??bookmaker,observedAt,fixtures:[],quotes:[],rejected:{},tournamentIds:[...tournamentIds]};
   let context={providerFixtureId:'',tournamentId:'',market:'',outcome:'',evidence:{} as Record<string,unknown>};
   const reject=(key:string)=>{result.rejected[key]=(result.rejected[key]??0)+1;
     // Unsupported markets are accounted for in aggregate, not thousands of redundant diagnostic rows per request.
@@ -146,7 +146,7 @@ export function normalizeM5Snapshot(data:unknown,bookmaker:string,observedAt:str
     if(!Number.isInteger(r.participant1Id)||!Number.isInteger(r.participant2Id)||Number(r.participant1Id)<=0||Number(r.participant2Id)<=0||fixture.homeProviderId===fixture.awayProviderId){reject('INVALID_PARTICIPANTS');continue;}
     result.fixtures.push(fixture);
     const oddsByBook=obj(r.bookmakerOdds);
-    const book=obj(oddsByBook[bookmaker]??oddsByBook[result.bookmaker]);
+    const book=obj(oddsByBook[bookmaker]??(operatorId?undefined:oddsByBook[result.bookmaker]));
     let domain:string|null=null;
     if(typeof book.fixturePath==='string'){try { domain=new URL(book.fixturePath.includes('://')?book.fixturePath:`https://${book.fixturePath}`).hostname;}catch{/* No domain evidence. */}}
     for(const [id,rawMarket] of Object.entries(obj(book.markets))){
@@ -169,7 +169,8 @@ export function normalizeM5Snapshot(data:unknown,bookmaker:string,observedAt:str
         const stampInvalid=!updated||Date.parse(updated)>Date.parse(observedAt)+60000;
         // Listed decimals on a collected, active market stay current. OddsPapi currently marks every
         // Betsson fixture bookmakerIsActive=false and suspended=true while still returning independent prices.
-        const strictNewFeed=bookmakerConfig(result.bookmaker)?.providerFlagPolicy==='STRICT';
+        // Legacy BR flag relaxation is not inherited by a newly mapped country's feed.
+        const strictNewFeed=!!operatorId||bookmakerConfig(result.bookmaker)?.providerFlagPolicy==='STRICT';
         const suspended=market.marketActive!==true||(strictNewFeed&&(book.bookmakerIsActive!==true||book.suspended===true||price.active!==true));
         const status:NormalizedOddsQuote['status']=fixture.status!=='PREGAME'||Date.parse(kickoff)<=Date.parse(observedAt)?'CLOSED':
           suspended?'SUSPENDED':stampInvalid?'STALE':'ACTIVE';

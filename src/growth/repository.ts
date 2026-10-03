@@ -1,5 +1,7 @@
 import 'server-only';
 import type {DatabaseClient,QueryExecutor} from '@/database/client';
+import {geoProfile,type CoreGeo} from '@/config/geo';
+import {APPROVED_COMPETITION_SLUGS,isAcquisitionCompetition} from '@/config/footballCompetitions';
 import {absoluteUrl} from '@/seo/policy';
 import {CREATIVE_VERSION} from './creative-version';
 import {createHash} from 'node:crypto';
@@ -25,23 +27,25 @@ const numeric=(value:unknown)=>value===null||value===undefined?null:Number(value
 const asJson=<T>(value:unknown):T=>typeof value==='string'?JSON.parse(value) as T:value as T;
 
 /** One bounded, DB-only candidate read; ordinary ranking never contacts a provider. */
-export async function readGrowthFixtures(db:QueryExecutor,now=new Date()):Promise<GrowthFixture[]>{
-  const from=new Date(now.getTime()-SHORTLIST.graceHours*3_600_000);
+export async function readGrowthFixtures(db:QueryExecutor,now=new Date(),geo:CoreGeo='MX'):Promise<GrowthFixture[]>{
+  const from=now;
   const to=new Date(now.getTime()+SHORTLIST.horizonHours*3_600_000);
   const rows=(await db.query<Row>(`SELECT f.id AS fixture_id,f.public_id,f.kickoff,f.status,f.stage_name,f.round_name,f.venue_name,
-    c.slug AS competition_slug,c.display_name_pt_br AS competition_name,c.competition_type,s.name AS season_name,
-    ht.public_id AS home_public_id,ht.name AS home_name,ht.image_url AS home_image_url,
-    at.public_id AS away_public_id,at.name AS away_name,at.image_url AS away_image_url,
+    c.slug AS competition_slug,c.display_name_es_mx AS competition_name,c.competition_type,s.name AS season_name,
+    ht.public_id AS home_public_id,ht.name AS home_name,ht.image_url AS home_image_url,hc.iso2 AS home_country,
+    at.public_id AS away_public_id,at.name AS away_name,at.image_url AS away_image_url,ac.iso2 AS away_country,
     (SELECT sc.position FROM standings_current sc WHERE sc.season_id=f.season_id AND sc.team_id=f.home_team_id ORDER BY sc.observed_at DESC,sc.stage_id DESC LIMIT 1) AS home_position,
     (SELECT sc.position FROM standings_current sc WHERE sc.season_id=f.season_id AND sc.team_id=f.away_team_id ORDER BY sc.observed_at DESC,sc.stage_id DESC LIMIT 1) AS away_position,
     (SELECT count(DISTINCT sc.team_id)::int FROM standings_current sc WHERE sc.season_id=f.season_id) AS total_teams
     FROM fixtures f JOIN competitions c ON c.id=f.competition_id
     LEFT JOIN seasons s ON s.id=f.season_id JOIN teams ht ON ht.id=f.home_team_id JOIN teams at ON at.id=f.away_team_id
-    WHERE c.enabled AND f.kickoff BETWEEN $1 AND $2
+    LEFT JOIN countries hc ON hc.id=ht.country_id LEFT JOIN countries ac ON ac.id=at.country_id
+    WHERE c.enabled AND c.slug=ANY($3::text[]) AND f.kickoff>$1 AND f.kickoff<=$2 AND f.status='SCHEDULED'
+      AND NOT ht.provider_placeholder AND NOT at.provider_placeholder
       AND NOT EXISTS(SELECT 1 FROM sports_pending_fixtures p WHERE p.id=f.id)
-    ORDER BY f.kickoff,f.public_id LIMIT 500`,[from,to])).rows;
+    ORDER BY f.kickoff,f.public_id LIMIT 2000`,[from,to,APPROVED_COMPETITION_SLUGS.filter(isAcquisitionCompetition)])).rows;
   const fixtureIds=rows.map(row=>String(row.fixture_id));
-  const snapshots=fixtureIds.length?await readListingOddsSnapshots(db,fixtureIds,'BR',true):new Map();
+  const snapshots=fixtureIds.length?await readListingOddsSnapshots(db,fixtureIds,geo,true):new Map();
   return rows.map(row=>{
     const id=String(row.fixture_id),snapshot=snapshots.get(id);
     const active=new Map<string,string>();
@@ -55,12 +59,13 @@ export async function readGrowthFixtures(db:QueryExecutor,now=new Date()):Promis
     const homeName=String(row.home_name),awayName=String(row.away_name),publicId=String(row.public_id);
     const signals:FixtureSignals={fixtureId:id,publicId,kickoff:iso(row.kickoff),status:String(row.status),
       competitionSlug:String(row.competition_slug),competitionName:String(row.competition_name),competitionType:String(row.competition_type),seasonName:text(row.season_name),
-      home:{slug:slugifyProfileName(homeName),name:homeName,publicId:String(row.home_public_id),imageUrl:text(row.home_image_url)},
-      away:{slug:slugifyProfileName(awayName),name:awayName,publicId:String(row.away_public_id),imageUrl:text(row.away_image_url)},
-      stageName:text(row.stage_name),roundName:text(row.round_name),venue:text(row.venue_name),standings,oddsBookmakers:count};
-    const destinationPath=matchPath('br',publicId,homeName,awayName);
-    return {signals,destinationPath,destinationUrl:absoluteUrl(destinationPath),odds:{bookmakers:publicSummary.bookmakers,count,
-      label:count?`${count} ${count===1?'casa com odds atuais':'casas com odds atuais'}`:'Sem odds atuais',
+      home:{slug:slugifyProfileName(homeName),name:homeName,publicId:String(row.home_public_id),imageUrl:text(row.home_image_url),country:text(row.home_country)},
+      away:{slug:slugifyProfileName(awayName),name:awayName,publicId:String(row.away_public_id),imageUrl:text(row.away_image_url),country:text(row.away_country)},
+      stageName:text(row.stage_name),roundName:text(row.round_name),venue:text(row.venue_name),standings,oddsBookmakers:count,
+      commercialBookmakers:snapshot?Object.keys(snapshot.destinations).filter(book=>active.has(book)).length:0};
+    const destinationPath=matchPath(geoProfile(geo).locale,publicId,homeName,awayName);
+    return {geo,signals,destinationPath,destinationUrl:absoluteUrl(destinationPath),odds:{bookmakers:publicSummary.bookmakers,count,
+      label:count?`${count} operadores con cuotas vigentes en ${geo}`:`Sin cuotas vigentes en ${geo}`,
       publicBookmakers:publicSummary.bookmakers,publicPriceGap:publicSummary.priceGap}};
   });
 }
@@ -337,20 +342,48 @@ export async function readCanonicalAsset(db:QueryExecutor,itemId:string,kind:Gro
   return {data:row.asset_data as Buffer,mimeType:String(row.mime_type),sha256:String(row.sha256),byteLength:Number(row.byte_length),renderMetadata:row.render_metadata?asJson<GrowthPlatformAsset['renderMetadata']>(row.render_metadata):undefined};
 }
 
-export interface GrowthSeoUpsert {fixtureId:string;rank:number;score:number;topSocial:boolean;canonicalUrl:string;seo:GrowthSeoPriority;sourceHash:string;}
-export async function upsertGrowthSeoPriorities(db:DatabaseClient,rows:GrowthSeoUpsert[],now=new Date()){
+export interface GrowthSeoUpsert {fixtureId:string;rank:number;score:number;topSocial:boolean;canonicalUrl:string;seo:GrowthSeoPriority;sourceHash:string;label?:string;breakdown?:unknown;reasons?:string[];evidence?:unknown;}
+export async function upsertGrowthSeoPriorities(db:DatabaseClient,rows:GrowthSeoUpsert[],now=new Date(),geo:CoreGeo='MX'){
+  if(rows.length>5||new Set(rows.map(r=>r.fixtureId)).size!==rows.length||rows.some((r,index)=>r.rank!==index+1||!new URL(r.canonicalUrl).pathname.startsWith(`/${geoProfile(geo).locale}/`)))throw Error('INVALID_GEO_SELECTION');
   await db.transaction(async tx=>{
     // Serialize only shortlist persistence, not a media job/lease/heartbeat.
-    await tx.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',['growth:seo-priorities']);
-    if((await tx.query('SELECT 1 FROM growth_seo_priorities WHERE updated_at>$1 LIMIT 1',[now])).rows.length)return;
-    await tx.query('UPDATE growth_seo_priorities SET active=false,updated_at=$1 WHERE active',[now]);
-    for(const row of rows)await tx.query(`INSERT INTO growth_seo_priorities(fixture_id,priority_rank,priority_score,top_social,canonical_url,intent_cluster,placements,context_pt_br,source_hash,active,updated_at)
-      VALUES($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8,$9,true,$10)
-      ON CONFLICT(fixture_id) DO UPDATE SET priority_rank=EXCLUDED.priority_rank,priority_score=EXCLUDED.priority_score,top_social=EXCLUDED.top_social,
-      canonical_url=EXCLUDED.canonical_url,intent_cluster=EXCLUDED.intent_cluster,placements=EXCLUDED.placements,context_pt_br=EXCLUDED.context_pt_br,
-      source_hash=EXCLUDED.source_hash,active=true,updated_at=EXCLUDED.updated_at`,[row.fixtureId,row.rank,row.score,row.topSocial,row.canonicalUrl,JSON.stringify(row.seo.intent),JSON.stringify(row.seo.placements),row.seo.context,row.sourceHash,now]);
+    await tx.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`growth:seo-priorities:${geo}`]);
+    if((await tx.query(`SELECT 1 WHERE EXISTS(SELECT 1 FROM growth_geo_priorities WHERE geo=$2 AND updated_at>$1)
+      OR EXISTS(SELECT 1 FROM growth_geo_selections WHERE geo=$2 AND selected_at>$1)`,[now,geo])).rows.length)return;
+    const prior=(await tx.query(`SELECT fingerprint,current_list FROM growth_geo_selections WHERE geo=$1 ORDER BY selected_at DESC,id DESC LIMIT 1`,[geo])).rows[0];
+    const current=rows.map(r=>({fixtureId:r.fixtureId,rank:r.rank,score:r.score,label:r.label??r.fixtureId}));
+    const fingerprint=createHash('sha256').update(JSON.stringify(rows.map(r=>[r.fixtureId,r.rank,r.sourceHash]))).digest('hex');
+    const previous=prior?asJson<import('./types').GrowthSelectionHistory['current']>(prior.current_list):[];
+    const exited=previous.filter(r=>!current.some(p=>p.fixtureId===r.fixtureId));
+    const exitFacts=exited.length?(await tx.query('SELECT id,status,kickoff FROM fixtures WHERE id=ANY($1::uuid[])',[exited.map(r=>r.fixtureId)])).rows:[];
+    const exitReason=(id:string)=>{
+      const fact=exitFacts.find(r=>r.id===id);if(!fact)return 'Sin datos canónicos elegibles en el inventario actual';
+      if(fact.status!=='SCHEDULED')return `Estado canónico ${String(fact.status)}: no es un partido previo al inicio`;
+      const at=new Date(String(fact.kickoff)).getTime();if(at<=now.getTime())return 'El horario canónico de inicio ya pasó';
+      if(at>now.getTime()+7*86400000)return 'El partido reprogramado quedó fuera de la ventana de siete días';
+      return 'Fuera del Top 5: otro candidato elegible tiene mayor prioridad según puntaje y diversidad';
+    };
+    const rotations:import('./types').GrowthSelectionHistory['rotations']=[
+      ...current.filter(r=>!previous.some(p=>p.fixtureId===r.fixtureId)).map(r=>({fixtureId:r.fixtureId,label:r.label,action:'ENTERED' as const,reason:'Seleccionado por el puntaje y diversidad del GEO; solo partidos futuros elegibles'})),
+      ...exited.map(r=>({fixtureId:r.fixtureId,label:r.label,action:'EXITED' as const,reason:exitReason(r.fixtureId)})),
+      ...current.filter(r=>previous.some(p=>p.fixtureId===r.fixtureId&&p.rank!==r.rank)).map(r=>({fixtureId:r.fixtureId,label:r.label,action:'MOVED' as const,reason:'Cambió la posición relativa por señales verificadas y proximidad'})),
+    ];
+    await tx.query('UPDATE growth_geo_priorities SET active=false,updated_at=$1 WHERE active AND geo=$2',[now,geo]);
+    for(const row of rows)await tx.query(`INSERT INTO growth_geo_priorities(fixture_id,priority_rank,priority_score,top_social,canonical_url,intent_cluster,placements,context_localized,source_hash,active,updated_at,geo,locale,score_breakdown,reasons,evidence)
+      VALUES($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8,$9,true,$10,$11,$12,$13::jsonb,$14::jsonb,$15::jsonb)
+      ON CONFLICT(geo,fixture_id) DO UPDATE SET priority_rank=EXCLUDED.priority_rank,priority_score=EXCLUDED.priority_score,top_social=EXCLUDED.top_social,
+      canonical_url=EXCLUDED.canonical_url,intent_cluster=EXCLUDED.intent_cluster,placements=EXCLUDED.placements,context_localized=EXCLUDED.context_localized,
+      source_hash=EXCLUDED.source_hash,active=true,updated_at=EXCLUDED.updated_at,score_breakdown=EXCLUDED.score_breakdown,reasons=EXCLUDED.reasons,evidence=EXCLUDED.evidence`,
+      [row.fixtureId,row.rank,row.score,row.topSocial,row.canonicalUrl,JSON.stringify(row.seo.intent),JSON.stringify(row.seo.placements),row.seo.context,row.sourceHash,now,geo,geoProfile(geo).locale,JSON.stringify(row.breakdown??[]),JSON.stringify(row.reasons??[]),JSON.stringify(row.evidence??{})]);
+    if(prior?.fingerprint!==fingerprint)await tx.query(`INSERT INTO growth_geo_selections(geo,fingerprint,current_list,previous_list,rotations,config_version,selected_at)
+      VALUES($1,$2,$3::jsonb,$4::jsonb,$5::jsonb,'GEO_GROWTH_1',$6)`,[geo,fingerprint,JSON.stringify(current),JSON.stringify(previous),JSON.stringify(rotations),now]);
   });
 }
+export async function readGrowthSelectionHistory(db:QueryExecutor,geo:CoreGeo):Promise<import('./types').GrowthSelectionHistory|null>{
+  const row=(await db.query('SELECT current_list,previous_list,rotations,selected_at FROM growth_geo_selections WHERE geo=$1 ORDER BY selected_at DESC,id DESC LIMIT 1',[geo])).rows[0];
+  return row?{selectedAt:iso(row.selected_at),current:asJson(row.current_list),previous:asJson(row.previous_list),rotations:asJson(row.rotations)}:null;
+}
+export {readGeoPriorityRanks} from './priority-read';
 
 export async function readV1DraftsForRegeneration(db:QueryExecutor){
   return (await db.query<{id:string;fixture_id:string}>(`SELECT DISTINCT ON(i.fixture_id) i.id,i.fixture_id FROM growth_content_items i

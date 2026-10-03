@@ -37,10 +37,13 @@ export function SeoSearchPerformance({search}:{search:SeoSearchReport}){
         <small>vs previous 28d {deltaOf(totals28.clicks,previous28.clicks)}</small></div>
       <div className="owner-health-card"><span>Impressions · 28d</span><strong>{int(totals28.impressions)}</strong>
         <small>vs previous 28d {deltaOf(totals28.impressions,previous28.impressions)}</small></div>
-      <div className="owner-health-card"><span>Brazil · 7d</span><strong>{int(search.brazil7.clicks)} clicks</strong>
-        <small>{int(search.brazil7.impressions)} impressions · CTR {pct1(search.brazil7.ctr)} · pos {pos(search.brazil7.position)}</small></div>
+      {search.geo7.map(row=><div key={row.geo} className="owner-health-card"><span>{row.geo} · 7d</span>
+        <strong>{row.visitorCountry?`${int(row.visitorCountry.clicks)} country clicks`:'Country: insufficient data'}</strong>
+        <small>{row.localeIntent?`${row.locale}: ${int(row.localeIntent.clicks)} clicks / ${int(row.localeIntent.impressions)} impressions`:`${row.locale}: insufficient data`}</small>
+      </div>)}
     </div>
 
+    <p className="owner-health-note">Country is Google’s searcher-country dimension; locale intent is the canonical URL path. These are separate measurements, never substitutes. Brazil remains historical reporting only.</p>
     <h3>Top queries · 7d</h3>
     <table className="owner-health-table"><thead><tr><th>Query</th><th>Clicks</th><th>Impr.</th><th>CTR</th><th>Pos</th></tr></thead>
       <tbody>{search.topQueries.map(row=><tr key={row.key}><th>{row.key}</th><td>{int(row.clicks)}</td><td>{int(row.impressions)}</td>
@@ -83,7 +86,7 @@ export function SeoSearchPerformance({search}:{search:SeoSearchReport}){
       :<p className="owner-health-note">No query sits under its heuristic band.</p>}
 
     <h3>Locales · 7d</h3>
-    <p className="owner-health-note">Locale comes from our own canonical URL tree (/br, /mx, /en), not from Google&apos;s country dimension.</p>
+    <p className="owner-health-note">Locale comes from our own canonical URL tree (/mx, /co, /pe; historical /br and /en), not from Google&apos;s country dimension.</p>
     <table className="owner-health-table"><thead><tr><th>Locale</th><th>Clicks</th><th>Impr.</th><th>CTR</th><th>Pos</th></tr></thead>
       <tbody>{search.locales7.map(row=><tr key={row.locale}><th>{row.locale}</th><td>{int(row.clicks)}</td><td>{int(row.impressions)}</td>
         <td>{pct1(row.ctr)}</td><td>{pos(row.position)}</td></tr>)}</tbody></table>
