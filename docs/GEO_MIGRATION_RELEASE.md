@@ -1,6 +1,6 @@
 # MX CO PE migration release checklist
 
-This branch extends the existing LivaSports product for Mexico, Colombia and Peru. It is not yet released or certified production ready. The last verified Production deployment serves `90d3e13e22cda6cde5225d32a44e20d0ef4404b9`. Do not promote this branch merely because automated tests pass: real jurisdiction-specific provider coverage remains a release prerequisite.
+This branch extends the existing LivaSports product for Mexico, Colombia and Peru in [draft PR 37](https://github.com/playlivaofficial/livasports/pull/37). It is not yet released or certified production ready. The last verified Production deployment serves `90d3e13e22cda6cde5225d32a44e20d0ef4404b9`. Do not promote this branch merely because automated tests pass: real jurisdiction-specific provider coverage remains a release prerequisite.
 
 ## Shared architecture
 
@@ -16,7 +16,7 @@ The candidate registry has four MX operators and five each for CO and PE. Candid
 
 CO legal evidence was checked against the [Coljuegos authorized online operators](https://coljuegos.gov.co/publicaciones/301841/juegosonline/). PE legal evidence was checked against the [MINCETUR authorization registry](https://apuestasdeportivas.mincetur.gob.pe/Titulares_autorizacion.html), including all five requested operators. Evidence is stored per exact country/operator. This establishes neither affiliate approval nor actual provider coverage. Current MX SEGOB evidence is unresolved because the official service was unavailable during verification.
 
-No country-specific OddsPapi bookmaker ID or source domain has been assumed from a brand name. The current account and bookmaker-catalog requests returned upstream errors or timed out. Pending exact feed verification, all production candidate technical flags remain off. Synthetic `betsson.co` and `betsson.pe` feed identifiers appear only in isolated tests; they are not verified production mappings.
+No country-specific OddsPapi bookmaker ID or source domain has been assumed from a brand name. The current account and bookmaker-catalog requests returned upstream errors or timed out; a final budgeted retry after the cooldown at approximately 22:19 UTC on 2026-10-03 still returned HTTP 500. Pending exact feed verification, all production candidate technical flags remain off. Synthetic `betsson.co` and `betsson.pe` feed identifiers appear only in isolated tests; they are not verified production mappings.
 
 After legal, feed and permitted destination-host verification, the owner uses Commercial Activation to select a GEO/operator, enter the genuinely approved HTTPS URL and campaign, provide an approval reference and explicitly confirm approval. Activation validates server-side and commits campaign/configuration/audit changes atomically with version checks. Ordinary approved campaigns on preverified hosts require no code or deployment. An unfamiliar tracking host still requires deliberate verification; pasting a URL does not make it trusted.
 
@@ -38,10 +38,14 @@ Before applying, inspect production row counts, active transactions and migratio
 
 - Full Vitest suite: 234 files and 2,082 tests passed. The narrow-screen match-header fix additionally passed eight focused tests; no test timeout or assertion was relaxed.
 - Typecheck, zero-warning lint, 17 script tests, secret scan and production build passed. Generated public assets were additionally checked against known local secret values with zero matches.
-- The isolated PostgreSQL 17.11 rehearsal replayed all 60 migrations and passed 23 named checks plus 13 nested odds assertions. Old Growth/SEO rows remained byte-for-byte intact and old conflict-key writers still succeeded.
+- The isolated PostgreSQL 17.11 rehearsal replayed all 60 migrations and passed 24 named checks plus 13 nested odds assertions. Old Growth/SEO rows remained byte-for-byte intact and old conflict-key writers still succeeded.
 - Real SQL assertions verified independent CO/PE prices, stable history identities, monotonic updates, exact-source rejection, no MX borrowing, strict public freshness and separate country health pools.
 - A local selection run persisted five synthetic fixtures for each country with zero provider calls or media work. An identical retry added no duplicate history. Owner reads returned five per country.
-- Browser QA uses only a disposable local database and clearly QA-prefixed synthetic fixtures. It is not proof of provider coverage or physical-country operator access.
+- The final isolated HTTP crawl passed 31/31 checks: five locale homes/today/fixture/team routes, core competition self-canonicals and reciprocal hreflang, owner authentication gates, robots and bounded sitemaps. Test sitemaps contained 85 primary, 87 match and 160 team URLs, without a player batch or private/duplicate identities. These counts describe the small synthetic database, not Production.
+- Browser QA proved CO 1/3/5-selection comparisons (2.10, 9.26, 40.84), per-leg removal (four selections, 19.45), retained canonical selections after navigation, COP formatting and no affiliate CTA. Switching those same CO selections to PE correctly produced 0/4 coverage instead of borrowing country prices. Owner MX/CO/PE preview and reset to Real GEO were verified.
+- All required widths (1440/430/390/320) were measured without horizontal overflow for the home, competition, fixture, market selector, five-leg slip/comparison, Growth queue, GEO preview and Commercial Activation. Browser review corrected narrow match-header overlap, commercial text contrast, priority-card timezone inconsistency and stale CO/PE competition metadata during navigation.
+- Browser QA uses only a disposable local database and clearly QA-prefixed synthetic fixtures. It is not proof of provider coverage or physical-country operator access. An artificial local database connection cap of 20 interrupted concurrent QA; restoring that isolated database at 100 connections preserved the existing rows, and the subsequent serial crawl recorded zero connection-limit or unhandled errors. No production setting was changed.
+- GitHub CI and Vercel Preview build passed for the initial PR commit `d51d8bfb9f234e7909b073ada503228ea73f21e2`; final follow-up commit checks must also be green before any promotion. A successful Preview build does not prove new schema/provider runtime readiness.
 
 The local-only rehearsal result is kept in ignored `.qa-geo/rehearsal-result.json`. The tracked `scripts/geo-odds-db-qa.ts` exports the database assertions for an explicitly isolated harness. Never point a synthetic-fixture harness at Production. Runtime credentials, disposable session keys and provider responses do not belong in this document or Git.
 
@@ -50,8 +54,8 @@ The local-only rehearsal result is kept in ignored `.qa-geo/rehearsal-result.jso
 1. Obtain a working OddsPapi account/catalog response within existing request budgets and cooldowns; verify actual country bookmaker IDs, source domains, entitlements and usable approved-league market coverage. Do not change the subscription.
 2. Verify current MX operator authorization against exact official evidence. Select a fifth MX candidate only when both authorization and provider mapping are defensible.
 3. Finish secure read-only Sportmonks coverage checks if needed. Authentication and the subscribed catalog were already verified; never place the chat-supplied credential in source, commands, logs or PRs. Any further checks must use a securely supplied environment credential.
-4. Finish the final 1440/430/390/320 browser sweep, route crawl, same-slip 1/3/5-selection checks, owner GEO reset and isolated activation tests against the final build.
-5. Create a PR and pass CI. Use an isolated Preview data source for migration/fixture QA; do not mutate Production merely to make Preview green.
+4. Verify the final slip-open desktop header follow-up at 1440 and 1100 pixels and require its PR checks to pass.
+5. Complete real Preview runtime QA using an isolated data source for migration/fixture checks; do not mutate Production merely to make Preview green.
 6. At the planned cutover, apply migrations with bounded locking, backfill verified technical mappings, ingest fresh canonical fixtures/odds, promote the green deployment and run production smoke tests.
 7. Verify the Production SHA, all three independent Top 5 lists, scheduler, canonical/hreflang/sitemap, exact-country slip comparison, no BR commercial promotion and disabled social/media generation.
 

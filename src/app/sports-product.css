@@ -179,3 +179,16 @@ html[data-theme=light] .favorite-toggle.is-on { color:#b8860b; }
   .app-header .brand>span:not(.brand-mark) { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); }
 }
 
+/* A reserved 400px slip rail reduces the header's content width without
+   changing viewport breakpoints. Keep navigation and actions in separate rows. */
+@media(min-width:1100px){
+  body[data-slip-open=true] { --header-height:105px; }
+  body[data-slip-open=true] .header-inner { display:grid; grid-template-columns:auto minmax(0,1fr); min-height:104px; gap:0 1rem; padding-block:6px; }
+  body[data-slip-open=true] .header-inner>.brand { grid-column:1; grid-row:1; }
+  body[data-slip-open=true] .main-nav { grid-column:2; grid-row:1; justify-content:flex-end; flex-wrap:wrap; }
+  body[data-slip-open=true] .sports-header-actions { grid-column:1 / -1; grid-row:2; width:100%; flex-wrap:wrap; gap:.35rem; }
+  body[data-slip-open=true] .sports-header-actions>* { flex-shrink:0; }
+  body[data-slip-open=true] .sports-search-link { display:inline-flex; min-height:44px; align-items:center; white-space:nowrap; }
+  body[data-slip-open=true] .my-matches-header-link { white-space:nowrap; }
+}
+
