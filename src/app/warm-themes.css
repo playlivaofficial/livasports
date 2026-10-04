@@ -289,7 +289,19 @@
 
 /* Authenticated names plus the locale control must not compress the brand into adjacent controls. */
 @media(max-width:620px) {
+  /* Reserve the logo track; the locale label, not the logo or sign-in action,
+     absorbs the narrower width of phones and longer country names. */
+  .app-header .header-inner { grid-template-columns: auto minmax(0,1fr); }
   .app-header .brand { min-width: 30px; }
   .app-header .brand-mark { flex: 0 0 30px; }
   .app-header .brand>span:not(.brand-mark) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .app-header .sports-header-actions { grid-column: 2; grid-row: 1; width: 100%; }
+  .app-header .sports-header-actions>* { flex-shrink: 0; }
+  .app-header .auth-header-link { min-width: 44px; justify-content: center; }
+  .app-header .language-picker { flex: 0 1 auto; min-width: 0; margin-left: 0; }
+  .app-header .language-picker summary>span:not([aria-hidden]) { min-width: 0; white-space: normal; overflow-wrap: anywhere; line-height: 1.2; }
+}
+@media(max-width:359px) {
+  .app-header .language-picker summary { padding-inline: 6px; gap: 4px; font-size: .65rem; }
+  .app-header .language-picker summary>svg { display: none; }
 }
