@@ -8,7 +8,8 @@ const config=readFileSync('src/auth/config.ts','utf8');
 const pages=readFileSync('src/auth/pages.tsx','utf8');
 const header=readFileSync('src/components/sports/SiteHeader.tsx','utf8');
 const proxy=readFileSync('src/proxy.ts','utf8');
-const layout=readFileSync('src/app/layout.tsx','utf8');
+const publicLayout=readFileSync('src/localization/PublicRootLayout.tsx','utf8');
+const requestLayout=readFileSync('src/localization/RequestRootLayout.tsx','utf8');
 const css=readFileSync('src/app/auth.css','utf8');
 const env=readFileSync('.env.example','utf8');
 
@@ -59,10 +60,15 @@ describe('callback, cookie and owner isolation',()=>{
 
 describe('auth surfaces stay public-sports safe',()=>{
   it('does not replace proxy.ts or globally gate sports pages',()=>{
-    expect(proxy).toContain("matcher: ['/','/br/:path*','/mx/:path*','/en/:path*']");
+    expect(proxy).toContain("matcher: ['/','/br/futebol','/mx/futbol','/en/football']");
     expect(proxy).not.toContain('next-auth');
-    expect(layout).not.toContain('SessionProvider');
-    expect(layout).not.toContain('@/auth/');
+    for(const layout of [publicLayout,requestLayout]){
+      expect(layout).not.toContain('SessionProvider');
+      expect(layout).not.toContain('@/auth/');
+    }
+    expect(publicLayout).not.toContain('requestOwnerSession');
+    expect(publicLayout).not.toContain('next/headers');
+    expect(requestLayout).toContain('requestOwnerSession');
     expect(pages).not.toMatch(/@\/providers|Sportmonks|OddsPapi|odds_current/);
     expect(header).toContain('AuthHeaderLink');
     expect(pages).toContain("if(!session?.user?.id)redirect(authPath(locale,'signin'))");

@@ -30,5 +30,5 @@ export const loadListingMatchOdds=cache(async(ids:readonly string[],geo:Commerci
   const result=await serverCache.getOrSet<Array<[string,InternalOddsRead]>>(`sports:v2:listing-odds:${geo??'none'}:${createHash('sha256').update([...ids].sort().join(',')).digest('hex')}`,{ttlSeconds:30,staleIfErrorSeconds:0,tags:['livasports:v1:fixtures:br','livasports:v1:fixtures:mx']},async()=>[...(await readListingOddsSnapshots(sportsDb(),ids,geo))]);
   return new Map(result.value);
 });
-export const loadTeamHistory=cache(async(id:string,locale:InterfaceLocale,view:'fixtures'|'results',page:number,season?:string)=>
-  (await serverCache.getOrSet(`sports:v1:team:${id}:${locale}:${view}:${page}:${season??'all'}`,{ttlSeconds:60,staleIfErrorSeconds:300,tags:['livasports:v1:fixtures:br','livasports:v1:fixtures:mx']},()=>sportsRepository().teamHistory(id,locale,view,page,season))).value);
+export const loadTeamHistory=cache(async(id:string,locale:InterfaceLocale,view:'fixtures'|'results',page:number,season?:string,ttlSeconds=60)=>
+  (await serverCache.getOrSet(`sports:v2:team:${id}:${locale}:${view}:${page}:${season??'all'}:${ttlSeconds}`,{ttlSeconds,staleIfErrorSeconds:300,tags:ttlSeconds>=3600?[`livasports:v1:profile:team:${id}`]:['livasports:v1:fixtures:br','livasports:v1:fixtures:mx']},()=>sportsRepository().teamHistory(id,locale,view,page,season))).value);

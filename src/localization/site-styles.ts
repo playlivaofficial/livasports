@@ -1,0 +1,9 @@
+import '@/app/globals.css';
+import '@/app/visual-system.css';
+import '@/app/language.css';
+import '@/app/sports-board.css';
+import '@/app/sports-product.css';
+import '@/app/owner-preview.css';
+import '@/app/premium-redesign.css';
+import '@/app/warm-themes.css';
+import '@/app/four-source-odds.css';

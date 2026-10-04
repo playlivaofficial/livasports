@@ -31,4 +31,13 @@ describe('profile cache-first read path', () => {
     const loader=new ProfileLoader(repository as never,new CacheCoordinator(new MemoryCacheStore()));
     await expect(loader.team(team.publicId,'br')).rejects.toThrow('database unavailable');
   });
+
+  it('gives public profile shells long TTLs without invalidating them on every unrelated odds tick',async()=>{
+    const getOrSet=vi.fn(async(_key:string,_options:unknown,load:()=>Promise<unknown>)=>({value:await load()}));
+    const loader=new ProfileLoader({team:async()=>team,player:async()=>player} as never,{getOrSet} as never);
+    await loader.team(team.publicId,'br');await loader.player(player.publicId,'br');
+    expect(getOrSet.mock.calls[0][1]).toMatchObject({ttlSeconds:3600,tags:[expect.stringContaining(':profile:team:')]});
+    expect(getOrSet.mock.calls[1][1]).toMatchObject({ttlSeconds:21600,tags:[expect.stringContaining(':profile:player:')]});
+    expect(JSON.stringify(getOrSet.mock.calls.map(call=>call[1]))).not.toContain('fixtures:');
+  });
 });

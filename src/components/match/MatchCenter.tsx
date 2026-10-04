@@ -1,4 +1,6 @@
-import {requestTimeZone} from '@/localization/time-zone-server';
+import {resolveTimeZone} from '@/localization/time-zone';
+import {LocalizedTimeText} from '@/localization/LocalizedTime';
+import {MatchTimeZone} from './MatchTimeZone';
 import {eventLabels,statisticLabels} from '@/match-center/localization';
 import {MatchHistory} from '@/sports/MatchHistory';
 import {EventPeople} from '@/sports/EventPeople';
@@ -154,18 +156,15 @@ function PlayerPerformances({locale,match,linkPlayers}:{locale:SiteLocale;match:
   })}</div></section>;
 }
 
-export async function MatchCenter({ locale, match, replay = false, commercialLocale }: { locale: SiteLocale; match: MatchCenterView; replay?: boolean; commercialLocale?: SiteLocale }){
-  const timeZone=await requestTimeZone(locale);
+export async function MatchCenter({ locale, match, replay = false, commercialLocale, timeZone = resolveTimeZone(locale,null,null) }: { locale: SiteLocale; match: MatchCenterView; replay?: boolean; commercialLocale?: SiteLocale; timeZone?: string }){
   const commercial = commercialLocale ?? locale;
   const text=copy[locale]; const dictionary=getDictionary(locale); const canonical=matchPath(locale,match.header.publicId,match.header.home.name,match.header.away.name);
   const alternate={br:matchPath('br',match.header.publicId,match.header.home.name,match.header.away.name),mx:matchPath('mx',match.header.publicId,match.header.home.name,match.header.away.name)};
   const context={fixtureId:match.header.id,competitionId:match.header.competitionId,locale};
-  const kickoff=new Intl.DateTimeFormat(dictionary.locale,{dateStyle:'medium',timeStyle:'short',timeZone}).format(new Date(match.header.kickoff));
   const displayStatus=replay?FixtureStatus.LIVE:match.header.status;
   const scheduled=displayStatus===FixtureStatus.SCHEDULED;
   // M1: an aged-out finished match keeps its content and its unique links, but stops repeating ~30 player links.
   const decayed=isFinishedMatchDecayed(match.header.status,match.header.kickoff);
-  const kickoffTime=new Intl.DateTimeFormat(dictionary.locale,{hour:'2-digit',minute:'2-digit',timeZone}).format(new Date(match.header.kickoff));
   return <div lang={dictionary.locale} className="app-shell match-shell"><SiteHeader locale={locale} activePage="football" localeHrefs={alternate} contentId="match-content"/>
     <main id="match-content" className="match-container"><h1 className="sr-only">{match.header.home.name} × {match.header.away.name}</h1><Link href={localeRoutes[locale].football} className="match-back">← {text.back}</Link>
       {replay?<p className="replay-label">{text.replay}</p>:null}
@@ -175,7 +174,7 @@ export async function MatchCenter({ locale, match, replay = false, commercialLoc
         canonical, so linking it here pointed readers and crawlers at a non-canonical twin of the same hub. */}
       <div className="match-competition"><Link href={competitionPath(locale,match.header.competitionSlug)}>{match.header.competition}</Link><FavoriteButton locale={locale} kind="competition" id={match.header.competitionSlug} className="favorite-toggle-compact"/><FavoriteButton locale={locale} kind="fixture" id={match.header.publicId}/><b>{statusLabel(locale,displayStatus)}</b></div>
         <div className="match-scoreboard"><div className="match-team"><Link href={teamPath(locale,match.header.home.publicId,match.header.home.name)}><TeamIdentity name={match.header.home.name} shortName={match.header.home.shortName} imageUrl={match.header.home.imageUrl} size={80}/></Link><FavoriteButton locale={locale} kind="team" id={match.header.home.publicId} className="favorite-toggle-compact"/></div>
-          <div className={`match-score${scheduled?' is-scheduled':''}`}><strong>{scheduled?kickoffTime:<>{match.header.homeScore??'—'} <span>–</span> {match.header.awayScore??'—'}</>}</strong><time dateTime={match.header.kickoff}>{kickoff}</time><small>{timeZone.replaceAll('_',' ')}</small></div>
+          <div className={`match-score${scheduled?' is-scheduled':''}`}><strong>{scheduled?<LocalizedTimeText value={match.header.kickoff} locale={locale} options={{hour:'2-digit',minute:'2-digit'}} fallbackTimeZone={timeZone}/>:<>{match.header.homeScore??'—'} <span>–</span> {match.header.awayScore??'—'}</>}</strong><time dateTime={match.header.kickoff}><LocalizedTimeText value={match.header.kickoff} locale={locale} options={{dateStyle:'medium',timeStyle:'short'}} fallbackTimeZone={timeZone}/></time><small><MatchTimeZone locale={locale} fallbackTimeZone={timeZone}/></small></div>
           <div className="match-team is-away"><Link href={teamPath(locale,match.header.away.publicId,match.header.away.name)}><TeamIdentity name={match.header.away.name} shortName={match.header.away.shortName} imageUrl={match.header.away.imageUrl} size={80}/></Link><FavoriteButton locale={locale} kind="team" id={match.header.away.publicId} className="favorite-toggle-compact"/></div></div>
         <MatchClientActions context={context} canonicalUrl={`https://livasports.com${canonical}`} shareText={`${match.header.home.name} x ${match.header.away.name}`} labels={{share:text.share,copied:text.copied}}/>
       </header>
@@ -187,6 +186,6 @@ export async function MatchCenter({ locale, match, replay = false, commercialLoc
         ...(match.playerStatistics.data.length?[{href:'#player-statistics',label:text.playerPerformance}]:[]),{href:'#meetings',label:text.meetings},{href:'#standings',label:text.standings},{href:'#odds',label:text.odds}]}/>
       <div className="match-content-grid"><div className="match-main-column"><Summary locale={locale} match={match}/><Statistics locale={locale} module={match.statistics}/><Lineups locale={locale} match={match}/><PlayerPerformances locale={locale} match={match} linkPlayers={!decayed}/><Form locale={locale} match={match}/><Standings locale={locale} match={match}/><Odds locale={locale} commercialLocale={commercial} match={match}/><NextMatches locale={locale} matches={match.nextMatches} timeZone={timeZone}/>{!replay?<SponsoredSlot context={{locale,pagePath:canonical,placement:'match_inline'}}/>:null}</div>
         <aside className="match-context">{!replay?<SponsoredSlot context={{locale,pagePath:canonical,placement:'match_right_rail'}}/>:null}<section><h2>{text.summary}</h2><dl><div><dt>{text.season}</dt><dd>{match.header.season??'—'}</dd></div><div><dt>{text.stage}</dt><dd>{sportStage(locale,match.header.stage) ?? '—'}</dd></div><div><dt>{text.venue}</dt><dd>{match.header.venue??'—'}</dd></div></dl></section></aside></div>
-      {!replay?<LiveRefreshBoundary publicId={match.header.publicId} locale={locale} status={match.header.status} snapshotAt={match.snapshotAt}/>:null}
+      {!replay?<LiveRefreshBoundary publicId={match.header.publicId} locale={locale} status={match.header.status} snapshotAt={match.snapshotAt} kickoff={match.header.kickoff} providerUpdatedAt={match.header.providerUpdatedAt}/>:null}
     </main></div>;
 }
