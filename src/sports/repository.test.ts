@@ -1,6 +1,7 @@
 import {describe,it,expect,vi} from 'vitest';
 import {SportsRepository} from './repository';
 import {CANONICAL_COMPETITION_TARGETS,isAcquisitionCompetition} from '@/config/footballCompetitions';
+import {competitionDemand,geoForLocale} from '@/config/geo';
 vi.mock('server-only',()=>({}));
 const season='01234567-89ab-cdef-0123-456789abcdef';
 function fixtureDb(seasons:Array<Record<string,unknown>>=[{id:season,name:'2026/2027',is_current:true,fixtures:45}]){
@@ -52,6 +53,38 @@ describe('sports database read model',()=>{
     await repo.search('x','en');expect(db.query).toHaveBeenCalledTimes(3);
     await repo.search("a%' OR 1=1",'en');expect(db.query).toHaveBeenCalledTimes(6);
     for(const [sql,args] of (db.query.mock.calls as unknown as Array<[string,string[]]>).slice(3)){expect(sql).not.toContain('OR 1=1');expect(args[0]).toContain('a\\%');}
+  });
+  it.each(['mx','co','pe','en'] as const)('bounds %s search using the shared approved GEO discovery pool, not stale BR priority',async locale=>{
+    const db={query:vi.fn(async()=>({rows:[]}))};
+    await new SportsRepository(db as never).search('liga',locale);
+    const calls=db.query.mock.calls as unknown as Array<[string,[string,string[],number[],string,string]]>;
+    expect(calls).toHaveLength(3);
+    const expected=CANONICAL_COMPETITION_TARGETS.filter(target=>isAcquisitionCompetition(target.slug)).map(target=>target.slug)
+      .sort((a,b)=>competitionDemand(geoForLocale(locale),b)-competitionDemand(geoForLocale(locale),a)||a.localeCompare(b));
+    for(const [sql,args] of calls){
+      expect(sql).toContain('c.slug=ANY($2::text[])');
+      expect(sql).toContain('array_position($2::text[],c.slug)');
+      expect(sql).toContain('($3::integer[])[array_position($2::text[],c.slug)]');
+      expect(sql).toContain('ORDER BY CASE WHEN');
+      expect(sql).toContain('LIMIT 20');
+      expect(sql).not.toMatch(/priority_br|priority_mx/);
+      expect(args[1]).toEqual(expected);
+      expect(args[2]).toEqual(expected.map(slug=>competitionDemand(geoForLocale(locale),slug)));
+      expect(args.slice(3)).toEqual(['liga','liga%']);
+      expect(args[1]).not.toContain('saudi-pro-league-playoffs');
+      expect(args[1]).not.toContain('brasileirao-serie-b');
+    }
+    if(locale==='en')expect(new Set(calls[0][1][2])).toEqual(new Set([10]));
+    if(locale==='co')expect(expected.indexOf('colombia-primera-a')).toBeLessThan(expected.indexOf('peru-liga-1'));
+    if(locale==='pe')expect(expected.indexOf('peru-liga-1')).toBeLessThan(expected.indexOf('colombia-primera-a'));
+  });
+  it('preserves retired competition access through its direct canonical read model',async()=>{
+    const db=fixtureDb();
+    const hub=await new SportsRepository(db as never).competition('brasileirao-serie-b','br',undefined);
+    expect(hub).not.toBeNull();
+    const lookup=db.query.mock.calls[0] as unknown as [string,unknown[]];
+    expect(lookup[1]).toEqual(['brasileirao-serie-b']);
+    expect(lookup[0]).not.toContain('ANY(');
   });
   it('builds competition nav counts from the football window without listing fixtures',async()=>{
     const rows=CANONICAL_COMPETITION_TARGETS.map(target=>({slug:target.slug,canonical_name:target.canonicalName,display_name_pt_br:target.canonicalName,display_name_es_mx:target.canonicalName,competition_group:target.group,region:target.region,country_code:target.countryCode,country_name:target.countryNames[0]??null,n:target.slug==='premier-league'?13:target.slug==='liga-mx'?2:0}));
