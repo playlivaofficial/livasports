@@ -3,7 +3,7 @@ import Link from '@/sports/SportsLink';
 import {databaseUrl,PostgresDatabaseClient} from '@/database/client';
 import type {InterfaceLocale} from '@/localization/interface';
 import {teamPath} from '@/localization/interface';
-import {requestTimeZone} from '@/localization/time-zone-server';
+import {LocalizedTimeText} from '@/localization/LocalizedTime';
 import {competitionPath} from '@/sports/policy';
 import {geoForLocale,geoProfile,isCoreGeo,type CoreGeo} from '@/config/geo';
 
@@ -42,13 +42,13 @@ async function readPriorityLinks(surface:Surface,geo:CoreGeo):Promise<PriorityLi
 export async function GrowthProminence({locale,surface}:{locale:InterfaceLocale;surface:Surface}){
   const geo=geoForLocale(locale);if(!isCoreGeo(geo))return null;
   const rows=await readPriorityLinks(surface,geo).catch(()=>[]);if(!rows.length)return null;
-  const profile=geoProfile(geo),timeZone=await requestTimeZone(locale);
+  const profile=geoProfile(geo);
   const current=rows.find(row=>row.current),links=rows.filter(row=>!row.current);
   return <section className="growth-prominence" aria-labelledby={`growth-priority-${surface.kind.toLowerCase()}`}>
     <header><span>En foco · {profile.countryName}</span><h2 id={`growth-priority-${surface.kind.toLowerCase()}`}>{surface.kind==='MATCH'?'Contexto y próximos partidos':'Partidos para seguir'}</h2></header>
     {current?.context?<p className="growth-prominence-context">{current.context}</p>:null}
     {links.length?<div className="growth-prominence-links">{links.map(row=><div className="growth-prominence-item" key={row.fixtureId}><Link href={new URL(row.canonicalUrl).pathname}>
-      <span>#{row.rank} · {row.competition}</span><strong>{row.home} × {row.away}</strong><time dateTime={row.kickoff} title={timeZone.replaceAll('_',' ')}>{new Intl.DateTimeFormat(profile.languageTag,{timeZone,weekday:'short',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}).format(new Date(row.kickoff))}</time>
+      <span>#{row.rank} · {row.competition}</span><strong>{row.home} × {row.away}</strong><time dateTime={row.kickoff}><LocalizedTimeText value={row.kickoff} locale={locale} fallbackTimeZone={profile.timeZone} options={{weekday:'short',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}}/></time>
     </Link><nav className="growth-context-links" aria-label={`Explorar ${row.home} x ${row.away}`}>
       <Link href={competitionPath(locale,row.competitionSlug)}>Competición</Link>
       <Link href={teamPath(locale,row.homePublicId,row.home)}>{row.home}</Link>

@@ -3,6 +3,10 @@ import type { NextConfig } from 'next';
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  experimental: {globalNotFound:true},
+  // Resolve canonical identity before flushing HTML: missing entities must be HTTP
+  // 404 and obsolete slugs 308, not streamed 200s. ISR still serves cached pages.
+  htmlLimitedBots: /.*/,
   serverExternalPackages: ['ffmpeg-static'],
   async headers(){
     const production=process.env.NODE_ENV==='production';

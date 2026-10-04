@@ -11,7 +11,7 @@ const view:OddsComparison={market:'MATCH_WINNER',line:null,expiresAt:'2026-10-01
   eligiblePrices:1,observedAt:'2026-10-01T18:00:00Z',providerUpdatedAt:'2026-10-01T17:59:00Z'};
 describe('restrained commercial odds rendering',()=>{
   it('uses localized approved wording and sponsored markup for a server-approved action',()=>{
-    for(const [locale,label] of [['br','Ver odds'],['mx','Ver cuotas'],['en','View odds']] as const){
+    for(const [locale,label] of [['br','Ver odds'],['mx','Ver cuotas'],['co','Ver cuotas'],['pe','Ver cuotas'],['en','View odds']] as const){
       const html=renderToStaticMarkup(<PregameOdds initial={[view]} fixturePublicId="aaaaaaaaaaaaaaaa" uiLocale={locale==='en'?'en':undefined} context={{fixtureId:'test-only',competitionId:'test',locale:locale==='en'?'br':locale}}/>);
       expect(html).toContain('rel="sponsored nofollow noopener noreferrer"');expect(html).toContain(label);expect(html).toContain('18+');
       expect(html).toContain('odds-approx-mark');expect(view.rows[0].cells[0].priceKind).toBe('REAL');expect(html).not.toMatch(/Estimated|Estimado|data-source/);

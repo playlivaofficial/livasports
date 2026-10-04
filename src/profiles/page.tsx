@@ -2,12 +2,11 @@ import {withSpanishLocales} from '@/localization/spanish';
 import {languageTags} from '@/localization/interface';
 import {languageAlternates,teamPath as interfaceTeamPath,playerPath as interfacePlayerPath} from '@/localization/interface';
 import type { Metadata } from 'next';
-import { connection } from 'next/server';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { PlayerProfilePage, TeamProfilePage } from '@/components/profile/ProfilePage';
 import type { SiteLocale } from '@/config/i18n';
 import { loadPlayerProfile, loadTeamProfile } from './runtime';
-import { parseProfileParam, playerPath, slugifyProfileName, teamPath } from './routes';
+import { parseProfileParam, playerPath, teamPath } from './routes';
 import {TeamHistoryPanel} from '@/sports/TeamHistoryPanel';
 import {JsonLd} from '@/seo/json-ld';
 import {openGraphImages} from '@/seo/open-graph';
@@ -26,12 +25,11 @@ const metadataCopy = withSpanishLocales({
 
 export async function profileMetadata(paramPromise: Promise<{ profile: string }>, locale: SiteLocale,
   entity: 'team' | 'player'): Promise<Metadata> {
-  await connection();
   const { profile: param } = await paramPromise;
   const parsed = parseProfileParam(param);
-  if (!parsed) return { title: metadataCopy[locale].notFound, robots: { index: false, follow: false } };
+  if (!parsed) notFound();
   const result = entity === 'team' ? await teamData(parsed.publicId, locale) : await playerData(parsed.publicId, locale);
-  if (result.kind === 'not-found') return { title: metadataCopy[locale].notFound, robots: { index: false, follow: false } };
+  if (result.kind === 'not-found') notFound();
   const profile = result.profile;
   const variant=entity==='team'?ctrTeamMetadata(locale,profile.publicId,profile.name):null;
   const description = variant?.description??(entity === 'team'
@@ -49,28 +47,29 @@ export async function profileMetadata(paramPromise: Promise<{ profile: string }>
     other: { 'content-language': localeTag[locale] } };
 }
 
-export async function ProfileRoutePage({ params, locale, entity,searchParams }: { params: Promise<{ profile: string }>; locale: SiteLocale; entity: 'team' | 'player';searchParams?:Promise<Record<string,string|string[]|undefined>> }) {
-  await connection();
+export async function ProfileRoutePage({ params, locale, entity }: { params: Promise<{ profile: string }>; locale: SiteLocale; entity: 'team' | 'player';searchParams?:Promise<Record<string,string|string[]|undefined>> }) {
   const { profile: param } = await params;
   const parsed = parseProfileParam(param);
   if (!parsed) notFound();
   if (entity === 'team') {
     const result = await teamData(parsed.publicId, locale);
     if (result.kind === 'not-found') notFound();
-    if (parsed.slug !== slugifyProfileName(result.profile.name)) permanentRedirect(teamPath(locale, result.profile.publicId, result.profile.name));
-    const canonical = `https://livasports.com${teamPath(locale,result.profile.publicId,result.profile.name)}`;
+    const path=teamPath(locale,result.profile.publicId,result.profile.name);
+    if(param!==path.split('/').at(-1))permanentRedirect(path);
+    const canonical = `https://livasports.com${path}`;
     const jsonLd = [{ '@context':'https://schema.org','@type':'SportsTeam',name:result.profile.name,url:canonical,
       logo:result.profile.imageUrl??undefined,foundingDate:result.profile.foundedYear?String(result.profile.foundedYear):undefined,
       location:result.profile.country?{'@type':'Place',name:result.profile.country}:undefined },
     { '@context':'https://schema.org','@type':'BreadcrumbList',itemListElement:[
       {'@type':'ListItem',position:1,name:'LivaSports',item:`https://livasports.com/${locale}`},
       {'@type':'ListItem',position:2,name:result.profile.name,item:canonical}]}];
-    return <><JsonLd data={jsonLd}/><TeamProfilePage locale={locale} profile={result.profile} history={<TeamHistoryPanel profile={result.profile} locale={locale} query={await searchParams??{}}/>}/></>;
+    return <><JsonLd data={jsonLd}/><TeamProfilePage locale={locale} profile={result.profile} history={<TeamHistoryPanel profile={result.profile} locale={locale}/>}/></>;
   }
   const result = await playerData(parsed.publicId, locale);
   if (result.kind === 'not-found') notFound();
-  if (parsed.slug !== slugifyProfileName(result.profile.name)) permanentRedirect(playerPath(locale, result.profile.publicId, result.profile.name));
-  const canonical = `https://livasports.com${playerPath(locale,result.profile.publicId,result.profile.name)}`;
+  const path=playerPath(locale,result.profile.publicId,result.profile.name);
+  if(param!==path.split('/').at(-1))permanentRedirect(path);
+  const canonical = `https://livasports.com${path}`;
   const jsonLd = [{ '@context':'https://schema.org','@type':'Person',name:result.profile.name,url:canonical,
     image:result.profile.imageUrl??undefined,birthDate:result.profile.dateOfBirth??undefined,nationality:result.profile.nationality??undefined,
     height:result.profile.heightCm?`${result.profile.heightCm} cm`:undefined,weight:result.profile.weightKg?`${result.profile.weightKg} kg`:undefined },

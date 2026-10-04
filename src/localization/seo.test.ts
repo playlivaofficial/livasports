@@ -3,7 +3,7 @@ vi.mock('server-only',()=>({}));
 vi.mock('next/server',()=>({connection:async()=>undefined}));
 vi.mock('@/sports/sitemap-runtime',()=>({loadCompetitionSitemapSummaries:vi.fn(async()=>[{slug:'premier-league',seasonId:'11111111-1111-4111-8111-111111111111',upcoming:3,results:10,standings:true,scorers:true,teams:true,updatedAt:new Date('2026-09-17T13:15:13Z')}])}));
 vi.mock('@/match-center/runtime',()=>({
-  loadMatchCenter:vi.fn(async(publicId:string)=>({kind:'found',match:{header:{publicId,home:{name:'Home'},away:{name:'Away'},competition:'Copa do Brasil'}}}))}));
+  loadPublicMatchCenter:vi.fn(async(publicId:string)=>({kind:'found',match:{header:{publicId,home:{name:'Home'},away:{name:'Away'},competition:'Copa do Brasil'}}}))}));
 vi.mock('@/profiles/runtime',()=>({
   loadTeamProfile:vi.fn(async()=>({kind:'found',profile:{publicId:'1123456789abcdef',name:'Team',indexable:true,imageUrl:null}})),
   loadPlayerProfile:async()=>({kind:'found',profile:{publicId:'2123456789abcdef',name:'Player',indexable:true,imageUrl:null}})}));
@@ -33,7 +33,7 @@ it('English match metadata describes stored sports data in English',async()=>{
   expect(metadata.alternates?.languages?.['x-default']).toBe(metadata.alternates?.canonical);
 });
 it.each(['team','player'] as const)('English %s metadata has complete reciprocal entity links',async entity=>{
-  const metadata=await englishProfileMetadata(Promise.resolve({profile:'sample-1123456789abcdef'}),entity);
+  const metadata=await englishProfileMetadata(Promise.resolve({profile:entity==='team'?'team-1123456789abcdef':'player-2123456789abcdef'}),entity);
   expect(metadata.description).toContain('Football profiles');expect(metadata.alternates?.languages?.['x-default']).toBe(metadata.alternates?.canonical);
   expect(Object.keys(metadata.alternates?.languages??{})).toHaveLength(6);
 });
@@ -61,8 +61,8 @@ it('/sitemap.xml is served as well-formed, escaped XML with the correct content 
 describe('M1 finished-match decay in metadata',()=>{
   const ago=(days:number)=>new Date(Date.now()-days*86_400_000).toISOString();
   const serve=async(publicId:string,status:string,kickoff:string)=>{
-    const {loadMatchCenter}=await import('@/match-center/runtime');
-    vi.mocked(loadMatchCenter).mockResolvedValue({kind:'found',match:{header:{publicId,home:{name:'Home'},away:{name:'Away'},
+    const {loadPublicMatchCenter}=await import('@/match-center/runtime');
+    vi.mocked(loadPublicMatchCenter).mockResolvedValue({kind:'found',match:{header:{publicId,home:{name:'Home'},away:{name:'Away'},
       competition:'Copa do Brasil',competitionSlug:'copa-do-brasil',season:'2026',status,kickoff}}} as never);
     return englishMatchMetadata(Promise.resolve({match:`home-x-away-${publicId}`}));
   };

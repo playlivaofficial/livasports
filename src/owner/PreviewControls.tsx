@@ -1,6 +1,5 @@
 'use client';
 import {useState,type FormEvent} from 'react';
-import {useRouter} from 'next/navigation';
 import {CORE_GEOS,geoProfile,type CoreGeo} from '@/config/geo';
 
 async function action(body:Record<string,unknown>){const response=await fetch('/api/owner/preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),cache:'no-store'});if(!response.ok)throw Error(response.status===401?'Access key is invalid. Please check it and try again.':response.status===429?'Too many failed attempts. Please wait 15 minutes and try again.':response.status===503?'Owner sign-in is temporarily unavailable. Please try again shortly.':'Could not update preview. Please try again.');}
@@ -18,7 +17,19 @@ export function PreviewControls({authorized,preview,previewGeo,configured,countr
     </>}{error?<p role="alert">{error}</p>:null}</main>;
 }
 export function OwnerPreviewBar({preview,previewGeo}:{preview:boolean;previewGeo?:CoreGeo|null}){
-  const router=useRouter();
   const [busy,setBusy]=useState(false),[error,setError]=useState('');
-  return <aside className="owner-preview-bar" aria-label="Owner preview"><strong>{preview?'QA_TEST · GEO preview':'Owner · Real GEO'}</strong><label>GEO <select aria-label="Owner GEO" disabled={busy} value={preview?(previewGeo??''):''} onChange={async e=>{const geo=e.target.value;setBusy(true);try{await action({action:'preview',geo:geo||null});if(geo){router.push(`/${geoProfile(geo as CoreGeo).locale}`);router.refresh();setBusy(false);}else window.location.reload();}catch{setError('Open owner controls to sign in again.');setBusy(false);}}}><option value="">Real GEO</option>{CORE_GEOS.map(geo=><option key={geo} value={geo}>{geoProfile(geo).countryName}</option>)}</select></label><a href="/owner/preview">Owner controls</a>{error?<span role="alert">{error}</span>:null}</aside>;
+  // A same-locale router refresh preserves the public root's private hydration
+  // state. Reload the document after changing the signed cookie so the owner bar,
+  // slip and offer controls all resolve the new jurisdiction together.
+  async function change(geo:string){
+    setBusy(true);
+    try{
+      await action({action:'preview',geo:geo||null});
+      if(geo){
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- Signed GEO changes must replace private state retained by a shared cached root.
+        window.location.assign(`/${geoProfile(geo as CoreGeo).locale}`);
+      }else window.location.reload();
+    }catch{setError('Open owner controls to sign in again.');setBusy(false);}
+  }
+  return <aside className="owner-preview-bar" aria-label="Owner preview"><strong>{preview?'QA_TEST · GEO preview':'Owner · Real GEO'}</strong><label>GEO <select aria-label="Owner GEO" disabled={busy} value={preview?(previewGeo??''):''} onChange={e=>change(e.target.value)}><option value="">Real GEO</option>{CORE_GEOS.map(geo=><option key={geo} value={geo}>{geoProfile(geo).countryName}</option>)}</select></label><a href="/owner/preview">Owner controls</a>{error?<span role="alert">{error}</span>:null}</aside>;
 }

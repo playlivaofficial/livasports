@@ -12,6 +12,7 @@ import {BookmakerLogo} from '@/components/odds/BookmakerLogo';
 import type {BookmakerId} from '@/odds/registry';
 import {withSpanishLocales} from '@/localization/spanish';
 import {geoForLocale,geoProfile,isSpanishLocale,type GeoLocale} from '@/config/geo';
+import {isSiteLocale,type SiteLocale} from '@/config/i18n';
 
 const copy=withSpanishLocales({
   br:{title:'Compare as odds',pregame:'Pré-jogo · 90 minutos',markets:{MATCH_WINNER:'Resultado final',TOTAL_GOALS:'Gols · 2,5',BTTS:'Ambas marcam'},
@@ -28,7 +29,11 @@ const copy=withSpanishLocales({
     observed:'Checked at',changed:'Last reported change',single:'One bookmaker available in this market.',responsible:'18+. Gamble responsibly.',disclosure:'We may receive a commission from partner links. That does not change the order of the odds.'},
 });
 export function PregameOdds({initial,context,fixturePublicId,uiLocale}:{initial:OddsComparison[];context:MatchEventContext;fixturePublicId?:string;uiLocale?:GeoLocale}){
-  const saved=useSlip();const presentation=uiLocale??context.locale;const commercialLocale=context.locale;
+  const saved=useSlip();const presentation=uiLocale??context.locale;
+  // A cached SEO shell never chooses a visitor's commercial country. The private
+  // odds response supplies it only after the existing trusted-GEO gate succeeds.
+  const [resolvedCommercialLocale,setResolvedCommercialLocale]=useState<SiteLocale|null>(null);
+  const commercialLocale=resolvedCommercialLocale??context.locale;
   const slipText=slipCopy[presentation];
   const [comparisons,setComparisons]=useState(initial);const [market,setMarket]=useState<OddsMarket>('MATCH_WINNER');
   const [clock,setClock]=useState<number|null>(null);const root=useRef<HTMLElement>(null);const visible=useRef(false);
@@ -41,7 +46,10 @@ export function PregameOdds({initial,context,fixturePublicId,uiLocale}:{initial:
     const tick=()=>setClock(Date.now());
     async function refresh(){if(stopped||inFlight||!navigator.onLine||!visible.current||document.visibilityState!=='visible'||Date.now()-lastAttempt<60000)return;
       inFlight=true;lastAttempt=Date.now();tick();try{const response=await fetch(`/api/odds/${context.fixtureId}?locale=${presentation}`,{cache:'no-store',signal:abort.signal});
-        if(response.ok){const body=await response.json();if(!stopped&&Array.isArray(body.comparisons))setComparisons(body.comparisons);}
+        if(response.ok){const body=await response.json();if(!stopped&&Array.isArray(body.comparisons)){
+          setComparisons(body.comparisons);
+          setResolvedCommercialLocale(isSiteLocale(body.commercialLocale)?body.commercialLocale:null);
+        }}
       }catch{/* Expiry still applies when refresh is unavailable. */}finally{inFlight=false;}}
     const observe=(entries:IntersectionObserverEntry[])=>{visible.current=entries.some(e=>e.isIntersecting);if(visible.current){
       if(!sent.current.has('module')){sent.current.add('module');emitMatchEvent('odds_module_view',context,'match_odds');}

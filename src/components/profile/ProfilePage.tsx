@@ -1,7 +1,7 @@
 import {withSpanishLocales} from '@/localization/spanish';
 import {primaryProfileStatistics} from '@/profiles/statistics';
 import {unlinkedTeamLabel} from '@/sports/unlinked-competition';
-import {requestTimeZone} from '@/localization/time-zone-server';
+import {LocalizedTimeText} from '@/localization/LocalizedTime';
 import Link from '@/sports/SportsLink';
 import {SquadBrowser} from '@/sports/SquadBrowser';
 import type {ReactNode} from 'react';
@@ -75,13 +75,12 @@ function Nav({ locale, player = false }: { locale: SiteLocale; player?: boolean 
   return <SectionNav className="profile-tabs" label={locale === 'br' ? 'Seções do perfil' : 'Secciones del perfil'} items={items.map(([href,label])=>({href,label}))}/>;
 }
 async function MatchRow({ locale, row, teamId }: { locale: SiteLocale; row: ProfileFixture; teamId?: string }){
-  const timeZone=await requestTimeZone(locale);
-  const dictionary = getDictionary(locale); const date = new Intl.DateTimeFormat(dictionary.locale,{dateStyle:'medium',timeStyle:'short',timeZone}).format(new Date(row.kickoff));
+  const dictionary = getDictionary(locale);
   const finished = row.status === FixtureStatus.FINISHED;
   const score = finished && row.homeScore !== null && row.awayScore !== null ? `${row.homeScore}–${row.awayScore}` : dictionary.statuses[row.status];
   const opponent = teamId ? (row.home.id === teamId ? row.away : row.home) : null;
   return <div className="profile-match-row-wrap"><Link href={matchPath(locale,row.publicId,row.home.name,row.away.name)} className="profile-match-row">
-    <time dateTime={row.kickoff}>{date}</time><span className="profile-match-competition">{row.competition}</span>
+    <time dateTime={row.kickoff}><LocalizedTimeText value={row.kickoff} locale={locale} options={{dateStyle:'medium',timeStyle:'short'}}/></time><span className="profile-match-competition">{row.competition}</span>
     <strong>{opponent ? opponent.name : `${row.home.name} × ${row.away.name}`}</strong><b className={finished?'is-finished':undefined}>{score}</b>
   </Link><FavoriteButton locale={locale} kind="fixture" id={row.publicId} className="favorite-toggle-compact"/></div>;
 }
@@ -144,7 +143,6 @@ function age(dateOfBirth:string){const birth=birthDate(dateOfBirth);if(!birth)re
   if(today.getUTCMonth()<birth.getUTCMonth()||(today.getUTCMonth()===birth.getUTCMonth()&&today.getUTCDate()<birth.getUTCDate()))years--;return years;}
 
 export async function PlayerProfilePage({ locale, profile }: { locale: SiteLocale; profile: PlayerProfileView }){
-  const timeZone=await requestTimeZone(locale);
   const text=copy[locale],dictionary=getDictionary(locale); const alternate={br:playerPath('br',profile.publicId,profile.name),mx:playerPath('mx',profile.publicId,profile.name)};
   const parsedBirth=profile.dateOfBirth?birthDate(profile.dateOfBirth):null,playerAge=profile.dateOfBirth?age(profile.dateOfBirth):null;
   const position=localizedPosition(locale,profile.detailedPosition,profile.position);
@@ -162,7 +160,7 @@ export async function PlayerProfilePage({ locale, profile }: { locale: SiteLocal
           {profile.contexts.length?<div className="competition-chips">{profile.contexts.slice(0,8).map(item=><span key={`${item.teamId}:${item.seasonId}`}><Link href={teamPath(locale,item.teamPublicId,item.team)}>{item.team}</Link><small>{item.competition} · {item.season}</small></span>)}</div>:null}
           {overviewStats.length?<><p className="sports-data-note">{overviewStats[0].competition} · {overviewStats[0].season} · {overviewStats[0].team??unlinkedTeamLabel(locale)}</p><div className="profile-stat-grid profile-key-stats">{overviewStats.map(row=><div key={`${row.teamId??row.sourceTeamKey}:${row.seasonId}:${row.code}`}><span>{metricLabels[locale][row.code]??row.label}</span><strong>{typeof row.value==='number'?new Intl.NumberFormat(getDictionary(locale).locale,{maximumFractionDigits:2}).format(row.value):row.value}{row.unit??''}</strong></div>)}</div></>:null}
           {recentAppearance?<Link className="profile-latest-appearance" href={matchPath(locale,recentAppearance.publicId,recentAppearance.home.name,recentAppearance.away.name)}><span>{text.appearances}</span><strong>{recentAppearance.opponent}</strong><small>{appearanceDetails(locale,recentAppearance).join(' · ')}</small></Link>:null}</section>
-        <section id="matches" className="profile-panel"><h2>{text.appearances}</h2>{profile.matches.data.length?<div className="profile-match-list">{profile.matches.data.map(row=><Link key={row.id} href={matchPath(locale,row.publicId,row.home.name,row.away.name)} className="profile-match-row player-match-row"><time>{new Intl.DateTimeFormat(dictionary.locale,{dateStyle:'short',timeZone}).format(new Date(row.kickoff))}</time><span>{row.competition}</span><strong>{row.opponent}</strong><b>{row.homeScore===null||row.awayScore===null?dictionary.statuses[row.status]:`${row.homeScore}–${row.awayScore}`}</b><small>{appearanceDetails(locale,row).join(' · ')}</small></Link>)}</div>:<State locale={locale} module={profile.matches}/>}</section>
+        <section id="matches" className="profile-panel"><h2>{text.appearances}</h2>{profile.matches.data.length?<div className="profile-match-list">{profile.matches.data.map(row=><Link key={row.id} href={matchPath(locale,row.publicId,row.home.name,row.away.name)} className="profile-match-row player-match-row"><time dateTime={row.kickoff}><LocalizedTimeText value={row.kickoff} locale={locale} options={{dateStyle:'short'}}/></time><span>{row.competition}</span><strong>{row.opponent}</strong><b>{row.homeScore===null||row.awayScore===null?dictionary.statuses[row.status]:`${row.homeScore}–${row.awayScore}`}</b><small>{appearanceDetails(locale,row).join(' · ')}</small></Link>)}</div>:<State locale={locale} module={profile.matches}/>}</section>
         <section id="statistics" className="profile-panel"><h2>{text.playerStats}</h2>{profile.statistics.data.length?<Stats locale={locale} rows={profile.statistics.data}/>:<State locale={locale} module={profile.statistics}/>}</section>
       <SponsoredSlot context={{locale,pagePath:playerPath(locale,profile.publicId,profile.name),placement:'player_inline'}}/></div><aside className="profile-rail"><SponsoredSlot context={{locale,pagePath:playerPath(locale,profile.publicId,profile.name),placement:'player_right_rail'}}/><section><h2>{text.playerOverview}</h2>{facts.map(([label,value])=><div key={label}><strong>{label}</strong><span>{value}</span></div>)}</section></aside></div>
     </main></div>;

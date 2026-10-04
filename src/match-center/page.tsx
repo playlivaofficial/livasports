@@ -8,31 +8,34 @@ import {isFinishedMatchDecayed,noindexRobots} from '@/seo/policy';
 import type { Metadata } from 'next';
 import {loadPendingFixture} from '@/sports/runtime';
 import {PendingMatch,pendingMetadata} from '@/sports/PendingMatch';
-import { connection } from 'next/server';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { MatchCenter } from '@/components/match/MatchCenter';
 import {JsonLd} from '@/seo/json-ld';
 import {openGraphImages} from '@/seo/open-graph';
 import type { SiteLocale } from '@/config/i18n';
-import { loadMatchCenter } from './runtime';
+import { loadPublicMatchCenter } from './runtime';
 import { matchPath, parseMatchParam, slugifyMatch } from './routes';
 import {matchPath as interfaceMatchPath} from '@/localization/interface';
-import { headers } from 'next/headers';
-import { commercialLocale, requestCommercialGeo } from '@/odds/commercial-geo';
 
 const localeTag = languageTags;
 
 async function resolveMatch(param: string, locale: SiteLocale) {
   const parsed = parseMatchParam(param);
   if (!parsed) return { parsed: null, result: null };
-  return { parsed, result: await loadMatchCenter(parsed.publicId, locale) };
+  return { parsed, result: await loadPublicMatchCenter(parsed.publicId, locale) };
 }
 
 export async function matchMetadata(paramPromise: Promise<{ match: string }>, locale: SiteLocale): Promise<Metadata> {
-  await connection();
   const { match: param } = await paramPromise;
   const { result,parsed } = await resolveMatch(param, locale);
-  if (!result || result.kind === 'not-found'){const pending=parsed?await loadPendingFixture(parsed.publicId):null;return pending?pendingMetadata(locale,pending):{title:locale==='br'?'Partida não encontrada':'Partido no encontrado',robots:{index:false,follow:false}};}
+  // Blocking metadata validates before the response can flush a 200 shell.
+  // Canonical redirects belong to the page only, avoiding duplicate Location headers.
+  if(!parsed)notFound();
+  if (!result || result.kind === 'not-found'){
+    const pending=await loadPendingFixture(parsed.publicId);
+    if(pending)return pendingMetadata(locale,pending);
+    notFound();
+  }
   const { header } = result.match;
   const variant=ctrMatchMetadata(locale,result.match);
   const seo=await readPublishedSeo(header.id,locale);
@@ -53,13 +56,12 @@ export async function matchMetadata(paramPromise: Promise<{ match: string }>, lo
 }
 
 export async function MatchRoutePage({ params, locale }: { params: Promise<{ match: string }>; locale: SiteLocale }) {
-  await connection();
   const { match: param } = await params;
   const { parsed, result } = await resolveMatch(param, locale);
   if(!parsed)notFound();
   if(!result||result.kind==='not-found'){const pending=await loadPendingFixture(parsed.publicId);if(pending)return <PendingMatch locale={locale} row={pending}/>;notFound();}
   const correctSlug = slugifyMatch(result.match.header.home.name, result.match.header.away.name);
-  if (parsed.slug !== correctSlug) permanentRedirect(matchPath(locale, parsed.publicId, result.match.header.home.name, result.match.header.away.name));
+  if (param !== `${correctSlug}-${result.match.header.publicId}`) permanentRedirect(matchPath(locale, parsed.publicId, result.match.header.home.name, result.match.header.away.name));
   const jsonLd=sportsMatchSchema(locale,result.match.header);
-  return <><JsonLd data={jsonLd}/><MatchCenter locale={locale} commercialLocale={commercialLocale(requestCommercialGeo(await headers()))??locale} match={result.match}/></>;
+  return <><JsonLd data={jsonLd}/><MatchCenter locale={locale} match={result.match}/></>;
 }

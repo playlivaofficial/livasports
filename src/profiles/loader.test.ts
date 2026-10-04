@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { CacheCoordinator, MemoryCacheStore } from '@/cache/cache';
 import type { TeamProfileView, PlayerProfileView } from './types';
+import type {SiteLocale} from '@/config/i18n';
 import { ProfileLoader } from './loader';
 
 vi.mock('server-only',()=>({}));
@@ -30,5 +31,28 @@ describe('profile cache-first read path', () => {
     const repository={team:async()=>{throw new Error('database unavailable');},player:async()=>null};
     const loader=new ProfileLoader(repository as never,new CacheCoordinator(new MemoryCacheStore()));
     await expect(loader.team(team.publicId,'br')).rejects.toThrow('database unavailable');
+  });
+
+  it('keeps MX, CO and PE profile cache entries separate while reusing each locale snapshot',async()=>{
+    const repository={
+      team:vi.fn(async(_id:string,locale:SiteLocale)=>({...team,locale})),
+      player:vi.fn(async(_id:string,locale:SiteLocale)=>({...player,locale})),
+    };
+    const loader=new ProfileLoader(repository as never,new CacheCoordinator(new MemoryCacheStore()));
+    for(const locale of ['mx','co','pe','mx','co','pe'] as const){
+      expect(await loader.team(team.publicId,locale)).toMatchObject({kind:'found',profile:{locale}});
+      expect(await loader.player(player.publicId,locale)).toMatchObject({kind:'found',profile:{locale}});
+    }
+    expect(repository.team.mock.calls).toEqual([['0123456789abcdef','mx'],['0123456789abcdef','co'],['0123456789abcdef','pe']]);
+    expect(repository.player.mock.calls).toEqual([['fedcba9876543210','mx'],['fedcba9876543210','co'],['fedcba9876543210','pe']]);
+  });
+
+  it('gives public profile shells long TTLs without invalidating them on every unrelated odds tick',async()=>{
+    const getOrSet=vi.fn(async(_key:string,_options:unknown,load:()=>Promise<unknown>)=>({value:await load()}));
+    const loader=new ProfileLoader({team:async()=>team,player:async()=>player} as never,{getOrSet} as never);
+    await loader.team(team.publicId,'br');await loader.player(player.publicId,'br');
+    expect(getOrSet.mock.calls[0][1]).toMatchObject({ttlSeconds:3600,tags:[expect.stringContaining(':profile:team:')]});
+    expect(getOrSet.mock.calls[1][1]).toMatchObject({ttlSeconds:21600,tags:[expect.stringContaining(':profile:player:')]});
+    expect(JSON.stringify(getOrSet.mock.calls.map(call=>call[1]))).not.toContain('fixtures:');
   });
 });
