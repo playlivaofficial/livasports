@@ -43,6 +43,7 @@ export function selectStory(row:RankedGrowthFixture,players:GrowthSelectedPlayer
 
 export function searchIntent(row:RankedGrowthFixture):GrowthIntentCluster{
   const match=`${row.signals.home.name} x ${row.signals.away.name}`;
+  if(row.geo)return {primary:match,canonicalUrl:row.destinationUrl,queries:[match,`${match} cuotas`,`${match} estadísticas`,`${match} alineaciones`,`${row.signals.competitionName} partidos de hoy`,`${row.signals.home.name} próximos partidos`,`${row.signals.away.name} próximos partidos`,`${row.signals.competitionName} clasificación`]};
   return {primary:match,canonicalUrl:row.destinationUrl,queries:[match,`${match} odds`,`${match} estatísticas`,`${match} escalações`,
     `${row.signals.competitionName} jogos hoje`,`${row.signals.home.name} próximos jogos`,`${row.signals.away.name} próximos jogos`,`${row.signals.competitionName} classificação`]};
 }
@@ -55,6 +56,17 @@ function formLine(name:string,form:GrowthTeamForm|null){
 }
 
 export function truthfulMatchContext(row:RankedGrowthFixture):string{
+  if(row.geo){
+    const facts:string[]=[];
+    const stage:Record<string,string>={'Final':'Final','Semi-final':'Semifinal','Quarter-final':'Cuartos de final','Round of 16':'Octavos de final','Play-off':'Eliminatoria','Knockout':'Eliminatoria','Group stage':'Fase de grupos'};
+    if(row.priority.stage)facts.push(`${stage[row.priority.stage]??row.priority.stage} de ${row.signals.competitionName}.`);
+    const local=[row.signals.home,row.signals.away].filter(t=>t.country===row.geo);
+    if(local.length)facts.push(`${local.map(t=>t.name).join(' y ')}: representación local en este encuentro.`);
+    if(row.signals.standings?.homePosition&&row.signals.standings.awayPosition)facts.push(`Posiciones registradas: ${row.signals.home.name}, ${row.signals.standings.homePosition}; ${row.signals.away.name}, ${row.signals.standings.awayPosition}.`);
+    if(row.odds.count>0)facts.push(`Compara las cuotas vigentes de ${row.odds.count} ${row.odds.count===1?'operador disponible':'operadores disponibles'} para el mismo partido.`);
+    if(!facts.length)facts.push(`${row.signals.home.name} y ${row.signals.away.name} se enfrentan en ${row.signals.competitionName}. Consulta el horario confirmado y las estadísticas disponibles.`);
+    return facts.slice(0,3).join(' ');
+  }
   const lines:string[]=[];
   if(row.priority.rivalry)lines.push(`${row.priority.rivalry}: rivalidade reconhecida na configuração editorial do LivaSports.`);
   if(row.priority.stage)lines.push(`${row.priority.stage} aumenta o peso deste confronto.`);

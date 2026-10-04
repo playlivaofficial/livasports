@@ -1,5 +1,6 @@
+import {isSpanishLocale} from '@/config/geo';
 import {interfaceRoutes,type InterfaceLocale} from '@/localization/interface';
-import {FOOTBALL_COMPETITION_TARGETS} from '@/config/footballCompetitions';
+import {CANONICAL_COMPETITION_TARGETS} from '@/config/footballCompetitions';
 import {englishCompetition} from '@/localization/sports-copy';
 export const competitionTabs=['fixtures','results','standings','scorers','teams'] as const;
 export type CompetitionTab=typeof competitionTabs[number];
@@ -21,7 +22,7 @@ export function resolveDefaultSeason<T extends {fixtures:number;verifiedEmpty?:b
   if(first&&first.fixtures===0&&first.verifiedEmpty===true)return seasons.find(s=>s.fixtures>0)??first;
   return first;
 }
-export function competitionName(locale:InterfaceLocale,slug:string){const target=FOOTBALL_COMPETITION_TARGETS.find(t=>t.slug===slug);return target?(locale==='en'?englishCompetition(target.canonicalName):target.displayNames[locale]):null;}
+export function competitionName(locale:InterfaceLocale,slug:string){const target=CANONICAL_COMPETITION_TARGETS.find(t=>t.slug===slug);return target?(locale==='en'?englishCompetition(target.canonicalName):target.displayNames[locale==='br'?'br':'mx']):null;}
 export function numericStatistic(value:unknown):number|null{
   const raw=value&&typeof value==='object'?(value as Record<string,unknown>).total:undefined;
   if(typeof raw!=='number'&&typeof raw!=='string')return null;
@@ -33,7 +34,7 @@ export function sportGroup(locale:InterfaceLocale,value:string|null):string|null
     'Eastern Conference':['Conferência Leste','Conferencia Este','Eastern Conference'],
     'Western Conference':['Conferência Oeste','Conferencia Oeste','Western Conference'],
   };
-  if(conferences[value])return conferences[value][locale==='br'?0:locale==='mx'?1:2];
+  if(conferences[value])return conferences[value][locale==='br'?0:locale==='en'?2:1];
   const suffix=value.replace(/^(Group|Grupo)\s+/i,'').trim();
   if(/^[A-Z0-9]+$/.test(suffix))return `${locale==='en'?'Group':'Grupo'} ${suffix}`;
   return locale==='en'?value:null;
@@ -41,7 +42,7 @@ export function sportGroup(locale:InterfaceLocale,value:string|null):string|null
 export function sportStage(locale:InterfaceLocale,value:string|null):string|null{
   if(!value)return null;
   // Apertura/Clausura are official tournament names; localize their Spanish phase names.
-  if(/^Reclasificaci[oó]n$/.test(value))return locale==='br'?'Repescagem':locale==='mx'?'Reclasificación':'Qualification play-off';
+  if(/^Reclasificaci[oó]n$/.test(value))return locale==='br'?'Repescagem':locale==='en'?'Qualification play-off':'Reclasificación';
   if(locale==='en')return value.split(' - ').map(part=>/^Reclasificaci[oó]n$/.test(part)?'Qualification play-off':part).join(' - ');
   const historical:Record<string,[string,string]>={
     '16th Finals':['16 avos de final','Dieciseisavos de final'],
@@ -86,7 +87,7 @@ export function sportStage(locale:InterfaceLocale,value:string|null):string|null
 
 /** Official draw labels are translated, never resolved into invented teams. */
 export function pendingParticipant(locale:InterfaceLocale,value:string|null){
-  const unknown=locale==='br'?'A definir':locale==='mx'?'Por definir':'To be confirmed';
+  const unknown=locale==='br'?'A definir':isSpanishLocale(locale)?'Por definir':'To be confirmed';
   if(!value||value==='TBC')return unknown;
   if(locale==='en')return value;
   const match=/^(Winner|Loser) (Match|Quarter-final|Semi-final) (\d+)$/i.exec(value);

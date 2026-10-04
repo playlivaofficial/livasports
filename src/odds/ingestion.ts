@@ -9,6 +9,8 @@ import type { CanonicalOddsFixture, OddsSnapshot, PersistedFixtureMapping } from
 import {persistNativeSourceBatch} from './native-source-persistence';
 import {APPROVED_NATIVE_SOURCE_IDS} from './source-registry';
 import {refreshOutcomes} from './refresh-outcome';
+import {persistGeoSnapshotQuotes} from './geo-persistence';
+import {isAcquisitionCompetition} from '@/config/footballCompetitions';
 
 /** Close only quotes the latest snapshot actually listed. Fixtures outside the feed stay until they go stale. */
 export function snapshotAbsenceCloseScope(snapshot:OddsSnapshot,acceptedFixtureIds:readonly string[]){
@@ -35,7 +37,7 @@ export async function canonicalFixtures(db:QueryExecutor):Promise<CanonicalOddsF
     FROM fixtures f JOIN competitions c ON c.id=f.competition_id AND c.enabled JOIN sports s ON s.id=f.sport_id
     JOIN teams h ON h.id=f.home_team_id JOIN teams a ON a.id=f.away_team_id
     WHERE f.kickoff BETWEEN now()-interval '2 days' AND now()+interval '45 days'`);
-  return result.rows.map(r=>({...r,kickoff:r.kickoff.toISOString()}) as CanonicalOddsFixture);
+  return result.rows.filter(r=>isAcquisitionCompetition(String(r.competition))).map(r=>({...r,kickoff:r.kickoff.toISOString()}) as CanonicalOddsFixture);
 }
 export async function startOddsJob(db:DatabaseClient):Promise<string> {
   return db.transaction(async tx=>{
@@ -101,8 +103,18 @@ export async function persistSnapshot(db:DatabaseClient,jobId:string,snapshot:Od
       const hours=(Math.min(Date.parse(m.fixture.kickoff),Date.parse(m.raw.kickoff))-Date.parse(snapshot.observedAt))/3600000;
       return [{...q,bookmaker,fixtureId:m.fixture.id,providerKickoff:m.raw.kickoff,freshnessTtlMinutes:freshnessTtlMs(hours,2,snapshot.cadenceScale??1)/60000,
         status:m.fixture.status!=='SCHEDULED'||Date.now()>=Math.min(Date.parse(m.fixture.kickoff),Date.parse(m.raw.kickoff))?'CLOSED':q.status}];});
+    const closeable=[...accepted.values()].filter(m=>snapshot.quotes.some(q=>q.providerFixtureId===m.raw.providerId)&&
+      !snapshot.diagnostics?.some(d=>d.providerFixtureId===m.raw.providerId&&!d.reason.startsWith('OUT_OF_SCOPE')));
+    let geoSaved:{history_changes:number;current_writes:number;closed:number}|null=null;
+    if(snapshot.geoFeeds){
+      geoSaved=await persistGeoSnapshotQuotes(tx,snapshot,quotes as Array<typeof quotes[number]&{status:import('./types').OddsStatus}>,closeable.flatMap(m=>m.fixture?[m.fixture.id]:[]));
+    }
     // Only live pregame prices are native-source truth; closes for started fixtures are handled by odds_current below.
-    const sourceWrites=await persistNativeSourceBatch(tx,{sourceProvider:'ODDSPAPI',observedAt:snapshot.observedAt,requestCount:0,quotes:quotes.filter(q=>q.status!=='CLOSED'&&q.freshnessTtlMinutes>0).map(q=>({
+    let sourceWrites:{historyChanges:number;currentWrites:number;rejections:{count:number;reasons:string[]}}={historyChanges:0,currentWrites:0,rejections:{count:0,reasons:[]}};
+    let changes:{rows:Array<{history_changes?:number;current_writes?:number}>}={rows:[]};
+    let closed:{rowCount:number|null}={rowCount:0};
+    if(!snapshot.geoFeeds){
+    sourceWrites=await persistNativeSourceBatch(tx,{sourceProvider:'ODDSPAPI',observedAt:snapshot.observedAt,requestCount:0,quotes:quotes.filter(q=>q.status!=='CLOSED'&&q.freshnessTtlMinutes>0).map(q=>({
       sourceProvider:'ODDSPAPI',fixture:{providerFixtureId:q.providerFixtureId,canonicalFixtureId:q.fixtureId,mappingVerified:true},
       bookmaker:q.bookmaker,providerBookmakerId:snapshot.bookmaker,market:q.market,providerMarketId:q.market,outcome:q.outcome,line:q.line,
       decimalOdds:q.decimalOdds,status:q.status,providerUpdatedAt:q.providerUpdatedAt,observedAt:q.observedAt,providerKickoff:q.providerKickoff,
@@ -111,7 +123,7 @@ export async function persistSnapshot(db:DatabaseClient,jobId:string,snapshot:Od
     const sourceSql=`SELECT r.*,b.id AS bookmaker_id FROM jsonb_to_recordset($1::jsonb) AS r("fixtureId" uuid,bookmaker text,market text,outcome text,line numeric,
       "decimalOdds" numeric,status text,scope text,phase text,"providerFixtureId" text,"providerUpdatedAt" timestamptz,"observedAt" timestamptz,"sourceDomain" text,"providerKickoff" timestamptz,"freshnessTtlMinutes" numeric)
       JOIN bookmakers b ON b.provider_slug=r.bookmaker`;
-    const changes=await tx.query(`WITH incoming AS(${sourceSql}), changed AS(
+    changes=await tx.query(`WITH incoming AS(${sourceSql}), changed AS(
       SELECT i.* FROM incoming i LEFT JOIN odds_current o ON o.fixture_id=i."fixtureId" AND o.bookmaker_id=i.bookmaker_id
       AND o.market_code=i.market AND o.outcome_code=i.outcome AND o.line IS NOT DISTINCT FROM i.line
       WHERE (o.id IS NULL OR o.observed_at<=i."observedAt") AND (o.id IS NULL OR (o.decimal_odds,o.status) IS DISTINCT FROM (i."decimalOdds",i.status))
@@ -127,10 +139,8 @@ export async function persistSnapshot(db:DatabaseClient,jobId:string,snapshot:Od
       SELECT (SELECT count(*) FROM history)::int AS history_changes,(SELECT count(*) FROM upserted)::int AS current_writes`,[JSON.stringify(quotes)]);
     // Explicit absence only for fixtures this snapshot listed and matched. Later matchweeks stay until they stale.
     // A malformed/empty parser result is not evidence of withdrawal. Preserve still-valid stored prices.
-    const closeable=[...accepted.values()].filter(m=>snapshot.quotes.some(q=>q.providerFixtureId===m.raw.providerId)&&
-      !snapshot.diagnostics?.some(d=>d.providerFixtureId===m.raw.providerId&&!d.reason.startsWith('OUT_OF_SCOPE')));
     const closeScope=snapshotAbsenceCloseScope({...snapshot,bookmaker},closeable.flatMap(m=>m.fixture?[m.fixture.id]:[]));
-    const closed=closeScope.fixtureIds.length&&closeScope.providerFixtureIds.length?await tx.query(`WITH changed AS(UPDATE odds_current o SET status='CLOSED',updated_at=now(),persisted_at=now(),
+    closed=closeScope.fixtureIds.length&&closeScope.providerFixtureIds.length?await tx.query(`WITH changed AS(UPDATE odds_current o SET status='CLOSED',updated_at=now(),persisted_at=now(),
       observed_at=$4::timestamptz,last_successful_refresh_at=$4::timestamptz
       FROM bookmakers b WHERE o.bookmaker_id=b.id AND b.provider_slug=$1
       AND o.fixture_id=ANY($2::uuid[]) AND o.provider_fixture_id=ANY($3::text[])
@@ -140,6 +150,7 @@ export async function persistSnapshot(db:DatabaseClient,jobId:string,snapshot:Od
       INSERT INTO odds_history(fixture_id,bookmaker_id,market_code,outcome_code,line,decimal_odds,provider_updated_at,received_at,status,scope,phase,observed_at)
       SELECT fixture_id,bookmaker_id,market_code,outcome_code,line,decimal_odds,provider_updated_at,received_at,status,scope,phase,observed_at FROM changed RETURNING id`,
       [closeScope.bookmaker,closeScope.fixtureIds,closeScope.providerFixtureIds,snapshot.observedAt,JSON.stringify(quotes)]):{rowCount:0};
+    }
     await persistNativeDiagnostics(tx,key,snapshot,matches);
     const lost=await tx.query("SELECT 1 FROM odds_native_diagnostics WHERE snapshot_id=$1 AND classification='INGESTION_BUG' LIMIT 1",[key]);
     if(lost.rowCount)throw new Error('ODDS_PERSISTENCE_VERIFICATION_FAILED');
@@ -156,11 +167,11 @@ export async function persistSnapshot(db:DatabaseClient,jobId:string,snapshot:Od
           last_outcome=$6,outcome_evidence=$7::jsonb,queue_state='WAITING',lease_job_id=NULL,lease_until=NULL,pending_since=NULL,
           retry_after=NULL,consecutive_failures=0,last_error=NULL,failure_class=NULL,backoff_reason=NULL,next_recheck_at=NULL,failure_evidence='{}'::jsonb
         WHERE COALESCE(odds_refresh_targets.last_checked_at,odds_refresh_targets.last_success_at,'-infinity'::timestamptz)<=excluded.last_checked_at`,
-      [bookmaker,outcome.tournamentId,snapshot.observedAt,outcome.meaningful,outcome.nativeSelections>0,outcome.outcome,JSON.stringify(outcome)]);
+      [snapshot.providerBookmakerId??bookmaker,outcome.tournamentId,snapshot.observedAt,outcome.meaningful,outcome.nativeSelections>0,outcome.outcome,JSON.stringify(outcome)]);
     }
     await tx.query("UPDATE odds_sync_jobs SET cursor=cursor+1,heartbeat_at=now(),lease_expires_at=now()+interval '3 minutes' WHERE id=$1",[jobId]);
     return {bookmaker,outcomes,returnedFixtures:snapshot.fixtures.length,matchedFixtures:accepted.size,quotes:quotes.length,sourceWrites,
-      history_changes:Number(changes.rows[0]?.history_changes??0),current_writes:Number(changes.rows[0]?.current_writes??0),closed:closed.rowCount,
+      history_changes:geoSaved?.history_changes??Number(changes.rows[0]?.history_changes??0),current_writes:geoSaved?.current_writes??Number(changes.rows[0]?.current_writes??0),closed:geoSaved?.closed??closed.rowCount,
       matching:matches.map(m=>({providerId:m.raw.providerId,fixtureId:m.fixture?.id??null,state:m.state,reason:m.reason})),rejected:snapshot.rejected};
   });
 }

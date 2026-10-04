@@ -2,9 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { CacheCoordinator, MemoryCacheStore } from '@/cache/cache';
 import type { M2PageData } from './types';
 import { M3RouteDataLoader, type RouteDatabaseReader } from './M3RouteDataLoader';
+import type {SiteLocale} from '@/config/i18n';
 
 const now = new Date('2026-09-07T18:00:00Z');
-function page(locale: 'br' | 'mx', fixtures = 1): M2PageData {
+function page(locale: SiteLocale, fixtures = 1): M2PageData {
   return { locale, page: 'football', currentDate: 'date', timeZone: locale === 'br' ? 'America/Sao_Paulo' : 'America/Mexico_City',
     sportsData: { state: 'available', freshness: 'fresh', reason: fixtures ? 'ok' : 'no-data' },
     oddsData: { state: 'available', freshness: 'fresh', reason: 'no-data' }, competitions: fixtures ? ['Serie A'] : [],

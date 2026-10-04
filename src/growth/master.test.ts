@@ -51,10 +51,10 @@ describe('canonical master model',()=>{
  it('preserves the ordered SEO Top 10 and makes exactly ranks 1–5 social',()=>{
   const shortlist=buildShortlist(rows.map(r=>r.priority));expect(shortlist.content).toHaveLength(10);expect(shortlist.social).toEqual(shortlist.content.slice(0,5));
  });
- it('refreshes all ten SEO priorities but creates no media job, lease, assets or history writes',async()=>{
+ it('refreshes five SEO priorities per GEO but creates no media job, lease, assets or media history writes',async()=>{
   const result=await runGrowthGeneration(db,'AUTOMATIC',{now:testNow});
-  expect(repo.upsertGrowthSeoPriorities).toHaveBeenCalledWith(db,expect.arrayContaining([expect.objectContaining({rank:10,topSocial:false})]),testNow);
-  expect(result).toMatchObject({state:'SUCCEEDED',selectionCount:10,socialCount:5,generated:0,jobId:null,pending:0,mediaGeneration:'DISABLED',providerRequests:0});
+  for(const geo of ['MX','CO','PE'])expect(repo.upsertGrowthSeoPriorities).toHaveBeenCalledWith(db,expect.arrayContaining([expect.objectContaining({rank:5,topSocial:true})]),testNow,geo);
+  expect(result).toMatchObject({state:'SUCCEEDED',selectionCount:15,socialCount:15,generated:0,jobId:null,pending:0,mediaGeneration:'DISABLED',providerRequests:0});
   for(const fn of [repo.acquireGrowthJob,repo.finishGrowthJob,repo.persistGrowthItem,repo.rebuildCurrentGrowthQueue,repo.readLatestGrowthItems,renderSocialPackage])expect(fn).not.toHaveBeenCalled();
  });
  it('refreshes again without repairing missing media or retrying a failed render',async()=>{
@@ -62,7 +62,7 @@ describe('canonical master model',()=>{
   const items=rows.slice(0,5).map((_,i)=>masterItem(i));items.forEach(item=>{item.canonicalAssets=[];});
   vi.mocked(repo.readLatestGrowthItems).mockResolvedValue(items);
   for(let i=0;i<2;i++)expect(await runGrowthGeneration(db,'OWNER',{now:testNow})).toMatchObject({state:'SUCCEEDED',generated:0});
-  expect(repo.upsertGrowthSeoPriorities).toHaveBeenCalledTimes(2);expect(repo.readLatestGrowthItems).not.toHaveBeenCalled();
+  expect(repo.upsertGrowthSeoPriorities).toHaveBeenCalledTimes(6);expect(repo.readLatestGrowthItems).not.toHaveBeenCalled();
   expect(renderSocialPackage).not.toHaveBeenCalled();expect(repo.persistGrowthItem).not.toHaveBeenCalled();
  });
  it('rejects forced generation even for a Top 5 fixture before DB or rendering work',async()=>{

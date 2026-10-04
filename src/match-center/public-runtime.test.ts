@@ -13,14 +13,14 @@ import {loadPublicMatchCenter} from './runtime';
 
 describe('public match shell request isolation',()=>{
   beforeEach(()=>{vi.clearAllMocks();f.load.mockResolvedValue({kind:'found',match:{oddsComparisons:[]}});});
-  it('uses canonical fixture invalidation and never reads request headers or loads odds',async()=>{
+  it.each(['br','mx','co','pe'] as const)('keeps the %s shell isolated from request GEO and odds',async locale=>{
     const header={id:'fixture-id',status:'FINISHED',kickoff:'2020-01-01T12:00:00Z',competitionId:'league-id'};
     f.header.mockResolvedValue(header);
-    const value=await loadPublicMatchCenter('aaaaaaaaaaaaaaaa','mx');
+    const value=await loadPublicMatchCenter('aaaaaaaaaaaaaaaa',locale);
     expect(value).toMatchObject({kind:'found',match:{oddsComparisons:[]}});
     expect(f.headers).not.toHaveBeenCalled();
-    expect(f.load).toHaveBeenCalledWith('aaaaaaaaaaaaaaaa','mx',null,{header,includeOdds:false,strictPublicSnapshot:true});
-    expect(f.cached).toHaveBeenCalledWith(['public-match-shell-v1','aaaaaaaaaaaaaaaa','mx','FINISHED'],{
+    expect(f.load).toHaveBeenCalledWith('aaaaaaaaaaaaaaaa',locale,null,{header,includeOdds:false,strictPublicSnapshot:true});
+    expect(f.cached).toHaveBeenCalledWith(['public-match-shell-v1','aaaaaaaaaaaaaaaa',locale,'FINISHED'],{
       revalidate:86400,tags:['livasports:v1:fixture:aaaaaaaaaaaaaaaa','livasports:v1:fixture:fixture-id'],
     });
     expect(JSON.stringify(f.cached.mock.calls)).not.toContain('fixtures:br');

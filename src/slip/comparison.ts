@@ -116,11 +116,12 @@ function eligibleBookmaker(b:BookmakerConfig){
   return b.geoEligibility.eligible&&isVisibleBookmaker(b.bookmakerId);
 }
 export function buildSlipComparison(selections:CanonicalSelection[],locale:SiteLocale,fixtures:Map<string,SlipFixtureRead>,configs:BookmakerConfig[],now=Date.now()):SlipComparison {
-  const eligible=configs.filter(eligibleBookmaker).sort((a,b)=>bookmakerConfig(a.bookmakerId)!.displayOrder-bookmakerConfig(b.bookmakerId)!.displayOrder);
-  const sourceQuotes=new Map(BOOKMAKER_REGISTRY.map(book=>[book.canonicalId as string,selections.map(s=>selectionQuote(s,fixtures.get(s.fixturePublicId)??null,book.canonicalId,now))]));
+  const eligible=configs.filter(eligibleBookmaker).sort((a,b)=>(a.displayOrder??bookmakerConfig(a.bookmakerId)?.displayOrder??100)-(b.displayOrder??bookmakerConfig(b.bookmakerId)?.displayOrder??100)||a.bookmakerId.localeCompare(b.bookmakerId));
+  const sourceIds=[...new Set([...BOOKMAKER_REGISTRY.map(b=>b.canonicalId),...eligible.map(b=>b.bookmakerId)])];
+  const sourceQuotes=new Map(sourceIds.map(id=>[id,selections.map(s=>selectionQuote(s,fixtures.get(s.fixturePublicId)??null,id,now))]));
   const native=selections.length?eligible.map(config=>({config,quotes:sourceQuotes.get(config.bookmakerId)!})):[];
   const withProxies=native.map(({config,quotes})=>({config,quotes:quotes.map((targetQuote,selectionIndex)=>{
-    if(targetQuote.state==='CURRENT')return targetQuote;
+    if(targetQuote.state==='CURRENT'||config.insuranceEnabled===false)return targetQuote;
     const source=resolveInsurance(config.bookmakerId,[...sourceQuotes].map(([bookmaker,quotes])=>({bookmaker,
       current:quotes[selectionIndex].state==='CURRENT',priceKind:quotes[selectionIndex].priceKind,
       decimalOdds:quotes[selectionIndex].decimalOdds,value:quotes[selectionIndex]}))).candidate?.value;

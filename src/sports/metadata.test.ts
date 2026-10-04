@@ -4,7 +4,7 @@ vi.mock('./runtime',()=>({loadCompetition:vi.fn()}));
 import {loadCompetition} from './runtime';
 import {footballMetadata,resolvedCompetitionView} from './metadata';
 import {competitionName,competitionPath,sportsPageSize} from './policy';
-import {FOOTBALL_COMPETITION_TARGETS} from '@/config/footballCompetitions';
+import {CANONICAL_COMPETITION_TARGETS} from '@/config/footballCompetitions';
 import type {CompetitionHub} from './types';
 
 const CURRENT='11111111-1111-4111-8111-111111111111',HISTORIC='22222222-2222-4222-8222-222222222222';
@@ -15,17 +15,17 @@ function hub(slug:string,overrides:Partial<CompetitionHub>={}):CompetitionHub{
 }
 const q=(value:Record<string,string>)=>Promise.resolve(value);
 beforeEach(()=>{vi.mocked(loadCompetition).mockReset();});
-const enabled=FOOTBALL_COMPETITION_TARGETS.filter(t=>t.enabled);
+const enabled=CANONICAL_COMPETITION_TARGETS.filter(t=>t.enabled);
 
 describe('P2 competition metadata policy',()=>{
-  it.each(enabled.map(t=>t.slug))('%s: every locale self-canonicalises each tab with a reciprocal three-locale cluster',async slug=>{
-    for(const locale of ['br','mx','en'] as const)for(const tab of ['fixtures','results','standings','teams'] as const){
+  it.each(enabled.map(t=>t.slug))('%s: every locale self-canonicalises each tab with a reciprocal five-locale cluster',async slug=>{
+    for(const locale of ['br','mx','co','pe','en'] as const)for(const tab of ['fixtures','results','standings','teams'] as const){
       vi.mocked(loadCompetition).mockImplementation(async(s,l)=>hub(s,{name:competitionName(l,s)??s}));
       const metadata=await footballMetadata(locale,q({competition:slug,tab}));
       expect(metadata.robots).toEqual({index:true,follow:true});
       expect(metadata.alternates?.canonical).toBe(competitionPath(locale,slug,{tab}));
       const languages=metadata.alternates?.languages as Record<string,string>;
-      expect(Object.keys(languages)).toEqual(['pt-BR','es-MX','en','x-default']);
+      expect(Object.keys(languages)).toEqual(['pt-BR','es-MX','es-CO','es-PE','en','x-default']);
       expect(languages['pt-BR']).toBe(competitionPath('br',slug,{tab}));expect(languages['es-MX']).toBe(competitionPath('mx',slug,{tab}));
       expect(languages.en).toBe(competitionPath('en',slug,{tab}));expect(languages['x-default']).toBe(languages.en);
       expect(Object.values(languages)).toContain(metadata.alternates?.canonical);

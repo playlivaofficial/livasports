@@ -6,8 +6,12 @@ describe('profile canonical routes', () => {
     const id='0123456789abcdef';
     expect(teamPath('br',id,'São Paulo FC')).toBe('/br/time/sao-paulo-fc-0123456789abcdef');
     expect(teamPath('mx',id,'São Paulo FC')).toBe('/mx/equipo/sao-paulo-fc-0123456789abcdef');
+    expect(teamPath('co',id,'São Paulo FC')).toBe('/co/equipo/sao-paulo-fc-0123456789abcdef');
+    expect(teamPath('pe',id,'São Paulo FC')).toBe('/pe/equipo/sao-paulo-fc-0123456789abcdef');
     expect(playerPath('br',id,'Giorgian de Arrascaeta')).toBe('/br/jogador/giorgian-de-arrascaeta-0123456789abcdef');
     expect(playerPath('mx',id,'Giorgian de Arrascaeta')).toBe('/mx/jugador/giorgian-de-arrascaeta-0123456789abcdef');
+    expect(playerPath('co',id,'Giorgian de Arrascaeta')).toBe('/co/jugador/giorgian-de-arrascaeta-0123456789abcdef');
+    expect(playerPath('pe',id,'Giorgian de Arrascaeta')).toBe('/pe/jugador/giorgian-de-arrascaeta-0123456789abcdef');
   });
 
   it('parses only a 16-character LivaSports ID and keeps same-name entities distinct', () => {

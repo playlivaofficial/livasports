@@ -25,7 +25,7 @@ describe('M8 canonical outbound and attribution',()=>{
       props:expect.objectContaining({revenueSurface:'livasports_same_slip_compare',revenueJourney:'livasports_slip',activation:'ISSUED_303'})}));
     expect(JSON.stringify(vi.mocked(recordServerEvent).mock.calls)).not.toContain(f.c.destination);
   });
-  it.each(['GE','MX','US',''])('does not issue BR banner or odds offers to visitor country %s',async country=>{
+  it.each(['BR','GE','MX','CO','PE','US',''])('does not issue BR banner or odds offers to visitor country %s',async country=>{
     vi.stubEnv('VERCEL','1');vi.stubEnv('AFFILIATE_QA_GEO','BR');
     const f=await fixture();f.services.geo=geoAllowed;f.deps.campaigns=vi.fn(f.deps.campaigns);
     const contexts=[{locale:'br',bookmaker:'betsson',pagePath:'/br',placement:'home_right_rail'},
@@ -48,7 +48,7 @@ describe('M8 canonical outbound and attribution',()=>{
   it('validates rendered impressions, rejects inactive and forged tokens and never logs hidden SSR itself',async()=>{const f=await fixture();expect(f.tasks).toHaveLength(0);const body={eventId:'cccccccc-cccc-4ccc-8ccc-cccccccccccc',eventName:'affiliate_impression',offer:f.value.token};const r=new Request('https://livasports.com/api/events',{headers:{origin:'https://livasports.com','sec-fetch-site':'same-origin'}});
     expect((await impressionRequest(r,body,f.services)).status).toBe(204);await f.tasks[0]();expect(f.services.impression).toHaveBeenCalledWith(expect.anything(),expect.any(String),'HUMAN_VIEW');f.tasks.length=0;f.c.enabled=false;await impressionRequest(r,body,f.services);expect(f.tasks).toHaveLength(0);expect((await impressionRequest(r,{...body,campaignId:'override'},f.services)).status).toBe(400);expect((await impressionRequest(r,{...body,offer:'fake'},f.services)).status).toBe(400);});
   it('batches bounded campaign/page reads and never accepts extra canonical properties',async()=>{
-    vi.stubEnv('AFFILIATE_QA_GEO','BR');
-    const f=await fixture();f.deps.campaigns=vi.fn(f.deps.campaigns);f.deps.page=vi.fn(f.deps.page);const r=(body:unknown)=>new Request('https://livasports.com/api/commercial/offers',{method:'POST',headers:{'content-type':'application/json',origin:'https://livasports.com'},body:JSON.stringify(body)});
+    vi.stubEnv('AFFILIATE_QA_GEO','MX');
+    const f=await fixture();f.c.locale='mx';f.c.destination='https://betsson.mx/';f.c.domains=['betsson.mx'];f.deps.campaigns=vi.fn(f.deps.campaigns);f.deps.page=vi.fn(f.deps.page);const r=(body:unknown)=>new Request('https://livasports.com/api/commercial/offers',{method:'POST',headers:{'content-type':'application/json',origin:'https://livasports.com'},body:JSON.stringify(body)});
     const valid=await offersRequest(r([context(),context()]),f.services);expect(valid.status).toBe(200);expect((await valid.json()).offers).toHaveLength(2);expect(f.deps.campaigns).toHaveBeenCalledTimes(1);expect(f.deps.page).toHaveBeenCalledTimes(1);for(const body of [[],Array(17).fill(context()),[{...context(),campaignId:'override'}]])expect((await offersRequest(r(body),f.services)).status).toBe(400);});
 });

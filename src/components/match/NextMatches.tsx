@@ -1,3 +1,4 @@
+import {withSpanishLocales} from '@/localization/spanish';
 import Link from '@/sports/SportsLink';
 import {interfaceDictionary,matchPath,type InterfaceLocale} from '@/localization/interface';
 import {competitionPath} from '@/sports/policy';
@@ -10,11 +11,11 @@ import {LocalizedTimeText} from '@/localization/LocalizedTime';
  * upcoming inventory, preferring a fixture involving one of these two teams over another fixture in the
  * same competition. It reuses the existing read model and panel styling; it is navigation, not a feature.
  */
-const copy={
+const copy = withSpanishLocales({
   br:{heading:'Próximos jogos',team:'Time desta partida',competition:'Mesma competição'},
   mx:{heading:'Próximos partidos',team:'Equipo de este partido',competition:'Misma competición'},
   en:{heading:'Upcoming matches',team:'Team from this match',competition:'Same competition'},
-} as const;
+} as const);
 
 export function NextMatches({locale,matches,timeZone}:{locale:InterfaceLocale;matches:readonly NextMatchView[]|undefined;timeZone?:string}){
   if(!matches?.length)return null;

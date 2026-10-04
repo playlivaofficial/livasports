@@ -18,4 +18,15 @@ describe('documented pricing GEO boundary',()=>{
     expect(eligibleSource('betano.bet.br','BR','VERIFIED_BR','www.betano.bet.br')).toBe(true);
     expect(eligibleSource('betano.bet.br','MX','VERIFIED_BR_MX','www.betano.bet.br')).toBe(false);
   });
+  it.each(['MX','CO','PE'] as const)('does not let a configured domain override the BR-only feed boundary for %s',geo=>{
+    for(const operator of ['betano.bet.br','sportingbet.bet.br','betboo.bet.br']){
+      expect(eligibleSource(operator,geo,`VERIFIED_${geo}`,operator,[operator])).toBe(false);
+      expect(eligibleSource(operator,geo,`VERIFIED_${geo}`,`operator.${geo.toLowerCase()}`,[`operator.${geo.toLowerCase()}`])).toBe(false);
+    }
+  });
+  it('preserves BR historical eligibility and separate verified generic Betano country feeds',()=>{
+    expect(eligibleSource('betano.bet.br','BR','VERIFIED_BR','betano.bet.br',['betano.bet.br'])).toBe(true);
+    expect(eligibleSource('betano','CO','VERIFIED_CO','betano.co',['betano.co'])).toBe(true);
+    expect(eligibleSource('betano','PE','VERIFIED_PE','betano.pe',['betano.pe'])).toBe(true);
+  });
 });

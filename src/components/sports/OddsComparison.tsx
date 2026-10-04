@@ -9,7 +9,8 @@ import { addSlipSelection, useSlip } from '@/slip/client';
 import { canonicalSelection, selectionKey, SLIP_SCOPE } from '@/slip/types';
 import { selectionLabel, slipCopy, type SlipUiLocale } from '@/slip/localization';
 import { ApproximatePrice } from '@/components/odds/ApproximatePrice';
-import {VISIBLE_BOOKMAKERS,BOOKMAKER_REGISTRY,type BookmakerDisplayName} from '@/odds/registry';
+import {BOOKMAKER_REGISTRY,isVisibleBookmaker} from '@/odds/registry';
+import {isSpanishLocale} from '@/config/geo';
 import {BookmakerLogo} from '@/components/odds/BookmakerLogo';
 import {matchPath} from '@/match-center/routes';
 
@@ -19,35 +20,36 @@ const MATCH_WINNER_CELLS = [
   { outcome: OutcomeCode.AWAY, label: '2' },
 ] as const;
 
-const BOOK_ORDER=VISIBLE_BOOKMAKERS.map(b=>b.displayName);
-
 type ListingPrice = { decimalOdds: number; expiresAt?: string; observedAt: string; priceKind: 'REAL' | 'PROXY'; targetBookmaker: string };
 
-function bookFreshPrice(fixture: FixtureView, bookmaker: BookmakerDisplayName, outcome: OutcomeCode): ListingPrice | null {
+function bookFreshPrice(fixture: FixtureView, bookmaker: string, outcome: OutcomeCode): ListingPrice | null {
   const prices = fixture.odds
     .filter(market => market.market === MarketCode.MATCH_WINNER)
     .flatMap(market => market.outcomes.filter(item => item.outcome === outcome))
-    .flatMap(item => item.prices.filter(price => price.bookmaker === bookmaker && price.freshness === 'fresh' && Number.isFinite(price.decimalOdds)));
+    .flatMap(item => item.prices.filter(price => (price.targetBookmaker??BOOKMAKER_REGISTRY.find(b=>b.displayName===price.bookmaker)?.canonicalId) === bookmaker && price.freshness === 'fresh' && Number.isFinite(price.decimalOdds)));
   if (!prices.length) return null;
   const best = prices.reduce((a, b) => a.decimalOdds >= b.decimalOdds ? a : b);
-  const targetBookmaker = BOOKMAKER_REGISTRY.find(b=>b.displayName===bookmaker)!.canonicalId;
   return { decimalOdds: best.decimalOdds, ...(best.expiresAt ? { expiresAt: best.expiresAt } : {}), observedAt: best.providerUpdatedAt,
-    priceKind: best.priceKind ?? 'REAL', targetBookmaker: best.targetBookmaker ?? targetBookmaker };
+    priceKind: best.priceKind ?? 'REAL', targetBookmaker: bookmaker };
 }
 
 export function listingBookmakerRows(fixture: FixtureView) {
-  const native = BOOK_ORDER.map(bookmaker => ({
-    bookmaker,
-    label: BOOKMAKER_REGISTRY.find(b=>b.displayName===bookmaker)!.shortLabel,
-    id: BOOKMAKER_REGISTRY.find(b=>b.displayName===bookmaker)!.canonicalId,
-    cells: MATCH_WINNER_CELLS.map(cell => ({ ...cell, price: bookFreshPrice(fixture, bookmaker, cell.outcome) })),
+  // Only the server's exact-GEO public rows. Never fill empty rows from a global BR pool.
+  const identities=new Map<string,string>();
+  for(const price of fixture.odds.filter(m=>m.market===MarketCode.MATCH_WINNER).flatMap(m=>m.outcomes.flatMap(o=>o.prices))){
+    const id=price.targetBookmaker??BOOKMAKER_REGISTRY.find(b=>b.displayName===price.bookmaker)?.canonicalId;
+    if(id&&isVisibleBookmaker(id))identities.set(id,price.bookmaker);
+  }
+  const native = [...identities].map(([id,label]) => ({
+    bookmaker:id,label,id,
+    cells: MATCH_WINNER_CELLS.map(cell => ({ ...cell, price: bookFreshPrice(fixture, id, cell.outcome) })),
   }));
   if (!native.some(book => book.cells.some(cell => cell.price !== null))) return [];
   // The server resolves the cascade once. Never derive new proxies from display rows.
   return native;
 }
 
-export function OddsComparison({ locale, fixture, emptyLabel, commercialLocale = 'br' }: { locale: InterfaceLocale; fixture: FixtureView; emptyLabel?: string; commercialLocale?: SiteLocale }) {
+export function OddsComparison({ locale, fixture, emptyLabel, commercialLocale }: { locale: InterfaceLocale; fixture: FixtureView; emptyLabel?: string; commercialLocale?: SiteLocale }) {
   const saved = useSlip();
   const books = useMemo(() => listingBookmakerRows(fixture), [fixture]);
   const hasPrices = books.length > 0;
@@ -64,19 +66,19 @@ export function OddsComparison({ locale, fixture, emptyLabel, commercialLocale =
   } : getDictionary(locale).labels;
         const unavailableLabel = fixture.oddsState === 'stale' ? labels.staleOdds
     : fixture.oddsState === 'unavailable' ? labels.oddsUnavailable
-      : emptyLabel ?? (locale==='br'?'Odds indisponíveis':locale==='mx'?'Cuotas no disponibles':'Odds unavailable');
+      : emptyLabel ?? (locale==='br'?'Odds indisponíveis':isSpanishLocale(locale)?'Cuotas no disponibles':'Odds unavailable');
   if (!books.length) {
     return <div className="odds-slot"><span className="odds-empty" title={unavailableLabel} aria-label={unavailableLabel}>—</span></div>;
   }
   const currentPrice = (price: ListingPrice | null) => !!price?.expiresAt && (clock === null || clock < Date.parse(price.expiresAt));
   const summary = books.map(book => `${book.label} ${book.cells.map(cell => currentPrice(cell.price) ? cell.price!.decimalOdds.toFixed(2) : '—').join(' / ')}`).join(' · ');
-  const approximateLabel = locale==='br'?'preço aproximado':locale==='mx'?'cuota aproximada':'approximate price';
-  const selectable = /^[0-9a-f]{16}$/.test(fixture.publicId ?? '');
+  const approximateLabel = locale==='br'?'preço aproximado':isSpanishLocale(locale)?'cuota aproximada':'approximate price';
+  const selectable = !!commercialLocale&&/^[0-9a-f]{16}$/.test(fixture.publicId ?? '');
   return <div className="odds-slot" aria-label={`${labels.odds}: ${summary}. ${slipText.oddsMayChange}`}>
     <div className="listing-odds-books">
       {books.map(book => (
         <div className="listing-odds-book" key={book.bookmaker}>
-          <BookmakerLogo bookmaker={book.id} uiLocale={locale} sources={book.cells.flatMap(c=>c.price&&currentPrice(c.price)?[c.price]:[])} context={fixture.publicId?{locale:commercialLocale,placement:'match_odds_table',bookmaker:book.id,fixturePublicId:fixture.publicId,market:'MATCH_WINNER',pagePath:matchPath(commercialLocale,fixture.publicId,fixture.homeTeam,fixture.awayTeam)}:undefined}/>
+          <BookmakerLogo bookmaker={book.id} uiLocale={locale} sources={book.cells.flatMap(c=>c.price&&currentPrice(c.price)?[c.price]:[])} context={fixture.publicId&&commercialLocale?{locale:commercialLocale,placement:'match_odds_table',bookmaker:book.id,fixturePublicId:fixture.publicId,market:'MATCH_WINNER',pagePath:matchPath(commercialLocale,fixture.publicId,fixture.homeTeam,fixture.awayTeam)}:undefined}/>
           <div className="listing-odds">
             {book.cells.map(cell => {
               const intent = selectable ? canonicalSelection({ fixturePublicId: fixture.publicId, market: 'MATCH_WINNER', outcome: cell.outcome, line: null, scope: SLIP_SCOPE }) : null;
@@ -87,7 +89,7 @@ export function OddsComparison({ locale, fixture, emptyLabel, commercialLocale =
                 return <button type="button" key={cell.outcome} className={`listing-odds-cell listing-odds-select${pressed ? ' is-selected' : ''}`} aria-pressed={pressed} disabled={!saved.ready}
                   data-target-bookmaker={cell.price.targetBookmaker}
                   aria-label={`${pressed ? slipText.selected : slipText.add}: ${book.label}, ${slipText.markets.MATCH_WINNER}, ${selectionLabel(intent, uiLocale, { publicId: fixture.publicId!, home: fixture.homeTeam, away: fixture.awayTeam, competition: fixture.competition, kickoff: fixture.kickoff, status: fixture.status })}, ${priceLabel}, ${approximateLabel}`}
-                  onClick={event => { event.preventDefault(); event.stopPropagation(); const price=cell.price!;addSlipSelection(intent,commercialLocale,price.expiresAt!,price.targetBookmaker,{targetBookmaker:price.targetBookmaker,priceKind:price.priceKind}); }}>
+                  onClick={event => { event.preventDefault(); event.stopPropagation(); if(!commercialLocale)return;const price=cell.price!;addSlipSelection(intent,commercialLocale,price.expiresAt!,price.targetBookmaker,{targetBookmaker:price.targetBookmaker,priceKind:price.priceKind}); }}>
                   {pressed ? <span className="listing-odds-check" aria-hidden="true">✓</span> : null}
                   <span className="listing-odds-label">{cell.label}</span>
                   <ApproximatePrice className="listing-odds-price" value={priceLabel} label={approximateLabel}/>

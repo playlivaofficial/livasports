@@ -5,6 +5,7 @@ import type {HealthIssue} from './classify';
 import {pruneLaunchTelemetry} from '@/analytics/maintenance';
 import {persistNativeCoverageReport} from '../native-coverage';
 import {recordContinuity} from '../continuity';
+import {CORE_GLOBAL_INCIDENT} from './incident-scope';
 
 export interface RecoveryAction {
   trigger:'SCHEDULER'|'OWNER'|'INTEGRITY';action:string;competition?:string|null;bookmaker?:string|null;tournamentId?:string|null;reason:string;
@@ -43,10 +44,16 @@ export async function evaluateReliability(db:DatabaseClient,options:{now?:Date;a
     SELECT $2,competition,health,issue,f24,a24,f7,a7,mw7,b7,s7,p7 FROM jsonb_to_recordset($1::jsonb) AS r(competition text,health text,issue text,f24 int,a24 int,f7 int,a7 int,mw7 int,b7 int,s7 int,p7 int)`,[JSON.stringify(rollups),now.toISOString()]);
   // 2. Incident reconciliation.
   const desired:Array<{competition:string;issue:HealthIssue;health:string}>=[];
+  const globalCompetition=health.geoPools?CORE_GLOBAL_INCIDENT:'*';
+  const monitoredCompetitions=new Set([...health.competitions.map(c=>c.competition),globalCompetition]);
   for(const c of health.competitions)for(const issue of c.issues)desired.push({competition:c.competition,issue,health:c.health});
-  for(const issue of health.global)desired.push({competition:'*',issue,health:issue.severity==='CRITICAL'?'CRITICAL':'DEGRADED'});
-  for(const extra of options.extraIssues??[])if(!desired.some(d=>d.competition===extra.competition&&d.issue.classification===extra.issue.classification))desired.push({competition:extra.competition,issue:extra.issue,health:extra.issue.severity==='CRITICAL'?'CRITICAL':'DEGRADED'});
-  const open=(await db.query(`SELECT id,competition,classification,severity,state,alert_severity,alert_channel,alert_sent_at,opened_at,last_seen_at FROM odds_incidents WHERE state<>'RESOLVED'`)).rows;
+  for(const issue of health.global)desired.push({competition:globalCompetition,issue,health:issue.severity==='CRITICAL'?'CRITICAL':'DEGRADED'});
+  for(const extra of options.extraIssues??[]){
+    const competition=extra.competition==='*'?globalCompetition:extra.competition;
+    if(health.geoPools&&!monitoredCompetitions.has(competition))continue;
+    if(!desired.some(d=>d.competition===competition&&d.issue.classification===extra.issue.classification))desired.push({competition,issue:extra.issue,health:extra.issue.severity==='CRITICAL'?'CRITICAL':'DEGRADED'});
+  }
+  const open=(await db.query(`SELECT id,competition,classification,severity,state,alert_severity,alert_channel,alert_sent_at,opened_at,last_seen_at,detail FROM odds_incidents WHERE state<>'RESOLVED'`)).rows;
   const alertTo=options.alertTo===undefined?(process.env.OWNER_ALERT_EMAIL?.trim()||null):options.alertTo;
   const emailReady=alertTo!==null&&(options.transport!==undefined||alertEmailConfigured());
   const transport=options.transport??smtpAlertTransport;
@@ -66,7 +73,7 @@ export async function evaluateReliability(db:DatabaseClient,options:{now?:Date;a
   };
   for(const d of desired){
     const existing=open.find(o=>o.competition===d.competition&&o.classification===d.issue.classification);
-    const detail={evidence:d.issue.evidence,bookmaker:d.issue.bookmaker??null,health:d.health,source:options.source??'scheduler'};
+    const detail={evidence:d.issue.evidence,bookmaker:d.issue.bookmaker??null,health:d.health,source:options.source??'scheduler',scope:health.geoPools?'CORE_GEO':'LEGACY_BR'};
     if(existing){
       const escalated=existing.severity!=='CRITICAL'&&d.issue.severity==='CRITICAL';
       await db.query(`UPDATE odds_incidents SET last_seen_at=$2,severity=CASE WHEN $3 THEN 'CRITICAL' ELSE severity END,affected_fixtures=$4,detail=detail||$5::jsonb WHERE id=$1`,
@@ -87,16 +94,18 @@ export async function evaluateReliability(db:DatabaseClient,options:{now?:Date;a
   if(emailReady){
     const retries=await db.query(`SELECT id,competition,classification,severity,opened_at FROM odds_incidents WHERE state='RESOLVED'
       AND alert_severity IS NOT NULL AND alert_channel IN ('EMAIL_FAILED','EMAIL_PENDING','DASHBOARD')
-      AND alert_sent_at<=now()-interval '30 minutes' ORDER BY alert_sent_at LIMIT 5`);
+      AND alert_sent_at<=now()-interval '30 minutes' ${health.geoPools?"AND detail->>'scope'='CORE_GEO' AND competition=ANY($1::text[])":''} ORDER BY alert_sent_at LIMIT 5`,health.geoPools?[[...monitoredCompetitions]]:[]);
     for(const row of retries.rows)await dispatch('RESOLVED',{id:String(row.id),competition:String(row.competition),classification:String(row.classification),severity:row.severity,
       affectedFixtures:0,detail:{resolution:'Condition cleared; retrying previously undelivered notification'},openedAt:new Date(row.opened_at).toISOString()});
   }
   for(const o of open){
     if(desired.some(d=>d.competition===o.competition&&d.issue.classification===o.classification))continue;
+    // A GEO rollout stopped monitoring BR; that is not evidence that an old BR incident recovered.
+    if(health.geoPools&&!monitoredCompetitions.has(String(o.competition)))continue;
     const competition=health.competitions.find(c=>c.competition===o.competition);
     // Flap guard: a condition must stay clear for a grace window before the incident resolves (an idle competition resolves at once).
     if(competition?.health!=='IDLE'&&now.getTime()-new Date(o.last_seen_at).getTime()<RESOLVE_GRACE_MINUTES*60000)continue;
-    const resolution=o.competition==='*'?'Platform condition cleared':competition?.health==='IDLE'?'No eligible fixtures inside the seven-day odds refresh window':'Condition cleared by a later evaluation';
+    const resolution=o.competition===globalCompetition?'Platform condition cleared':competition?.health==='IDLE'?'No eligible fixtures inside the seven-day odds refresh window':'Condition cleared by a later evaluation';
     await db.query(`UPDATE odds_incidents SET state='RESOLVED',resolved_at=$2,resolution=$3 WHERE id=$1`,[o.id,now.toISOString(),resolution]);
     result.resolved++;
     const decision=alertDecision({severity:o.severity,alertSeverity:o.alert_severity,state:o.state},{severity:o.severity,state:'RESOLVED'});

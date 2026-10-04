@@ -8,7 +8,7 @@ type Props=AnchorHTMLAttributes<HTMLAnchorElement>&{href:string;prefetch?:boolea
  * language, time preferences and guest state remain independent of the document.
  */
 export default function SportsLink({href,prefetch,...props}:Props){
-  if(/^\/(?:br\/futebol|mx\/futbol|en\/football)(?:[?#]|$)/.test(href)){
+  if(/^\/(?:br\/futebol|(?:mx|co|pe)\/futbol|en\/football)(?:[?#]|$)/.test(href)){
     return <a {...props} href={href}/>;
   }
   return <NextLink {...props} href={href} prefetch={prefetch}/>;

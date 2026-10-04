@@ -1,3 +1,4 @@
+import {withSpanishLocales} from '@/localization/spanish';
 import type {Metadata} from 'next';
 import {routeMetadata} from '@/config/metadata';
 import {type InterfaceLocale} from '@/localization/interface';
@@ -17,12 +18,12 @@ export function resolvedCompetitionView(hub:CompetitionHub,tab:ResolvedCompetiti
   return {slug:hub.slug,tab,seasonId:hub.season?.id??null,defaultSeasonId:hub.defaultSeasonId,page:paginated?page:1,pages:paginated?Math.max(1,Math.ceil(total/hub.pageSize)):1,rows};
 }
 
-const tabTitles={
+const tabTitles=withSpanishLocales({
   br:{fixtures:'próximos jogos e resultados',results:'resultados',standings:'classificação',scorers:'artilharia',teams:'times'},
   mx:{fixtures:'próximos partidos y resultados',results:'resultados',standings:'clasificación',scorers:'goleadores',teams:'equipos'},
   en:{fixtures:'fixtures and results',results:'results',standings:'standings',scorers:'top scorers',teams:'teams'},
-} as const;
-const pageWord={br:'página',mx:'página',en:'page'} as const;
+} as const);
+const pageWord=withSpanishLocales({br:'página',mx:'página',en:'page'} as const);
 
 export function competitionMetadata(locale:InterfaceLocale,hub:CompetitionHub,view:ResolvedCompetitionView,search:boolean):Metadata{
   const t=sportsCopy[locale],name=hub.name,canonical=competitionCanonical(view);
@@ -30,7 +31,7 @@ export function competitionMetadata(locale:InterfaceLocale,hub:CompetitionHub,vi
   const seasonLabel=canonical.season&&hub.season?` ${hub.season.name}`:'';
   const pageLabel=canonical.page>1?` · ${pageWord[locale]} ${canonical.page}`:'';
   const title=`${name}${seasonLabel}: ${tabTitles[locale][view.tab]}${pageLabel}`;
-  const seasonSentence=hub.season?(locale==='br'?`Temporada ${hub.season.name}.`:locale==='mx'?`Temporada ${hub.season.name}.`:`${hub.season.name} season.`):'';
+  const seasonSentence=hub.season?(locale==='br'?`Temporada ${hub.season.name}.`:locale!=='en'?`Temporada ${hub.season.name}.`:`${hub.season.name} season.`):'';
   const description=`${name} — ${t.fixtures.toLowerCase()}, ${t.results.toLowerCase()}, ${t.standings.toLowerCase()}, ${t.scorers.toLowerCase()}, ${t.teams.toLowerCase()}. ${seasonSentence} ${t.coverage}`.replace(/\s+/g,' ').trim();
   const indexable=canonical.indexable&&!search;
   return {title,description,

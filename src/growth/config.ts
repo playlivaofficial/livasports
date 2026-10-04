@@ -1,6 +1,6 @@
 /**
- * Traffic Engine V1 — every weight the priority engine uses lives here, so tuning Brazil's traffic
- * strategy is one edit in one file rather than numbers scattered through queries and components.
+ * Shared Growth engine component policy. Active GEO competition demand comes exclusively from
+ * config/geo.ts. Historical creative constants remain below for immutable BR media compatibility.
  *
  * V1.1 makes this the single acquisition-priority signal. Social generation and explicit SEO prominence
  * both consume this score; the normal sports board still keeps chronological usability inside its lists.
@@ -10,7 +10,7 @@
  */
 
 /** Component keys, in the order the owner UI explains them. */
-export const SCORE_COMPONENTS=['competition','clubs','rivalry','stage','standings','proximity','odds','data','destination'] as const;
+export const SCORE_COMPONENTS=['competition','clubs','rivalry','stage','standings','proximity','odds','data','destination','intent','search','commercial'] as const;
 export type ScoreComponent=typeof SCORE_COMPONENTS[number];
 
 /**
@@ -18,7 +18,7 @@ export type ScoreComponent=typeof SCORE_COMPONENTS[number];
  * normalised to 0..1, so the maximum achievable score is the sum of these weights.
  */
 export const SCORE_WEIGHTS:Record<ScoreComponent,number>={
-  competition:30,  // which tournament it is — the strongest single signal in Brazil
+  competition:30,  // central GEO demand seed plus bounded first-party evidence
   clubs:26,        // who is playing; a big club carries a fixture on its own
   rivalry:14,      // a real derby outperforms both teams' individual pull
   stage:10,        // finals and knockouts concentrate attention
@@ -27,12 +27,16 @@ export const SCORE_WEIGHTS:Record<ScoreComponent,number>={
   odds:10,         // no odds means the destination page cannot do its commercial job
   data:4,          // a thin match page is a poor landing page
   destination:6,   // the canonical page must actually be worth sending traffic to
+  intent:24,      // qualified, GEO-specific first-party behavior; zero below the evidence floor
+  search:3,       // supporting canonical-page evidence, never the primary demand signal
+  commercial:3, // only verified active commercial coverage; absence does not hide the sports page
 };
 
 /**
  * Brazil traffic tiers by registry slug, 1.0 (highest) down. Unlisted enabled competitions score
  * `COMPETITION_FALLBACK`, so a new registry entry degrades gracefully instead of vanishing.
  */
+/** @deprecated Historical V1 configuration only; never used by the active GEO scorer. */
 export const COMPETITION_TRAFFIC_TIERS:Readonly<Record<string,number>>={
   'brasileirao-serie-a':1.00,
   'copa-libertadores':0.94,
@@ -61,6 +65,7 @@ export const COMPETITION_FALLBACK=0.15;
  * Brazilian club pull by team slug (the slug the profile route already uses, so it is accent-safe).
  * Tier 1 are the four national draws; tier 2 are the other major clubs in the registry.
  */
+/** @deprecated Historical V1 configuration only; active local affinity uses canonical team country. */
 export const CLUB_TIERS:Readonly<Record<string,number>>={
   flamengo:1.00,corinthians:0.96,palmeiras:0.94,'sao-paulo':0.90,
   'vasco-da-gama':0.74,santos:0.72,cruzeiro:0.70,gremio:0.68,'atletico-mineiro':0.68,
@@ -69,6 +74,9 @@ export const CLUB_TIERS:Readonly<Record<string,number>>={
   goias:0.38,ceara:0.40,sport:0.40,'atletico-go':0.36,juventude:0.34,mirassol:0.32,
 };
 export const CLUB_FALLBACK=0.12;
+export const LOCAL_CLUB_AFFINITY=.68;
+/** Editorial magnitude, not measured popularity. Applies equally across active GEOs. */
+export const GLOBAL_CLUB_MAGNITUDE:Readonly<Record<string,number>>={'real-madrid':.85,barcelona:.82,liverpool:.8,'manchester-city':.8,bayern:.78,'bayern-munich':.78,arsenal:.74,'manchester-united':.74,'paris-saint-germain':.76,inter:.7,juventus:.7};
 /** Provider display-name variants collapse onto the same editorial club key. */
 export const CLUB_ALIASES:Readonly<Record<string,string>>={
   'sao-paulo-fc':'sao-paulo','sao-paulo-fc-sp':'sao-paulo',

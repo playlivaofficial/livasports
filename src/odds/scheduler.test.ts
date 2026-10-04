@@ -6,8 +6,14 @@ import {OddsBudgetStopped} from './budget';
 vi.mock('./budget',async importOriginal=>({...await importOriginal<typeof import('./budget')>(),
   budgetHealth:async()=>({verified:true,routineRemaining:3800,period_end:new Date(Date.now()+19*86400000)})}));
 const mocked=vi.hoisted(()=>({snapshot:vi.fn(),persist:vi.fn(),start:vi.fn(),account:vi.fn(),tournaments:vi.fn(),expanded:[] as Array<{id:string;slug:string;category:string;canonical:string}>}));
+const verifiedFeeds=vi.hoisted(()=>[
+  {geo:'CO',operatorId:'betsson',providerBookmakerId:'betsson.co',sourceDomains:['betsson.co']},
+  {geo:'PE',operatorId:'betsson',providerBookmakerId:'betsson.pe',sourceDomains:['betsson.pe']},
+]);
+vi.mock('./operator-feeds',()=>({readVerifiedOperatorFeeds:vi.fn(async()=>verifiedFeeds)}));
 vi.mock('@/providers/oddspapi/M5OddsPapiAdapter',()=>({M5OddsPapiAdapter:class {
   snapshot=mocked.snapshot;accountPeriod=mocked.account;providerTournaments=mocked.tournaments;setCatalog=()=>undefined;setMarketCatalog=()=>undefined;
+  setOperatorFeeds(feeds:unknown){expect(feeds).toEqual(verifiedFeeds);}
   requestCount(){return mocked.snapshot.mock.calls.length;}
 }}));
 vi.mock('@/providers/oddspapi/m5-normalizer',()=>({
@@ -18,13 +24,13 @@ vi.mock('@/providers/oddspapi/m5-normalizer',()=>({
 }));
 vi.mock('./ingestion',()=>({startOddsJob:mocked.start,persistSnapshot:mocked.persist,canonicalFixtures:async()=>[
   {id:'test-only',competition:'brasileirao-serie-a',status:'SCHEDULED',kickoff:new Date(Date.now()+3600000).toISOString()},
-  {id:'test-b',competition:'brasileirao-serie-b',status:'SCHEDULED',kickoff:new Date(Date.now()+7200000).toISOString()},
+  {id:'test-b',competition:'conference-league',status:'SCHEDULED',kickoff:new Date(Date.now()+7200000).toISOString()},
 ]}));
 import {integrityCheck,runOddsScheduler,safeSchedulerError,schedulerPlan,SNAPSHOT_REPLAY_LIMIT} from './scheduler';
 function database(pending:Array<{id:string;payload:unknown;replay_failures:number}>=[]){const query=vi.fn(async(sql:string)=>{
   if(sql.includes('FROM odds_sync_snapshots WHERE applied_at IS NULL'))return {rows:pending,rowCount:pending.length};
   if(sql.includes('odds_provider_catalog'))return {rows:[{markets:[],tournaments:[]}],rowCount:1};
-  if(sql.includes('FROM bookmakers b'))return {rows:['betano.bet.br','betsson'].map(provider_slug=>({provider_slug,tournament_id:'325',public_eligible:true,useful_coverage:true,last_success_at:null})),rowCount:2};
+  if(sql.includes('FROM odds_refresh_targets t WHERE'))return {rows:['betsson.co','betsson.pe'].map(provider_slug=>({provider_slug,tournament_id:'325',public_eligible:true,useful_coverage:true,last_success_at:null})),rowCount:2};
   if(sql.includes('reconciliation_at>'))return {rows:[{}],rowCount:1};
   return {rows:[],rowCount:0};});const typed=query as unknown as QueryExecutor['query'];
   const db:DatabaseClient={query:typed,transaction:async w=>w({query:typed}),close:async()=>{}};return {db,query};
@@ -36,6 +42,7 @@ describe('scheduler independent failure and durable completion',()=>{
     const {db}=database();const result=await runOddsScheduler(db,'test-only');
     expect(result.state).toBe('FAILED');expect(result.error).toBe('ODDSPAPI_HTTP_500');
     expect(mocked.snapshot).toHaveBeenCalledTimes(1);expect(mocked.persist).not.toHaveBeenCalled();
+    expect(mocked.snapshot.mock.calls[0][0]).toBe('betsson.co');
   });
   it('counts only currently usable pregame quotes as useful recovery coverage',async()=>{
     const {db,query}=database();await schedulerPlan(db);
@@ -50,6 +57,7 @@ describe('scheduler independent failure and durable completion',()=>{
     mocked.snapshot.mockRejectedValueOnce(new Error('private upstream error')).mockResolvedValueOnce({observedAt:new Date().toISOString()});
     const {db,query}=database();const result=await runOddsScheduler(db,'test-only');
     expect(result.state).toBe('PARTIAL');expect(result.feeds).toHaveLength(1);expect(mocked.persist).toHaveBeenCalledTimes(1);
+    expect(mocked.snapshot.mock.calls.map(call=>call[0])).toEqual(['betsson.co','betsson.pe']);
     expect(result.error).toBe('ODDS_REFRESH_FAILED');expect(query.mock.calls.some(([s])=>s.includes('failure_class,backoff_reason,next_recheck_at,failure_evidence'))).toBe(true);
   });
   it('ends as BUDGET_STOPPED, not an uncontrolled retry or a false success',async()=>{
@@ -66,7 +74,7 @@ describe('scheduler independent failure and durable completion',()=>{
   it('completes a no-work control tick but does not greenwash missing data evidence',async()=>{
     const query=vi.fn(async(sql:string)=>{
       if(sql.includes('odds_provider_catalog'))return {rows:[{markets:[],tournaments:[]}],rowCount:1};
-      if(sql.includes('FROM bookmakers b'))return {rows:['betano.bet.br','betsson'].map(provider_slug=>({
+      if(sql.includes('FROM odds_refresh_targets t WHERE'))return {rows:['betsson.co','betsson.pe'].map(provider_slug=>({
         provider_slug,tournament_id:'325',public_eligible:true,useful_coverage:true,last_success_at:new Date()}))};
       return {rows:[],rowCount:0};
     });
@@ -84,7 +92,7 @@ describe('scheduler independent failure and durable completion',()=>{
     mocked.snapshot.mockRejectedValue(new Error(JSON.stringify({status:400,message:'private'})));
     const query=vi.fn(async(sql:string)=>{
       if(sql.includes('odds_provider_catalog'))return {rows:[{markets:[],tournaments:[]}],rowCount:1};
-      if(sql.includes('FROM bookmakers b'))return {rows:['betano.bet.br','betsson'].map(provider_slug=>({
+      if(sql.includes('FROM odds_refresh_targets t WHERE'))return {rows:['betsson.co','betsson.pe'].map(provider_slug=>({
         provider_slug,tournament_id:'325',public_eligible:true,useful_coverage:true,last_success_at:null}))};
       if(sql.includes('reconciliation_at>'))return {rows:[{}],rowCount:1};
       if(sql.includes('unnest($2::text[])'))throw new Error('odds_refresh_targets_tournament_id_check');
@@ -101,14 +109,14 @@ describe('scheduler independent failure and durable completion',()=>{
     mocked.snapshot.mockResolvedValue({observedAt:new Date().toISOString()});
     const catalog=[
       {tournamentId:325,tournamentSlug:'brasileiro-serie-a',categorySlug:'brazil'},
-      {tournamentId:326,tournamentSlug:'brasileiro-serie-b',categorySlug:'brazil'},
+      {tournamentId:9999,tournamentSlug:'uefa-europa-conference-league',categorySlug:'international-clubs'},
       {tournamentId:27464,tournamentSlug:'liga-mx-apertura',categorySlug:'mexico'},
       {tournamentId:17,tournamentSlug:'premier-league',categorySlug:'england'},
       {tournamentId:384,tournamentSlug:'copa-libertadores',categorySlug:'international-clubs'},
     ];
     const query=vi.fn(async(sql:string)=>{
       if(sql.includes('odds_provider_catalog'))return {rows:[{markets:[],tournaments:catalog}],rowCount:1};
-      if(sql.includes('FROM bookmakers b'))return {rows:['betano.bet.br','betsson'].flatMap(provider_slug=>['325','326'].map(tournament_id=>({
+      if(sql.includes('FROM odds_refresh_targets t WHERE'))return {rows:['betsson.co','betsson.pe'].flatMap(provider_slug=>['325','9999'].map(tournament_id=>({
         provider_slug,tournament_id,public_eligible:true,useful_coverage:true,last_success_at:null})))};
       if(sql.includes('reconciliation_at>'))return {rows:[{}],rowCount:1};
       return {rows:[],rowCount:0};
@@ -117,24 +125,24 @@ describe('scheduler independent failure and durable completion',()=>{
     const db={query:typed,transaction:async(w: (tx:{query:QueryExecutor['query']})=>unknown)=>w({query:typed}),close:async()=>{}} as DatabaseClient;
     const result=await runOddsScheduler(db,'test-only');
     expect(result.controlPlaneState).toBe('SUCCEEDED');expect(result.state).toBe('PARTIAL');
-    // 326 (brasileiro-serie-b) is not on the historical allowlist but resolves from the catalog: it is probed as a singleton per bookmaker.
-    expect(mocked.snapshot.mock.calls.map(call=>call[1].slice().sort())).toEqual([['325'],['325'],['326'],['326']]);
+    // 9999 (conference-league) is not on the historical allowlist but resolves from the catalog: it is probed as a singleton per bookmaker.
+    expect(mocked.snapshot.mock.calls.map(call=>call[1].slice().sort())).toEqual([['325'],['325'],['9999'],['9999']]);
     expect(mocked.tournaments).not.toHaveBeenCalled();
     expect(query.mock.calls.some(([sql])=>sql.includes("entity_type='COMPETITION'"))).toBe(true);
   });
   it('keeps the stable feed refreshing when a candidate tournament returns HTTP 400',async()=>{
-    mocked.expanded.push({id:'326',slug:'brasileiro-serie-b',category:'brazil',canonical:'brasileirao-serie-b'});
+    mocked.expanded.push({id:'9999',slug:'uefa-europa-conference-league',category:'international-clubs',canonical:'conference-league'});
     mocked.snapshot.mockImplementation(async(_bookmaker:string,ids:string[])=>{
-      if(ids.includes('326'))throw new Error(JSON.stringify({status:400,message:'private'}));
+      if(ids.includes('9999'))throw new Error(JSON.stringify({status:400,message:'private'}));
       return {observedAt:new Date().toISOString()};
     });
     const catalog=[
       {tournamentId:325,tournamentSlug:'brasileiro-serie-a',categorySlug:'brazil'},
-      {tournamentId:326,tournamentSlug:'brasileiro-serie-b',categorySlug:'brazil'},
+      {tournamentId:9999,tournamentSlug:'uefa-europa-conference-league',categorySlug:'international-clubs'},
     ];
     const query=vi.fn(async(sql:string)=>{
       if(sql.includes('odds_provider_catalog'))return {rows:[{markets:[],tournaments:catalog}],rowCount:1};
-      if(sql.includes('FROM bookmakers b'))return {rows:['betano.bet.br','betsson'].flatMap(provider_slug=>['325','326'].map(tournament_id=>({
+      if(sql.includes('FROM odds_refresh_targets t WHERE'))return {rows:['betsson.co','betsson.pe'].flatMap(provider_slug=>['325','9999'].map(tournament_id=>({
         provider_slug,tournament_id,public_eligible:true,useful_coverage:true,last_success_at:null,last_error:null})))};
       if(sql.includes('reconciliation_at>'))return {rows:[{}],rowCount:1};
       return {rows:[],rowCount:0};
@@ -144,28 +152,28 @@ describe('scheduler independent failure and durable completion',()=>{
     const result=await runOddsScheduler(db,'test-only');
     expect(result.state).toBe('PARTIAL');
     expect(result.error).toBe('ODDSPAPI_HTTP_400');
-    expect(mocked.snapshot.mock.calls.map(call=>call[1])).toEqual([['325'],['325'],['326'],['326']]);
+    expect(mocked.snapshot.mock.calls.map(call=>call[1])).toEqual([['325'],['325'],['9999'],['9999']]);
     expect(mocked.persist).toHaveBeenCalledTimes(2);
-    expect(mocked.snapshot.mock.calls.every(call=>!(call[1] as string[]).includes('325')||!(call[1] as string[]).includes('326'))).toBe(true);
+    expect(mocked.snapshot.mock.calls.every(call=>!(call[1] as string[]).includes('325')||!(call[1] as string[]).includes('9999'))).toBe(true);
     expect(query.mock.calls.some(call=>{
       const sql=String(call[0]);
       const params=(call as unknown as [string, unknown[]])[1];
-      return sql.includes('unnest($2::text[])')&&Array.isArray(params?.[1])&&(params[1] as string[]).includes('326')&&!(params[1] as string[]).includes('325');
+      return sql.includes('unnest($2::text[])')&&Array.isArray(params?.[1])&&(params[1] as string[]).includes('9999')&&!(params[1] as string[]).includes('325');
     })).toBe(true);
   });
   it('treats an expanded singleton FIXTURE_NOT_FOUND as an empty feed, not a global scheduler failure',async()=>{
-    mocked.expanded.push({id:'326',slug:'brasileiro-serie-b',category:'brazil',canonical:'brasileirao-serie-b'});
+    mocked.expanded.push({id:'9999',slug:'uefa-europa-conference-league',category:'international-clubs',canonical:'conference-league'});
     mocked.snapshot.mockImplementation(async(_bookmaker:string,ids:string[])=>{
-      if(ids.includes('326'))throw new Error(JSON.stringify({status:404,body:{error:{code:'FIXTURE_NOT_FOUND',message:'No fixtures found'}}}));
+      if(ids.includes('9999'))throw new Error(JSON.stringify({status:404,body:{error:{code:'FIXTURE_NOT_FOUND',message:'No fixtures found'}}}));
       return {observedAt:new Date().toISOString()};
     });
     const catalog=[
       {tournamentId:325,tournamentSlug:'brasileiro-serie-a',categorySlug:'brazil'},
-      {tournamentId:326,tournamentSlug:'brasileiro-serie-b',categorySlug:'brazil'},
+      {tournamentId:9999,tournamentSlug:'uefa-europa-conference-league',categorySlug:'international-clubs'},
     ];
     const query=vi.fn(async(sql:string)=>{
       if(sql.includes('odds_provider_catalog'))return {rows:[{markets:[],tournaments:catalog}],rowCount:1};
-      if(sql.includes('FROM bookmakers b'))return {rows:['betano.bet.br','betsson'].flatMap(provider_slug=>['325','326'].map(tournament_id=>({
+      if(sql.includes('FROM odds_refresh_targets t WHERE'))return {rows:['betsson.co','betsson.pe'].flatMap(provider_slug=>['325','9999'].map(tournament_id=>({
         provider_slug,tournament_id,public_eligible:true,useful_coverage:true,
         last_success_at:tournament_id==='325'?new Date():null,last_error:null})))};
       if(sql.includes('reconciliation_at>'))return {rows:[{}],rowCount:1};
@@ -177,24 +185,24 @@ describe('scheduler independent failure and durable completion',()=>{
     expect(result.controlPlaneState).toBe('SUCCEEDED');expect(result.state).toBe('PARTIAL');
     expect(result.error).toBeNull();
     expect(mocked.persist).not.toHaveBeenCalled();
-    expect(mocked.snapshot.mock.calls.every(call=>(call[1] as string[]).join()==='326')).toBe(true);
+    expect(mocked.snapshot.mock.calls.every(call=>(call[1] as string[]).join()==='9999')).toBe(true);
     expect(query.mock.calls.some(call=>{
       const sql=String(call[0]);
       const params=(call as unknown as [string, unknown[]])[1];
-      return sql.includes('unnest($2::text[])')&&Array.isArray(params?.[1])&&(params[1] as string[]).includes('326')&&params[2]==='ODDSPAPI_HTTP_404'
+      return sql.includes('unnest($2::text[])')&&Array.isArray(params?.[1])&&(params[1] as string[]).includes('9999')&&params[2]==='ODDSPAPI_HTTP_404'
         &&Number(params[3])>=720&&params[5]==='HTTP_404_TARGET_NOT_FOUND';
     })).toBe(true);
   });
   it('applies the short retry ladder, not the 12h backoff, when a previously priced feed reports FIXTURE_NOT_FOUND',async()=>{
-    mocked.expanded.push({id:'326',slug:'brasileiro-serie-b',category:'brazil',canonical:'brasileirao-serie-b'});
+    mocked.expanded.push({id:'9999',slug:'uefa-europa-conference-league',category:'international-clubs',canonical:'conference-league'});
     mocked.snapshot.mockImplementation(async(_bookmaker:string,ids:string[])=>{
-      if(ids.includes('326'))throw new Error(JSON.stringify({status:404,body:{error:{code:'FIXTURE_NOT_FOUND',message:'No fixtures found'}}}));
+      if(ids.includes('9999'))throw new Error(JSON.stringify({status:404,body:{error:{code:'FIXTURE_NOT_FOUND',message:'No fixtures found'}}}));
       return {observedAt:new Date().toISOString()};
     });
-    const catalog=[{tournamentId:325,tournamentSlug:'brasileiro-serie-a',categorySlug:'brazil'},{tournamentId:326,tournamentSlug:'brasileiro-serie-b',categorySlug:'brazil'}];
+    const catalog=[{tournamentId:325,tournamentSlug:'brasileiro-serie-a',categorySlug:'brazil'},{tournamentId:9999,tournamentSlug:'uefa-europa-conference-league',categorySlug:'international-clubs'}];
     const query=vi.fn(async(sql:string)=>{
       if(sql.includes('odds_provider_catalog'))return {rows:[{markets:[],tournaments:catalog}],rowCount:1};
-      if(sql.includes('FROM bookmakers b'))return {rows:['betano.bet.br','betsson'].flatMap(provider_slug=>['325','326'].map(tournament_id=>({
+      if(sql.includes('FROM odds_refresh_targets t WHERE'))return {rows:['betsson.co','betsson.pe'].flatMap(provider_slug=>['325','9999'].map(tournament_id=>({
         provider_slug,tournament_id,public_eligible:true,useful_coverage:tournament_id==='325',last_success_at:new Date(Date.now()-3*3600000),consecutive_failures:0,last_error:null})))};
       if(sql.includes('reconciliation_at>'))return {rows:[{}],rowCount:1};
       return {rows:[],rowCount:0};
@@ -207,7 +215,7 @@ describe('scheduler independent failure and durable completion',()=>{
   });
   describe('P3 reliability integration',()=>{
     it('post-refresh integrity flags suspicious outcomes and stays silent on normal ones (§14)',()=>{
-      const base={bookmaker:'betsson',tournamentIds:['35'],returnedFixtures:9,matchedFixtures:9,quotes:63,currentWrites:63,closed:0};
+      const base={bookmaker:'betsson.pe',tournamentIds:['35'],returnedFixtures:9,matchedFixtures:9,quotes:63,currentWrites:63,closed:0};
       expect(integrityCheck(base)).toBeNull();
       expect(integrityCheck({...base,matchedFixtures:0,quotes:0,currentWrites:0})).toMatchObject({classification:'MAPPING_FAILED',severity:'CRITICAL'});
       expect(integrityCheck({...base,quotes:0,currentWrites:0,rejected:[{},{}]})).toMatchObject({classification:'NORMALIZATION_REJECTED',severity:'CRITICAL'});
@@ -224,9 +232,9 @@ describe('scheduler independent failure and durable completion',()=>{
       expect(query.mock.calls.some(([sql])=>String(sql).includes('DELETE FROM odds_health_rollups'))).toBe(true);
     });
     it('a saved snapshot that cannot be persisted is retried a bounded number of times, then quarantined with an incident, and never blocks the refresh (stall of 2026-09-21)',async()=>{
-      const poison={id:'poison',payload:{bookmaker:'betsson',tournamentIds:['155'],fixtures:[{}],quotes:[{},{}]},replay_failures:SNAPSHOT_REPLAY_LIMIT-2};
-      mocked.persist.mockImplementation(async(_db:unknown,_job:unknown,snapshot:{bookmaker?:string})=>{if(snapshot?.bookmaker==='betsson'&&!('provider' in snapshot))throw new Error('INVALID_NATIVE_SOURCE_QUOTE');return {outcomes:[{tournamentId:'325',outcome:'NATIVE_PERSISTED',meaningful:true,nativeSelections:3}],returnedFixtures:1,matchedFixtures:1,quotes:3,history_changes:0,current_writes:3,closed:0};});
-      mocked.snapshot.mockResolvedValue({provider:'oddspapi',bookmaker:'betsson',tournamentIds:['325'],fixtures:[{providerFixtureId:'1'}],quotes:[{}],observedAt:new Date().toISOString()});
+      const poison={id:'poison',payload:{bookmaker:'betsson.pe',tournamentIds:['155'],fixtures:[{}],quotes:[{},{}]},replay_failures:SNAPSHOT_REPLAY_LIMIT-2};
+      mocked.persist.mockImplementation(async(_db:unknown,_job:unknown,snapshot:{bookmaker?:string})=>{if(snapshot?.bookmaker==='betsson.pe'&&!('provider' in snapshot))throw new Error('INVALID_NATIVE_SOURCE_QUOTE');return {outcomes:[{tournamentId:'325',outcome:'NATIVE_PERSISTED',meaningful:true,nativeSelections:3}],returnedFixtures:1,matchedFixtures:1,quotes:3,history_changes:0,current_writes:3,closed:0};});
+      mocked.snapshot.mockResolvedValue({provider:'oddspapi',bookmaker:'betsson.pe',tournamentIds:['325'],fixtures:[{providerFixtureId:'1'}],quotes:[{}],observedAt:new Date().toISOString()});
       const first=database([poison]);const result=await runOddsScheduler(first.db,'test-only');
       expect(result.state).not.toBe('FAILED');expect(result.error).toBeNull();
       const update=(first.query.mock.calls as unknown as [string,unknown[]][]).find(([sql])=>sql.includes('UPDATE odds_sync_snapshots SET replay_failures'));
@@ -243,7 +251,7 @@ describe('scheduler independent failure and durable completion',()=>{
       expect(second.query.mock.calls.some(([sql])=>String(sql).includes('INSERT INTO odds_refresh_targets')&&String(sql).includes('FAILED'))).toBe(false);
     });
     it('clears a replayed snapshot by its own id, because persistSnapshot marks the hash of the payload it receives',async()=>{
-      const {db,query}=database([{id:'stored-row',payload:{bookmaker:'betsson',tournamentIds:['155'],fixtures:[],quotes:[]},replay_failures:0}]);
+      const {db,query}=database([{id:'stored-row',payload:{bookmaker:'betsson.pe',tournamentIds:['155'],fixtures:[],quotes:[]},replay_failures:0}]);
       await runOddsScheduler(db,'test-only');
       const cleared=(query.mock.calls as unknown as [string,unknown[]][]).find(([sql])=>sql.includes('UPDATE odds_sync_snapshots SET applied_at'));
       expect(cleared).toBeTruthy();expect(cleared![1]).toEqual(['stored-row']);

@@ -27,12 +27,12 @@ describe('complete bounded sports sitemaps',()=>{
   it.each(['players--1.xml','players-0.xml','players-3.xml','teams-01.xml','matches-1','odds-0.xml','players-9007199254740992.xml','../matches-0.xml'])('rejects an invalid or unsubmitted batch: %s',input=>expect(parseSitemapBatch(input)).toBeNull());
   it.each(['matches','teams'] as const)('serializes reciprocal locale links and real modification dates for %s',kind=>{
     const content=sitemapEntriesXml(kind,entries);
-    expect(content.match(/<url>/g)).toHaveLength(3);expect(content.match(/hreflang=/g)).toHaveLength(12);
-    expect(content.match(/hreflang="x-default" href="https:\/\/livasports.com\/en\//g)).toHaveLength(3);
-    expect(content.match(/<lastmod>2026-09-14T00:00:00.000Z<\/lastmod>/g)).toHaveLength(3);
+    expect(content.match(/<url>/g)).toHaveLength(5);expect(content.match(/hreflang=/g)).toHaveLength(30);
+    expect(content.match(/hreflang="x-default" href="https:\/\/livasports.com\/en\//g)).toHaveLength(5);
+    expect(content.match(/<lastmod>2026-09-14T00:00:00.000Z<\/lastmod>/g)).toHaveLength(5);
     expect(content).not.toContain('<FC>');expect(content).not.toContain('A & B');
     const full=sitemapEntriesXml(kind,Array.from({length:sitemapBatchSize},()=>entries[0]));
-    expect(full.match(/<url>/g)).toHaveLength(1500);expect(Buffer.byteLength(full)).toBeLessThan(2*1024*1024);
+    expect(full.match(/<url>/g)).toHaveLength(2500);expect(Buffer.byteLength(full)).toBeLessThan(5*1024*1024);
   });
   it('publishes both discovery points only in production',()=>{
     vi.stubEnv('VERCEL_ENV','production');expect(robots().sitemap).toEqual(['https://livasports.com/sitemap.xml','https://livasports.com/sports-sitemaps.xml']);

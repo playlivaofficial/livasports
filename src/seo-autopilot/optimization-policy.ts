@@ -1,8 +1,9 @@
+import {geoForLocale,isCoreGeo} from '@/config/geo';
 import {createHash} from 'node:crypto';
 
 /** Deliberately independent of editorial publishing thresholds. No environment-driven secret inputs. */
 export const SEO_OPTIMIZATION = {
-  version:'GROWTH_V2_1',optimizationEnabled:true,titleOptimizationEnabled:true,metaOptimizationEnabled:true,
+  version:'GROWTH_V2_2_GEO',optimizationEnabled:true,titleOptimizationEnabled:true,metaOptimizationEnabled:true,
   linkBoostEnabled:true,clusterLearningEnabled:true,rollbackEnabled:true,
   maxAutomaticTitleChangesPerDay:1,maxAutomaticMetaChangesPerDay:1,maxAutomaticLinkBoostsPerDay:3,
   maxClusterWeightChangePerWeek:1,minimumImpressionsForTitleTest:500,minimumDaysObserved:7,
@@ -40,7 +41,7 @@ export function pageType(url:string):PageType{
     if(/\/(jogo|partido|match)\//.test(p))return 'FIXTURE';
     if(/\/(time|equipo|team)\//.test(p))return 'TEAM';
     if(/\/(competicao|competicion|competition|league)\//.test(p)||(/\/(futebol|futbol|football)$/.test(p)&&parsed.searchParams.has('competition')))return 'COMPETITION';
-    if(/^\/(br|mx|en)(\/(futebol|futbol|football|jogos\/hoje|partidos\/hoy|matches\/today))?$/.test(p))return 'HUB';
+    if(/^\/(br|mx|co|pe|en)(\/(futebol|futbol|football|jogos\/hoje|partidos\/hoy|matches\/today))?$/.test(p))return 'HUB';
   }catch{/* Invalid URLs cannot qualify. */}return 'OTHER';
 }
 export function queryRelevant(query:string,label:string){
@@ -49,7 +50,7 @@ export function queryRelevant(query:string,label:string){
   const tokens=new Set(normalize(query).split(' '));return terms.some(t=>tokens.has(t));
 }
 export function queryIntent(query:string):'H2H'|'FORM'|'STANDINGS'|'SCHEDULE'|'GENERAL'{
-  const q=normalize(query);return /confront|retrospect|h2h|head to head/.test(q)?'H2H':/classific|standings|tabla|tabela/.test(q)?'STANDINGS':/forma|form|ultim|result/.test(q)?'FORM':/proxim|upcoming|horario|quando|when|schedule/.test(q)?'SCHEDULE':'GENERAL';
+  const q=normalize(query);return /confront|enfrentamiento|historial|retrospect|h2h|head to head/.test(q)?'H2H':/classific|clasific|posiciones|standings|tabla|tabela/.test(q)?'STANDINGS':/forma|form|ultim|result/.test(q)?'FORM':/proxim|upcoming|horario|cuando|quando|when|schedule/.test(q)?'SCHEDULE':'GENERAL';
 }
 export function metricValid(m:Metric){return [m.impressions,m.clicks,m.position,m.days,m.ctr,m.positionSpread].every(Number.isFinite)&&m.impressions>=0&&m.clicks>=0&&m.clicks<=m.impressions&&m.ctr>=0&&m.ctr<=1&&m.position>=0&&m.days>=0;}
 export function optimizationSafety(input:{connected:boolean;complete:boolean;latestDay:string|null;expectedDay:string;observedDays:number;valid:boolean;dailyImpressions:number[]}){
@@ -102,7 +103,7 @@ export function seoPerformanceWeightAdjustment(previous:number,winners:number,lo
 export function experimentArm(key:string){return parseInt(createHash('sha256').update(key).digest('hex').slice(0,8),16)%2===0?'CONTROL':'VARIANT';}
 export function actionGate(p:GrowthPage,kind:'TITLE_PATTERN'|'INTERNAL_LINK_BOOST',confidence:Confidence,now:Date,used:number,mode:string){
   if(mode!=='ACTIVE')return 'OBSERVE_ONLY';
-  if(!p.managed||p.locale!=='br'||!p.technicalHealthy||!p.fresh)return 'UNSAFE_OR_UNMANAGED_PAGE';
+  if(!p.managed||!isCoreGeo(geoForLocale(p.locale))||!p.technicalHealthy||!p.fresh)return 'UNSAFE_OR_UNMANAGED_PAGE';
   if(p.status==='SCHEDULED'&&p.kickoff&&Date.parse(p.kickoff)<=now.getTime())return 'STALE_LIFECYCLE';
   if(kind==='TITLE_PATTERN'&&p.status==='FINISHED'&&!p.hasResult)return 'RESULT_UNVERIFIED';
   if(p.activeExperiment)return 'EXPERIMENT_CONFLICT';

@@ -1,11 +1,11 @@
-import {FOOTBALL_COMPETITION_TARGETS} from '@/config/footballCompetitions';
+import {CANONICAL_COMPETITION_TARGETS} from '@/config/footballCompetitions';
 
 const names:Record<string,string>={
   'brasileirao-serie-a':'Brazilian Serie A','brasileirao-serie-b':'Brazilian Serie B',
   'copa-do-brasil':'Brazil Cup','copa-do-nordeste':'Northeast Cup',
   'argentina-primera-division':'Argentine Primera Division',
 };
-const competitions=new Map(FOOTBALL_COMPETITION_TARGETS.flatMap(target=>
+const competitions=new Map(CANONICAL_COMPETITION_TARGETS.flatMap(target=>
   [target.canonicalName,target.displayNames.br,target.displayNames.mx].map(name=>[name,names[target.slug]??target.canonicalName] as const)));
 export function englishCompetition(value:string){return competitions.get(value)??value;}
 

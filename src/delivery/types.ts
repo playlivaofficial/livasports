@@ -1,12 +1,11 @@
 import type { MarketCode, OutcomeCode, FixtureStatus } from '@/domain/enums';
 import type { PageKey, SiteLocale } from '@/config/i18n';
-import type {BookmakerDisplayName} from '@/odds/registry';
 
 export type FreshnessState = 'fresh' | 'stale' | 'unavailable';
 export type ProviderDeliveryState = 'available' | 'partial' | 'unavailable' | 'not-configured';
 export interface ProviderState { state: ProviderDeliveryState; freshness: FreshnessState; reason: 'ok' | 'no-data' | 'credentials-missing' | 'provider-error' | 'partial-coverage'; }
 export interface BookmakerPriceView {
-  bookmaker: BookmakerDisplayName; decimalOdds: number; providerUpdatedAt: string; freshness: Exclude<FreshnessState, 'unavailable'>; expiresAt?: string;
+  bookmaker: string; decimalOdds: number; providerUpdatedAt: string; freshness: Exclude<FreshnessState, 'unavailable'>; expiresAt?: string;
   priceKind?: 'REAL' | 'PROXY';
   targetBookmaker?: string;
   sourceBookmaker?: string;

@@ -34,7 +34,11 @@ describe('odds ingestion integrity and recovery',()=>{
       bookmaker:'betano.bet.br',fixtureIds:['aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee'],providerFixtureIds:['p1'],
     });
     expect(snapshotAbsenceCloseScope({...snapshot,bookmaker:'betano',fixtures:[]},[])).toEqual({
-      bookmaker:'betano.bet.br',fixtureIds:[],providerFixtureIds:[],
+      bookmaker:'betano',fixtureIds:[],providerFixtureIds:[],
+    });
+    // Country-neutral Betano must never close the separate historical BR insurance feed.
+    expect(snapshotAbsenceCloseScope({...snapshot,bookmaker:'betano'},['aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee'])).toEqual({
+      bookmaker:'betano',fixtureIds:['aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee'],providerFixtureIds:['p1'],
     });
   });
   it('rolls back a failed post-write assertion before crediting success or applying the snapshot',async()=>{

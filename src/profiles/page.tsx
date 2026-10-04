@@ -1,3 +1,5 @@
+import {withSpanishLocales} from '@/localization/spanish';
+import {languageTags} from '@/localization/interface';
 import {languageAlternates,teamPath as interfaceTeamPath,playerPath as interfacePlayerPath} from '@/localization/interface';
 import type { Metadata } from 'next';
 import { notFound, permanentRedirect } from 'next/navigation';
@@ -15,11 +17,11 @@ import {ctrTeamMetadata} from '@/seo/ctr-variants';
 const teamData=cache((id:string,locale:SiteLocale)=>loadTeamProfile(id,locale));
 const playerData=cache((id:string,locale:SiteLocale)=>loadPlayerProfile(id,locale));
 
-const localeTag = { br: 'pt-BR', mx: 'es-MX' } as const;
-const metadataCopy = {
+const localeTag = languageTags;
+const metadataCopy = withSpanishLocales({
   br: { team: 'jogos, elenco e estatísticas', player: 'estatísticas, jogos e perfil', notFound: 'Perfil não encontrado', tail: 'Dados reais de futebol no LivaSports.' },
   mx: { team: 'partidos, plantilla y estadísticas', player: 'estadísticas, partidos y perfil', notFound: 'Perfil no encontrado', tail: 'Datos reales de fútbol en LivaSports.' },
-} as const;
+} as const);
 
 export async function profileMetadata(paramPromise: Promise<{ profile: string }>, locale: SiteLocale,
   entity: 'team' | 'player'): Promise<Metadata> {

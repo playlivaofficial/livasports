@@ -9,21 +9,24 @@ import {helpKind,helpPath} from './help-routes';
 // Presentation preferences never replace the existing commercial jurisdiction.
 export type InterfaceLocale=SiteLocale|'en';
 export const languageCookie='livasports_language';
-export const languageNames={br:'Português',mx:'Español',en:'English'} as const;
-export const languageTags={br:'pt-BR',mx:'es-MX',en:'en'} as const;
+export const interfaceLocales=['br','mx','co','pe','en'] as const;
+export const languageNames={br:'Português',mx:'Español · México',co:'Español · Colombia',pe:'Español · Perú',en:'English'} as const;
+export const languageTags={br:'pt-BR',mx:'es-MX',co:'es-CO',pe:'es-PE',en:'en'} as const;
 export const interfaceRoutes={...localeRoutes,en:{home:'/en',football:'/en/football',live:'/en/live',today:'/en/matches/today'}} as const;
-export function isInterfaceLocale(value:unknown):value is InterfaceLocale{return value==='br'||value==='mx'||value==='en';}
+export function isInterfaceLocale(value:unknown):value is InterfaceLocale{return interfaceLocales.includes(value as InterfaceLocale);}
 export function pathLocale(path:string):InterfaceLocale|null{const value=path.split('/')[1];return isInterfaceLocale(value)?value:null;}
 export function defaultLanguage(preference:unknown,country:unknown):InterfaceLocale{
   if(isInterfaceLocale(preference))return preference;
-  return country==='BR'?'br':country==='MX'?'mx':'en';
+  return country==='MX'?'mx':country==='CO'?'co':country==='PE'?'pe':country==='BR'?'br':'en';
 }
 export function matchPath(locale:InterfaceLocale,id:string,home:string,away:string){
   return locale==='en'?`/en/match/${slugifyMatch(home,away)}-${id}`:legacyMatchPath(locale,id,home,away);
 }
 export function teamPath(locale:InterfaceLocale,id:string,name:string){return locale==='en'?`/en/team/${slugifyProfileName(name)}-${id}`:legacyTeamPath(locale,id,name);}
 export function playerPath(locale:InterfaceLocale,id:string,name:string){return locale==='en'?`/en/player/${slugifyProfileName(name)}-${id}`:legacyPlayerPath(locale,id,name);}
-export function languageAlternates(br:string,mx:string,en:string){return {'pt-BR':br,'es-MX':mx,en,'x-default':en};}
+export function languageAlternates(br:string,mx:string,en:string,co=mx.replace(/\/mx(?=\/|\?|$)/,'/co'),pe=mx.replace(/\/mx(?=\/|\?|$)/,'/pe')){
+  return {'pt-BR':br,'es-MX':mx,'es-CO':co,'es-PE':pe,en,'x-default':en};
+}
 export function translatedPath(input:string,target:InterfaceLocale):string{
   if(!input.startsWith('/')||input.startsWith('//')||/[\\\u0000-\u001f\u007f]/.test(input))return interfaceRoutes[target].home;
   const url=new URL(input,'https://livasports.com');
@@ -33,7 +36,7 @@ export function translatedPath(input:string,target:InterfaceLocale):string{
   const favorites=(Object.keys(favoritesRoutes[source]) as FavoritesRouteKey[]).find(key=>favoritesRoutes[source][key]===url.pathname);
   const legal=legalKind(source,url.pathname.split('/')[2]);
   const help=helpKind(source,url.pathname.split('/')[2]);
-  const entity=/^\/(?:br\/(jogo|time|jogador)|mx\/(partido|equipo|jugador)|en\/(match|team|player))\/([a-z0-9-]+-[a-f0-9]{16})$/i.exec(url.pathname);
+  const entity=/^\/(?:br\/(jogo|time|jogador)|(?:mx|co|pe)\/(partido|equipo|jugador)|en\/(match|team|player))\/([a-z0-9-]+-[a-f0-9]{16})$/i.exec(url.pathname);
   let path:string=interfaceRoutes[target].home;
   if(legal&&url.pathname===legalPath(source,legal))path=legalPath(target,legal);
   else if(help&&url.pathname===helpPath(source,help))path=helpPath(target,help);
@@ -43,7 +46,8 @@ export function translatedPath(input:string,target:InterfaceLocale):string{
   else if(entity){
     const segment=entity[1]??entity[2]??entity[3];
     const kind=['jogo','partido','match'].includes(segment)?'match':['time','equipo','team'].includes(segment)?'team':'player';
-    const segments={br:{match:'jogo',team:'time',player:'jogador'},mx:{match:'partido',team:'equipo',player:'jugador'},en:{match:'match',team:'team',player:'player'}};
+    const spanish={match:'partido',team:'equipo',player:'jugador'};
+    const segments={br:{match:'jogo',team:'time',player:'jogador'},mx:spanish,co:spanish,pe:spanish,en:{match:'match',team:'team',player:'player'}};
     path=`/${target}/${segments[target][kind]}/${entity[4]}`;
   }else return path;
   return path+url.search+url.hash;

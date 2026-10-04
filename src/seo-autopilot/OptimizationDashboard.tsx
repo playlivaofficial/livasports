@@ -6,7 +6,7 @@ export function OptimizationDashboard({report:r}:{report:Report}){
   const e=r.evidence;
   return <section data-growth-optimization="v2.1" style={{minWidth:0,overflowWrap:'anywhere'}}>
     <h2>Growth Optimization Loop V2.1</h2><p><strong>{e.mode}</strong> · {e.reasons.join(' · ')||'Dados completos; ações individuais ainda exigem evidência e controles.'}</p>
-    <p>{e.observedDays} dias observados · GSC final até {e.to}. Consultas anônimas/indefinidas não são tratadas como não-marca.</p>
+    <p>{e.observedDays} dias observados na propriedade (não por país) · GSC final até {e.to}. Consultas anônimas/indefinidas não são tratadas como não-marca.</p>
     <p>Metadados: {e.mode==='ACTIVE'&&e.opportunities.some(o=>o.proposedAction==='TITLE_PATTERN'&&o.confidence==='HIGH')?'candidatos HIGH ainda sujeitos a controle/qualidade':'OBSERVE_ONLY — nenhuma reescrita sem evidência HIGH'}</p>
     <div className="owner-health-cards">{([['7 dias',e.metrics7],['28 dias',e.metrics28]] as const).map(([label,m])=><article className="owner-health-card" key={label}>
       <h3>{label}</h3><p>{m.impressions} impressões · {m.clicks} cliques · CTR {(m.ctr*100).toFixed(2)}%</p>
@@ -31,7 +31,7 @@ export function OptimizationDashboard({report:r}:{report:Report}){
     <h3>Pesos futuros / revisão semanal</h3><p>Ajuste de prioridade no mesmo dia de manutenção: −3 a +3, passo máximo 1/semana; não altera scoring editorial, qualidade ou elegibilidade. Sinais expiram em 14 dias.</p>
     <p>Novas entradas Top 10: {e.top10Entrants??'janela anterior incompleta'} · Top 20: {e.top20Entrants??'janela anterior incompleta'}</p>
     {r.weekly.map(w=><details key={String(w.week)}><summary>Revisão semanal {String(w.week)}</summary><pre style={{whiteSpace:'pre-wrap'}}>{JSON.stringify(w.report,null,2)}</pre></details>)}
-    {r.weights.map(w=><p key={String(w.cluster)}>{String(w.cluster)}: {String(w.adjustment)} · semana {String(w.evaluated_week)} · {String((w.evidence as {reason?:string})?.reason??'')}</p>)}
+    {r.weights.map(w=><p key={`${w.locale}:${w.cluster}`}>{String(w.locale)} · {String(w.cluster)}: {String(w.adjustment)} · semana {String(w.evaluated_week)} · {String((w.evidence as {reason?:string})?.reason??'')}</p>)}
     <h3>Qualidade de conversão orgânica</h3><p>Somente atribuição existente, HUMAN; exclui QA/OWNER/BOT. Taxas secundárias, nunca objetivo exclusivo de publicação.</p>
     <p>Sessões {r.quality.sessions} · engajamento {r.quality.engagementRate} · início de comparação {r.quality.comparisonRate} · intenção de afiliado elegível {r.quality.affiliateIntentRate}</p>
     <p>Chamadas a provedores nesta medição/navegação: 0. Nenhuma configuração manual diária necessária.</p>

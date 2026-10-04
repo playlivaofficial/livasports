@@ -18,9 +18,9 @@ describe('owner and scheduler boundaries',()=>{
   it('blocks unauthenticated scheduling before any work',async()=>{m.authorized.mockReturnValue(false);expect((await GET(new Request('https://livasports.com/api/internal/seo-autopilot'))).status).toBe(401);expect(m.run).not.toHaveBeenCalled();});
   it('previews never run the production worker',async()=>{vi.stubEnv('VERCEL_ENV','preview');m.authorized.mockReturnValue(true);expect((await GET(new Request('https://livasports.com/api/internal/seo-autopilot'))).status).toBe(403);vi.unstubAllEnvs();});
   it('renders real crawlable links and no Brazil copy in other locales',async()=>{
-    m.query.mockResolvedValue({rows:[{url:'https://livasports.com/br/jogo/a-b-1111111111111111',home:'A',away:'B',competition:'Liga'}]});
-    const html=renderToStaticMarkup(await SeoPriorityLinks({locale:'br',surface:{kind:'HOME'}}));expect(html).toContain('href="/br/jogo/a-b-1111111111111111"');
-    expect(await SeoPriorityLinks({locale:'en',surface:{kind:'HOME'}})).toBeNull();expect(await SeoPriorityLinks({locale:'mx',surface:{kind:'HOME'}})).toBeNull();
+    m.query.mockResolvedValue({rows:[{url:'https://livasports.com/mx/partido/a-b-1111111111111111',home:'A',away:'B',competition:'Liga'}]});
+    const html=renderToStaticMarkup(await SeoPriorityLinks({locale:'mx',surface:{kind:'HOME'}}));expect(html).toContain('href="/mx/partido/a-b-1111111111111111"');
+    expect(await SeoPriorityLinks({locale:'en',surface:{kind:'HOME'}})).toBeNull();expect(await SeoPriorityLinks({locale:'br',surface:{kind:'HOME'}})).toBeNull();
   });
   it('has no provider fetching or social rendering entry point',()=>{for(const file of ['service.ts','repository.ts','public.tsx']){
     const text=readFileSync(new URL(file,import.meta.url),'utf8');expect(text).not.toMatch(/SportmonksAdapter|OddsPapiAdapter|runGrowthGeneration|renderCanonicalPackage/);}
@@ -35,7 +35,7 @@ describe('owner and scheduler boundaries',()=>{
   });
   it('versions persisted sitemap entry/count caches for V2 eligibility and locale-specific lastmod',()=>{
     const text=readFileSync(new URL('../sports/sitemap-runtime.ts',import.meta.url),'utf8');
-    expect(text).toContain("entityCacheVersion='sports:sitemap:v4'");
+    expect(text).toContain("entityCacheVersion='sports:sitemap:v5-geo'");
     expect(text).toContain('`${entityCacheVersion}:counts`');
     expect(text).toContain('`${entityCacheVersion}:${kind}:${page}`');
     expect(text).toContain('ttlSeconds:6*3600');

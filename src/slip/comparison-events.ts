@@ -9,5 +9,7 @@ export function emitComparisonEvent(eventName:ComparisonEventName,locale:SiteLoc
   const props={eventName,locale,placement:'slip-comparison',selectionCount:selections.length,marketsSummary,
     ...(bookmaker?{bookmaker:bookmaker.bookmakerId,availableCount:bookmaker.availableSelectionCount,complete:bookmaker.complete}:{})};
   const comparisonState=bookmaker?bookmaker.availabilityState==='COMPLETE'?'REAL_COMPLETE':bookmaker.availabilityState==='ESTIMATED_COMPLETE'?'ESTIMATED_COMPLETE':'INCOMPLETE':undefined;
-  emitProductEvent(props,`m7:${eventName}:${locale}:${selections.length}:${JSON.stringify(marketsSummary)}:${bookmaker?.bookmakerId??'all'}:${bookmaker?.availableSelectionCount??''}`,{legCount:selections.length,comparisonState});
+  const fixturePublicIds=[...new Set(selections.map(s=>s.fixturePublicId))].sort();
+  const selectionIdentity=selections.map(s=>`${s.fixturePublicId}:${s.market}:${s.outcome}:${s.line??''}`).sort().join('|');
+  emitProductEvent(props,`m7:${eventName}:${locale}:${selectionIdentity}:${bookmaker?.bookmakerId??'all'}:${bookmaker?.availableSelectionCount??''}`,{legCount:selections.length,comparisonState,fixturePublicIds,selectionIdentity});
 }

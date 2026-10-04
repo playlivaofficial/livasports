@@ -1,35 +1,25 @@
 import {createHash} from 'node:crypto';
-import {clubStrength,competitionStrength,proximityStrength,stageStrength,type FixtureSignals} from '@/growth/scoring';
-import {rivalryFor} from '@/growth/config';
+import {scoreFixture,type FixtureSignals,type FixturePriority} from '@/growth/scoring';
+import {type Geo} from '@/config/geo';
+import type {InterfaceLocale} from '@/localization/interface';
 import {matchPath,teamPath} from '@/localization/interface';
 import {competitionPath} from '@/sports/policy';
 import {siteOrigin} from '@/seo/policy';
 import {SEO_AUTOPILOT as config} from './config';
 
 export interface OpportunityEvidence {
-  brazil:boolean;impressions:number;clicks:number;queryImpressions:number;relatedImpressions:number;
+  geo?:Geo;priority?:FixturePriority;brazil?:boolean;impressions:number;clicks:number;queryImpressions:number;relatedImpressions:number;
   uniqueSignals:string[];fresh:boolean;shortlisted:boolean;inboundSources:number;clusterBoost:number;
 }
 export function seoOpportunityScore(f:FixtureSignals,e:OpportunityEvidence,now:Date){
-  const parts=[
-    ['clubs',20*Math.max(clubStrength(f.home.slug),clubStrength(f.away.slug)),'Existing club priority'],
-    ['competition',18*competitionStrength(f.competitionSlug),'Existing competition priority'],
-    ['brazil',e.brazil?15:0,'Verified Brazilian competition or participant'],
-    ['rivalry',rivalryFor(f.home.slug,f.away.slug)?8:0,'Configured rivalry'],
-    ['importance',5*stageStrength(f.stageName,f.roundName).strength,'Recorded knockout stage'],
-    ['proximity',8*proximityStrength(f.kickoff,now).strength,'Kickoff proximity'],
-    ['gsc',Math.min(10,Math.log2(1+Math.max(0,e.impressions+e.queryImpressions+e.relatedImpressions))),'Observed GSC impressions; not search volume'],
-    ['facts',Math.min(6,e.uniqueSignals.length*2),'Distinct persisted factual modules'],
-    ['freshness',e.fresh?3:0,'Current source observation'],
-    ['shortlist',e.shortlisted?3:0,'Existing V1 shortlist'],
-    ['cluster',Math.min(4,e.inboundSources),'Verified internal sources'],
-    ['feedback',Math.max(0,Math.min(config.maxClusterBoost,e.clusterBoost)),'Bounded weekly GSC boost'],
-  ] as const;
-  const components=parts.map(([name,value,reason])=>({name,points:Math.round(value*10)/10,reason}));
-  const total=Math.min(100,Math.round(components.reduce((s,p)=>s+p.points,0)*10)/10);
-  return {total,tier:total>=config.tierAThreshold?'A':total>=config.tierBThreshold?'B':'C',components,
-    reasons:components.filter(p=>p.points>0).sort((a,b)=>b.points-a.points).map(p=>`${p.reason}: ${p.points}`)};
+  // The acquisition score is shared with Growth and product discovery. SEO evidence is a
+  // publication/readiness gate, never a second editorial ranking or a Brazilian bonus.
+  const priority=e.priority??scoreFixture(f,now,{geo:e.geo??'ROW',searchStrength:Math.min(1,Math.log2(1+Math.max(0,e.impressions+e.relatedImpressions))/14)});
+  const total=priority.total;
+  return {total,tier:total>=config.tierAThreshold?'A':total>=config.tierBThreshold?'B':'C',
+    components:priority.lines.map(l=>({name:l.component,points:l.points,reason:l.reason})),reasons:priority.reasons};
 }
+
 export type PublishState='PUBLISHED'|'BLOCKED'|'PRODUCT_ONLY'|'NOINDEX'|'RETRYABLE_DATA_GAP';
 export interface PublishEvidence {
   score:number;uniqueSignals:number;fresh:boolean;quality:boolean;duplicateRisk:'LOW'|'HIGH';
@@ -56,14 +46,14 @@ export function seoPublishGate(e:PublishEvidence):{state:PublishState;reasons:st
   return gaps.length?{state:'RETRYABLE_DATA_GAP',reasons:gaps}:{state:'PUBLISHED',reasons:['SCORE_DATA_HTML_LINKS_PASS']};
 }
 export interface SeoLink {href:string;label:string;relation:'TEAM'|'COMPETITION'|'FIXTURE'|'H2H';priority:number;}
-export function seoInternalLinkEngine(f:FixtureSignals,related:Array<{signals:FixtureSignals;score:number}>=[]):SeoLink[]{
-  const links:SeoLink[]=[{href:teamPath('br',f.home.publicId,f.home.name),label:`Jogos e resultados do ${f.home.name}`,relation:'TEAM',priority:100},
-    {href:teamPath('br',f.away.publicId,f.away.name),label:`Jogos e resultados do ${f.away.name}`,relation:'TEAM',priority:100},
-    {href:competitionPath('br',f.competitionSlug),label:`Jogos de ${f.competitionName}`,relation:'COMPETITION',priority:100}];
+export function seoInternalLinkEngine(f:FixtureSignals,related:Array<{signals:FixtureSignals;score:number}>=[],locale:InterfaceLocale='en'):SeoLink[]{
+  const links:SeoLink[]=[{href:teamPath(locale,f.home.publicId,f.home.name),label:locale==='br'?`Jogos e resultados do ${f.home.name}`:locale==='en'?`${f.home.name} fixtures and results`:`Partidos y resultados de ${f.home.name}`,relation:'TEAM',priority:100},
+    {href:teamPath(locale,f.away.publicId,f.away.name),label:locale==='br'?`Jogos e resultados do ${f.away.name}`:locale==='en'?`${f.away.name} fixtures and results`:`Partidos y resultados de ${f.away.name}`,relation:'TEAM',priority:100},
+    {href:competitionPath(locale,f.competitionSlug),label:locale==='br'?`Jogos de ${f.competitionName}`:locale==='en'?`${f.competitionName} fixtures`:`Partidos de ${f.competitionName}`,relation:'COMPETITION',priority:100}];
   for(const r of related.filter(r=>r.signals.fixtureId!==f.fixtureId&&(r.signals.competitionSlug===f.competitionSlug||
     [r.signals.home.publicId,r.signals.away.publicId].some(id=>[f.home.publicId,f.away.publicId].includes(id))))
     .sort((a,b)=>b.score-a.score||a.signals.publicId.localeCompare(b.signals.publicId)).slice(0,3)){
-    links.push({href:matchPath('br',r.signals.publicId,r.signals.home.name,r.signals.away.name),label:`${r.signals.home.name} x ${r.signals.away.name}`,relation:'FIXTURE',priority:r.score});
+    links.push({href:matchPath(locale,r.signals.publicId,r.signals.home.name,r.signals.away.name),label:`${r.signals.home.name} x ${r.signals.away.name}`,relation:'FIXTURE',priority:r.score});
   }
   return [...new Map(links.map(l=>[l.href,l])).values()];
 }
@@ -73,7 +63,7 @@ export function contentHash(value:unknown):string{
   return createHash('sha256').update(JSON.stringify(stable(value))).digest('hex');
 }
 export function cleanCanonical(value:string){
-  try{const u=new URL(value,siteOrigin);if(u.origin!==siteOrigin||!/^\/(br|mx|en)\//.test(u.pathname))return null;
+  try{const u=new URL(value,siteOrigin);if(u.origin!==siteOrigin||!/^\/(br|mx|co|pe|en)\//.test(u.pathname))return null;
     for(const key of [...u.searchParams.keys()])if(/^utm_|^(fbclid|gclid)$/i.test(key))u.searchParams.delete(key);
     u.hash='';return u.href;
   }catch{return null;}

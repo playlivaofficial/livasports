@@ -7,7 +7,7 @@ import { SportmonksAdapter } from '@/providers/sportmonks/SportmonksAdapter';
 import { SafeProviderError, sanitizeText } from '@/providers/safe-error';
 import { PostgresFootballRepository } from '@/repositories/postgres-football.repository';
 import { PostgresProviderEntityMappingRepository } from '@/repositories/postgres-provider-mapping.repository';
-import { FOOTBALL_COMPETITION_TARGETS } from '@/config/footballCompetitions';
+import { APPROVED_COMPETITION_TARGETS as FOOTBALL_COMPETITION_TARGETS, isAcquisitionCompetition } from '@/config/footballCompetitions';
 import { DatabaseM2ReadService } from '@/delivery/DatabaseM2ReadService';
 import { CompetitionCoverageService } from '@/competition/CompetitionCoverageService';
 import { isIngestibleCoverage } from '@/competition/coverage';
@@ -50,9 +50,9 @@ try {
   } else if (command === 'read') {
     const repository = new PostgresFootballRepository(requiredDatabase());
     const service = new DatabaseM2ReadService(repository);
-    const pages = await Promise.all((['br', 'mx'] as const).map(async locale => {
+    const pages = await Promise.all((['br', 'mx', 'co', 'pe'] as const).map(async locale => {
       const data = await service.load(locale, 'football');
-      const canonicalSlugs = new Set(FOOTBALL_COMPETITION_TARGETS.filter(target => target.enabled).map(target => target.slug));
+      const canonicalSlugs = new Set(FOOTBALL_COMPETITION_TARGETS.filter(target => target.enabled && isAcquisitionCompetition(target.slug)).map(target => target.slug));
       const deliveredSlugs = new Set(data.sections.map(section => section.slug));
       const competitionsWithFixtures = data.sections.filter(section => section.fixtures.length > 0).map(section => section.slug);
       const competitionsWithoutFixtures = data.sections.filter(section => section.fixtures.length === 0).map(section => section.slug);

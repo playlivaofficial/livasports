@@ -1,15 +1,16 @@
+import {withSpanishLocales} from './spanish';
 import type {InterfaceLocale} from './interface';
 import type {HelpKind} from './help-routes';
 /** P2 evergreen help. Describes implemented product behaviour only; no predictions, licences, experts or prices. */
 export type HelpArticle={title:string;intro:string;sections:{title:string;body:string}[];related:HelpKind[]};
 export const helpReviewedAt='2026-09-17';
 export const helpReviewDate=(locale:InterfaceLocale,kind:HelpKind)=>locale==='br'&&kind==='comparison'?'2026-09-27':helpReviewedAt;
-export const helpCopy={
+export const helpCopy=withSpanishLocales({
   br:{eyebrow:'Ajuda',navigation:'Ajuda LivaSports',reviewed:'Atualizado em',related:'Veja também',football:'Ver partidas'},
   mx:{eyebrow:'Ayuda',navigation:'Ayuda LivaSports',reviewed:'Actualizado el',related:'Ver también',football:'Ver partidos'},
   en:{eyebrow:'Help',navigation:'LivaSports help',reviewed:'Updated',related:'See also',football:'Browse matches'},
-} as const;
-export const helpContent:Record<InterfaceLocale,Record<HelpKind,HelpArticle>>={
+} as const);
+const baseHelpContent:Record<'br'|'mx'|'en',Record<HelpKind,HelpArticle>>={
  br:{
   comparison:{title:'Como funciona a comparação de odds da LivaSports',intro:'A LivaSports mostra, lado a lado, as odds pré-jogo registradas para as casas de apostas cobertas. Você não precisa de conta nem de aposta para consultar.',sections:[
    {title:'Protocolo para uma comparação verificável',body:'Comece pela mesma partida: confira competição, mandante, visitante e início. Compare o mesmo mercado, resultado e linha — por exemplo, total de gols acima de 2,5 não é o mesmo que acima de 3,5. Confira o horário de observação e a identificação de preço próprio ou aproximado antes de comparar valores. Uma cotação ausente não vale zero e não deve entrar na comparação.'},
@@ -84,3 +85,5 @@ export const helpContent:Record<InterfaceLocale,Record<HelpKind,HelpArticle>>={
   ],related:['comparison','decimalOdds']},
  },
 };
+
+export const helpContent=withSpanishLocales(baseHelpContent);

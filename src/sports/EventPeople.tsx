@@ -6,7 +6,7 @@ const copy={br:{on:'Entra',off:'Sai',assist:'Assistência'},mx:{on:'Entra',off:'
 
 /** Sportmonks: substitution player is incoming; related player is outgoing. */
 export function EventPeople({event,locale}:{event:MatchEventView;locale:InterfaceLocale}){
-  const t=copy[locale],substitution=event.type.toUpperCase()==='SUBSTITUTION';
+  const t=copy[locale==='co'||locale==='pe'?'mx':locale],substitution=event.type.toUpperCase()==='SUBSTITUTION';
   const person=(name:string,id:string|null)=>id?<Link prefetch={false} href={playerPath(locale,id,name)}>{name}</Link>:name;
   return <span>
     {event.playerName?<>{substitution?`${t.on}: `:''}{person(event.playerName,event.playerPublicId)}</>:null}

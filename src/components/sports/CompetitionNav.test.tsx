@@ -2,7 +2,7 @@ import {describe,expect,it,vi} from 'vitest';
 vi.mock('next/link',()=>({default:({href,children,...props}:{href:string;children:import('react').ReactNode})=> <a href={href} {...props}>{children}</a>}));
 import {renderToStaticMarkup} from 'react-dom/server';
 import {CompetitionNav,competitionNavSections} from './CompetitionNav';
-import {FOOTBALL_COMPETITION_TARGETS} from '@/config/footballCompetitions';
+import {APPROVED_COMPETITION_TARGETS,isAcquisitionCompetition} from '@/config/footballCompetitions';
 
 describe('competition navigation',()=>{
   const items=[
@@ -35,11 +35,12 @@ describe('competition navigation',()=>{
     expect(html.indexOf('>Brasil</h3>')).toBeLessThan(html.indexOf('>Inglaterra</h3>'));
     expect(html.indexOf('>Inglaterra</h3>')).toBeLessThan(html.indexOf('>México</h3>'));
   });
-  it('groups all 34 competitions exactly once in the required deterministic country order',()=>{
-    const all=FOOTBALL_COMPETITION_TARGETS.map(target=>({slug:target.slug,name:target.canonicalName,group:target.group,count:0,countryCode:target.countryCode,countryName:target.countryNames[0]??null,region:target.region}));
+  it('groups all acquisition competitions once with deterministic demand-based country ordering',()=>{
+    const all=APPROVED_COMPETITION_TARGETS.filter(t=>isAcquisitionCompetition(t.slug)).map(target=>({slug:target.slug,name:target.canonicalName,group:target.group,count:0,countryCode:target.countryCode,countryName:target.countryNames[0]??null,region:target.region}));
     const sections=competitionNavSections('en',all),flattened=sections.flatMap(section=>section.items.map(item=>item.slug));
-    expect(flattened).toHaveLength(34);expect(new Set(flattened).size).toBe(34);
-    expect(sections.map(section=>section.label)).toEqual(['Brazil','England','Spain','Italy','Germany','France','Portugal','Netherlands','Türkiye','Argentina','Mexico','USA','Saudi Arabia','UEFA / International','South America','North & Central America']);
+    expect(flattened).toHaveLength(32);expect(new Set(flattened).size).toBe(32);
+    expect(sections.map(s=>s.key)).toEqual(competitionNavSections('en',[...all].reverse()).map(s=>s.key));
+    expect(sections.map(s=>s.label)).toEqual(expect.arrayContaining(['Mexico','Colombia','Peru']));
   });
   it('keeps canonical international competitions neutral when provider metadata uses pseudo-country codes',()=>{
     const rows=[

@@ -23,7 +23,7 @@ export async function readGrowthEvidence(db:QueryExecutor,now=new Date()){
     db.query(`SELECT DISTINCT ON(dimension) dimension,state,from_day::text,to_day::text,captured_at FROM seo_breakdown_syncs WHERE property=$1 ORDER BY dimension,captured_at DESC`,[property]),
     db.query(`SELECT p.*,f.public_id,f.status,f.kickoff,f.updated_at,f.home_score,f.away_score,c.slug AS cluster,ht.name AS home,at.name AS away,
       EXISTS(SELECT 1 FROM seo_autopilot_technical t WHERE t.url=p.url AND t.status=200 AND t.problems='[]'::jsonb AND t.checked_at>$1::timestamptz-interval '2 days') AS healthy
-      FROM seo_autopilot_pages p JOIN fixtures f ON f.id=p.fixture_id JOIN competitions c ON c.id=f.competition_id
+      FROM seo_all_pages p JOIN fixtures f ON f.id=p.fixture_id JOIN competitions c ON c.id=f.competition_id
       JOIN teams ht ON ht.id=f.home_team_id JOIN teams at ON at.id=f.away_team_id`,[now]),
     db.query('SELECT page FROM seo_metadata_experiments'),
   ]);
@@ -33,7 +33,7 @@ export async function readGrowthEvidence(db:QueryExecutor,now=new Date()){
       FROM fixtures f JOIN competitions c ON c.id=f.competition_id JOIN teams ht ON ht.id=f.home_team_id JOIN teams at ON at.id=f.away_team_id
       WHERE f.public_id=ANY($1::text[])`,[observedIds]),
     db.query('SELECT public_id,name FROM teams WHERE public_id=ANY($1::text[])',[observedIds]),
-    db.query('SELECT slug,display_name_pt_br AS name FROM competitions WHERE enabled'),
+    db.query('SELECT slug,display_name_es_mx AS name FROM competitions WHERE enabled'),
   ]);
   // Additive migration absence is safe for preview/rolling deployments, but never permits actions.
   let active:Row[]=[],actions:Row[]=[],migrationReady=true;

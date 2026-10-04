@@ -12,6 +12,9 @@ const statusMap: Record<string, FixtureStatus> = {
   HT: FixtureStatus.HALFTIME,
   FINISHED: FixtureStatus.FINISHED, FT: FixtureStatus.FINISHED, AET: FixtureStatus.FINISHED,
   FT_PEN: FixtureStatus.FINISHED, AFTER_EXTRA_TIME: FixtureStatus.FINISHED, AFTER_PENALTIES: FixtureStatus.FINISHED,
+  // Administrative result, not a future match; 17 is the fallback when state is not included.
+  // https://docs.sportmonks.com/v3/definitions/states
+  AWARDED: FixtureStatus.FINISHED, '17': FixtureStatus.FINISHED,
   POSTPONED: FixtureStatus.POSTPONED, CANCELLED: FixtureStatus.CANCELLED, ABANDONED: FixtureStatus.ABANDONED,
   INTERRUPTED: FixtureStatus.ABANDONED,
 };

@@ -20,6 +20,17 @@ beforeEach(async()=>{vi.useFakeTimers();vi.resetModules();mod=await import('./cl
 afterEach(()=>{vi.useRealTimers();for(const k of ['window','location','document','localStorage','sessionStorage','navigator','addEventListener'])delete (globalThis as Record<string,unknown>)[k];});
 
 describe('P4 client: identity, sessions, attribution, dedupe and the slip funnel (§5, §6, §7, §17, §34)',()=>{
+  it('links a comparison to canonical fixtures without emitting one duplicate event per leg',async()=>{
+    const b=browser('https://livasports.com/co');
+    const linked=Array.from({length:10},(_,i)=>String(i).padStart(16,'0'));
+    mod.bridgeLegacyEvent({eventName:'slip_comparison_view',selectionCount:10,fixturePublicIds:linked,selectionIdentity:'slip-a'});
+    mod.bridgeLegacyEvent({eventName:'slip_comparison_view',selectionCount:10,fixturePublicIds:linked,selectionIdentity:'slip-a'});
+    await vi.advanceTimersByTimeAsync(2000);
+    const comparisons=events(b.sent).filter(e=>e.eventName==='bookmaker_comparison_viewed');
+    expect(comparisons).toHaveLength(1);expect(Object.values(comparisons[0].props as Record<string,string>)).toEqual(linked);
+    mod.bridgeLegacyEvent({eventName:'slip_comparison_view',selectionCount:10,fixturePublicIds:linked,selectionIdentity:'slip-b'});
+    await vi.advanceTimersByTimeAsync(2000);expect(events(b.sent).filter(e=>e.eventName==='bookmaker_comparison_viewed')).toHaveLength(2);
+  });
   it('starts one session per 30-minute window, freezes first-touch attribution across internal navigation and sends batches once',async()=>{
     const b=browser('https://livasports.com/br/jogo/bayern-x-union-b383489fbdeb4ef1?utm_source=news&utm_medium=email&utm_campaign=opening','https://www.google.com/');
     mod.trackNavigation('/br/jogo/bayern-x-union-b383489fbdeb4ef1','?utm_source=news&utm_medium=email&utm_campaign=opening');

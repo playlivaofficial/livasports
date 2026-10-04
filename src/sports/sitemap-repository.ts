@@ -1,6 +1,7 @@
+import {interfaceLocales,type InterfaceLocale} from '@/localization/interface';
 import 'server-only';
 import type {QueryExecutor} from '@/database/client';
-import {matchSitemapFutureDays,matchSitemapPastDays,submittableCoverageStatuses} from '@/seo/policy';
+import {isFinishedMatchDecayed,isMatchInSitemapWindow,matchSitemapFutureDays,matchSitemapPastDays,submittableCoverageStatuses} from '@/seo/policy';
 import {resolveDefaultSeason} from './policy';
 import {sitemapBatchSize,type SitemapKind,type SitemapCounts,type SportsSitemapEntry,type CompetitionSitemapSummary} from './sitemap';
 
@@ -19,8 +20,12 @@ const days=(value:number)=>`interval '${Math.trunc(value)} days'`;
  */
 const matchWindow=`f.kickoff>=now()-${days(matchSitemapPastDays)} AND f.kickoff<=now()+${days(matchSitemapFutureDays)}`;
 const eligibleFixtures=`SELECT f.* FROM fixtures f JOIN competitions c ON c.id=f.competition_id
-  WHERE ${submittableCompetition} AND (${matchWindow} OR EXISTS(SELECT 1 FROM seo_autopilot_pages ap WHERE ap.fixture_id=f.id AND ap.state='PUBLISHED' AND ap.retain_indexable)) AND NOT EXISTS(SELECT 1 FROM sports_pending_fixtures p WHERE p.id=f.id)
-  AND NOT EXISTS(SELECT 1 FROM seo_autopilot_pages ap WHERE ap.fixture_id=f.id AND ap.state IN ('PRODUCT_ONLY','NOINDEX'))`;
+  WHERE ${submittableCompetition} AND EXISTS(
+    SELECT 1 FROM (VALUES ${interfaceLocales.map(locale=>`('${locale}')`).join(',')}) locales(locale)
+    LEFT JOIN seo_all_pages ap ON ap.fixture_id=f.id AND ap.locale=locales.locale
+    WHERE COALESCE(ap.state,'') NOT IN('PRODUCT_ONLY','NOINDEX') AND (${matchWindow} OR (ap.state='PUBLISHED' AND ap.retain_indexable)))
+  AND NOT EXISTS(SELECT 1 FROM sports_pending_fixtures p WHERE p.id=f.id)
+`;
 const eligibleTeams=`SELECT t.* FROM teams t WHERE NOT t.provider_placeholder AND (
   t.id IN (SELECT f.home_team_id FROM fixtures f JOIN competitions c ON c.id=f.competition_id WHERE ${submittableCompetition}
     UNION SELECT f.away_team_id FROM fixtures f JOIN competitions c ON c.id=f.competition_id WHERE ${submittableCompetition})
@@ -46,7 +51,9 @@ export class SportsSitemapRepository {
     // Page before aggregating. Independent aggregates avoid a fixtures × squads Cartesian join.
     const prefix=`WITH page AS MATERIALIZED (SELECT * FROM (${eligible[kind]}) e ORDER BY e.id LIMIT $1 OFFSET $2)`;
     const query=kind==='matches'?`${prefix} SELECT p.public_id,ht.name,at.name AS away,
-      (SELECT ap.content_changed_at FROM seo_autopilot_pages ap WHERE ap.fixture_id=p.id AND ap.state='PUBLISHED') AS updated_at FROM page p
+      p.status,p.kickoff,
+      (SELECT jsonb_agg(jsonb_build_object('locale',ap.locale,'state',ap.state,'retain',ap.retain_indexable,'changed',ap.content_changed_at)) FROM seo_all_pages ap WHERE ap.fixture_id=p.id) AS seo_states,
+      NULL AS updated_at FROM page p
       JOIN teams ht ON ht.id=p.home_team_id JOIN teams at ON at.id=p.away_team_id ORDER BY p.id`
       :kind==='teams'?`${prefix}, changes AS (
         SELECT f.home_team_id AS id,f.updated_at AS stamp FROM fixtures f JOIN page p ON p.id=f.home_team_id
@@ -61,7 +68,17 @@ export class SportsSitemapRepository {
         FROM page p ORDER BY p.id`;
     const result=await this.db.query(query,[limit,offset]);
     // Source observation timestamps on team/profile rows are not proof of a significant content change.
-    return result.rows.map(row=>({publicId:String(row.public_id),name:String(row.name),...(row.away?{away:String(row.away)}:{}),updatedAt:row.updated_at?new Date(String(row.updated_at)):new Date(0),lastmodVerified:kind==='matches'&&!!row.updated_at,lastmodLocales:['br'] as const}));
+    return result.rows.map(row=>{
+      const states=(Array.isArray(row.seo_states)?row.seo_states:[]) as Array<{locale:InterfaceLocale;state:string;retain:boolean;changed:string}>;
+      const state=(locale:InterfaceLocale)=>states.find(s=>s.locale===locale);
+      const retained=(locale:InterfaceLocale)=>state(locale)?.state==='PUBLISHED'&&state(locale)?.retain===true;
+      const allowed=kind!=='matches'?interfaceLocales:interfaceLocales.filter(locale=>
+        !['PRODUCT_ONLY','NOINDEX'].includes(state(locale)?.state??'')&&(isMatchInSitemapWindow(String(row.kickoff))||retained(locale)));
+      const alternates=kind!=='matches'?interfaceLocales:interfaceLocales.filter(locale=>!isFinishedMatchDecayed(String(row.status),String(row.kickoff))||retained(locale));
+      const lastmodByLocale=Object.fromEntries(states.filter(s=>s.state==='PUBLISHED'&&s.changed).map(s=>[s.locale,new Date(s.changed).toISOString()]));
+      return {publicId:String(row.public_id),name:String(row.name),...(row.away?{away:String(row.away)}:{}),updatedAt:new Date(0),lastmodVerified:false,
+        locales:allowed,alternateLocales:alternates,lastmodByLocale};
+    });
   }
   /**
    * P2: which competition tabs have content for the season a hub resolves by default.

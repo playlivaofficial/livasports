@@ -19,7 +19,7 @@ import {authPageMetadata} from '@/auth/pages';
 import {documentMetadata} from '@/localization/DocumentPage';
 import {helpKinds,helpPath} from '@/localization/help-routes';
 import {helpContent} from '@/localization/help-content';
-import {FOOTBALL_COMPETITION_TARGETS} from '@/config/footballCompetitions';
+import {CANONICAL_COMPETITION_TARGETS} from '@/config/footballCompetitions';
 import type {CompetitionHub} from '@/sports/types';
 import type {Metadata} from 'next';
 
@@ -27,8 +27,8 @@ const S1='11111111-1111-4111-8111-111111111111',S0='00000000-0000-4000-8000-0000
 const slugs=enabledCompetitionSlugs();
 
 describe('P2 route policy',()=>{
-  it('uses the live registry count and every enabled competition has a policy-backed canonical in three locales',()=>{
-    expect(slugs).toHaveLength(FOOTBALL_COMPETITION_TARGETS.filter(t=>t.enabled).length);
+  it('uses the live registry count and every enabled competition has a policy-backed canonical in five locales',()=>{
+    expect(slugs).toHaveLength(CANONICAL_COMPETITION_TARGETS.filter(t=>t.enabled).length);
     expect(slugs.length).toBeGreaterThan(0);
     const seen=new Set<string>();
     for(const slug of slugs)for(const tab of competitionTabs){
@@ -39,7 +39,7 @@ describe('P2 route policy',()=>{
       expect(canonical.paths.en.startsWith('/en/football?competition=')).toBe(true);
       for(const locale of locales)expect(translatedPath(canonical.paths[locale],'en')).toBe(canonical.paths.en);
     }
-    expect(seen.size).toBe(slugs.length*competitionTabs.length*3);
+    expect(seen.size).toBe(slugs.length*competitionTabs.length*5);
   });
   it('orders semantic parameters deterministically and never includes non-semantic ones',()=>{
     const canonical=competitionCanonical({slug:'liga-mx',tab:'results',seasonId:S0,defaultSeasonId:S1,page:3,pages:5,rows:30});
@@ -117,10 +117,10 @@ describe('P2 sitemap policy',()=>{
   it('produces valid, duplicate-free absolute URLs with lastmod only where a source date exists',()=>{
     const rows=primarySitemap([summary('premier-league')]);
     expect(validateSitemapUrls(rows.map(r=>r.url))).toEqual([]);
-    expect(rows.filter(r=>r.url.includes('premier-league'))).toHaveLength(4*3);
+    expect(rows.filter(r=>r.url.includes('premier-league'))).toHaveLength(4*5);
     // M1: a registry competition with no coverage summary is not submitted at all, so only the four
-    // static hubs (×3 locales) remain without a source-backed lastmod.
-    expect(rows.filter(r=>r.lastModified===undefined).length).toBe(8*3); // static + competition tabs: no fabricated lastmod
+    // static hubs (×5 locales) remain without a source-backed lastmod.
+    expect(rows.filter(r=>r.lastModified===undefined).length).toBe(8*5); // static + competition tabs: no fabricated lastmod
     expect(rows.some(r=>r.url.includes('la-liga'))).toBe(false);
     expect(rows.every(r=>!('changeFrequency' in r)&&!('priority' in r))).toBe(true);
   });
@@ -132,7 +132,7 @@ describe('P2 sitemap policy',()=>{
   it('escapes entity names in XML and bounds every batch under the sitemap limits',()=>{
     const xml=sitemapEntriesXml('teams',[{publicId:'0123456789abcdef',name:'Ca\'s & <Boys> "FC"',updatedAt:'2026-09-01T00:00:00Z'}]);
     expect(xml).not.toMatch(/<Boys>|&(?!amp;|lt;|gt;|quot;|apos;)/);
-    expect(xml.match(/<url>/g)).toHaveLength(3);
+    expect(xml.match(/<url>/g)).toHaveLength(5);
   });
 });
 
@@ -159,7 +159,7 @@ describe('P2 evergreen help',()=>{
     for(const locale of locales)for(const kind of helpKinds){
       const slug=helpPath(locale,kind).split('/')[2],metadata=documentMetadata(locale,slug);
       expect(metadata.robots).toBeUndefined();expect(metadata.alternates?.canonical).toBe(helpPath(locale,kind));
-      expect(metadata.alternates?.languages).toEqual({'pt-BR':helpPath('br',kind),'es-MX':helpPath('mx',kind),en:helpPath('en',kind),'x-default':helpPath('en',kind)});
+      expect(metadata.alternates?.languages).toEqual({'pt-BR':helpPath('br',kind),'es-MX':helpPath('mx',kind),'es-CO':helpPath('co',kind),'es-PE':helpPath('pe',kind),en:helpPath('en',kind),'x-default':helpPath('en',kind)});
       expect((metadata.openGraph as {type:string}).type).toBe('article');
       for(const target of locales)expect(translatedPath(helpPath(locale,kind),target)).toBe(helpPath(target,kind));
       const text=JSON.stringify(helpContent[locale][kind]);

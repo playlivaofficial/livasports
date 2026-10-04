@@ -1,5 +1,6 @@
 import {describe,it,expect,vi} from 'vitest';
 vi.mock('server-only',()=>({}));
+import {scoreFixture} from '@/growth/scoring';
 import {testSignals,testNow} from '@/growth/fixtures.test-support';
 import {seoOpportunityScore,seoPublishGate,seoInternalLinkEngine,cleanCanonical,contentHash,feedbackDecision,type PublishEvidence,type OpportunityEvidence} from './policy';
 import {inspectSeoHtml} from './crawl';
@@ -8,7 +9,7 @@ import {sitemapEntriesXml} from '@/sports/sitemap';
 const evidence:OpportunityEvidence={brazil:true,impressions:100,clicks:2,queryImpressions:0,relatedImpressions:200,uniqueSignals:['fixture','venue','form'],fresh:true,shortlisted:true,inboundSources:3,clusterBoost:0};
 const valid:PublishEvidence={score:80,uniqueSignals:3,fresh:true,quality:true,duplicateRisk:'LOW',canonicalValid:true,urlValid:true,httpStatus:200,indexFollow:true,internalLinkSources:2,sitemapEligible:true,structuredDataValid:true,localeValid:true,factual:true,placeholders:false,emptyModules:false,serverRendered:true,englishLeak:false};
 describe('SEO opportunity and fail-closed publish policy',()=>{
-  it('qualifies evidenced Brazil fixtures deterministically',()=>{const s=seoOpportunityScore(testSignals(),evidence,testNow);expect(s.tier).toBe('A');expect(s.total).toBeLessThanOrEqual(100);expect(s).toEqual(seoOpportunityScore(testSignals(),evidence,testNow));expect(s.components.some(p=>p.name==='gsc'&&p.points>0)).toBe(true);});
+  it('uses the exact shared GEO growth score deterministically',()=>{const s=seoOpportunityScore(testSignals(),evidence,testNow);expect(s.total).toBe(scoreFixture(testSignals(),testNow,{geo:'ROW',searchStrength:Math.min(1,Math.log2(301)/14)}).total);expect(s.total).toBeLessThanOrEqual(100);expect(s).toEqual(seoOpportunityScore(testSignals(),evidence,testNow));expect(s.components.some(p=>p.name==='search'&&p.points>0)).toBe(true);});
   it('does not promote generic low-priority fixtures merely because they exist',()=>{const f=testSignals({competitionSlug:'unknown',home:{...testSignals().home,slug:'unknown'},away:{...testSignals().away,slug:'other'}});expect(seoOpportunityScore(f,{...evidence,brazil:false,impressions:0,relatedImpressions:0,shortlisted:false,uniqueSignals:[],inboundSources:0},testNow).tier).toBe('C');});
   it('publishes only with every gate passing',()=>expect(seoPublishGate(valid).state).toBe('PUBLISHED'));
   it.each(['fresh','quality','canonicalValid','urlValid','indexFollow','sitemapEligible','structuredDataValid','localeValid','factual','serverRendered'] as const)('fails closed when %s fails',key=>expect(seoPublishGate({...valid,[key]:false}).state).not.toBe('PUBLISHED'));
@@ -30,13 +31,17 @@ describe('feedback and sitemap discipline',()=>{
   it('never resubmits identical sitemap and backs off failures',()=>{expect(shouldSubmitSitemap('a',{submitted_hash:'a'},testNow)).toBe(false);expect(shouldSubmitSitemap('a',{submitted_hash:'b',attempted_at:testNow},testNow)).toBe(false);expect(shouldSubmitSitemap('a',undefined,testNow)).toBe(true);});
   it('hashes actual URL/lastmod content including child documents independent of ordering',()=>{const a='<urlset><url><loc>a</loc><lastmod>2026-09-01</lastmod></url></urlset>',b='<urlset><url><loc>b</loc></url></urlset>';expect(sitemapFingerprint([a,b])).toBe(sitemapFingerprint([b,a]));expect(sitemapFingerprint([a])).not.toBe(sitemapFingerprint([b]));});
   it('omits unverified lastmod instead of using a poll timestamp',()=>{const xml=sitemapEntriesXml('matches',[{publicId:'1111111111111111',name:'A',away:'B',updatedAt:testNow,lastmodVerified:false}]);expect(xml).not.toContain('<lastmod>');});
-  it('does not claim an English or Spanish content update for a PT-BR-only enrichment',()=>{const xml=sitemapEntriesXml('matches',[{publicId:'1111111111111111',name:'A',away:'B',updatedAt:testNow,lastmodVerified:true,lastmodLocales:['br']}]);expect(xml.match(/<lastmod>/g)).toHaveLength(1);expect(xml.match(/<url>/g)).toHaveLength(3);});
+  it('does not claim an English or Spanish content update for a PT-BR-only enrichment',()=>{const xml=sitemapEntriesXml('matches',[{publicId:'1111111111111111',name:'A',away:'B',updatedAt:testNow,lastmodVerified:true,lastmodLocales:['br']}]);expect(xml.match(/<lastmod>/g)).toHaveLength(1);expect(xml.match(/<url>/g)).toHaveLength(5);});
 });
 describe('actual rendered technical audit',()=>{
   const url='https://livasports.com/br/jogo/a-b-1111111111111111';
   it('finds canonical/robots/JSON-LD/empty-H1/primary-content/alternate failures',()=>{const a=inspectSeoHtml(url,200,'<html><head><title>A</title><meta name="robots" content="noindex"><script type="application/ld+json">{bad}</script></head><body></body></html>');for(const code of ['CANONICAL_MISMATCH','ROBOTS_MISMATCH','JSON_LD_PARSE_ERROR','EMPTY_H1','MISSING_PRIMARY_CONTENT','LOCALE_ALTERNATE_MISSING'])expect(a.problems).toContain(code);});
   it('only accepts crawlable HTML anchors in primary content',()=>{const a=inspectSeoHtml(url,200,`<main><a href="/br/time/team-1111111111111111">Team</a><button data-href="/bad">Not a link</button></main>`);expect(a.links).toEqual(['https://livasports.com/br/time/team-1111111111111111']);});
   it('records HTTP errors and redirect chains without following',()=>{expect(inspectSeoHtml(url,308,'').problems).toContain('REDIRECT');expect(inspectSeoHtml(url,500,'').problems).toContain('HTTP_ERROR');});
+  it('does not fail a retained historical locale because aged/noindex sibling alternates are omitted',()=>{
+    const a=inspectSeoHtml(url,200,`<link rel="alternate" hreflang="pt-BR" href="${url}"><main>${'Verified facts '.repeat(20)}</main>`);
+    expect(a.problems).not.toContain('LOCALE_ALTERNATE_MISSING');
+  });
   it('does not confuse an empty Next shell with the populated primary main',()=>{const a=inspectSeoHtml(url,200,`<main></main><main id="match-content"><h1>Match</h1>${'real match facts '.repeat(20)}</main>`);expect(a.problems).not.toContain('MISSING_PRIMARY_CONTENT');});
   it('recognizes real anchors in streamed server fragments, never serialized JS hrefs',()=>{const a=inspectSeoHtml(url,200,'<main></main><div hidden id="S:1"><a href="/br/time/team-1111111111111111">Team</a></div><script>"href=/br/fake"</script>');expect(a.links).toEqual(['https://livasports.com/br/time/team-1111111111111111']);});
 });

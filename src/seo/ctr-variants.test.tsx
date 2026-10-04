@@ -47,7 +47,7 @@ describe('explicit CTR cohort',()=>{
     const source=readFileSync('src/match-center/page.tsx','utf8');
     expect(source).toContain('const canonical = matchPath(locale, header.publicId, header.home.name, header.away.name)');
     expect(source).toContain('alternates: decayed ? { canonical }');
-    expect(source).toContain('languageAlternates(br,mx,interfaceMatchPath');
+    expect(source).toContain('matchLanguageAlternates(header.id,header.status,header.kickoff,br,mx,interfaceMatchPath');
   });
   it('keeps experiment reads behind the existing owner-session guard and exposes no public API',()=>{
     const source=readFileSync('src/app/owner/growth/seo/page.tsx','utf8');

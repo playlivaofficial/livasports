@@ -3,7 +3,7 @@ import Google from 'next-auth/providers/google';
 import Nodemailer from 'next-auth/providers/nodemailer';
 import type {NextAuthConfig,Session} from 'next-auth';
 import nodemailer from 'nodemailer';
-import {pathLocale} from '@/localization/interface';
+import {pathLocale,type InterfaceLocale} from '@/localization/interface';
 import {createAuthAdapter} from './adapter';
 import {authConfigured,authDatabase,emailAuthConfigured,googleAuthConfigured} from './database';
 import {canonicalAuthUrl,googleSignInAllowed,normalizeEmail,MAGIC_LINK_TTL_SECONDS,SESSION_TTL_SECONDS,userSessionCookieName,userSessionCookieOptions} from './identity';
@@ -52,7 +52,7 @@ function buildAuthConfig():NextAuthConfig {
         try{
           const {headers}=await import('next/headers');const h=await headers();
           const {deferServerEvent}=await import('@/analytics/server');
-          const ref=h.get('referer')??'';let locale:'br'|'mx'|'en'='en';try{const seg=new URL(ref).pathname.split('/')[1];if(seg==='br'||seg==='mx'||seg==='en')locale=seg;}catch{/* default locale */}
+          const ref=h.get('referer')??'';let locale:InterfaceLocale='en';try{locale=pathLocale(new URL(ref).pathname)??'en';}catch{/* default locale */}
           await deferServerEvent({name:'sign_in_completed',headers:h,locale,userId:user.id??null,canonicalPath:'/api/auth/callback',props:{method:account?.provider??'unknown'}});
         }catch{/* analytics never affects authentication */}
       },
@@ -74,7 +74,7 @@ function buildAuthConfig():NextAuthConfig {
       },
       async redirect({url,baseUrl}){
         const target=url.startsWith('/')?url:(()=>{try{const parsed=new URL(url);return parsed.origin===new URL(baseUrl).origin?parsed.pathname+parsed.search+parsed.hash: '/';}catch{return '/';}})();
-        const locale=pathLocale(target)==='br'||pathLocale(target)==='mx'||pathLocale(target)==='en'?pathLocale(target)!:'en';
+        const locale=pathLocale(target)??'en';
         return `${baseUrl}${safeAuthPath(target,locale,'home')}`;
       },
     },

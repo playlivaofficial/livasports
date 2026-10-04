@@ -1,32 +1,53 @@
 import 'server-only';
-import type {DatabaseClient} from '@/database/client';
+import {createHash} from 'node:crypto';
+import type {DatabaseClient,QueryExecutor} from '@/database/client';
 import {placements,type Campaign,type Placement} from './types';
 import {campaignDestination,isSponsorPlacement,validCreative} from './policy';
 import {isVisibleBookmaker,type BookmakerId} from '@/odds/registry';
+import type {SiteLocale} from '@/config/i18n';
+import {safeAffiliateDestination,safeOperatorHost} from '@/odds/affiliate';
+import {isCoreGeo} from '@/config/geo';
 export interface CampaignConfiguration {
-  bookmaker:BookmakerId;locale:'br'|'mx';operatorCampaignId:string;destinationUrl:string;destinationType:'HOMEPAGE'|'SPORTSBOOK';
+  bookmaker:BookmakerId;locale:SiteLocale;operatorCampaignId:string;destinationUrl:string;destinationType:'HOMEPAGE'|'SPORTSBOOK';
   enabled:boolean;validFrom:string;validUntil:string;placements:Placement[];domains:string[];approvalReference:string;
   creatives?:Array<{id:string;placement:Placement;imageUrl?:string;imageAlt:string;width:number;height:number;approvalReference:string;delivery?:'IMAGE'|'BETSSON_EMBED';embedSourceUrl?:string}>;
 }
 export function parseCampaignConfiguration(value:unknown):CampaignConfiguration|null{
   if(!value||typeof value!=='object'||Array.isArray(value))return null;const c=value as CampaignConfiguration;
   if(Object.keys(c).some(k=>!['bookmaker','locale','operatorCampaignId','destinationUrl','destinationType','enabled','validFrom','validUntil','placements','domains','approvalReference','creatives'].includes(k))||
-    !isVisibleBookmaker(c.bookmaker)||!['br','mx'].includes(c.locale)||typeof c.enabled!=='boolean'||
+    !isVisibleBookmaker(c.bookmaker)||!['br','mx','co','pe'].includes(c.locale)||typeof c.enabled!=='boolean'||
     typeof c.operatorCampaignId!=='string'||!c.operatorCampaignId.trim()||c.operatorCampaignId.length>160||typeof c.approvalReference!=='string'||!c.approvalReference.trim()||c.approvalReference.length>500||
     !Array.isArray(c.placements)||!c.placements.length||c.placements.length>17||new Set(c.placements).size!==c.placements.length||c.placements.some(p=>!placements.includes(p))||
-    !Array.isArray(c.domains)||!c.domains.length||c.domains.length>8||c.domains.some(d=>typeof d!=='string'||!d.length)||
+    !Array.isArray(c.domains)||!c.domains.length||c.domains.length>8||c.domains.some(d=>typeof d!=='string'||!safeOperatorHost(d))||
     typeof c.validFrom!=='string'||typeof c.validUntil!=='string'||!Number.isFinite(Date.parse(c.validFrom))||!Number.isFinite(Date.parse(c.validUntil))||Date.parse(c.validUntil)<=Date.parse(c.validFrom))return null;
-  const campaign={enabled:true,approved:true,affiliateApproved:true,geoEligible:true,locale:c.locale,bookmaker:c.bookmaker,placements:c.placements,domains:c.domains,
+  const campaign={enabled:true,approved:true,affiliateApproved:true,geoEligible:true,locale:c.locale,bookmaker:c.bookmaker,placements:c.placements,domains:c.domains,operatorDomains:c.domains,
     destination:c.destinationUrl,destinationType:c.destinationType,operatorCampaignId:c.operatorCampaignId,startsAt:c.validFrom,endsAt:c.validUntil} as Campaign;
   if(!campaignDestination(campaign,{locale:c.locale,pagePath:'/'+c.locale,placement:c.placements[0]},Date.parse(c.validFrom)))return null;
   if(c.creatives!==undefined&&(!Array.isArray(c.creatives)||c.creatives.length>17||new Set(c.creatives.map(s=>s?.id)).size!==c.creatives.length||new Set(c.creatives.map(s=>s?.placement)).size!==c.creatives.length||c.creatives.some(s=>!s||Object.keys(s).some(k=>!['id','placement','imageUrl','imageAlt','width','height','approvalReference','delivery','embedSourceUrl'].includes(k))||typeof s.id!=='string'||!/^[-a-zA-Z0-9_]{1,100}$/.test(s.id)||typeof s.imageAlt!=='string'||typeof s.approvalReference!=='string'||!s.approvalReference.trim()||s.approvalReference.length>500||!c.placements.includes(s.placement)||!isSponsorPlacement(s.placement)||s.delivery==='BETSSON_EMBED'&&c.bookmaker!=='betsson'||
     !validCreative({...s,imageUrl:s.imageUrl??null,locale:c.locale,approved:true,enabled:true,startsAt:null,endsAt:null},{locale:c.locale,pagePath:'/'+c.locale,placement:s.placement},Date.now(),c.operatorCampaignId))))return null;
   return c;
 }
-export async function configureCampaign(db:DatabaseClient,c:CampaignConfiguration){if(!parseCampaignConfiguration(c))throw Error('INVALID_APPROVED_CONFIGURATION');return db.transaction(async q=>{
-  const row=(await q.query(`SELECT b.id AS bookmaker_id,c.id AS country_id FROM bookmakers b JOIN bookmaker_geo_availability g ON g.bookmaker_id=b.id JOIN countries c ON c.id=g.country_id
-    WHERE b.provider_slug=$1 AND c.iso2=$2 AND b.affiliate_status='ACTIVE' AND b.enabled AND g.affiliate_enabled AND g.odds_enabled AND g.comparison_enabled AND g.verified_at IS NOT NULL AND g.verification_state IN ($3,'VERIFIED_BR_MX')`,[c.bookmaker,c.locale.toUpperCase(),c.locale==='br'?'VERIFIED_BR':'VERIFIED_MX'])).rows[0];
-  if(!row||c.bookmaker==='betano.bet.br'&&c.locale!=='br')throw Error('EXISTING_COMMERCIAL_APPROVAL_REQUIRED');
+export async function configureCampaign(db:DatabaseClient,c:CampaignConfiguration){return db.transaction(async q=>{
+  const saved=await configureCampaignInTransaction(q,c);
+  // Maintenance edits share the owner's revocation contract, even if the campaign ID is reused.
+  const row=(await q.query(`UPDATE bookmaker_geo_availability g SET commercial_version=commercial_version+1,last_validated_at=now(),updated_at=now()
+    FROM bookmakers b,countries c WHERE g.bookmaker_id=b.id AND g.country_id=c.id AND b.provider_slug=$1 AND c.iso2=$2
+    RETURNING g.bookmaker_id,g.country_id,g.commercial_version`,[c.bookmaker,c.locale.toUpperCase()])).rows[0];
+  if(!row)throw Error('EXISTING_COMMERCIAL_APPROVAL_REQUIRED');
+  await q.query(`INSERT INTO operator_activation_audit(bookmaker_id,country_id,actor_id,action,version,campaign_id,destination_hash,approval_reference)
+    VALUES($1,$2,'trusted-maintenance-cli','RECONFIGURE',$3,$4,$5,$6)`,[row.bookmaker_id,row.country_id,row.commercial_version,saved.campaignId,createHash('sha256').update(c.destinationUrl).digest('hex'),c.approvalReference]);
+  return saved;
+});}
+/** Caller may share a transaction with approval and an audit record. Never trusts request domain lists. */
+export async function configureCampaignInTransaction(q:QueryExecutor,c:CampaignConfiguration){
+  if(!parseCampaignConfiguration(c)||!isCoreGeo(c.locale.toUpperCase()))throw Error('INVALID_APPROVED_CONFIGURATION');
+  const row=(await q.query(`SELECT b.id AS bookmaker_id,c.id AS country_id,g.destination_domains FROM bookmakers b JOIN bookmaker_geo_availability g ON g.bookmaker_id=b.id JOIN countries c ON c.id=g.country_id
+    WHERE b.provider_slug=$1 AND c.iso2=$2 AND b.enabled AND g.commercial_status='ACTIVE' AND g.affiliate_enabled AND g.sportsbook_enabled
+      AND g.legal_status='VERIFIED' AND g.legal_verified_at IS NOT NULL AND NULLIF(trim(g.legal_reference),'') IS NOT NULL
+      AND g.odds_enabled AND g.comparison_enabled AND g.verified_at IS NOT NULL AND g.verification_state IN ('VERIFIED',$3)
+      AND EXISTS(SELECT 1 FROM operator_provider_mappings opm WHERE opm.bookmaker_id=b.id AND opm.country_id=c.id AND opm.verified_at IS NOT NULL)
+    FOR UPDATE OF g`,[c.bookmaker,c.locale.toUpperCase(),`VERIFIED_${c.locale.toUpperCase()}`])).rows[0];
+  if(!row||!safeAffiliateDestination(c.bookmaker,c.locale,c.destinationUrl,row.destination_domains??[])||c.domains.some(d=>!row.destination_domains.includes(d)))throw Error('EXISTING_COMMERCIAL_APPROVAL_REQUIRED');
   const link=(await q.query(`INSERT INTO affiliate_links(bookmaker_id,country_id,destination_url,enabled,approved_at,campaign_verified,approved_placement)
     VALUES($1,$2,$3,true,now(),true,'match-odds') ON CONFLICT(bookmaker_id,country_id) DO UPDATE SET destination_url=excluded.destination_url,enabled=true,approved_at=now(),campaign_verified=true,approved_placement='match-odds',updated_at=now() RETURNING id`,[row.bookmaker_id,row.country_id,c.destinationUrl])).rows[0];
   const campaign=(await q.query(`INSERT INTO affiliate_campaigns(affiliate_link_id,operator_campaign_id,destination_type,enabled,approved_at,approval_reference,valid_from,valid_until,placement_allowlist,operator_domain_allowlist)
@@ -42,4 +63,4 @@ export async function configureCampaign(db:DatabaseClient,c:CampaignConfiguratio
     WHERE profile_sponsor_campaigns.affiliate_campaign_id=excluded.affiliate_campaign_id`,
     [s.id,campaign.id,c.enabled,c.locale,s.placement,c.locale==='br'?'Publicidade':'Publicidad',s.imageUrl??null,s.imageAlt,s.approvalReference,s.width,s.height,c.validFrom,c.validUntil,s.delivery??'IMAGE',s.embedSourceUrl??null]);if(saved.rowCount!==1)throw Error('CREATIVE_BELONGS_TO_ANOTHER_CAMPAIGN');}
   return {campaignId:campaign.id,bookmaker:c.bookmaker,locale:c.locale,enabled:c.enabled,destinationConfigured:true};
-});}
+}

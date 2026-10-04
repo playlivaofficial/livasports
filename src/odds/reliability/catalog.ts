@@ -1,5 +1,5 @@
 import type {QueryExecutor} from '@/database/client';
-import {FOOTBALL_COMPETITION_TARGETS} from '@/config/footballCompetitions';
+import {APPROVED_COMPETITION_TARGETS,isAcquisitionCompetition} from '@/config/footballCompetitions';
 import {TOURNAMENT_IDENTITY_RULES,normalizeName,registryCategoryMatches,resolveCatalogTournaments} from '@/providers/oddspapi/tournament-catalog';
 import type {CatalogMappingState} from './classify';
 
@@ -19,7 +19,7 @@ export function classifyCatalogRows(raw:unknown[]):CatalogRowState[]{
   const resolvedRows=resolveCatalogTournaments(rows);
   const resolved=new Map(resolvedRows.map(t=>[t.id,t.canonical]));
   const idByCanonical=new Map(resolvedRows.map(t=>[t.canonical,t.id]));
-  const registry=FOOTBALL_COMPETITION_TARGETS;
+  const registry=APPROVED_COMPETITION_TARGETS.filter(target=>isAcquisitionCompetition(target.slug));
   const enabled=new Map(registry.map(t=>[t.slug,t.enabled]));
   return rows.map(r=>{
     const id=String(r.tournamentId),slug=String(r.tournamentSlug),category=String(r.categorySlug);
@@ -27,6 +27,7 @@ export function classifyCatalogRows(raw:unknown[]):CatalogRowState[]{
     const mapped=resolved.get(id);
     if(mapped)return {...base,state:'MAPPED' as const,competition:mapped,reason:'Resolved through identity rule or unique registry lookup name'};
     const rule=TOURNAMENT_IDENTITY_RULES.find(x=>x.slug===slug&&x.category===category);
+    if(rule&&!isAcquisitionCompetition(rule.canonical))return {...base,state:'IGNORED_WITH_REASON' as const,competition:rule.canonical,reason:'Historical or child competition is outside the approved standalone acquisition inventory; evidence is retained'};
     if(rule&&enabled.get(rule.canonical)===false)return {...base,state:'DISABLED' as const,competition:rule.canonical,reason:'Registry competition is disabled'};
     if(rule&&idByCanonical.has(rule.canonical)){
       // A second row for an already-resolved competition (split-season phase, legacy name): a real candidate only while it carries fixtures.

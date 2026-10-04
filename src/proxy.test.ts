@@ -7,12 +7,13 @@ import {unstable_doesMiddlewareMatch as unstable_doesProxyMatch} from 'next/expe
 import {config,proxy} from './proxy';
 
 describe('narrow, database-free routing proxy',()=>{
-  it.each(['/','/br/futebol','/mx/futbol','/en/football','/mx/futbol?competition=liga-mx&tab=results'])(
+  it.each(['/','/br/futebol','/mx/futbol','/co/futbol','/pe/futbol','/en/football','/mx/futbol?competition=liga-mx&tab=results'])(
     'handles only root and board query routes: %s',url=>{
       expect(unstable_doesProxyMatch({config,nextConfig:{},url})).toBe(true);
     });
   it.each([
-    '/br','/mx','/en','/br/jogo/home-x-away-0123456789abcdef','/mx/partido/home-x-away-0123456789abcdef',
+    '/br','/mx','/co','/pe','/en','/br/jogo/home-x-away-0123456789abcdef','/mx/partido/home-x-away-0123456789abcdef',
+    ...['co','pe'].flatMap(locale=>['partido','equipo','jugador'].map(entity=>`/${locale}/${entity}/entity-0123456789abcdef`)),
     '/en/match/home-x-away-0123456789abcdef','/br/time/team-0123456789abcdef','/mx/equipo/team-0123456789abcdef',
     '/en/team/team-0123456789abcdef','/br/jogador/name-0123456789abcdef','/mx/jugador/name-0123456789abcdef',
     '/en/player/name-0123456789abcdef','/mx/partido/not-valid','/br/futebol/unknown',
@@ -27,13 +28,13 @@ describe('narrow, database-free routing proxy',()=>{
     expect(source).not.toMatch(/database\/client|PostgresDatabaseClient|\.query\(|@\/providers|parseMatchParam|parseProfileParam/);
   });
   it('does not put canonical entity validation behind a locale-wide streaming boundary',()=>{
-    for(const locale of ['br','mx','en'])expect(existsSync(`src/app/${locale}/loading.tsx`)).toBe(false);
+    for(const locale of ['br','mx','co','pe','en'])expect(existsSync(`src/app/${locale}/loading.tsx`)).toBe(false);
     for(const path of ['br/futebol','mx/futbol','en/football','br/ao-vivo','mx/en-vivo','en/live',
-      'br/jogos/hoje','mx/partidos/hoy','en/matches/today']){
+      'br/jogos/hoje','mx/partidos/hoy','en/matches/today','co/futbol','pe/futbol','co/en-vivo','pe/en-vivo','co/partidos/hoy','pe/partidos/hoy']){
       expect(existsSync(`src/app/${path}/loading.tsx`)).toBe(true);
     }
   });
-  it.each(['/br/futebol','/mx/futbol','/en/football'])('rejects an unknown competition before streaming: %s',async path=>{
+  it.each(['/br/futebol','/mx/futbol','/co/futbol','/pe/futbol','/en/football'])('rejects an unknown competition before streaming: %s',async path=>{
     const response=await proxy(new NextRequest(`https://livasports.com${path}?competition=not-a-covered-competition`));
     expect(response.status).toBe(404);expect(await response.text()).toContain('noindex');
     expect(response.headers.has('set-cookie')).toBe(false);

@@ -1,4 +1,4 @@
-import type {InterfaceLocale} from './interface';
+import {withSpanishLocales} from './spanish';
 import type {LegalKind} from './legal-routes';
 type Article={title:string;intro:string;sections:{title:string;body:string}[]};
 export const legalReviewedAt='2026-09-16';
@@ -7,7 +7,7 @@ export const officialSafetySources={
   exclusion:'https://www.gov.br/fazenda/pt-br/composicao/orgaos/secretaria-de-premios-e-apostas/autoexclusao',
   rules:'https://www.gov.br/fazenda/pt-br/assuntos/noticias/2026/julho/ministerio-da-fazenda-amplia-exigencias-de-publicidade-de-apostas-no-pais',
 };
-export const legalContent:Record<InterfaceLocale,Record<LegalKind,Article>>={
+const baseLegalContent:Record<'br'|'mx'|'en',Record<LegalKind,Article>>={
  br:{
   responsible:{title:'Jogo responsável',intro:'18+ · Apostar envolve risco de perda financeira e dependência. Você não precisa apostar para acompanhar o futebol.',sections:[
    {title:'Sua saúde vem primeiro',body:'Se apostar está afetando seu dinheiro, suas relações ou seu bem-estar, interrompa a atividade e procure apoio. No Brasil, uma Unidade Básica de Saúde (UBS) ou um Centro de Atenção Psicossocial (CAPS) pode orientar você.'},
@@ -36,10 +36,10 @@ export const legalContent:Record<InterfaceLocale,Record<LegalKind,Article>>={
  },
  mx:{
   responsible:{title:'Juego responsable',intro:'18+ · Apostar implica riesgo de pérdidas económicas y dependencia. No necesitas apostar para seguir el fútbol.',sections:[
-   {title:'Tu salud es lo primero',body:'Si las apuestas afectan tu dinero, tus relaciones o tu bienestar, interrumpe la actividad y busca apoyo profesional en tu localidad. Los recursos brasileños enlazados aquí están dirigidos a personas en Brasil.'},
-   {title:'Autoexclusión en Brasil',body:'La plataforma oficial del Ministerio de Hacienda de Brasil permite solicitar el bloqueo de acceso a las plataformas autorizadas cubiertas por el sistema. La solicitud se realiza directamente en el servicio público. LivaSports no recibe documentos ni tramita solicitudes en tu nombre.'},
+   {title:'Tu salud es lo primero',body:'Si las apuestas afectan tu dinero, tus relaciones o tu bienestar, interrumpe la actividad y busca apoyo profesional en tu localidad.'},
+   {title:'Control y apoyo',body:'Consulta las herramientas de límites, pausas y autoexclusión del servicio que utilices. Si necesitas ayuda, contacta con servicios de salud de tu localidad. LivaSports no recibe documentos ni tramita solicitudes en tu nombre.'},
    {title:'La información no es una promesa',body:'Los marcadores, las estadísticas y los resultados anteriores no garantizan resultados futuros. Las apuestas no son una fuente de ingresos ni una inversión. No uses dinero para gastos esenciales ni intentes recuperar pérdidas apostando más.'},
-   {title:'Protección de menores',body:'Las apuestas no son para menores de 18 años. Consultar información deportiva no autoriza a participar en apuestas. Si estás fuera de Brasil, acude a los servicios de salud y apoyo de tu región.'},
+   {title:'Protección de menores',body:'Las apuestas no son para menores de 18 años. Consultar información deportiva no autoriza a participar en apuestas. Acude a los servicios de salud y apoyo de tu región.'},
   ]},
   disclosure:{title:'Divulgación de afiliados',intro:'LivaSports publica información deportiva y comparaciones y puede recibir remuneración por publicidad o enlaces de afiliados.',sections:[
    {title:'Relación comercial',body:'Cuando hay contenido comercial disponible, se identifica como Publicidad o Patrocinado. Una relación de afiliación puede generar remuneración para LivaSports según el contrato correspondiente. La presencia de una marca no es una recomendación para apostar.'},
@@ -87,4 +87,7 @@ export const legalContent:Record<InterfaceLocale,Record<LegalKind,Article>>={
   ]},
  },
 };
-export const safetyCopy={br:{warning:'Ministério da Fazenda adverte: Apostar pode causar dependência',footer:'Informação esportiva, comparação e divulgação de afiliados. A LivaSports não aceita apostas, não mantém depósitos de apostas e não processa apostas.',sources:'Recursos oficiais do Brasil',health:'Prevenção e apoio à saúde',exclusion:'Autoexclusão oficial',rules:'Regras de publicidade no Brasil',reviewed:'Atualizado em',navigation:'Informações e políticas'},mx:{warning:'Apostar puede causar dependencia y pérdidas económicas.',footer:'Información deportiva, comparación y divulgación de afiliados. LivaSports no acepta apuestas, no mantiene depósitos para apostar y no procesa apuestas.',sources:'Recursos oficiales de Brasil',health:'Prevención y apoyo a la salud',exclusion:'Autoexclusión oficial en Brasil',rules:'Reglas de publicidad de Brasil',reviewed:'Actualizado el',navigation:'Información y políticas'},en:{warning:'Gambling can cause addiction and financial loss.',footer:'Sports information, comparison and affiliate publishing. LivaSports does not accept bets, hold betting deposits or process wagers.',sources:'Official resources in Brazil',health:'Prevention and health support',exclusion:'Official Brazilian self-exclusion',rules:'Brazilian advertising rules',reviewed:'Updated',navigation:'Information and policies'}};
+const baseSafetyCopy={br:{warning:'Ministério da Fazenda adverte: Apostar pode causar dependência',footer:'Informação esportiva, comparação e divulgação de afiliados. A LivaSports não aceita apostas, não mantém depósitos de apostas e não processa apostas.',sources:'Recursos oficiais do Brasil',health:'Prevenção e apoio à saúde',exclusion:'Autoexclusão oficial',rules:'Regras de publicidade no Brasil',reviewed:'Atualizado em',navigation:'Informações e políticas'},mx:{warning:'Apostar puede causar dependencia y pérdidas económicas.',footer:'Información deportiva, comparación y divulgación de afiliados. LivaSports no acepta apuestas, no mantiene depósitos para apostar y no procesa apuestas.',sources:'Recursos oficiales de Brasil',health:'Prevención y apoyo a la salud',exclusion:'Autoexclusión oficial en Brasil',rules:'Reglas de publicidad de Brasil',reviewed:'Actualizado el',navigation:'Información y políticas'},en:{warning:'Gambling can cause addiction and financial loss.',footer:'Sports information, comparison and affiliate publishing. LivaSports does not accept bets, hold betting deposits or process wagers.',sources:'Official resources in Brazil',health:'Prevention and health support',exclusion:'Official Brazilian self-exclusion',rules:'Brazilian advertising rules',reviewed:'Updated',navigation:'Information and policies'}};
+
+export const legalContent=withSpanishLocales(baseLegalContent);
+export const safetyCopy=withSpanishLocales(baseSafetyCopy);

@@ -8,6 +8,8 @@ import {readFourSourceHealth,type FourSourceHealth} from '../four-source-health'
 import {readNativeCoverage} from '../native-coverage';
 import {readContinuity} from '../continuity';
 import {dataPlaneTargets,type DataTarget} from './data-plane';
+import {readGeoCoverageInputs,readGeoQuoteAges,type GeoCoverageInput} from '../geo-coverage';
+import {CORE_GEOS,type CoreGeo} from '@/config/geo';
 
 export interface IncidentRecord {
   id:string;competition:string;classification:string;severity:'WARNING'|'CRITICAL';state:'OPEN'|'ACKNOWLEDGED'|'RESOLVED';
@@ -20,6 +22,7 @@ export interface RecoveryActionRecord {
 }
 export interface CompetitionReliability extends CompetitionHealth {windows:Record<CoverageWindow,CoverageWindowReport>;feeds:FeedEvidence[];baseline:CompetitionBaseline|null;}
 export interface ReliabilityHealth {
+  geoPools?:Array<{geo:CoreGeo;verifiedFeeds:number;fixtures:number;pricedFixtures:number}>;
   dataPlane?:{state:string;targets:DataTarget[];maxOverdueMinutes:number;providerRequests:0};
   controlPlane?:{state:string;lastInvocationAt:string|null};
   continuity?:Awaited<ReturnType<typeof readContinuity>>;
@@ -44,15 +47,15 @@ export interface ReliabilityHealth {
 const iso=(v:unknown)=>v instanceof Date?v.toISOString():typeof v==='string'?new Date(v).toISOString():null;
 const optional=async(work:()=>Promise<{rows:Record<string,unknown>[]}>):Promise<{rows:Record<string,unknown>[]}>=>{try{return await work();}catch{return {rows:[]};}};
 
-export async function readReliabilityHealth(db:QueryExecutor,now=new Date(),options:{automationEnabled?:boolean;emailConfigured?:boolean}={}):Promise<ReliabilityHealth>{
+export async function readReliabilityHealth(db:QueryExecutor,now=new Date(),options:{automationEnabled?:boolean;emailConfigured?:boolean;legacyBR?:boolean}={}):Promise<ReliabilityHealth>{
   const automationEnabled=options.automationEnabled??process.env.ODDS_AUTOMATION_ENABLED==='true';
   const [inputs,targets,snapshots,requests,ages,baselines,catalogRows,incidents,recovery,status,lastRequest,budget,lastJob]=await Promise.all([
-    readCoverageInputs(db),
+    options.legacyBR?readCoverageInputs(db):readGeoCoverageInputs(db,now),
     db.query('SELECT * FROM odds_refresh_targets'),
     // Latest applied snapshot per feed: what the provider actually returned, with near-term (3d) fixture/quote counts for that tournament.
-    db.query(`WITH latest AS (SELECT DISTINCT ON (s.bookmaker,t.id) s.bookmaker,t.id AS tournament_id,s.observed_at,s.payload FROM odds_sync_snapshots s
+    db.query(`WITH latest AS (SELECT DISTINCT ON (COALESCE(s.payload->>'providerBookmakerId',s.bookmaker),t.id) COALESCE(s.payload->>'providerBookmakerId',s.bookmaker) AS bookmaker,t.id AS tournament_id,s.observed_at,s.payload FROM odds_sync_snapshots s
         CROSS JOIN LATERAL jsonb_array_elements_text(s.payload->'tournamentIds') t(id) WHERE s.applied_at IS NOT NULL AND s.observed_at>now()-interval '3 days'
-        ORDER BY s.bookmaker,t.id,s.observed_at DESC),
+        ORDER BY COALESCE(s.payload->>'providerBookmakerId',s.bookmaker),t.id,s.observed_at DESC),
       near AS (SELECT l.bookmaker,l.tournament_id,f->>'providerId' AS provider_fixture_id FROM latest l CROSS JOIN LATERAL jsonb_array_elements(l.payload->'fixtures') f
         WHERE f->>'providerCompetitionId'=l.tournament_id AND (f->>'kickoff')::timestamptz BETWEEN now() AND now()+interval '3 days')
       SELECT l.bookmaker,l.tournament_id,l.observed_at,
@@ -65,15 +68,15 @@ export async function readReliabilityHealth(db:QueryExecutor,now=new Date(),opti
     db.query(`SELECT DISTINCT ON (safe_query->>'bookmaker',t.id) safe_query->>'bookmaker' AS bookmaker,t.id AS tournament_id,started_at,outcome,http_status
       FROM odds_provider_requests r CROSS JOIN LATERAL unnest(string_to_array(r.safe_query->>'tournamentIds',',')) t(id)
       WHERE r.endpoint='/v4/odds-by-tournaments' AND r.started_at>now()-interval '2 days' ORDER BY safe_query->>'bookmaker',t.id,started_at DESC`),
-    db.query(`SELECT c.slug AS competition,
+    options.legacyBR?db.query(`SELECT c.slug AS competition,
         percentile_cont(0.5) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM (now()-o.observed_at))/60) FILTER (WHERE o.observed_at+(o.freshness_ttl_minutes*interval '1 minute')>now()) AS p50,
         percentile_cont(0.95) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM (now()-o.observed_at))/60) FILTER (WHERE o.observed_at+(o.freshness_ttl_minutes*interval '1 minute')>now()) AS p95,
         max(EXTRACT(EPOCH FROM (now()-o.observed_at))/60) FILTER (WHERE o.observed_at+(o.freshness_ttl_minutes*interval '1 minute')>now()) AS oldest,
         count(*) FILTER (WHERE o.observed_at+(o.freshness_ttl_minutes*interval '1 minute')>now())::int AS current_quotes,
         count(*) FILTER (WHERE o.observed_at+(o.freshness_ttl_minutes*interval '1 minute')>now() AND EXTRACT(EPOCH FROM (now()-o.observed_at))/60>=o.freshness_ttl_minutes*0.85)::int AS stale_quotes,
         count(*) FILTER (WHERE o.observed_at+(o.freshness_ttl_minutes*interval '1 minute')<=now())::int AS expired_quotes
-      FROM odds_current o JOIN fixtures f ON f.id=o.fixture_id JOIN competitions c ON c.id=f.competition_id
-      WHERE o.status='ACTIVE' AND o.phase='PREGAME' AND o.freshness_ttl_minutes>0 AND f.status='SCHEDULED' AND f.kickoff>now() AND f.kickoff<=now()+interval '7 days' GROUP BY c.slug`),
+      FROM ${options.legacyBR?'odds_current':'odds_geo_current'} o JOIN fixtures f ON f.id=o.fixture_id JOIN competitions c ON c.id=f.competition_id
+      WHERE o.status='ACTIVE' AND o.phase='PREGAME' AND o.freshness_ttl_minutes>0 AND f.status='SCHEDULED' AND f.kickoff>now() AND f.kickoff<=now()+interval '7 days' GROUP BY c.slug`):readGeoQuoteAges(db,now),
     optional(()=>db.query(`SELECT DISTINCT ON (competition) competition,evaluated_at,fixtures_7d,any_7d,betano_7d,betsson_7d,proxy_7d FROM odds_health_rollups
       WHERE evaluated_at BETWEEN now()-interval '28 hours' AND now()-interval '20 hours' ORDER BY competition,evaluated_at DESC`)),
     optional(()=>db.query(`SELECT * FROM odds_catalog_rows ORDER BY mapping_state,category_slug,tournament_slug`)),
@@ -105,9 +108,10 @@ export async function readReliabilityHealth(db:QueryExecutor,now=new Date(),opti
   const competitions:CompetitionReliability[]=inputs.map((input:CompetitionCoverageInput)=>{
     const a=ages.rows.find(r=>r.competition===input.competition);
     const b=baselines.rows.find(r=>r.competition===input.competition);
-    const reliabilityInput:ReliabilityInput={...input,feeds:input.tournamentId?feedsByTournament.get(input.tournamentId)??[]:[],
+    const allowed=options.legacyBR?null:(input as GeoCoverageInput).operatorFeeds;
+    const reliabilityInput:ReliabilityInput={...input,feeds:input.tournamentId?(feedsByTournament.get(input.tournamentId)??[]).filter(f=>!allowed||allowed.includes(f.bookmaker)):[],
       baseline:b?{evaluatedAt:iso(b.evaluated_at)!,fixtures7d:Number(b.fixtures_7d),any7d:Number(b.any_7d),betano7d:Number(b.betano_7d),betsson7d:Number(b.betsson_7d),proxy7d:Number(b.proxy_7d)}:null,
-      catalogState:catalogState(input.competition,input.tournamentId),
+      catalogState:catalogState(options.legacyBR?input.competition:(input as GeoCoverageInput).canonicalCompetition,input.tournamentId),
       quoteAges:{p50Minutes:a?.p50===null||a===undefined?null:Math.round(Number(a.p50)),p95Minutes:a?.p95===null||a===undefined?null:Math.round(Number(a.p95)),oldestMinutes:a?.oldest===null||a===undefined?null:Math.round(Number(a.oldest)),
         currentQuotes:Number(a?.current_quotes??0),staleQuotes:Number(a?.stale_quotes??0),expiredQuotes:Number(a?.expired_quotes??0)}};
     const health=classifyCompetition(reliabilityInput,now);
@@ -127,15 +131,22 @@ export async function readReliabilityHealth(db:QueryExecutor,now=new Date(),opti
   const quoteAges:QuoteAges={p50Minutes:allAges.length?Math.round(allAges.reduce((n,r)=>n+Number(r.p50??0),0)/allAges.length):null,
     p95Minutes:allAges.length?Math.round(Math.max(...allAges.map(r=>Number(r.p95??0)))):null,oldestMinutes:allAges.length?Math.round(Math.max(...allAges.map(r=>Number(r.oldest??0)))):null,
     currentQuotes:allAges.reduce((n,r)=>n+Number(r.current_quotes),0),staleQuotes:allAges.reduce((n,r)=>n+Number(r.stale_quotes),0),expiredQuotes:allAges.reduce((n,r)=>n+Number(r.expired_quotes),0)};
-  const fourSource=await readFourSourceHealth(db,now);
+  const geoPools=options.legacyBR?undefined:CORE_GEOS.map(geo=>{
+    const rows=(inputs as GeoCoverageInput[]).filter(c=>c.geo===geo);
+    return {geo,verifiedFeeds:new Set(rows.flatMap(c=>c.operatorFeeds)).size,fixtures:rows.reduce((n,c)=>n+c.windows['7d'].fixtures,0),pricedFixtures:rows.reduce((n,c)=>n+c.windows['7d'].anyOdds,0)};
+  });
+  const missingPools=geoPools?.filter(p=>!p.verifiedFeeds)??[];
+  if(missingPools.length)global.push({classification:'MAPPING_FAILED',severity:'CRITICAL',evidence:`No legally and technically verified operator feed for ${missingPools.map(p=>p.geo).join(', ')}; odds remain disabled, no cross-country fallback`,affectedFixtures:missingPools.reduce((n,p)=>n+p.fixtures,0)});
+  const fourSource=options.legacyBR?await readFourSourceHealth(db,now):undefined;
   let nativeCoverage:ReliabilityHealth['nativeCoverage'];let nativeCoverageError:string|undefined;
-  try{nativeCoverage=await readNativeCoverage(db,now,budget.verified!==true||('governor' in budget&&budget.governor.routineHeadroom<=0));}catch{nativeCoverageError='NATIVE_COVERAGE_UNAVAILABLE';}
+  if(options.legacyBR)try{nativeCoverage=await readNativeCoverage(db,now,budget.verified!==true||('governor' in budget&&budget.governor.routineHeadroom<=0));}catch{nativeCoverageError='NATIVE_COVERAGE_UNAVAILABLE';}
   if(nativeCoverageError)global.push({classification:'NORMALIZATION_REJECTED',severity:'WARNING',evidence:nativeCoverageError,affectedFixtures:0});
   if(nativeCoverage&&(nativeCoverage.pipelineLoss||nativeCoverage.counts.UNKNOWN_PIPELINE_DEFECT))global.push({classification:'NORMALIZATION_REJECTED',severity:'CRITICAL',evidence:`Native quote pipeline loss: ${nativeCoverage.pipelineLoss}; unexplained gaps: ${nativeCoverage.counts.UNKNOWN_PIPELINE_DEFECT}`,affectedFixtures:nativeCoverage.fixtures});
   if(nativeCoverage?.regressions.length)global.push({classification:'PROXY_DOMINANT',severity:'WARNING',evidence:`Rolling native coverage regression: ${nativeCoverage.regressions.map(r=>r.key).join(', ')}`,affectedFixtures:nativeCoverage.fixtures});
-  if(fourSource.windows['7d'].degraded)global.push({classification:'PROXY_DOMINANT',severity:'WARNING',evidence:'Visible REAL feed coverage is degraded; hidden insurance must not mask it',affectedFixtures:fourSource.windows['7d'].fixtures});
-  const dataTargets=dataPlaneTargets(inputs.map(c=>({competition:c.competition,tournamentId:c.tournamentId,nearestKickoff:c.nearestKickoff,fixtures7d:c.windows['7d'].fixtures})),targets.rows.map(r=>({...r,bookmaker:String(r.bookmaker),tournament_id:String(r.tournament_id)})),nativeCoverage?.cells??[],now,
-    budget.verified!==true||('governor' in budget&&budget.governor.routineHeadroom<=0));
+  if(fourSource?.windows['7d'].degraded)global.push({classification:'PROXY_DOMINANT',severity:'WARNING',evidence:'Visible REAL feed coverage is degraded; hidden insurance must not mask it',affectedFixtures:fourSource.windows['7d'].fixtures});
+  const dataTargets=inputs.flatMap(c=>dataPlaneTargets([{competition:c.competition,tournamentId:c.tournamentId,nearestKickoff:c.nearestKickoff,fixtures7d:c.windows['7d'].fixtures}],targets.rows.map(r=>({...r,bookmaker:String(r.bookmaker),tournament_id:String(r.tournament_id)})),
+    options.legacyBR?nativeCoverage?.cells??[]:Object.entries((c as GeoCoverageInput).nativeCounts).map(([bookmaker,count])=>({competition:c.competition,bookmaker,kind:'REAL',count})),now,
+    budget.verified!==true||('governor' in budget&&budget.governor.routineHeadroom<=0),options.legacyBR?undefined:(c as GeoCoverageInput).operatorFeeds));
   for(const c of competitions){
     for(const t of dataTargets.filter(t=>t.competition===c.competition&&!t.hiddenInsurance&&t.fixtures>0)){
       const classification=t.state==='REFRESH_OVERDUE'?'REFRESH_NOT_EXECUTED':t.state==='MAPPING_DEGRADED'?'MAPPING_FAILED':t.state==='BUDGET_DEFERRED'?'BUDGET_STOPPED':
@@ -153,15 +164,15 @@ export async function readReliabilityHealth(db:QueryExecutor,now=new Date(),opti
     horizons[window].criticalCompetitions=active.filter(c=>['CRITICAL','UNMAPPED'].includes(c.health)).map(c=>c.competition);
     horizons[window].degradedCompetitions=active.filter(c=>['DEGRADED','UNKNOWN'].includes(c.health)).map(c=>c.competition);
   }
-  const dataState=publicTargets.some(t=>!['HEALTHY','RECOVERING'].includes(t.state))||fourSource.windows['7d'].degraded?'DEGRADED':nativeCoverageError?'UNKNOWN':'HEALTHY';
+  const dataState=missingPools.length||publicTargets.some(t=>!['HEALTHY','RECOVERING'].includes(t.state))||fourSource?.windows['7d'].degraded?'DEGRADED':nativeCoverageError?'UNKNOWN':'HEALTHY';
   const overall=worstHealth([...competitions.map(c=>c.health),dataState==='DEGRADED'?'DEGRADED':dataState==='UNKNOWN'?'UNKNOWN':'HEALTHY',...global.map(g=>g.severity==='CRITICAL'?'CRITICAL' as const:'DEGRADED' as const)]);
-  const continuity=await readContinuity(db);
-  const platformHealth=dataTargets.some(t=>t.fixtures>0&&t.responsibility==='LIVASPORTS')||nativeCoverageError||nativeCoverage?.pipelineLoss||nativeCoverage?.counts.UNKNOWN_PIPELINE_DEFECT||nativeCoverage?.unresolvedInWindow||
+  const continuity=options.legacyBR?await readContinuity(db):undefined;
+  const platformHealth=missingPools.length||dataTargets.some(t=>t.fixtures>0&&t.responsibility==='LIVASPORTS')||nativeCoverageError||nativeCoverage?.pipelineLoss||nativeCoverage?.counts.UNKNOWN_PIPELINE_DEFECT||nativeCoverage?.unresolvedInWindow||
     nativeCoverage?.delayCounts.EXPIRY_REFRESH_MISSED||global.some(g=>g.classification==='SCHEDULER_STALLED')?'DEGRADED':
     nativeCoverage?.counts.STALE_OR_EXPIRED||nativeCoverage?.counts.QUOTA_OR_BACKOFF_DELAY?'CONSTRAINED':'HEALTHY';
-  return {dataPlane:{state:dataState,targets:dataTargets,maxOverdueMinutes:Math.max(0,...dataTargets.map(t=>t.overdueMinutes)),providerRequests:0},
+  return {geoPools,dataPlane:{state:dataState,targets:dataTargets,maxOverdueMinutes:Math.max(0,...dataTargets.map(t=>t.overdueMinutes)),providerRequests:0},
     controlPlane:{state:String(lastJob.rows[0]?.result?.controlPlaneState??row?.state??'UNKNOWN'),lastInvocationAt:iso(row?.last_automatic_invocation_at)},
-    continuity,platformHealth,upstreamCoverageHealth:nativeCoverage?.counts.PROVIDER_GAP?'LIMITED':'AVAILABLE',nativeCoverage,nativeCoverageError,fourSource,version:HEALTH_CONTRACT_VERSION,generatedAt:now.toISOString(),overall:overall==='IDLE'&&competitions.length?'HEALTHY':overall,counts,horizons,
+    continuity,platformHealth,upstreamCoverageHealth:missingPools.length?'UNVERIFIED':nativeCoverage?.counts.PROVIDER_GAP||competitions.some(c=>c.primary==='PROVIDER_NOT_OFFERED')?'LIMITED':competitions.some(c=>c.primary==='UNKNOWN'||c.primary==='PROVIDER_TIMEOUT')?'UNKNOWN':'AVAILABLE',nativeCoverage,nativeCoverageError,fourSource,version:HEALTH_CONTRACT_VERSION,generatedAt:now.toISOString(),overall:overall==='IDLE'&&competitions.length?'HEALTHY':overall,counts,horizons,
     bookmakers:{betanoRealPct:seven.betanoRealPct,betssonRealPct:seven.betssonRealPct,bothRealPct:seven.fixtures?Math.round(seven.bothReal/seven.fixtures*1000)/10:0,proxyPct:seven.proxyPct,neitherPct:seven.neitherPct,stalePct:seven.stalePct,window:'7d'},
     quoteAges,competitions,global,
     scheduler:{state:String(row?.state??'READY'),lastAutomaticInvocationAt:iso(row?.last_automatic_invocation_at),lastSuccessfulRefreshAt:iso(row?.last_refresh_at),nextDueAt:iso(row?.next_due_at),automationEnabled,lastError:row?.last_error?String(row.last_error):null,

@@ -19,7 +19,7 @@ import {isVisibleBookmaker} from '@/odds/registry';
 import {deviceClass,revenueContext} from './attribution';
 export const commercialHeaders={'Cache-Control':'private, no-store','X-Robots-Tag':'noindex, nofollow','Referrer-Policy':'no-referrer','Vary':'Cookie'};
 type Deferred=(work:()=>Promise<void>)=>void;
-export interface CommercialServices {deps:OfferDependencies;key:string|null;geo:(request:Request,locale:'br'|'mx')=>boolean;defer:Deferred;
+export interface CommercialServices {deps:OfferDependencies;key:string|null;geo:(request:Request,locale:CommercialContext['locale'])=>boolean;defer:Deferred;
   click:(offer:VerifiedOffer,view:string,traffic:TrafficClass,key:string,activation?:'ISSUED_303'|'EMBED_ACTIVATION')=>Promise<unknown>;impression:(offer:VerifiedOffer,view:string,traffic:TrafficClass)=>Promise<unknown>;}
 function services():CommercialServices{return {deps:runtimeDependencies(),key:signingKey(),geo:geoAllowed,defer:after,
   click:(o,v,t,k,a)=>recordClick(affiliateDatabase(),o,v,t,k,Date.now(),a),impression:(o,v,t)=>recordImpression(affiliateDatabase(),o,v,t)};}
@@ -76,7 +76,7 @@ export async function creativeRequest(request:Request,provided?:CommercialServic
   if(!analyticsAllowed(request,mode==='consent'?'anonymous':mode))return response(404);
   try{const s=provided??services();if(!s.key)return response(404);const token=verifyOffer(q.get('offer'),s.key);
     if(!token?.embedPermission||mode==='consent'&&token.embedPermission!=='consent'||!tokenAllowed(request,token,s))return response(404);
-    const offer=await resolveOffer(token.context,s.deps,Date.now(),token.campaignId),c=offer?.creative;
+    const offer=await resolveOffer(token.context,s.deps,Date.now(),token.campaignId,token.campaignVersion),c=offer?.creative;
     if(!offer||c?.delivery!=='BETSSON_EMBED'||!safeBetssonEmbed(c.embedSourceUrl,offer.campaign.operatorCampaignId))return response(404);
     if(qaRequest(request,token))return await qaCreativeDocument(c,offer.campaign.operatorCampaignId,new URL(request.url).origin,q.get('offer')!.slice(-43));
     return embedDocument(c,new URL(request.url).origin,q.get('offer')!.slice(-43));
@@ -91,7 +91,7 @@ export async function embedClickRequest(request:Request,body:Record<string,unkno
     // Owner-preview Betsson creatives navigate through the signed outbound route.
     // That route alone records the click, including for an older mounted creative.
     if(token.context.bookmaker==='betsson'&&qaRequest(request,token))return response(204);
-    const offer=await resolveOffer(token.context,s.deps,Date.now(),token.campaignId);if(offer?.creative?.delivery!=='BETSSON_EMBED')return response(204);
+    const offer=await resolveOffer(token.context,s.deps,Date.now(),token.campaignId,token.campaignVersion);if(offer?.creative?.delivery!=='BETSSON_EMBED')return response(204);
     const traffic=qaRequest(request,token)||body.qa||request.headers.get('x-livasports-qa')==='1'?'QA_TEST':'HUMAN_CLICK';
     deferred(s,async()=>{const clickId=await s.click(offer,token.viewId,traffic,s.key!,'EMBED_ACTIVATION');await recordOutcome(request,offer,clickId,traffic,true);});
     return response(204);
@@ -108,7 +108,7 @@ export async function outboundRequest(request:Request,bookmaker:string,placement
   try{const s=provided??services();if(!s.key)return response(404);const token=verifyOffer(url.searchParams.get('offer'),s.key,Date.now(),true);
     if(!token||token.context.bookmaker!==bookmaker||token.context.placement!==placement)return response(400);
     if(token.expiresAt<=Date.now()||!tokenAllowed(request,token,s))return decline(request,token.context);
-    const offer=await resolveOffer(token.context,s.deps,Date.now(),token.campaignId);if(!offer)return decline(request,token.context);
+    const offer=await resolveOffer(token.context,s.deps,Date.now(),token.campaignId,token.campaignVersion);if(!offer)return decline(request,token.context);
     const destination=campaignDestination(offer.campaign,offer.context,Date.now());if(!destination)return response(404);
     const traffic=trafficClass(request,true,qaRequest(request,token)||url.searchParams.get('qa')==='1');
     // One deferred task: the click ledger (commercial source of truth) followed by the P4 server-authoritative funnel event. Both honour DNT/GPC.
@@ -130,7 +130,7 @@ export async function impressionRequest(request:Request,body:Record<string,unkno
   try{const s=provided??services();if(!s.key)return response(204);const token=verifyOffer(body.offer,s.key);if(!token)return response(400);
     if(!tokenAllowed(request,token,s))return response(204);
     // A signed rendered offer is still revalidated; stale/disabled/off-GEO never counts.
-    const offer=await resolveOffer(token.context,s.deps,Date.now(),token.campaignId);if(!offer)return response(204);
+    const offer=await resolveOffer(token.context,s.deps,Date.now(),token.campaignId,token.campaignVersion);if(!offer)return response(204);
     if(request.headers.get('purpose')||request.headers.get('sec-purpose')||/bot|crawler|spider/i.test(request.headers.get('user-agent')??''))return response(204);
     const traffic=qaRequest(request,token)||body.qa||request.headers.get('x-livasports-qa')==='1'?'QA_TEST':request.headers.get('sec-fetch-site')==='same-origin'?'HUMAN_VIEW':'UNKNOWN';
     if(traffic!=='UNKNOWN')deferred(s,()=>s.impression(offer,token.viewId,traffic));return response(204);

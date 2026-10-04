@@ -13,7 +13,9 @@ import {TeamIdentity,ScoreDisplay} from './FixtureCard';
 import {OddsComparison} from './OddsComparison';
 import {SiteHeader} from './SiteHeader';
 import {boardDate,boardView,boardSort,hasPregameOddsLayout,matchesView,type BoardQuery,type BoardView} from './board-policy';
-import {FOOTBALL_COMPETITION_TARGETS} from '@/config/footballCompetitions';
+import {CANONICAL_COMPETITION_TARGETS as FOOTBALL_COMPETITION_TARGETS} from '@/config/footballCompetitions';
+import {withSpanishLocales} from '@/localization/spanish';
+import {isSpanishLocale} from '@/config/geo';
 import {CompetitionPanel} from '@/sports/CompetitionPanel';
 import {SportsSearch} from '@/sports/Search';
 import {loadCompetition,loadCompetitionNav,loadSportsCalendar,loadRedCards} from '@/sports/runtime';
@@ -32,11 +34,11 @@ import {HOME_WINDOW_DAYS,weekHomeSections,type HomePeriod} from './home-density'
 import {GrowthProminence} from '@/growth/GrowthProminence';
 import {SeoPriorityLinks} from '@/seo-autopilot/public';
 
-const copy={
+const copy=withSpanishLocales({
   br:{all:'Todos',live:'Ao vivo',upcoming:'Próximos',results:'Resultados',today:'Hoje',calendar:'Data dos jogos',go:'Ver',previous:'Dia anterior',next:'Dia seguinte',period:'Próximos 7 dias',competitions:'Competições',allCompetitions:'Todas as competições',empty:'Nenhum jogo neste filtro.',other:'Ver próximos jogos',odds:'Odds 1 X 2',pending:'Aguardando placar',fresh:'Últimos placares salvos',delayed:'Atualizações atrasadas',unavailable:'Atualizações indisponíveis',matches:'jogos',intro:'Placares, próximos jogos e comparação de odds — monte seu bilhete em um só lugar.'},
   mx:{all:'Todos',live:'En vivo',upcoming:'Próximos',results:'Resultados',today:'Hoy',calendar:'Fecha de partidos',go:'Ver',previous:'Día anterior',next:'Día siguiente',period:'Próximos 7 días',competitions:'Competiciones',allCompetitions:'Todas las competiciones',empty:'No hay partidos con este filtro.',other:'Ver próximos partidos',odds:'Cuotas 1 X 2',pending:'Esperando marcador',fresh:'Últimos marcadores guardados',delayed:'Actualizaciones retrasadas',unavailable:'Actualizaciones no disponibles',matches:'partidos',intro:'Marcadores, próximos partidos y comparación de cuotas — arma tu boleto en un solo lugar.'},
   en:{all:'All',live:'Live',upcoming:'Upcoming',results:'Results',today:'Today',calendar:'Match date',go:'Go',previous:'Previous day',next:'Next day',period:'Next 7 days',competitions:'Competitions',allCompetitions:'All competitions',empty:'No matches for this filter.',other:'View upcoming matches',odds:'Odds 1 X 2',pending:'Awaiting score',fresh:'Latest saved scores',delayed:'Updates delayed',unavailable:'Updates unavailable',matches:'matches',intro:'Scores, upcoming matches and odds comparison — build your slip in one place.'}
-};
+});
 
 
 export async function SportsBoardPage({locale,page,searchParams}:{locale:InterfaceLocale;page:PageKey;searchParams?:Promise<BoardQuery>}) {
@@ -59,12 +61,12 @@ export async function SportsBoardPage({locale,page,searchParams}:{locale:Interfa
   const data=raw?(locale==='en'?englishSportsData(raw):raw):null;
   const competition=typeof query.competition==='string'&&data?.sections.some(s=>s.slug===query.competition)?query.competition:undefined;
   const selectedCompetition=data?.sections.find(s=>s.slug===competition);
-  const period=competition||hub?(locale==='br'?'Agenda da competição':locale==='mx'?'Calendario de la competición':'Competition schedule'):text.period;
+  const period=competition||hub?(locale==='br'?'Agenda da competição':isSpanishLocale(locale)?'Calendario de la competición':'Competition schedule'):text.period;
   const week=localDaysRange(now,timeZone,HOME_WINDOW_DAYS);const homeWindow={from:week.from.getTime(),to:week.to.getTime()};
   const allFixtures=data?data.sections.filter(s=>!competition||s.slug===competition).flatMap(s=>s.fixtures).filter(f=>!defaultHome||(Date.parse(f.kickoff)>=homeWindow.from&&Date.parse(f.kickoff)<homeWindow.to)):[];
   const redCards=showListing?await loadRedCards(allFixtures.filter(f=>f.status!=='SCHEDULED').map(f=>f.id)).catch(()=>({} as Record<string,{home:number|null;away:number|null}>)):{};
   const sections:Array<NonNullable<typeof data>['sections'][number]&{homePeriod?:HomePeriod}>=defaultHome&&data?weekHomeSections(data.sections,homeWindow,+now):data?data.sections.filter(s=>!competition||s.slug===competition).map(s=>({...s,fixtures:s.fixtures.filter(f=>matchesView(f,view,now.getTime())).sort((a,b)=>boardSort(a,b,now.getTime()))})).filter(s=>s.fixtures.length):[];
-  const periodLabels=locale==='br'?{live:'Ao vivo hoje',upcoming:'Próximos hoje',tomorrow:'Amanhã',results:'Resultados de hoje'}:locale==='mx'?{live:'En vivo hoy',upcoming:'Próximos hoy',tomorrow:'Mañana',results:'Resultados de hoy'}:{live:'Live today',upcoming:'Upcoming today',tomorrow:'Tomorrow',results:'Results today'};
+  const periodLabels=locale==='br'?{live:'Ao vivo hoje',upcoming:'Próximos hoje',tomorrow:'Amanhã',results:'Resultados de hoje'}:isSpanishLocale(locale)?{live:'En vivo hoy',upcoming:'Próximos hoy',tomorrow:'Mañana',results:'Resultados de hoy'}:{live:'Live today',upcoming:'Upcoming today',tomorrow:'Tomorrow',results:'Results today'};
   const navItems=await loadCompetitionNav(locale,timeZone).catch(()=>[]);
   const freshness=data?.sportsData.freshness??'fresh';
   const href=(changes:{date?:string|null;view?:BoardView;competition?:string|null},path:string=base)=>{
@@ -76,17 +78,14 @@ export async function SportsBoardPage({locale,page,searchParams}:{locale:Interfa
   const shift=(day:string,n:number)=>new Date(Date.parse(day+'T12:00:00Z')+n*86400000).toISOString().slice(0,10);
   const activeDate=date??(page==='football'||defaultHome?undefined:today),calendarDate=date??today;
   const commercial=commercialLocale(requestCommercialGeo(await headers()));
-  const sponsorLocale=locale==='en'?'br':locale;
-  const sponsorPath=interfaceRoutes[sponsorLocale][page];
-  const sponsors=locale!=='en'||commercial==='br';
-  const sponsor=(placement:'home_top_banner'|'mobile_inline'|'home_right_rail')=>sponsors?<SponsoredSlot copyLocale={locale} context={{locale:sponsorLocale,pagePath:sponsorPath,placement}}/>:null;
+  const sponsor=(placement:'home_top_banner'|'mobile_inline'|'home_right_rail')=>commercial?<SponsoredSlot copyLocale={locale} context={{locale:commercial,pagePath:interfaceRoutes[locale][page],placement}}/>:null;
   return <div lang={dictionary.locale} className={`app-shell sports-board ${locale==='en'?'english-sports':''}`}>
     {page==='home'?<JsonLd data={siteSchema(locale)}/>:hub?<JsonLd data={competitionHubSchema(locale,hub,tab)}/>:null}
     <SiteHeader locale={locale} activePage={page}/>
     <BoardRefresh live={allFixtures.some(f=>f.status==='LIVE'||f.status==='HALFTIME')}/>
     <main id="fixtures-content" className="page-container" data-board-view={view} data-time-zone={timeZone}>
       {sponsor('home_top_banner')}
-      <header className="board-heading"><div><span className="board-eyebrow">{locale==='br'?'FUTEBOL':locale==='mx'?'FÚTBOL':'FOOTBALL'}</span><h1>{hub?.name??selectedCompetition?.competition??(page==='home'&&date?(date===today?dictionary.pages.today.title:dictionary.pages.football.title):dictionary.pages[page].title)}</h1>{!hub&&!selectedCompetition?<p>{text.intro}</p>:null}</div>
+      <header className="board-heading"><div><span className="board-eyebrow">{locale==='br'?'FUTEBOL':isSpanishLocale(locale)?'FÚTBOL':'FOOTBALL'}</span><h1>{hub?.name??selectedCompetition?.competition??(page==='home'&&date?(date===today?dictionary.pages.today.title:dictionary.pages.football.title):dictionary.pages[page].title)}</h1>{!hub&&!selectedCompetition?<p>{text.intro}</p>:null}</div>
         <span className={`freshness is-${freshness}`}><span className="freshness-dot"/>{freshness==='fresh'?text.fresh:freshness==='stale'?text.delayed:text.unavailable}</span>
       </header>
       <SportsSearch locale={locale} query={query.q}/>
@@ -124,10 +123,10 @@ export async function SportsBoardPage({locale,page,searchParams}:{locale:Interfa
                   <div className="team-stack"><TeamIdentity name={f.homeTeam} imageUrl={f.homeTeamImageUrl}><RedCardCount locale={locale} count={redCards[f.id]?.home}/></TeamIdentity><TeamIdentity name={f.awayTeam} imageUrl={f.awayTeamImageUrl}><RedCardCount locale={locale} count={redCards[f.id]?.away}/></TeamIdentity></div><ScoreDisplay fixture={f}/>
                 </Link>
                 {f.publicId?<FavoriteButton locale={locale} kind="fixture" id={f.publicId} className="favorite-toggle-row"/>:null}
-                {showOdds?<OddsComparison locale={locale} commercialLocale={commercial??'br'} fixture={f}/>:null}
+                {showOdds&&commercial?<OddsComparison locale={locale} commercialLocale={commercial} fixture={f}/>:null}
               </article>;
             })}
-            {index===0&&sponsors?<SponsoredSlot copyLocale={locale} context={{locale:sponsorLocale,pagePath:sponsorPath,placement:'competition_inline',competitionSlug:section.slug}}/>:null}
+            {index===0&&commercial?<SponsoredSlot copyLocale={locale} context={{locale:commercial,pagePath:interfaceRoutes[locale][page],placement:'competition_inline',competitionSlug:section.slug}}/>:null}
           </section>;})}</div>
           </>:null}
         </div>

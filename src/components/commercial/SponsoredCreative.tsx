@@ -49,7 +49,7 @@ function PublisherEmbed({offer,onFailure}:{offer:PublicOffer;onFailure:()=>void}
   </div>;
 }
 
-export function SponsoredCreative({offer,locale}:{offer:PublicOffer;locale:'br'|'mx'|'en'}){
+export function SponsoredCreative({offer,locale}:{offer:PublicOffer;locale:'br'|'mx'|'co'|'pe'|'en'}){
   const [expired,setExpired]=useState(false),[failed,setFailed]=useState(false);
   useEffect(()=>{const timer=setTimeout(()=>setExpired(true),Math.max(1,Date.parse(offer.expiresAt)-Math.max(Date.now(),Date.parse(offer.resolvedAt))));return()=>clearTimeout(timer);},[offer]);
   const c=offer.creative;if(!c||expired||failed)return null;const text=commercialCopy[locale];

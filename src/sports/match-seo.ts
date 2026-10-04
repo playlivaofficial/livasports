@@ -1,3 +1,4 @@
+import {withSpanishLocales} from '@/localization/spanish';
 import type {MatchHeaderView} from '@/match-center/types';
 import {competitionName,competitionPath} from './policy';
 import {interfaceDictionary,interfaceRoutes,matchPath,teamPath,type InterfaceLocale} from '@/localization/interface';
@@ -21,16 +22,16 @@ export function matchDateDescription(locale:InterfaceLocale,header:MatchHeaderVi
  * result intent because that is what people search for afterwards. Every part comes from stored
  * fixture facts: no broadcast, prediction or per-match bookmaker claim is made.
  */
-const matchIntent={
+const matchIntent=withSpanishLocales({
   br:{upcoming:'Odds e estatísticas',finished:'Resultado e estatísticas'},
   mx:{upcoming:'Cuotas y estadísticas',finished:'Resultado y estadísticas'},
   en:{upcoming:'Odds and stats',finished:'Result and stats'},
-} as const;
-const matchSummary={
+} as const);
+const matchSummary=withSpanishLocales({
   br:{upcoming:'Escalações, estatísticas e comparação de odds.',finished:'Resultado, escalações, estatísticas e lances da partida.'},
   mx:{upcoming:'Alineaciones, estadísticas y comparación de cuotas.',finished:'Marcador, alineaciones, estadísticas y eventos del partido.'},
   en:{upcoming:'Lineups, statistics and odds comparison.',finished:'Result, lineups, statistics and match events.'},
-} as const;
+} as const);
 const matchPhase=(header:MatchHeaderView)=>header.status==='FINISHED'?'finished':'upcoming';
 /**
  * The competition as a reader searches for it: localized name plus the season when the fixture has one.

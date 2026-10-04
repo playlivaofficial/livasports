@@ -22,8 +22,8 @@ export function AnalyticsDashboard({report}:{report:AnalyticsReport}){
       <nav className="owner-health-actions" aria-label="Window">{(['today','7d','30d'] as const).map(w=><Link key={w} className={w===f.window?'owner-analytics-active':''} href={link({window:w})}>{w==='today'?'Today':w==='7d'?'7 days':'30 days'}</Link>)}</nav></header>
     <form className="owner-health-filters" method="get" action="/owner/analytics">
       <input type="hidden" name="window" value={f.window}/>
-      <label>Locale <select name="locale" defaultValue={f.locale??''}><option value="">all</option><option value="br">PT-BR</option><option value="mx">ES-MX</option><option value="en">EN</option></select></label>
-      <label>GEO <select name="geo" defaultValue={f.geo??''}><option value="">all</option><option value="BR">BR</option><option value="MX">MX</option></select></label>
+      <label>Locale <select name="locale" defaultValue={f.locale??''}><option value="">all</option><option value="mx">ES-MX</option><option value="co">ES-CO</option><option value="pe">ES-PE</option><option value="br">PT-BR (historical)</option><option value="en">EN</option></select></label>
+      <label>GEO <select name="geo" defaultValue={f.geo??''}><option value="">all</option><option value="MX">MX</option><option value="CO">CO</option><option value="PE">PE</option><option value="BR">BR (historical)</option></select></label>
       <label>Bookmaker <select name="bookmaker" defaultValue={f.bookmaker??''}><option value="">all</option>{BOOKMAKER_REGISTRY.map(b=><option key={b.canonicalId} value={b.canonicalId}>{b.shortLabel}{b.displayRole==='HIDDEN_INSURANCE'?' (historical / insurance)':''}</option>)}</select></label>
       <label>Competition <input name="competition" defaultValue={f.competition??''} placeholder="slug"/></label>
       <label>Landing page type <select name="pageType" defaultValue={f.pageType??''}><option value="">all</option>{PAGE_TYPES.map(p=><option key={p} value={p}>{p}</option>)}</select></label>
@@ -60,9 +60,9 @@ export function AnalyticsDashboard({report}:{report:AnalyticsReport}){
         {report.campaigns.map(r=><tr key={r.campaign+r.source+r.medium}><td>{r.campaign}</td><td>{r.source??'—'}</td><td>{r.medium??'—'}</td><td>{r.sessions}</td><td>{r.slips}</td><td>{r.clicks}</td></tr>)}</tbody></table></>:null}
       <p className="owner-health-notes">Organic search keywords stay in Google Search Console; LivaSports records the search engine only.</p>
     </section>
-    <section aria-label="Locale and GEO"><h2>Locale / commercial GEO</h2>
+    <section aria-label="Locale and GEO"><h2>Locale / observed visitor GEO</h2>
       <div className="owner-health-scroll"><table className="owner-health-table"><thead><tr><th>Locale</th><th>Sessions</th><th>Odds selected</th><th>Slips</th><th>Affiliate clicks</th><th>Favorites</th><th>Sign-ins</th></tr></thead><tbody>
-        {report.locales.map(l=><tr key={l.locale}><td>{l.locale==='br'?'PT-BR':l.locale==='mx'?'ES-MX':'EN'}</td><td>{l.sessions}</td><td>{l.odds}</td><td>{l.slips}</td><td>{l.clicks}</td><td>{l.favorites}</td><td>{l.signIns}</td></tr>)}
+        {report.locales.map(l=><tr key={l.locale}><td>{({br:'PT-BR',mx:'ES-MX',co:'ES-CO',pe:'ES-PE',en:'EN'} as Record<string,string>)[l.locale]??l.locale}</td><td>{l.sessions}</td><td>{l.odds}</td><td>{l.slips}</td><td>{l.clicks}</td><td>{l.favorites}</td><td>{l.signIns}</td></tr>)}
         {report.geos.map(g=><tr key={'geo-'+g.geo}><td>GEO {g.geo}</td><td>{g.sessions}</td><td>{g.odds}</td><td>{g.slips}</td><td>{g.clicks}</td><td>{g.favorites}</td><td>{g.signIns}</td></tr>)}
       </tbody></table></div>
       <p className="owner-health-notes">GEO is the commercial country from the request (never inferred from language).</p>

@@ -3,7 +3,7 @@ import NextLink from 'next/link';
 import SportsLink from './SportsLink';
 
 describe('competition document navigation',()=>{
-  it.each(['/br/futebol','/mx/futbol','/en/football'])('keeps the full query and accessible link props for %s',base=>{
+  it.each(['/br/futebol','/mx/futbol','/co/futbol','/pe/futbol','/en/football'])('keeps the full query and accessible link props for %s',base=>{
     const href=base+'?competition=champions-league&season=recorded-season&tab=standings#table';
     const link=SportsLink({href,prefetch:false,'aria-current':'page',children:'Recorded season'});
     expect(link.type).toBe('a');expect(link.props.href).toBe(href);
@@ -15,5 +15,6 @@ describe('competition document navigation',()=>{
     const link=SportsLink({href,prefetch:false,children:'Recorded player'});
     expect(link.type).toBe(NextLink);expect(link.props.href).toBe(href);expect(link.props.prefetch).toBe(false);
     expect(SportsLink({href:'/en/football-news',children:'News'}).type).toBe(NextLink);
+    expect(SportsLink({href:'/co/futbol-noticias',children:'Noticias'}).type).toBe(NextLink);
   });
 });

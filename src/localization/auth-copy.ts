@@ -1,15 +1,17 @@
-import type {SlipUiLocale} from '@/slip/localization';
+import {withSpanishLocales} from './spanish';
 import type {InterfaceLocale} from './interface';
 
 export const authRoutes={
   br:{signin:'/br/entrar',account:'/br/conta'},
   mx:{signin:'/mx/iniciar-sesion',account:'/mx/cuenta'},
+  co:{signin:'/co/iniciar-sesion',account:'/co/cuenta'},
+  pe:{signin:'/pe/iniciar-sesion',account:'/pe/cuenta'},
   en:{signin:'/en/sign-in',account:'/en/account'},
 } as const;
 
 export type AuthRouteKey=keyof typeof authRoutes.br;
 
-export const authCopy={
+export const authCopy=withSpanishLocales({
   br:{
     signInTitle:'Entrar',signInLead:'Acompanhe o futebol com uma conta LivaSports. Não é preciso entrar para ver partidas, odds ou o bilhete de visitante.',
     google:'Continuar com o Google',email:'Continuar com e-mail',emailLabel:'E-mail',emailPlaceholder:'voce@email.com',
@@ -46,7 +48,7 @@ export const authCopy={
     linkInvalid:'This link expired or has already been used. Request a new sign-in link.',
     signInFailed:'Sign-in could not be completed. Try again using your account’s sign-in method.',
   },
-} satisfies Record<SlipUiLocale,{[key:string]:string}>;
+});
 
 export function authPath(locale:InterfaceLocale,key:AuthRouteKey):string {
   return authRoutes[locale][key];

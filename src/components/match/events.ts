@@ -1,6 +1,7 @@
 'use client';
+import type {SiteLocale} from '@/config/i18n';
 import {bridgeLegacyEvent} from '@/analytics/client';
-export interface MatchEventContext { fixtureId:string;competitionId:string;locale:'br'|'mx'; }
+export interface MatchEventContext { fixtureId:string;competitionId:string;locale:SiteLocale; }
 export type MatchEventName='match_open'|'match_tab_view'|'odds_module_view'|'odds_market_view'|'odds_bookmaker_click'|'odds_unavailable_view'|'match_share';
 export function emitProductEvent(payload:Record<string,unknown>,key:string,analytics:Record<string,unknown>={}):void{
   if(typeof window==='undefined')return;

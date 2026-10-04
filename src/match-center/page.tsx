@@ -1,6 +1,7 @@
+import {languageTags} from '@/localization/interface';
 import {matchSeoDescription,matchSeoTitle,sportsMatchSchema} from '@/sports/match-seo';
 import {ctrMatchMetadata} from '@/seo/ctr-variants';
-import {readPublishedSeo} from '@/seo-autopilot/public';
+import {readPublishedSeo,matchLanguageAlternates} from '@/seo-autopilot/public';
 import {factualMatchContent} from '@/seo-autopilot/content';
 import {optimizationMetadata} from '@/seo-autopilot/optimization-metadata';
 import {isFinishedMatchDecayed,noindexRobots} from '@/seo/policy';
@@ -14,9 +15,9 @@ import {openGraphImages} from '@/seo/open-graph';
 import type { SiteLocale } from '@/config/i18n';
 import { loadPublicMatchCenter } from './runtime';
 import { matchPath, parseMatchParam, slugifyMatch } from './routes';
-import {languageAlternates,matchPath as interfaceMatchPath} from '@/localization/interface';
+import {matchPath as interfaceMatchPath} from '@/localization/interface';
 
-const localeTag = { br: 'pt-BR', mx: 'es-MX' } as const;
+const localeTag = languageTags;
 
 async function resolveMatch(param: string, locale: SiteLocale) {
   const parsed = parseMatchParam(param);
@@ -37,9 +38,9 @@ export async function matchMetadata(paramPromise: Promise<{ match: string }>, lo
   }
   const { header } = result.match;
   const variant=ctrMatchMetadata(locale,result.match);
-  const seo=await readPublishedSeo(header.id);
-  const factual=locale==='br'&&seo?.title?factualMatchContent(result.match):null;
-  const optimized=locale==='br'?optimizationMetadata(seo?.optimization_metadata,`${header.home.name} x ${header.away.name}`,header.status,header.kickoff):null;
+  const seo=await readPublishedSeo(header.id,locale);
+  const factual=seo?.title?factualMatchContent(result.match,locale):null;
+  const optimized=optimizationMetadata(seo?.optimization_metadata,`${header.home.name} x ${header.away.name}`,header.status,header.kickoff);
   const title = variant?.title??optimized?.title??factual?.title??matchSeoTitle(locale, header);
   const description = variant?.description??optimized?.description??factual?.description??matchSeoDescription(locale, header);
   const canonical = matchPath(locale, header.publicId, header.home.name, header.away.name);
@@ -49,7 +50,7 @@ export async function matchMetadata(paramPromise: Promise<{ match: string }>, lo
   // asking to be indexed, and like every other noindex surface it emits no hreflang cluster.
   const decayed = isFinishedMatchDecayed(header.status, header.kickoff)&&!seo?.retain_indexable;
   return { title, description, ...(decayed ? { robots: noindexRobots } : {}),
-    alternates: decayed ? { canonical } : { canonical, languages: languageAlternates(br,mx,interfaceMatchPath('en',header.publicId,header.home.name,header.away.name)) },
+    alternates: decayed ? { canonical } : { canonical, languages: await matchLanguageAlternates(header.id,header.status,header.kickoff,br,mx,interfaceMatchPath('en',header.publicId,header.home.name,header.away.name)) },
     openGraph: { type: 'website', siteName: 'LivaSports', title, url: canonical, locale: localeTag[locale].replace('-','_'),
       description, images: openGraphImages() }, other: { 'content-language': localeTag[locale] } };
 }

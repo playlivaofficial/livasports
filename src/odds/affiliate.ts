@@ -17,12 +17,14 @@ export const ODDS_PLACEMENT='match-odds';
 export function validOutboundRequest(bookmaker:string,query:URLSearchParams){
   const fixture=query.get('fixtureId')??'';
   return isVisibleBookmaker(bookmaker)&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(fixture)&&
-    ['br','mx'].includes(query.get('locale')??'')&&['MATCH_WINNER','TOTAL_GOALS','BTTS'].includes(query.get('market')??'')&&query.get('placement')===ODDS_PLACEMENT&&
+    ['br','mx','co','pe'].includes(query.get('locale')??'')&&['MATCH_WINNER','TOTAL_GOALS','BTTS'].includes(query.get('market')??'')&&query.get('placement')===ODDS_PLACEMENT&&
     [...query.keys()].every(k=>['fixtureId','locale','market','placement'].includes(k)&&query.getAll(k).length===1);
 }
-export function safeAffiliateDestination(bookmaker:string,locale:SiteLocale,destination:unknown):string|null{
+export function safeAffiliateDestination(bookmaker:string,locale:SiteLocale,destination:unknown,configuredDomains?:readonly string[]):string|null{
   if(!isVisibleBookmaker(bookmaker))return null;
   if(typeof destination!=='string'||destination.length>4096||/[\s\\\u0000-\u001f\u007f]/.test(destination)||/%0[ad]/i.test(destination))return null;
-  try{const url=new URL(destination);if(url.protocol!=='https:'||url.username||url.password||url.port||!hosts[`${bookmaker}:${locale}`]?.includes(url.hostname))return null;
+  try{const url=new URL(destination);if(url.protocol!=='https:'||url.username||url.password||url.port||!safeOperatorHost(url.hostname)||!(configuredDomains??hosts[`${bookmaker}:${locale}`])?.includes(url.hostname))return null;
     return url.toString();}catch{return null;}
 }
+/** Domain allowlists are server-owned configuration, never copied from public request fields. */
+export function safeOperatorHost(host:string):boolean{return /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/.test(host)&&!/(?:^|\.)(?:localhost|local|internal|invalid|test|example)$/.test(host)&&!/^\d+(?:\.\d+){3}$/.test(host);}

@@ -2,7 +2,7 @@ import type {SelectionQuote} from './comparison-types';
 import {slipCopy,type SlipUiLocale} from './localization';
 import {bookmakerConfig} from '@/odds/registry';
 
-export const comparisonCopy={
+const baseComparisonCopy={
   br:{title:'Comparar casas',intro:'As mesmas seleções por casa. Preços estimados identificam a fonte.',jump:'Comparar casas ↓',
     checking:'Consultando a comparação…',unavailable:'Comparação temporariamente indisponível. Tentaremos novamente.',
     empty:'Adicione seleções para comparar casas.',one:'Uma seleção: a odd combinada corresponde à sua odd individual.',
@@ -54,7 +54,8 @@ export const comparisonCopy={
     marketUnavailableAt:(name:string)=>`Market unavailable at ${name}`,
     selectionUnavailableAt:(name:string)=>`Selection unavailable at ${name}`,
     missingCount:(n:number)=>n===1?'Missing:':`Missing ${n}:`},
-} satisfies Record<SlipUiLocale,{summary:(complete:number,total:number)=>string;missingCount:(n:number)=>string;marketUnavailableAt:(name:string)=>string;selectionUnavailableAt:(name:string)=>string;proxyBasedOn:(name:string)=>string;ctaAt:(name:string)=>string;[key:string]:unknown}>;
+} satisfies Record<'br'|'mx'|'en',{summary:(complete:number,total:number)=>string;missingCount:(n:number)=>string;marketUnavailableAt:(name:string)=>string;selectionUnavailableAt:(name:string)=>string;proxyBasedOn:(name:string)=>string;ctaAt:(name:string)=>string;[key:string]:unknown}>;
+export const comparisonCopy={...baseComparisonCopy,co:baseComparisonCopy.mx,pe:baseComparisonCopy.mx};
 
 export function bookmakerShortName(bookmakerId:string,displayName:string):string {
   return bookmakerConfig(bookmakerId)?.shortLabel??displayName;

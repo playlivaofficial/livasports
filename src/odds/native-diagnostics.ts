@@ -35,6 +35,9 @@ export async function persistNativeDiagnostics(db:QueryExecutor,snapshotId:strin
       fixture_id=excluded.fixture_id,classification=excluded.classification,evidence=excluded.evidence
     WHERE (odds_native_diagnostics.fixture_id,odds_native_diagnostics.classification,odds_native_diagnostics.evidence)
       IS DISTINCT FROM (excluded.fixture_id,excluded.classification,excluded.evidence)`,[snapshotId,snapshot.bookmaker,JSON.stringify(records),snapshot.observedAt]);
+  // The country-specific persister verifies every country/feed/selection inside this same transaction.
+  // A core feed must never be "verified" against an unrelated legacy BR quote.
+  if(snapshot.geoFeeds)return;
   // Verify persistence inside the same transaction, including newer rows that legitimately supersede a replay.
   await db.query(`UPDATE odds_native_diagnostics d SET classification='INGESTION_BUG'
     WHERE snapshot_id=$1 AND classification='NATIVE_PERSISTED' AND NOT EXISTS(

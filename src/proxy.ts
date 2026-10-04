@@ -1,21 +1,17 @@
-import type { NextRequest } from 'next/server';
-import { NextResponse } from 'next/server';
-import {FOOTBALL_COMPETITION_TARGETS} from '@/config/footballCompetitions';
-import {defaultLanguage,languageCookie,pathLocale,type InterfaceLocale} from '@/localization/interface';
+import type {NextRequest} from 'next/server';
+import {NextResponse} from 'next/server';
+import {CANONICAL_COMPETITION_TARGETS} from '@/config/footballCompetitions';
+import {defaultLanguage,languageCookie,languageTags,interfaceRoutes,pathLocale,type InterfaceLocale} from '@/localization/interface';
 
-function notFoundResponse(locale: InterfaceLocale, head: boolean, entity: 'match'|'team'|'player'|'competition'='match'): Response {
-  const text = locale === 'en'?{lang:'en',title:entity==='team'?'Team not found':entity==='player'?'Player not found':entity==='competition'?'Competition not found':'Match not found',body:entity==='match'?'This address does not match a recorded match.':entity==='competition'?'This address does not match a covered competition.':'This address does not match a recorded profile.',back:'Back to football',href:'/en/football'}:locale === 'br'
-    ? { lang:'pt-BR',title:entity==='team'?'Time não encontrado':entity==='player'?'Jogador não encontrado':entity==='competition'?'Competição não encontrada':'Partida não encontrada',
-      body:entity==='match'?'Este endereço não corresponde a uma partida cadastrada.':entity==='competition'?'Este endereço não corresponde a uma competição coberta.':'Este endereço não corresponde a um perfil cadastrado.',
-      back:'Voltar ao futebol',href:'/br/futebol' }
-    : { lang:'es-MX',title:entity==='team'?'Equipo no encontrado':entity==='player'?'Jugador no encontrado':entity==='competition'?'Competición no encontrada':'Partido no encontrado',
-      body:entity==='match'?'Esta dirección no corresponde a un partido registrado.':entity==='competition'?'Esta dirección no corresponde a una competición cubierta.':'Esta dirección no corresponde a un perfil registrado.',
-      back:'Volver al fútbol',href:'/mx/futbol' };
-  const html = `<!doctype html><html lang="${text.lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${text.title} | LivaSports</title><style>html{color-scheme:dark;background:#071019;font-family:Inter,system-ui,sans-serif}body{margin:0;color:#f4f7fa}.state{min-height:100svh;display:grid;place-content:center;padding:24px}.state h1{margin:0;font-size:clamp(1.6rem,5vw,2.4rem)}.state p{color:#a7b4c2;line-height:1.5}.state a{width:max-content;border-radius:6px;background:#24d39b;padding:12px 16px;color:#041816;font-weight:800;text-decoration:none}</style></head><body><main class="state"><h1>${text.title}</h1><p>${text.body}</p><a href="${text.href}">${text.back}</a></main></body></html>`;
-  return new Response(head ? null : html, { status:404,headers:{ 'content-type':'text/html; charset=utf-8','cache-control':'public, max-age=60' } });
+function competitionNotFound(locale:InterfaceLocale,head:boolean):Response {
+  const text=locale==='en'?{title:'Competition not found',body:'This address does not match a covered competition.',back:'Back to football'}
+    :locale==='br'?{title:'Competição não encontrada',body:'Este endereço não corresponde a uma competição coberta.',back:'Voltar ao futebol'}
+    :{title:'Competición no encontrada',body:'Esta dirección no corresponde a una competición cubierta.',back:'Volver al fútbol'};
+  const html=`<!doctype html><html lang="${languageTags[locale]}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${text.title} | LivaSports</title><style>html{color-scheme:dark;background:#071019;font-family:Inter,system-ui,sans-serif}body{margin:0;color:#f4f7fa}.state{min-height:100svh;display:grid;place-content:center;padding:24px}.state h1{margin:0;font-size:clamp(1.6rem,5vw,2.4rem)}.state p{color:#a7b4c2;line-height:1.5}.state a{width:max-content;border-radius:6px;background:#24d39b;padding:12px 16px;color:#041816;font-weight:800;text-decoration:none}</style></head><body><main class="state"><h1>${text.title}</h1><p>${text.body}</p><a href="${interfaceRoutes[locale].football}">${text.back}</a></main></body></html>`;
+  return new Response(head?null:html,{status:404,headers:{'content-type':'text/html; charset=utf-8','cache-control':'public, max-age=60'}});
 }
 
-export async function proxy(request: NextRequest): Promise<Response> {
+export async function proxy(request:NextRequest):Promise<Response>{
   if(request.nextUrl.pathname==='/'){
     const country=process.env.VERCEL==='1'?request.headers.get('x-vercel-ip-country'):null;
     const language=defaultLanguage(request.cookies.get(languageCookie)?.value,country);
@@ -23,21 +19,15 @@ export async function proxy(request: NextRequest): Promise<Response> {
     response.headers.set('cache-control','private, no-store');
     response.headers.set('vary','Cookie');return response;
   }
-  const segments = request.nextUrl.pathname.split('/').filter(Boolean);
   const locale=pathLocale(request.nextUrl.pathname)??'en';
+  const requested=request.nextUrl.searchParams.get('competition');
+  // Preserve genuine 404s before the board's streaming boundary, with no DB work.
+  if(request.nextUrl.pathname===interfaceRoutes[locale].football&&requested&&!CANONICAL_COMPETITION_TARGETS.some(target=>target.slug===requested))return competitionNotFound(locale,request.method==='HEAD');
   const forwarded=new Headers(request.headers);
   forwarded.set('x-livasports-interface-language',locale);
-  const next=()=>NextResponse.next({request:{headers:forwarded}});
-  const segment=segments[1];
-  // P2: a ?competition slug outside the static registry is an unknown entity. Answer 404 here, before streaming
-  // could turn the page's notFound() into a 200 response. Registry-known slugs continue to the page.
-  if(segments.length===2&&['futebol','futbol','football'].includes(segment)){
-    const requested=request.nextUrl.searchParams.get('competition');
-    if(requested&&!FOOTBALL_COMPETITION_TARGETS.some(target=>target.slug===requested))return notFoundResponse(locale,request.method==='HEAD','competition');
-  }
-  // Public entity routes validate canonical identities in their ISR page loader.
-  // Do not put a database query ahead of every CDN hit.
-  return next();
+  // Entity identities are validated inside ISR. Never put per-request GEO/DB
+  // validation in front of a public page cache hit.
+  return NextResponse.next({request:{headers:forwarded}});
 }
 
-export const config = { matcher: ['/','/br/futebol','/mx/futbol','/en/football'] };
+export const config = { matcher: ['/','/br/futebol','/mx/futbol','/co/futbol','/pe/futbol','/en/football'] };

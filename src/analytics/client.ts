@@ -101,8 +101,13 @@ export function bridgeLegacyEvent(payload:Record<string,unknown>):void{
     const fixture=typeof payload.fixturePublicId==='string'?payload.fixturePublicId:sel?.fixturePublicId;
     const common:EventEntities={fixturePublicId:fixture,bookmaker,market:(sel?.market??payload.market) as EventEntities['market'],outcome:sel?.outcome as EventEntities['outcome'],placement:typeof payload.placement==='string'?payload.placement:undefined};
     const legs=typeof payload.legCount==='number'?payload.legCount:typeof payload.selectionCount==='number'?payload.selectionCount:undefined;
+    // One event remains one interaction. Canonical fixture references enrich it, never clone it per leg.
+    const linked=Array.isArray(payload.fixturePublicIds)?[...new Set(payload.fixturePublicIds.filter((v):v is string=>typeof v==='string'&&/^[a-f0-9]{16}$/i.test(v)))].slice(0,10):[];
+    const comparisonProps=Object.fromEntries(linked.map((id,index)=>[`fixture${index}`,id.toLowerCase()]));
+    const identity=typeof payload.selectionIdentity==='string'?payload.selectionIdentity.slice(0,1000):`${legs}`;
     switch(name){
       case 'odds_module_view':track('odds_visible',common,{dedupeKey:`${fixture}:${common.placement}`});break;
+      case 'odds_market_view':track('market_open',common,{dedupeKey:`${fixture}:${common.market}:${common.placement}`});break;
       case 'odds_bookmaker_click':case 'affiliate_outbound_click':track('affiliate_cta_clicked',common,{dedupeKey:`${fixture}:${bookmaker}:${common.market}:${Date.now()>>12}`});break;
       case 'slip_selection_add':case 'slip_selection_replace':
         track('odds_selected',{...common,sourceBookmaker:payload.sourceBookmaker as EventEntities['sourceBookmaker'],priceKind:payload.priceKind as EventEntities['priceKind'],slipLegCount:legs},{dedupeKey:`${fixture}:${common.market}:${common.outcome}:${legs}`});
@@ -111,9 +116,9 @@ export function bridgeLegacyEvent(payload:Record<string,unknown>):void{
       case 'slip_selection_remove':track('slip_leg_removed',{...common,slipLegCount:legs});break;
       case 'slip_clear':track('slip_cleared',{slipLegCount:legs});break;
       case 'slip_open':track('slip_opened',{slipLegCount:legs},{dedupeKey:`open:${Date.now()>>14}`});break;
-      case 'slip_comparison_view':track('bookmaker_comparison_viewed',{slipLegCount:legs,comparisonState:payload.comparisonState as EventEntities['comparisonState']},{dedupeKey:`cmp:${legs}:${payload.comparisonState}`});break;
-      case 'slip_bookmaker_complete':case 'slip_bookmaker_partial':track('bookmaker_comparison_viewed',{bookmaker,slipLegCount:legs,comparisonState:payload.comparisonState as EventEntities['comparisonState']},{dedupeKey:`cmpb:${bookmaker}:${legs}:${payload.comparisonState}`});break;
-      case 'slip_bookmaker_click':track('affiliate_cta_clicked',{bookmaker,slipLegCount:legs,placement:'slip-comparison'},{dedupeKey:`slipcta:${bookmaker}:${legs}:${Date.now()>>12}`});break;
+      case 'slip_comparison_view':track('bookmaker_comparison_viewed',{slipLegCount:legs,comparisonState:payload.comparisonState as EventEntities['comparisonState']},{dedupeKey:`cmp:${identity}:${payload.comparisonState}`,props:comparisonProps});break;
+      case 'slip_bookmaker_complete':case 'slip_bookmaker_partial':track('bookmaker_comparison_viewed',{bookmaker,slipLegCount:legs,comparisonState:payload.comparisonState as EventEntities['comparisonState']},{dedupeKey:`cmpb:${bookmaker}:${identity}:${payload.comparisonState}`,props:comparisonProps});break;
+      case 'slip_bookmaker_click':track('affiliate_cta_clicked',{bookmaker,slipLegCount:legs,placement:'slip-comparison'},{dedupeKey:`slipcta:${bookmaker}:${identity}:${Date.now()>>12}`,props:comparisonProps});break;
       case 'affiliate_impression':track('affiliate_cta_viewed',{placement:typeof payload.placementId==='string'?payload.placementId:undefined,bookmaker,campaignId:typeof payload.campaignId==='string'?payload.campaignId:undefined},{dedupeKey:`imp:${payload.placementId}:${bookmaker}`});break;
       case 'affiliate_embed_click':track('affiliate_cta_clicked',{placement:typeof payload.placementId==='string'?payload.placementId:undefined,bookmaker,campaignId:typeof payload.campaignId==='string'?payload.campaignId:undefined},{dedupeKey:`embed:${payload.placementId}:${bookmaker}:${Date.now()>>12}`});break;
       default:break;

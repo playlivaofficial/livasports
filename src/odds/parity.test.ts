@@ -29,7 +29,8 @@ const allMarkets=(bookmaker:ReadOddsQuote['bookmaker'],name:string,home:string):
 
 describe('full odds parity identity',()=>{
   it('normalizes bookmaker slugs without changing canonical identity',()=>{
-    expect(canonicalBookmakerSlug('betano')).toBe('betano.bet.br');
+    expect(canonicalBookmakerSlug('betano')).toBe('betano');
+    expect(canonicalBookmakerSlug('codere')).toBe('codere');
     expect(canonicalBookmakerSlug('Betano.bet.br')).toBe('betano.bet.br');
     expect(canonicalBookmakerSlug('betsson.com')).toBe('betsson');
     expect(canonicalBookmakerSlug('unknown')).toBeNull();
@@ -66,7 +67,7 @@ describe('full odds parity identity',()=>{
     expect(quoteState({...q,status:'CLOSED'},{quotes:[q],kickoff:q.providerKickoff,fixtureStatus:'SCHEDULED'},now)).toBe('CLOSED');
     expect(quoteState({...q,status:'SUSPENDED'},{quotes:[q],kickoff:q.providerKickoff,fixtureStatus:'SCHEDULED'},now)).toBe('SUSPENDED');
   });
-  it('renders both listing bookmakers from the same MATCH_WINNER prices',()=>{
+  it('renders only public rows actually supplied, without filling a BR target pool in the UI',()=>{
     const fixture:FixtureView={
       id:'internal',competition:'Serie A',homeTeam:'Flamengo',awayTeam:'Mirassol',kickoff:'2026-09-12T19:00:00Z',
       status:FixtureStatus.SCHEDULED,homeScore:null,awayScore:null,freshness:'fresh',oddsState:'complete',
@@ -76,7 +77,7 @@ describe('full odds parity identity',()=>{
         {outcome:OutcomeCode.AWAY,prices:[{bookmaker:'Betano BR',decimalOdds:4.1,providerUpdatedAt:'2026-09-12T10:00:00Z',freshness:'fresh'},{bookmaker:'Betsson',decimalOdds:4.2,providerUpdatedAt:'2026-09-12T10:00:00Z',freshness:'fresh'}]},
       ]}],
     };
-    expect(listingBookmakerRows(fixture).map(row=>row.label)).toEqual(['Betsson','Sportingbet','1xBet']);
+    expect(listingBookmakerRows(fixture).map(row=>row.label)).toEqual(['Betsson']);
   });
   it('does not invent extra catalog markets',()=>{
     const catalog=inspectCatalogMarkets([

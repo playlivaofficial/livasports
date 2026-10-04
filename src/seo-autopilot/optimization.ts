@@ -1,3 +1,4 @@
+import {geoForLocale,geoProfile,isCoreGeo} from '@/config/geo';
 import 'server-only';
 import type {DatabaseClient,QueryExecutor} from '@/database/client';
 import {gscProperty} from '@/seo/gsc';
@@ -59,13 +60,14 @@ async function observeExperiments(db:DatabaseClient,now:Date,evidence:GrowthEvid
 async function weeklyWeights(db:DatabaseClient,e:GrowthEvidence,now:Date){
   const monday=new Date(now);monday.setUTCDate(monday.getUTCDate()-(monday.getUTCDay()+6)%7);const week=dayOf(monday);
   if(e.mode!=='ACTIVE'||!config.clusterLearningEnabled)return {week,changed:0,mode:'OBSERVE_ONLY'};
-  const previousWeights=(await db.query('SELECT cluster,adjustment,evaluated_week::text AS week FROM seo_growth_cluster_weights')).rows;
+  const previousWeights=(await db.query('SELECT locale,cluster,adjustment,evaluated_week::text AS week FROM seo_geo_cluster_weights')).rows;
   let changed=0;
-  for(const cluster of [...new Set(e.pages.map(p=>p.cluster).filter((s):s is string=>!!s))].sort()){
-    const old=previousWeights.find(w=>w.cluster===cluster);
+  for(const key of [...new Set(e.pages.filter(p=>isCoreGeo(geoForLocale(p.locale))&&p.cluster).map(p=>`${p.locale}:${p.cluster}`))].sort()){
+    const separator=key.indexOf(':'),locale=key.slice(0,separator),cluster=key.slice(separator+1);
+    const old=previousWeights.find(w=>w.cluster===cluster&&w.locale===locale);
     if(old?.week===week)continue;
-    const pages=e.pages.filter(p=>p.cluster===cluster),qualified=pages.filter(p=>p.current.days>=7&&p.previous.days>=7&&p.current.impressions>=100&&p.previous.impressions>=100);
-    const detectors=e.opportunities.filter(o=>o.evidence.cluster===cluster);
+    const pages=e.pages.filter(p=>p.cluster===cluster&&p.locale===locale),qualified=pages.filter(p=>p.current.days>=7&&p.previous.days>=7&&p.current.impressions>=100&&p.previous.impressions>=100);
+    const detectors=e.opportunities.filter(o=>o.evidence.cluster===cluster&&o.evidence.locale===locale);
     const countEntities=(rows:Opportunity[])=>new Set(rows.map(o=>o.evidence.entityId??o.url)).size;
     const winners=countEntities(detectors.filter(o=>o.detector==='WINNING_PAGE')),losers=countEntities(detectors.filter(o=>['DECAYING_WINNER','LOW_VALUE'].includes(o.detector)));
     const qualifiedCount=new Set([...qualified.map(p=>p.entityId??p.url),...detectors.filter(o=>o.detector==='LOW_VALUE').map(o=>o.evidence.entityId??o.url)]).size;
@@ -74,9 +76,9 @@ async function weeklyWeights(db:DatabaseClient,e:GrowthEvidence,now:Date){
     const previous=Number(old?.adjustment??0),next=seoPerformanceWeightAdjustment(previous,winners,losers,qualifiedCount,true);
     const reasons={winners,losers,qualifiedPages:qualifiedCount,old:previous,new:next,reason:qualifiedCount<3?'INSUFFICIENT_CLUSTER_EVIDENCE_DECAY_TO_NEUTRAL':'BOUNDED_COMPARABLE_WINDOWS'};
     await db.transaction(async tx=>{
-      await tx.query(`INSERT INTO seo_growth_cluster_weights(cluster,adjustment,evaluated_week,evidence,updated_at) VALUES($1,$2,$3,$4::jsonb,$5)
-        ON CONFLICT(cluster) DO UPDATE SET adjustment=$2,evaluated_week=$3,evidence=$4::jsonb,updated_at=$5`,[cluster,next,week,JSON.stringify(reasons),now]);
-      if(next!==previous){const p=pages[0];await logAction(tx,now,{url:`cluster:${cluster}`,detector:winners>losers?'WINNING_PAGE':'LOW_VALUE',confidence:qualified.length>=3?'MEDIUM':'LOW',reason:reasons.reason,proposedAction:'RESOURCE_PRIORITY',benchmark:null,cohortSize:qualified.length,query:null,evidence:p},'RESOURCE_PRIORITY','APPLIED',reasons.reason,{adjustment:previous},{adjustment:next});changed++;}
+      await tx.query(`INSERT INTO seo_geo_cluster_weights(cluster,adjustment,evaluated_week,evidence,updated_at,locale) VALUES($1,$2,$3,$4::jsonb,$5,$6)
+        ON CONFLICT(locale,cluster) DO UPDATE SET adjustment=$2,evaluated_week=$3,evidence=$4::jsonb,updated_at=$5`,[cluster,next,week,JSON.stringify({...reasons,locale}),now,locale]);
+      if(next!==previous){const p=pages[0];await logAction(tx,now,{url:`cluster:${locale}:${cluster}`,detector:winners>losers?'WINNING_PAGE':'LOW_VALUE',confidence:qualified.length>=3?'MEDIUM':'LOW',reason:reasons.reason,proposedAction:'RESOURCE_PRIORITY',benchmark:null,cohortSize:qualified.length,query:null,evidence:p},'RESOURCE_PRIORITY','APPLIED',reasons.reason,{adjustment:previous},{adjustment:next});changed++;}
     });
   }
   return {week,changed,mode:'ACTIVE'};
@@ -84,12 +86,13 @@ async function weeklyWeights(db:DatabaseClient,e:GrowthEvidence,now:Date){
 /** Only existing factual match identity and verified modules. Query text is never injected into HTML. */
 export function proposedMetadata(p:GrowthPage,title:string,description:string){
   const intent=queryIntent(p.queries[0]?.query??'');
-  const suffix=p.status==='FINISHED'?'resultado e dados do jogo':'horário e dados do jogo';
+  const profile=geoProfile(geoForLocale(p.locale)),br=p.locale==='br';
+  const suffix=p.status==='FINISHED'?(br?'resultado e dados do jogo':'resultado y datos del partido'):(br?'horário e dados do jogo':'horario y datos del partido');
   const base=p.label.trim();
   if(!base||base.length>100||!title||!description||p.type!=='FIXTURE'||!p.kickoff||!['SCHEDULED','FINISHED'].includes(p.status??'')||(p.status==='FINISHED'&&!p.hasResult))return null;
-  const date=new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo',dateStyle:'short'}).format(new Date(p.kickoff));
+  const date=new Intl.DateTimeFormat(profile.languageTag,{timeZone:profile.timeZone,dateStyle:'short'}).format(new Date(p.kickoff));
   const nextTitle=`${base}: ${suffix} (${date})`;
-  const nextDescription=`Acompanhe ${base}: ${p.status==='FINISHED'?'resultado registrado':'horário programado'} e dados disponíveis do confronto no LivaSports.`;
+  const nextDescription=br?`Acompanhe ${base}: ${p.status==='FINISHED'?'resultado registrado':'horário programado'} e dados disponíveis do confronto no LivaSports.`:`Sigue ${base}: ${p.status==='FINISHED'?'resultado registrado':'horario programado'} y datos disponibles del partido en LivaSports (${profile.countryName}).`;
   return {title:nextTitle,description:nextDescription,intent,sourceSignature:metadataSourceSignature(p.label,p.status,p.kickoff)};
 }
 
@@ -127,12 +130,12 @@ export async function runGrowthOptimization(db:DatabaseClient,now=new Date(),fet
     const next=kind==='TITLE_PATTERN'?proposed:{linkBoost:seoLinkBoostScore(o),intentFocus:queryIntent(o.query??''),expiresAt:new Date(now.getTime()+config.signalExpiryDays*86400000).toISOString()};
     const source={page:metadataSourceSignature(p.label,p.status,p.kickoff??null),control:metadataSourceSignature(control!.label,control!.status,control!.kickoff??null)};
     const previous=kind==='TITLE_PATTERN'?{title:p.title,description:p.description,optimizationMetadata:p.optimizationMetadata??null,renderedTitle:html.title,renderedDescription:html.description,source}:{linkBoost:p.linkBoost,source};
-    if(!next||(kind==='TITLE_PATTERN'&&(proposed!.title===html.title||(await db.query('SELECT 1 FROM seo_autopilot_pages WHERE lower(title)=lower($1) AND url<>$2 LIMIT 1',[proposed!.title,p.url])).rows.length))){held++;await logAction(db,now,o,kind,'HELD','DUPLICATE_OR_UNCHANGED_METADATA',previous,next);continue;}
+    if(!next||(kind==='TITLE_PATTERN'&&(proposed!.title===html.title||(await db.query('SELECT 1 FROM seo_all_pages WHERE lower(title)=lower($1) AND url<>$2 LIMIT 1',[proposed!.title,p.url])).rows.length))){held++;await logAction(db,now,o,kind,'HELD','DUPLICATE_OR_UNCHANGED_METADATA',previous,next);continue;}
     const experimentId=await db.transaction(async tx=>{
       const experiment=(await tx.query(`INSERT INTO seo_growth_experiments(cohort,kind,page,control_page,started_at,observation_start,baseline,previous_value,new_value,confidence,reason,release_sha)
         VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb,$9::jsonb,$10,$11,$12) RETURNING id`,[cohort,kind,p.url,control!.url,now,firstFullSearchDay(now),JSON.stringify(baseline),JSON.stringify(previous),JSON.stringify(next),o.confidence,o.reason,process.env.VERCEL_GIT_COMMIT_SHA??null])).rows[0];
-      if(kind==='TITLE_PATTERN')await tx.query('UPDATE seo_autopilot_pages SET title=$2,description=$3,metadata_changed_at=$4,content_changed_at=$4,optimization_metadata=$5::jsonb WHERE url=$1',[p.url,proposed!.title,proposed!.description,now,JSON.stringify(proposed)]);
-      else await tx.query('UPDATE seo_autopilot_pages SET link_boost=$2,link_boost_until=$3,intent_focus=$4 WHERE url=$1',[p.url,seoLinkBoostScore(o),new Date(now.getTime()+config.signalExpiryDays*86400000),queryIntent(o.query??'')]);
+      if(kind==='TITLE_PATTERN')await tx.query('UPDATE seo_geo_pages SET title=$2,description=$3,metadata_changed_at=$4,content_changed_at=$4,optimization_metadata=$5::jsonb WHERE url=$1',[p.url,proposed!.title,proposed!.description,now,JSON.stringify(proposed)]);
+      else await tx.query('UPDATE seo_geo_pages SET link_boost=$2,link_boost_until=$3,intent_focus=$4 WHERE url=$1',[p.url,seoLinkBoostScore(o),new Date(now.getTime()+config.signalExpiryDays*86400000),queryIntent(o.query??'')]);
       await logAction(tx,now,o,kind,'APPLIED',o.reason,previous,next,experiment.id);
       return String(experiment.id);
     });
@@ -140,7 +143,7 @@ export async function runGrowthOptimization(db:DatabaseClient,now=new Date(),fet
       const rendered=await crawlSeoUrl(p.url,fetcher).catch(()=>null);
       if(!rendered||rendered.problems.length||!rendered.title.startsWith(proposed!.title)||rendered.description!==proposed!.description){
         await db.transaction(async tx=>{
-          await tx.query('UPDATE seo_autopilot_pages SET title=$2,description=$3,optimization_metadata=$4::jsonb,metadata_changed_at=$5,content_changed_at=$5 WHERE url=$1 AND optimization_metadata=$6::jsonb',
+          await tx.query('UPDATE seo_geo_pages SET title=$2,description=$3,optimization_metadata=$4::jsonb,metadata_changed_at=$5,content_changed_at=$5 WHERE url=$1 AND optimization_metadata=$6::jsonb',
             [p.url,p.title,p.description,JSON.stringify(p.optimizationMetadata??null),now,JSON.stringify(proposed)]);
           await tx.query("UPDATE seo_growth_experiments SET state='FROZEN',frozen_until=$2 WHERE id=$1",[experimentId,new Date(now.getTime()+config.rollbackCooldownDays*86400000)]);
           await logAction(tx,now,o,'RENDER_RECOVERY','APPLIED','Rendered metadata did not match: restore exact prior override and freeze',next,previous,experimentId);

@@ -1,8 +1,9 @@
+import {CORE_GEOS,geoProfile} from '@/config/geo';
 import 'server-only';
 import type {QueryExecutor} from '@/database/client';
 import {buildSeoScorecard,INTENTIONALLY_UNSUBMITTED,SEO_THRESHOLDS,type ScorecardEntry,type SeoAlert,type SeoProblem,type SeoSnapshot} from './monitoring';
 import {gscProperty,gscStatus,type GscStatus} from './gsc';
-import {aggregate,byLocale,BRAZIL_COUNTRY,compare,countryTotals,ctrOpportunities,growthPages,
+import {aggregate,byLocale,BRAZIL_COUNTRY,CORE_GSC_COUNTRIES,compare,countryTotals,ctrOpportunities,growthPages,
   losingVisibility,nearPageOne,SEARCH_THRESHOLDS,topBy,type CtrOpportunity,type Movement,type SearchRow,type Totals} from './intelligence';
 import {gscWindows,type GscWindow} from './gsc-ingest';
 
@@ -57,7 +58,7 @@ export interface SeoSearchReport {
   topQueries:SearchRow[];topPages:SearchRow[];
   growthPages:Movement[];losingPages:Movement[];
   nearPageOneQueries:SearchRow[];ctrOpportunities:CtrOpportunity[];
-  brazil7:Totals;locales7:Array<{locale:string}&Totals>;devices7:SearchRow[];
+  geo7:Array<{geo:string;locale:string;visitorCountry:Totals|null;localeIntent:Totals|null}>;brazil7:Totals;locales7:Array<{locale:string}&Totals>;devices7:SearchRow[];
   lastSync:{state:string;finishedAt:string|null;days:number;rows:number;truncated:boolean;error:string|null}|null;
   sitemaps:Array<{path:string;submitted:number;indexed:number|null;errors:number;warnings:number;lastDownloaded:string|null}>;
   hasData:boolean;
@@ -97,6 +98,8 @@ export async function readSeoSearchReport(db:QueryExecutor,now=new Date()):Promi
     topQueries:topBy(queries7,'impressions',10),topPages:topBy(pages7,'impressions',10),
     growthPages:growthPages(pageMovements).slice(0,10),losingPages:losingVisibility(pageMovements).slice(0,10),
     nearPageOneQueries:nearPageOne(queries7).slice(0,10),ctrOpportunities:ctrOpportunities(queries7).slice(0,10),
+    geo7:CORE_GEOS.map(geo=>{const profile=geoProfile(geo),prefix=`https://livasports.com/${profile.locale}`,rows=pages7.filter(r=>r.key===prefix||r.key.startsWith(prefix+'/'));return {geo,locale:profile.languageTag,
+      visitorCountry:countries7.some(r=>r.key===CORE_GSC_COUNTRIES[geo])?countryTotals(countries7,CORE_GSC_COUNTRIES[geo]):null,localeIntent:rows.length?aggregate(rows):null};}),
     brazil7:countryTotals(countries7,BRAZIL_COUNTRY),locales7:byLocale(pages7),devices7:topBy(devices7,'impressions',5),
     lastSync:sync?{state:String(sync.state),finishedAt:sync.finished_at?new Date(sync.finished_at as string).toISOString():null,
       days:Number(sync.days_ingested??0),rows:Number(sync.rows_ingested??0),truncated:Boolean(sync.truncated),

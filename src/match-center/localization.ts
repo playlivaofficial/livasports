@@ -1,10 +1,11 @@
+import {withSpanishLocales} from '@/localization/spanish';
 import type {SiteLocale} from '@/config/i18n';
 
-export const eventLabels: Record<SiteLocale, Record<string, string>> = {
+export const eventLabels: Record<SiteLocale, Record<string, string>> = withSpanishLocales({
   br: { Corner:'Escanteio',Offside:'Impedimento','Shot Off Target':'Finalização para fora','Shot On Target':'Finalização no gol', Goal: 'Gol', Substitution: 'Substituição', Yellowcard: 'Cartão amarelo', 'Yellow Card': 'Cartão amarelo', Redcard: 'Cartão vermelho', 'Red Card': 'Cartão vermelho', Penalty: 'Pênalti', 'Own Goal': 'Gol contra', VAR: 'VAR',VAR_CARD:'Revisão de cartão pelo VAR','Yellow/Red card':'Expulsão por segundo amarelo','Missed Penalty':'Pênalti perdido','Penalty Shootout Goal':'Cobrança convertida','Penalty Shootout Miss':'Cobrança perdida' },
   mx: { Corner:'Tiro de esquina',Offside:'Fuera de juego','Shot Off Target':'Tiro desviado','Shot On Target':'Tiro a puerta', Goal: 'Gol', Substitution: 'Sustitución', Yellowcard: 'Tarjeta amarilla', 'Yellow Card': 'Tarjeta amarilla', Redcard: 'Tarjeta roja', 'Red Card': 'Tarjeta roja', Penalty: 'Penal', 'Own Goal': 'Autogol', VAR: 'VAR',VAR_CARD:'Revisión de tarjeta por el VAR','Yellow/Red card':'Expulsión por doble amarilla','Missed Penalty':'Penal fallado','Penalty Shootout Goal':'Tanda: penal convertido','Penalty Shootout Miss':'Tanda: penal fallado' },
-};
-export const statisticLabels: Record<SiteLocale, Record<string, string>> = {
+});
+export const statisticLabels: Record<SiteLocale, Record<string, string>> = withSpanishLocales({
   br: {
     Treatments:'Atendimentos em campo','Offsides Overtime':'Impedimentos na prorrogação','Substitutions Overtime':'Substituições na prorrogação',Challenges:'Disputas',Headers:'Cabeceios','Successful Interceptions':'Interceptações certas','Yellowcards Overtime':'Cartões amarelos na prorrogação',
     'Counter Attacks':'Contra-ataques',Penalties:'Pênaltis',Redcards:'Cartões vermelhos','Yellowred Cards':'Expulsões por segundo amarelo',
@@ -33,4 +34,4 @@ export const statisticLabels: Record<SiteLocale, Record<string, string>> = {
     'Successful Long Passes Percentage':'Pases largos precisos (%)','Successful Passes':'Pases precisos','Successful Passes Percentage':'Pases precisos (%)',
     Tackles:'Entradas','Tackles Won':'Entradas ganadas',Throwins:'Saques de banda','Total Crosses':'Centros',Yellowcards:'Tarjetas amarillas',
   },
-};
+});

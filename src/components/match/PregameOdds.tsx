@@ -10,8 +10,11 @@ import {AffiliateLink,commercialCopy} from '@/components/commercial/AffiliateLin
 import {ApproximatePrice} from '@/components/odds/ApproximatePrice';
 import {BookmakerLogo} from '@/components/odds/BookmakerLogo';
 import type {BookmakerId} from '@/odds/registry';
+import {withSpanishLocales} from '@/localization/spanish';
+import {geoForLocale,geoProfile,isSpanishLocale,type GeoLocale} from '@/config/geo';
+import {isSiteLocale,type SiteLocale} from '@/config/i18n';
 
-const copy={
+const copy=withSpanishLocales({
   br:{title:'Compare as odds',pregame:'Pré-jogo · 90 minutos',markets:{MATCH_WINNER:'Resultado final',TOTAL_GOALS:'Gols · 2,5',BTTS:'Ambas marcam'},
     outcomes:{HOME:'1',DRAW:'X',AWAY:'2',OVER:'Mais de 2,5',UNDER:'Menos de 2,5',YES:'Sim',NO:'Não'},house:'Casa',action:'Ação',visit:'Ver odds',best:'Melhor odd',
     empty:'Odds ainda não disponíveis para esta partida.',stale:'Odds desatualizadas — aguardando nova verificação.',closed:'As odds pré-jogo não estão mais disponíveis.',suspended:'Mercado temporariamente suspenso.',
@@ -24,12 +27,12 @@ const copy={
     outcomes:{HOME:'1',DRAW:'X',AWAY:'2',OVER:'Over 2.5',UNDER:'Under 2.5',YES:'Yes',NO:'No'},house:'Bookmaker',action:'Action',visit:'View odds',best:'Best price',
     empty:'Odds are not available for this match yet.',stale:'Odds are out of date — waiting for a new check.',closed:'Pregame odds are no longer available.',suspended:'Market temporarily suspended.',
     observed:'Checked at',changed:'Last reported change',single:'One bookmaker available in this market.',responsible:'18+. Gamble responsibly.',disclosure:'We may receive a commission from partner links. That does not change the order of the odds.'},
-};
-export function PregameOdds({initial,context,fixturePublicId,uiLocale}:{initial:OddsComparison[];context:MatchEventContext;fixturePublicId?:string;uiLocale?:'br'|'mx'|'en'}){
+});
+export function PregameOdds({initial,context,fixturePublicId,uiLocale}:{initial:OddsComparison[];context:MatchEventContext;fixturePublicId?:string;uiLocale?:GeoLocale}){
   const saved=useSlip();const presentation=uiLocale??context.locale;
   // A cached SEO shell never chooses a visitor's commercial country. The private
   // odds response supplies it only after the existing trusted-GEO gate succeeds.
-  const [resolvedCommercialLocale,setResolvedCommercialLocale]=useState<'br'|'mx'|null>(null);
+  const [resolvedCommercialLocale,setResolvedCommercialLocale]=useState<SiteLocale|null>(null);
   const commercialLocale=resolvedCommercialLocale??context.locale;
   const slipText=slipCopy[presentation];
   const [comparisons,setComparisons]=useState(initial);const [market,setMarket]=useState<OddsMarket>('MATCH_WINNER');
@@ -45,7 +48,7 @@ export function PregameOdds({initial,context,fixturePublicId,uiLocale}:{initial:
       inFlight=true;lastAttempt=Date.now();tick();try{const response=await fetch(`/api/odds/${context.fixtureId}?locale=${presentation}`,{cache:'no-store',signal:abort.signal});
         if(response.ok){const body=await response.json();if(!stopped&&Array.isArray(body.comparisons)){
           setComparisons(body.comparisons);
-          setResolvedCommercialLocale(body.commercialLocale==='br'||body.commercialLocale==='mx'?body.commercialLocale:null);
+          setResolvedCommercialLocale(isSiteLocale(body.commercialLocale)?body.commercialLocale:null);
         }}
       }catch{/* Expiry still applies when refresh is unavailable. */}finally{inFlight=false;}}
     const observe=(entries:IntersectionObserverEntry[])=>{visible.current=entries.some(e=>e.isIntersecting);if(visible.current){
@@ -63,7 +66,7 @@ export function PregameOdds({initial,context,fixturePublicId,uiLocale}:{initial:
   const allClosed=selected?.rows.length&&selected.rows.every(r=>r.cells.every(c=>c.state==='CLOSED'||c.state==='UNAVAILABLE'));
   const pastKickoff=clock!==null&&selected?.closesAt&&clock>=Date.parse(selected.closesAt);
   const unavailable=allClosed||pastKickoff?text.closed:anyExpired?text.stale:selected?.rows.some(r=>r.cells.some(c=>c.state==='SUSPENDED'))?text.suspended:text.empty;
-  const approximateLabel=presentation==='br'?'preço aproximado':presentation==='mx'?'cuota aproximada':'approximate price';
+  const approximateLabel=presentation==='br'?'preço aproximado':isSpanishLocale(presentation)?'cuota aproximada':'approximate price';
   function select(next:OddsMarket){selectedMarket.current=next;setMarket(next);if(!sent.current.has(next)){sent.current.add(next);emitMatchEvent('odds_market_view',context,'match_odds',{market:next});}}
   return <section id="odds" ref={root} className="match-panel commercial-panel pregame-odds" aria-label={text.title}>
     <div className="odds-title"><div><h2>{text.title}</h2><p>{text.pregame}</p></div><span className="age-label">18+</span></div>
@@ -77,7 +80,7 @@ export function PregameOdds({initial,context,fixturePublicId,uiLocale}:{initial:
           const current=cellCurrent(cell);const best=current&&cell.best&&selected.rows.filter(r=>r.cells.some(c=>c.outcome===cell.outcome&&cellCurrent(c))).length>=2;
           const intent=canonicalSelection({fixturePublicId,market,outcome:cell.outcome,line:selected.line,scope:SLIP_SCOPE});
           const pressed=intent?saved.slip.selections.some(s=>selectionKey(s)===selectionKey(intent)):false;
-          const priceLabel=current?new Intl.NumberFormat(presentation==='en'?'en-GB':presentation==='br'?'pt-BR':'es-MX',{minimumFractionDigits:2,maximumFractionDigits:2}).format(Number(cell.decimalOdds)):'—';
+          const priceLabel=current?new Intl.NumberFormat(geoProfile(geoForLocale(presentation)).languageTag,{minimumFractionDigits:2,maximumFractionDigits:2}).format(Number(cell.decimalOdds)):'—';
           return <td key={cell.outcome} data-outcome-label={text.outcomes[cell.outcome]}>{current&&intent?<button type="button" className={`pregame-price slip-odds-button${best?' is-best':''}`} aria-pressed={pressed} disabled={!saved.ready}
             data-target-bookmaker={cell.targetBookmaker}
             aria-label={`${pressed?slipText.selected:slipText.add}: ${slipText.markets[market]}, ${selectionLabel(intent,presentation)}, ${priceLabel}, ${approximateLabel}, ${row.name}`}

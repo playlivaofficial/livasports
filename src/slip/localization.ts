@@ -1,8 +1,8 @@
 import type {CanonicalSelection,ResolvedSelection,SelectionState} from './types';
 
-export type SlipUiLocale='br'|'mx'|'en';
+export type SlipUiLocale='br'|'mx'|'co'|'pe'|'en';
 const sharedOutcomes={HOME:'Mandante',DRAW:'Empate',AWAY:'Visitante',OVER:'Mais de 2,5',UNDER:'Menos de 2,5',YES:'Sim',NO:'Não'} as const;
-export const slipCopy={
+const baseSlipCopy={
   br:{title:'Meu bilhete',selections:'seleções',selection:'seleção',yourSelections:'Suas seleções',close:'Fechar bilhete',remove:'Remover',clear:'Limpar tudo',clearQuestion:'Remover todas as seleções?',
     confirmClear:'Sim, limpar',cancel:'Cancelar',replace:'Substituir seleção',replaceQuestion:'Já existe uma seleção deste mercado no bilhete.',replaceWith:'Nova seleção',
     emptyTitle:'Seu próximo palpite começa aqui',empty:'Toque em uma odd disponível nas partidas para montar seu bilhete.',browse:'Explorar partidas',
@@ -60,7 +60,9 @@ export const slipCopy={
     states:{CURRENT:'Current price',PRICE_CHANGED:'Price updated',STALE:'Odds out of date',UNAVAILABLE:'Odds unavailable',SUSPENDED:'Market suspended',CLOSED:'Market closed',MATCH_STARTED:'Match started',MATCH_FINISHED:'Match finished'},
     notices:{OUTBOUND_UNAVAILABLE:'The bookmaker could not be opened. Check the current slip odds.',ADDED:'Selection added',REPLACED:'Selection replaced',REMOVED:'Selection removed',CLEARED:'Slip cleared',UNCHANGED:'Selection is already on the slip',LIMIT:'You can add up to 10 selections.',EXPIRED:'These odds are no longer available.',
       RECOVERED:'The saved slip was recovered. Incompatible selections were removed.',UNSUPPORTED_VERSION:'This slip uses an incompatible version. You can start a new one.',STORAGE_UNAVAILABLE:'The browser could not save the slip. It will only stay on this page.',INVALID_STAKE:'Enter a valid positive amount.'}},
-} satisfies Record<SlipUiLocale,{states:Record<SelectionState,string>;freshnessAgo:(n:number)=>string;freshnessCompactAgo:(n:number)=>string;[key:string]:unknown}>;
+} satisfies Record<'br'|'mx'|'en',{states:Record<SelectionState,string>;freshnessAgo:(n:number)=>string;freshnessCompactAgo:(n:number)=>string;[key:string]:unknown}>;
+/** One shared Spanish base with monetary/navigation overrides only. */
+export const slipCopy={...baseSlipCopy,co:{...baseSlipCopy.mx,stakeHint:'COP$ 10.000',browseEn:'/co/futbol'},pe:{...baseSlipCopy.mx,stakeHint:'S/ 10',browseEn:'/pe/futbol'}};
 export function selectionLabel(s:CanonicalSelection,locale:SlipUiLocale,fixture?:ResolvedSelection['fixture']):string {
   if(s.market==='MATCH_WINNER'&&fixture){if(s.outcome==='HOME')return fixture.home;if(s.outcome==='AWAY')return fixture.away;}
   return slipCopy[locale].outcomes[s.outcome];

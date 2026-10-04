@@ -24,7 +24,10 @@ const ALIASES: Record<string, CanonicalBookmaker> = {
 
 export function canonicalBookmakerSlug(value: unknown): CanonicalBookmaker | null {
   if (typeof value !== 'string') return null;
-  return ALIASES[value.trim().toLowerCase()] ?? null;
+  const normalized=value.trim().toLowerCase();
+  // Exact country-neutral operator identities take precedence over historical
+  // BR aliases. In particular Betano (CO/PE) is not the hidden BR insurance feed.
+  return SOURCE_BOOKMAKER_IDS.includes(normalized)?normalized:ALIASES[normalized]??null;
 }
 
 export function bookmakerParityKey(value: unknown): BookmakerParityKey | null {

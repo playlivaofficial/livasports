@@ -56,8 +56,11 @@ export function rankedCompetitionCandidates(
   candidates: readonly SportmonksLeaguePayload[],
 ): Array<{ candidate: SportmonksLeaguePayload; score: number }> {
   return candidates.flatMap(candidate => {
+    // Verified identities are authoritative. Never substitute a name homonym when
+    // the account cannot see the expected ID (including another division/country).
+    if (target.sportmonksId !== undefined && candidate.id !== target.sportmonksId) return [];
     if (!countryMatches(target, candidate)) return [];
-    const score = scoreName(candidate.name, target.lookupNames);
+    const score = candidate.id === target.sportmonksId ? 100 : scoreName(candidate.name, target.lookupNames);
     return score >= 72 ? [{ candidate, score }] : [];
   }).sort((left, right) => right.score - left.score || left.candidate.id - right.candidate.id);
 }
@@ -67,7 +70,9 @@ function selectCandidate(
   candidates: readonly SportmonksLeaguePayload[],
 ): { classification: CompetitionCoverageStatus; candidate: SportmonksLeaguePayload | null; confidence: number | null; notes: string[] } {
   const ranked = rankedCompetitionCandidates(target, candidates);
-  if (!ranked.length) return { classification: CompetitionCoverageStatus.NOT_FOUND, candidate: null, confidence: null, notes: ['No confident provider-name/country match.'] };
+  if (!ranked.length) return { classification: CompetitionCoverageStatus.NOT_FOUND, candidate: null, confidence: null,
+    notes: [target.sportmonksId === undefined ? 'No confident provider-name/country match.'
+      : `Verified Sportmonks ID ${target.sportmonksId} is missing or has conflicting country evidence; no name-based substitute accepted.`] };
   const [first, second] = ranked;
   if (second && first.score === second.score && first.candidate.id !== second.candidate.id) {
     return { classification: CompetitionCoverageStatus.AMBIGUOUS_MAPPING, candidate: null, confidence: first.score,

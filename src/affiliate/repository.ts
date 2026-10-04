@@ -6,24 +6,25 @@ import {matchPath} from '@/match-center/routes';
 import {teamPath,playerPath} from '@/profiles/routes';
 import {pageType} from './policy';
 import type {Campaign,CommercialContext,PageContext} from './types';
-import {VISIBLE_BOOKMAKERS} from '@/odds/registry';
+import type {SiteLocale} from '@/config/i18n';
 
-export async function readCampaigns(db:QueryExecutor,locale:'br'|'mx'):Promise<Campaign[]>{
+export async function readCampaigns(db:QueryExecutor,locale:SiteLocale):Promise<Campaign[]>{
   const {rows}=await db.query(`SELECT ac.*,al.destination_url,al.enabled AS link_enabled,al.approved_at AS link_approved,
     al.campaign_verified,al.bookmaker_id,b.provider_slug,b.affiliate_status,b.enabled AS bookmaker_enabled,
-    g.affiliate_enabled,g.odds_enabled,g.comparison_enabled,g.verified_at,g.verification_state,
+    g.affiliate_enabled,g.odds_enabled,g.comparison_enabled,g.verified_at,g.verification_state,g.commercial_status,g.commercial_version,g.destination_domains,g.legal_status,g.legal_verified_at,g.legal_reference,g.sportsbook_enabled,
+    EXISTS(SELECT 1 FROM operator_provider_mappings opm WHERE opm.bookmaker_id=b.id AND opm.country_id=c.id AND opm.verified_at IS NOT NULL) AS provider_verified,
     coalesce((SELECT jsonb_agg(jsonb_build_object('id',s.id,'placement',s.placement,'locale',s.locale,'imageUrl',s.image_url,
       'imageAlt',s.image_alt,'width',s.creative_width,'height',s.creative_height,'approved',s.approved_at IS NOT NULL,
       'enabled',s.enabled,'startsAt',s.starts_at,'endsAt',s.ends_at,'delivery',s.delivery_type,'embedSourceUrl',s.embed_source_url)) FROM profile_sponsor_campaigns s WHERE s.affiliate_campaign_id=ac.id),'[]') AS creatives
     FROM affiliate_campaigns ac JOIN affiliate_links al ON al.id=ac.affiliate_link_id
     JOIN bookmakers b ON b.id=al.bookmaker_id JOIN countries c ON c.id=al.country_id
     JOIN bookmaker_geo_availability g ON g.bookmaker_id=b.id AND g.country_id=c.id
-    WHERE c.iso2=$1 AND b.provider_slug=ANY($2::text[]) ORDER BY ac.id LIMIT 65`,[locale.toUpperCase(),VISIBLE_BOOKMAKERS.map(b=>b.canonicalId)]);
+    WHERE c.iso2=$1 ORDER BY ac.id LIMIT 65`,[locale.toUpperCase()]);
   if(rows.length>64)throw Error('CAMPAIGN_LIMIT');
   return rows.map(r=>({id:r.id,operatorCampaignId:r.operator_campaign_id,linkId:r.affiliate_link_id,bookmaker:r.provider_slug,locale,
-    enabled:r.enabled&&r.link_enabled&&r.bookmaker_enabled,approved:!!r.approved_at&&!!r.link_approved&&r.campaign_verified,
-    affiliateApproved:r.affiliate_status==='ACTIVE'&&r.affiliate_enabled,
-    geoEligible:!!r.verified_at&&r.odds_enabled&&r.comparison_enabled&&verifiedGeo(r.verification_state,commercialGeoFromLocale(locale))&&(r.provider_slug!=='betano.bet.br'||locale==='br'),
+    enabled:r.enabled&&r.link_enabled&&r.bookmaker_enabled&&locale!=='br',approved:!!r.approved_at&&!!r.link_approved&&r.campaign_verified,
+    affiliateApproved:r.commercial_status==='ACTIVE'&&r.affiliate_enabled,commercialVersion:r.commercial_version,
+    geoEligible:!!r.verified_at&&r.odds_enabled&&r.comparison_enabled&&r.sportsbook_enabled&&r.legal_status==='VERIFIED'&&!!r.legal_verified_at&&typeof r.legal_reference==='string'&&!!r.legal_reference.trim()&&r.provider_verified&&verifiedGeo(r.verification_state,commercialGeoFromLocale(locale)),operatorDomains:r.destination_domains??[],
     destination:r.destination_url,destinationType:r.destination_type,placements:r.placement_allowlist,domains:r.operator_domain_allowlist,
     startsAt:new Date(r.valid_from).toISOString(),endsAt:new Date(r.valid_until).toISOString(),creatives:r.creatives}));
 }

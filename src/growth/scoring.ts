@@ -1,5 +1,6 @@
 import {isMatchInSitemapWindow} from '@/seo/policy';
-import {CLUB_FALLBACK,CLUB_TIERS,COMPETITION_FALLBACK,COMPETITION_TRAFFIC_TIERS,MINIMUM_SCORE,ODDS_FULL_COVERAGE,PROXIMITY_CURVE,SCORE_WEIGHTS,SECOND_CLUB_SHARE,SHORTLIST,STAGE_PATTERNS,STANDINGS_RULES,clubKey,rivalryFor,type ScoreComponent} from './config';
+import {competitionDemand,type Geo} from '@/config/geo';
+import {CLUB_FALLBACK,GLOBAL_CLUB_MAGNITUDE,LOCAL_CLUB_AFFINITY,MINIMUM_SCORE,ODDS_FULL_COVERAGE,PROXIMITY_CURVE,SCORE_WEIGHTS,SECOND_CLUB_SHARE,SHORTLIST,STAGE_PATTERNS,clubKey,rivalryFor,type ScoreComponent} from './config';
 
 /**
  * Traffic Engine V1 — the priority engine.
@@ -10,7 +11,7 @@ import {CLUB_FALLBACK,CLUB_TIERS,COMPETITION_FALLBACK,COMPETITION_TRAFFIC_TIERS,
  * so "why did this rank first" is answered by data the fixture actually has.
  */
 
-export interface TeamSignal {slug:string;name:string;publicId:string;imageUrl:string|null;}
+export interface TeamSignal {slug:string;name:string;publicId:string;imageUrl:string|null;country?:string|null;}
 export interface StandingsSignal {homePosition:number|null;awayPosition:number|null;totalTeams:number|null;}
 export interface FixtureSignals {
   fixtureId:string;publicId:string;kickoff:string;status:string;
@@ -21,7 +22,10 @@ export interface FixtureSignals {
   standings:StandingsSignal|null;
   /** Distinct bookmakers currently priced for this fixture. */
   oddsBookmakers:number;
+  commercialBookmakers?:number;
+  pageUsable?:boolean;
 }
+export interface PriorityContext {geo:Geo;demandAdjustment?:number;intentStrength?:number;intentReason?:string;searchStrength?:number;commercialStrength?:number;}
 export interface ScoreLine {component:ScoreComponent;weight:number;strength:number;points:number;reason:string;}
 export interface FixturePriority {
   fixtureId:string;publicId:string;kickoff:string;competitionSlug:string;
@@ -36,8 +40,9 @@ const round=(value:number)=>Math.round(value*10)/10;
 /** Accent- and case-insensitive text used for stage matching; the provider's casing varies. */
 const plain=(value:string|null)=>(value??'').normalize('NFD').replace(/[̀-ͯ]/g,'');
 
-export function competitionStrength(slug:string){return COMPETITION_TRAFFIC_TIERS[slug]??COMPETITION_FALLBACK;}
-export function clubStrength(slug:string){return CLUB_TIERS[clubKey(slug)]??CLUB_FALLBACK;}
+export function competitionStrength(slug:string,geo:Geo='ROW'){return competitionDemand(geo,slug)/30;}
+/** Editorial global magnitude is separate from local affinity (canonical country data). */
+export function clubStrength(slug:string){return GLOBAL_CLUB_MAGNITUDE[clubKey(slug)]??CLUB_FALLBACK;}
 
 /** Knockout importance from the stored stage/round text. Unmatched text scores nothing rather than guessing. */
 export function stageStrength(stageName:string|null,roundName:string|null):{strength:number;label:string|null}{
@@ -49,20 +54,7 @@ export function stageStrength(stageName:string|null,roundName:string|null):{stre
 
 /** Title race / relegation fight, only where the season actually has a table. */
 export function standingsStrength(standings:StandingsSignal|null):{strength:number;reason:string}{
-  if(!standings||standings.totalTeams===null||standings.totalTeams<=0)return {strength:0,reason:'no table for this season'};
-  const {homePosition:home,awayPosition:away,totalTeams:total}=standings;
-  const inTitle=(p:number|null)=>p!==null&&p<=STANDINGS_RULES.titlePositions;
-  const inDrop=(p:number|null)=>p!==null&&p>total-STANDINGS_RULES.relegationPositions;
-  const titles=[home,away].filter(inTitle).length,drops=[home,away].filter(inDrop).length;
-  if(titles){
-    const strength=clamp01(STANDINGS_RULES.titleStrength+(titles>1?STANDINGS_RULES.bothTeamsBonus:0));
-    return {strength,reason:titles>1?'both teams in the title race':'a title contender is playing'};
-  }
-  if(drops){
-    const strength=clamp01(STANDINGS_RULES.relegationStrength+(drops>1?STANDINGS_RULES.bothTeamsBonus:0));
-    return {strength,reason:drops>1?'a direct relegation six-pointer':'a relegation-threatened team is playing'};
-  }
-  return {strength:0,reason:'mid-table for both teams'};
+  return {strength:0,reason:standings?'Posiciones disponibles; sin reglas verificadas para inferir título, clasificación o descenso':'Sin clasificación verificada'};
 }
 
 /** Hours until kickoff mapped through the configured curve; a match already in play stays at full strength. */
@@ -84,17 +76,17 @@ export function dataStrength(signals:FixtureSignals){
 
 /** Whether the fixture can carry traffic at all. Terminal and moved fixtures are never produced. */
 export function fixtureEligibility(signals:FixtureSignals,now:Date):{eligible:boolean;reason:string|null}{
-  if(['FINISHED','CANCELLED','ABANDONED'].includes(signals.status))return {eligible:false,reason:`fixture is ${signals.status.toLowerCase()}`};
-  if(signals.status==='POSTPONED')return {eligible:false,reason:'fixture is postponed, so its kickoff is not trustworthy'};
+  if(signals.pageUsable===false)return {eligible:false,reason:'destination data is not usable'};
+  if(signals.status!=='SCHEDULED')return {eligible:false,reason:`fixture is not pregame (${signals.status.toLowerCase()})`};
   const at=Date.parse(signals.kickoff);
   if(!Number.isFinite(at))return {eligible:false,reason:'kickoff is unreadable'};
   const hours=(at-now.getTime())/3_600_000;
-  if(hours<-SHORTLIST.graceHours)return {eligible:false,reason:'kickoff has already passed'};
+  if(hours<=0)return {eligible:false,reason:'kickoff has already passed'};
   if(hours>SHORTLIST.horizonHours)return {eligible:false,reason:'kickoff is beyond the planning horizon'};
   return {eligible:true,reason:null};
 }
 
-export function scoreFixture(signals:FixtureSignals,now:Date=new Date()):FixturePriority{
+export function scoreFixture(signals:FixtureSignals,now:Date=new Date(),context:PriorityContext={geo:'ROW'}):FixturePriority{
   const eligibility=fixtureEligibility(signals,now);
   const lines:ScoreLine[]=[];
   const add=(component:ScoreComponent,strength:number,reason:string)=>{
@@ -102,13 +94,14 @@ export function scoreFixture(signals:FixtureSignals,now:Date=new Date()):Fixture
     lines.push({component,weight,strength:bounded,points:round(weight*bounded),reason});
   };
 
-  const competition=competitionStrength(signals.competitionSlug);
-  add('competition',competition,`${signals.competitionName} is tier ${competition.toFixed(2)} for Brazil traffic`);
+  const seed=competitionStrength(signals.competitionSlug,context.geo),competition=clamp01(seed+Math.max(-.12,Math.min(.12,context.demandAdjustment??0)));
+  add('competition',competition,`${signals.competitionName}: demanda ${context.geo}, base ${seed.toFixed(2)}, ajuste ${(competition-seed).toFixed(2)}`);
 
-  const homeClub=clubStrength(signals.home.slug),awayClub=clubStrength(signals.away.slug);
+  const local=(team:TeamSignal)=>team.country===context.geo&&['MX','CO','PE'].includes(context.geo) ? LOCAL_CLUB_AFFINITY : 0;
+  const homeClub=Math.max(clubStrength(signals.home.slug),local(signals.home)),awayClub=Math.max(clubStrength(signals.away.slug),local(signals.away));
   const [top,second]=homeClub>=awayClub?[homeClub,awayClub]:[awayClub,homeClub];
   const topName=homeClub>=awayClub?signals.home.name:signals.away.name;
-  add('clubs',top+second*SECOND_CLUB_SHARE,second>=0.5?`${signals.home.name} and ${signals.away.name} both draw a national audience`:`${topName} is the draw`);
+  add('clubs',top+second*SECOND_CLUB_SHARE,local(signals.home)||local(signals.away)?`Participación local ${context.geo}: ${[signals.home,signals.away].filter(t=>local(t)>0).map(t=>t.name).join(', ')} (país canónico del club)`:`Magnitud editorial de clubes: ${topName}; sin tendencia inventada`);
 
   const rivalry=rivalryFor(signals.home.slug,signals.away.slug);
   add('rivalry',rivalry?rivalry.strength:0,rivalry?`${rivalry.name} — an established derby`:'not a derby fixture');
@@ -133,6 +126,9 @@ export function scoreFixture(signals:FixtureSignals,now:Date=new Date()):Fixture
   const destination=(signals.oddsBookmakers>0?0.6:0)+(inIndex?0.4:0);
   add('destination',destination,signals.oddsBookmakers>0&&inIndex?'match page is indexable and carries odds'
     :inIndex?'match page is indexable but has no odds to compare':'match page cannot do its commercial job yet');
+  add('intent',context.intentStrength??0,context.intentReason??'Sin muestra suficiente de intención de apuesta por GEO');
+  add('search',context.searchStrength??0,'Evidencia GSC de esta URL canónica/locale; no equivale al país del visitante');
+  add('commercial',context.commercialStrength??(signals.commercialBookmakers??0)/2,'Cobertura comercial aprobada y activa; nunca se supone una aprobación');
 
   const total=eligibility.eligible?round(lines.reduce((sum,line)=>sum+line.points,0)):0;
   const reasons=lines.filter(line=>line.points>0).sort((a,b)=>b.points-a.points||a.component.localeCompare(b.component))

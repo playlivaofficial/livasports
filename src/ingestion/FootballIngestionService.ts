@@ -1,4 +1,4 @@
-import { DEFAULT_INGESTION_WINDOW, FOOTBALL_COMPETITION_TARGETS, type FootballCompetitionTarget } from '@/config/footballCompetitions';
+import { DEFAULT_INGESTION_WINDOW, APPROVED_COMPETITION_TARGETS, type FootballCompetitionTarget } from '@/config/footballCompetitions';
 import type { Fixture } from '@/domain/entities';
 import { SafeProviderError, sanitizeText } from '@/providers/safe-error';
 import type { FootballIngestionProvider } from '@/providers/contracts/FootballIngestionProvider';
@@ -6,6 +6,8 @@ import type { FootballIngestionStore, StoredSeason, SyncKind, WriteCounts } from
 import type { CacheInvalidator } from '@/cache/invalidation';
 import { NoopCacheInvalidator } from '@/cache/invalidation';
 import { cacheKeys, fixtureChangeTags } from '@/cache/keys';
+import { localeRoutes } from '@/config/i18n';
+import type { SiteLocale } from '@/config/i18n';
 
 export interface SyncResult extends WriteCounts { providerRequests: number; durationMs: number; }
 
@@ -51,7 +53,7 @@ export class FootballIngestionService {
   constructor(
     private readonly provider: FootballIngestionProvider,
     private readonly store: FootballIngestionStore,
-    private readonly targets: readonly FootballCompetitionTarget[] = FOOTBALL_COMPETITION_TARGETS,
+    private readonly targets: readonly FootballCompetitionTarget[] = APPROVED_COMPETITION_TARGETS,
     private readonly now: () => Date = () => new Date(),
     private readonly invalidator: CacheInvalidator = new NoopCacheInvalidator(),
   ) {
@@ -64,7 +66,7 @@ export class FootballIngestionService {
 
   private async tracked(kind: SyncKind, work: () => Promise<WriteCounts>): Promise<SyncResult> {
     this.stageErrors = [];
-    const runId = await this.store.startSync(kind, 'BR,MX');
+    const runId = await this.store.startSync(kind, 'MX,CO,PE');
     const before = this.provider.getRequestCount();
     const started = performance.now();
     try {
@@ -88,7 +90,7 @@ export class FootballIngestionService {
       const catalog = await this.provider.discoverCompetitions(this.targets);
       const counts = plus(await this.store.upsertCountries(catalog.countries), await this.store.upsertSport(catalog.sport),
         await this.store.upsertCompetitions(catalog.competitions));
-      await this.invalidator.invalidateTags([cacheKeys.competitionList('br'), cacheKeys.competitionList('mx')]);
+      await this.invalidator.invalidateTags((Object.keys(localeRoutes) as SiteLocale[]).map(cacheKeys.competitionList));
       return counts;
     });
   }

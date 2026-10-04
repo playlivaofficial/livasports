@@ -3,7 +3,7 @@ import type {QueryExecutor} from '@/database/client';
 import {isVisibleBookmaker} from '@/odds/registry';
 export const comparisonEvents=new Set(['slip_comparison_view','slip_bookmaker_complete','slip_bookmaker_partial','slip_best_price_view','slip_bookmaker_click']);
 export function parseComparisonEvent(body:Record<string,unknown>){
-  if(!comparisonEvents.has(String(body.eventName))||(body.locale!=='br'&&body.locale!=='mx')||body.placement!=='slip-comparison'||
+  if(!comparisonEvents.has(String(body.eventName))||!['br','mx','co','pe'].includes(String(body.locale))||body.placement!=='slip-comparison'||
     Object.keys(body).some(k=>!['eventId','eventName','locale','placement','selectionCount','marketsSummary','bookmaker','availableCount','complete'].includes(k)))return null;
   if(!Number.isInteger(body.selectionCount)||Number(body.selectionCount)<0||Number(body.selectionCount)>10)return null;
   const markets=body.marketsSummary;

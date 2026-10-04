@@ -1,3 +1,4 @@
+import type {InterfaceLocale} from '@/localization/interface';
 import type {MetadataRoute} from 'next';
 import {legalKinds} from '@/localization/legal-routes';
 import {legalReviewedAt} from '@/localization/legal-content';
@@ -14,9 +15,9 @@ import type {CompetitionTab} from '@/sports/policy';
  * only in /sports-sitemaps.xml so no URL is listed twice. lastModified is set only where a
  * source-backed date exists.
  */
-type Cluster={paths:Record<'br'|'mx'|'en',string>;lastModified?:Date};
+type Cluster={paths:Record<InterfaceLocale,string>;lastModified?:Date};
 function localized({paths,lastModified}:Cluster):MetadataRoute.Sitemap{
-  const alternates={languages:alternateCluster({br:absoluteUrl(paths.br),mx:absoluteUrl(paths.mx),en:absoluteUrl(paths.en)})};
+  const alternates={languages:alternateCluster(Object.fromEntries(locales.map(locale=>[locale,absoluteUrl(paths[locale])])) as Record<InterfaceLocale,string>)};
   return locales.map(locale=>({url:absoluteUrl(paths[locale]),...(lastModified?{lastModified}:{}),alternates}));
 }
 const tabOrder:readonly CompetitionTab[]=['fixtures','results','standings','scorers','teams'];

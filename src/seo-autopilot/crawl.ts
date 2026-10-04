@@ -1,3 +1,4 @@
+import {isInterfaceLocale,languageTags} from '@/localization/interface';
 import {load} from 'cheerio';
 import {siteOrigin} from '@/seo/policy';
 import {contentHash} from './policy';
@@ -21,7 +22,10 @@ export function inspectSeoHtml(url:string,status:number,html:string,robotsHeader
   $('script[type="application/ld+json"]').each((_,el)=>{try{schemas.push(JSON.parse($(el).text()));}catch{structuredDataValid=false;}});
   if(!structuredDataValid)problems.push('JSON_LD_PARSE_ERROR');
   const alternates=$('link[hreflang]').map((_,el)=>({lang:$(el).attr('hreflang'),href:$(el).attr('href')})).get();
-  if(!['pt-BR','es-MX','en'].every(lang=>alternates.some(a=>a.lang===lang)))problems.push('LOCALE_ALTERNATE_MISSING');
+  // A retained historical locale legitimately omits aged/noindex siblings. The current canonical
+  // must identify itself; reciprocal clusters are verified by route/sitemap policy tests.
+  const locale=new URL(url).pathname.split('/')[1];
+  if(!isInterfaceLocale(locale)||!alternates.some(a=>a.lang===languageTags[locale]&&a.href===url))problems.push('LOCALE_ALTERNATE_MISSING');
   // Suspense delivers real HTML anchors in sibling fragments before React attaches them to main.
   // Parse anchors in the entire document, never href strings embedded in scripts or JSON payloads.
   const links=[...new Set($('a[href]').map((_,el)=>{

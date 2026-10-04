@@ -8,11 +8,11 @@ export function useTimePreference(){return useContext(TimePreference);}
 export function TimePreferenceProvider({manual,device,ready=true,children}:{manual:string|null;device:string|null;ready?:boolean;children:ReactNode}){return <TimePreference.Provider value={{manual,device,ready}}>{children}</TimePreference.Provider>;}
 const subscribe=()=>()=>{};
 const deviceZone=()=>validTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone)??'UTC';
-const commonZones=['UTC','America/Sao_Paulo','America/Manaus','America/Rio_Branco','America/Noronha','America/Mexico_City','America/Cancun','America/Tijuana','America/New_York','America/Los_Angeles','Europe/London','Europe/Madrid','Europe/Berlin','Asia/Tbilisi','Asia/Tokyo','Australia/Sydney'];
+const commonZones=['UTC','America/Sao_Paulo','America/Manaus','America/Rio_Branco','America/Noronha','America/Mexico_City','America/Bogota','America/Lima','America/Cancun','America/Tijuana','America/New_York','America/Los_Angeles','Europe/London','Europe/Madrid','Europe/Berlin','Asia/Tbilisi','Asia/Tokyo','Australia/Sydney'];
 const copy={br:{label:'Fuso horário',auto:'Usar horário do dispositivo',save:'Aplicar',device:'Neste dispositivo',note:'Altera apenas as datas e os horários dos jogos.'},mx:{label:'Zona horaria',auto:'Usar hora del dispositivo',save:'Aplicar',device:'En este dispositivo',note:'Solo cambia las fechas y horas de los partidos.'},en:{label:'Time zone',auto:'Use device time',save:'Apply',device:'This device',note:'Changes match dates and times only.'}};
 export function TimeZoneSelector({locale}:{locale:InterfaceLocale}){
   const {manual,device,ready}=useContext(TimePreference),timeZone=resolveTimeZone(locale,manual,device);
-  const path=usePathname(),detected=useSyncExternalStore(subscribe,deviceZone,()=>''),t=copy[locale];
+  const path=usePathname(),detected=useSyncExternalStore(subscribe,deviceZone,()=>''),t=copy[locale==='co'||locale==='pe'?'mx':locale];
   useEffect(()=>{
     if(!shouldDetectDeviceTimeZone(ready,manual,device,detected))return;
     // A browser that rejects preference cookies must never enter a reload loop.

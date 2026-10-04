@@ -1,12 +1,10 @@
 import {isStableOddsTournament} from '@/providers/oddspapi/tournament-catalog';
 import {MAX_TOURNAMENTS_PER_ODDSPAPI_REQUEST} from '@/providers/oddspapi/request-limits';
-import {ACTIVE_BOOKMAKER_IDS} from './registry';
 import {NORMAL_FORECAST_FRACTION,NORMAL_STOP_FRACTION,quotaPressure} from './quota-policy';
 import {effectiveBackoffAt} from './backoff-policy';
 
-// Provider demand follows the ACTIVE set: a retired operator stops costing requests the moment it is
-// retired, while its historical rows stay readable.
-export const SCHEDULER_BOOKMAKERS=ACTIVE_BOOKMAKER_IDS;
+// Country/feed eligibility is supplied by the verified mapping reader. Forecast
+// only those requested identities, never a static list of legacy BR providers.
 export const SCHEDULER_TICK_MINUTES=5;
 export {MAX_TOURNAMENTS_PER_ODDSPAPI_REQUEST};
 export interface RefreshTarget {
@@ -104,30 +102,36 @@ export function splitProviderBatches(due:readonly RefreshTarget[]):string[][]{
 export function forecastDetail(targets:RefreshTarget[],now:Date,days:number,scale:number){
   targets=[...new Map(targets.filter(t=>!t.unsupported&&!t.mappingBlocked).map(t=>[`${t.bookmaker}:${t.tournamentId}`,t])).values()];
   const feeds=new Set(targets.filter(t=>t.publicEligible).map(t=>t.bookmaker)).size;
-  const rows=targets.map(t=>({...t,kicks:t.fixtures.filter(f=>f.status==='SCHEDULED').map(f=>Date.parse(f.kickoff)).filter(Number.isFinite).sort((a,b)=>a-b),
-    expiry:t.nativeExpiryAt??null,last:(t.lastCheckedAt??t.lastSuccessAt)&&!t.needsCadenceRefresh?Date.parse((t.lastCheckedAt??t.lastSuccessAt)!):0,retry:t.retryAfter?Date.parse(t.retryAfter):0,proven:isProvenTarget(t)}));
+  // Forecasts revisit every feed on every five-minute tick, across several candidate
+  // budget scales. Parse identities/times once, and advance through sorted kickoffs.
+  const rows=targets.map(t=>({...t,kicks:t.fixtures.filter(f=>f.status==='SCHEDULED').map(f=>Date.parse(f.kickoff)).filter(Number.isFinite).sort((a,b)=>a-b),kickIndex:0,
+    expiry:Date.parse(t.nativeExpiryAt??''),last:(t.lastCheckedAt??t.lastSuccessAt)&&!t.needsCadenceRefresh?Date.parse((t.lastCheckedAt??t.lastSuccessAt)!):0,
+    retry:t.retryAfter?Date.parse(t.retryAfter):0,stable:isStableOddsTournament(t.tournamentId),proven:isProvenTarget(t)}));
+  const byFeed=new Map<string,typeof rows>();
+  for(const row of rows){const members=byFeed.get(row.bookmaker);if(members)members.push(row);else byFeed.set(row.bookmaker,[row]);}
+  const start=now.getTime(),end=start+days*86400000,tick=SCHEDULER_TICK_MINUTES*60000,window=7*86400000;
+  const margin=nativeSafetyMarginMinutes()*60000;
+  const intervals=new Map([15,30,120,360,720,1440].map(base=>[base,scaledInterval(base,scale)*60000]));
+  const intervalAt=(kick:number,at:number)=>intervals.get(cadenceIntervalMinutes((kick-at)/3600000,feeds)!)!;
   let count=0;const byBookmaker:Record<string,number>={},byCompetition:Record<string,number>={},byDay:number[]=Array(Math.ceil(days)).fill(0);
-  const record=(bookmaker:string,members:typeof rows,at:number)=>{if(!members.length)return;count++;byBookmaker[bookmaker]=(byBookmaker[bookmaker]??0)+1;byDay[Math.floor((at-now.getTime())/86400000)]++;
+  const record=(bookmaker:string,members:typeof rows,at:number)=>{if(!members.length)return;count++;byBookmaker[bookmaker]=(byBookmaker[bookmaker]??0)+1;byDay[Math.floor((at-start)/86400000)]++;
     for(const r of members){byCompetition[r.tournamentId]=(byCompetition[r.tournamentId]??0)+1/members.length;r.last=at;r.proven=true;
-      const kick=r.kicks.find(k=>k>at);r.expiry=r.publicEligible&&r.recentNative&&kick?new Date(at+freshnessTtlMs((kick-at)/3600000,feeds,scale)).toISOString():null;}};
-  for(let at=now.getTime();at<now.getTime()+days*86400000;at+=SCHEDULER_TICK_MINUTES*60000){
-    for(const bookmaker of SCHEDULER_BOOKMAKERS){
-      const planned=rows.filter(r=>r.bookmaker===bookmaker).flatMap(r=>{
-        const kick=r.kicks.find(k=>k>at);if(!kick||kick>at+7*86400000)return [];
-        const hours=(kick-at)/3600000;
-        const base=r.catalogEmpty?720:r.publicEligible?cadenceIntervalMinutes(hours,feeds)!:1440;
-        const interval=scaledInterval(base,scale)*60000;
-        return [{r,kick,dueAt:Math.max(r.publicEligible?expiryDue(r.last+interval,r.expiry):r.last+interval,r.retry),interval}];
-      });
-      const due=planned.filter(p=>p.dueAt<=at);
-      if(due.some(p=>isStableOddsTournament(p.r.tournamentId))){
-        const stable=due.filter(p=>isStableOddsTournament(p.r.tournamentId));
-        for(let i=0;i<stable.length;i+=MAX_TOURNAMENTS_PER_ODDSPAPI_REQUEST)record(bookmaker,stable.slice(i,i+MAX_TOURNAMENTS_PER_ODDSPAPI_REQUEST).map(p=>p.r),at);
+      const kick=r.kicks[r.kickIndex];r.expiry=r.publicEligible&&r.recentNative&&kick?at+intervalAt(kick,at)+tick:NaN;}};
+  for(let at=start;at<end;at+=tick){
+    for(const [bookmaker,members] of byFeed){
+      const stable:typeof rows=[],proven:typeof rows=[],unproven:typeof rows=[];
+      for(const r of members){
+        while(r.kickIndex<r.kicks.length&&r.kicks[r.kickIndex]<=at)r.kickIndex++;
+        const kick=r.kicks[r.kickIndex];if(!kick||kick>at+window)continue;
+        const interval=r.catalogEmpty?intervals.get(720)!:r.publicEligible?intervalAt(kick,at):intervals.get(1440)!;
+        const normalDue=r.last+interval;
+        const dueAt=Math.max(r.publicEligible&&Number.isFinite(r.expiry)?Math.min(normalDue,r.expiry-margin):normalDue,r.retry);
+        if(!(dueAt<=at))continue;
+        if(r.stable)stable.push(r);else if(r.proven)proven.push(r);else if(unproven.length<MAX_UNPROVEN_PROBES_PER_TICK)unproven.push(r);
       }
-      const proven=due.filter(p=>!isStableOddsTournament(p.r.tournamentId)&&p.r.proven);
-      for(let i=0;i<proven.length;i+=MAX_TOURNAMENTS_PER_ODDSPAPI_REQUEST)record(bookmaker,proven.slice(i,i+MAX_TOURNAMENTS_PER_ODDSPAPI_REQUEST).map(p=>p.r),at);
-      const unproven=due.filter(p=>!isStableOddsTournament(p.r.tournamentId)&&!p.r.proven).slice(0,MAX_UNPROVEN_PROBES_PER_TICK);
-      unproven.forEach(p=>record(bookmaker,[p.r],at));
+      for(let i=0;i<stable.length;i+=MAX_TOURNAMENTS_PER_ODDSPAPI_REQUEST)record(bookmaker,stable.slice(i,i+MAX_TOURNAMENTS_PER_ODDSPAPI_REQUEST),at);
+      for(let i=0;i<proven.length;i+=MAX_TOURNAMENTS_PER_ODDSPAPI_REQUEST)record(bookmaker,proven.slice(i,i+MAX_TOURNAMENTS_PER_ODDSPAPI_REQUEST),at);
+      for(const row of unproven)record(bookmaker,[row],at);
     }
   }
   return {requests:count,byBookmaker,byCompetition,byDay,peakDailyRequests:Math.max(0,...byDay)};
@@ -156,7 +160,7 @@ export function planScheduler(targets:RefreshTarget[],now=new Date(),budget?:Sch
   const activeFeeds=new Set(targets.filter(t=>t.publicEligible).map(t=>t.bookmaker)).size;
   const targetsPlan=targets.map(t=>planTarget(t,activeFeeds,now,cadence.scale));
   const chunk=(ids:string[])=>{const out:string[][]=[];for(let i=0;i<ids.length;i+=MAX_TOURNAMENTS_PER_ODDSPAPI_REQUEST)out.push(ids.slice(i,i+MAX_TOURNAMENTS_PER_ODDSPAPI_REQUEST));return out;};
-  const planned=cadence.budgetAvailable?SCHEDULER_BOOKMAKERS.flatMap(bookmaker=>{
+  const planned=cadence.budgetAvailable?[...new Set(targets.map(t=>t.bookmaker))].sort().flatMap(bookmaker=>{
     const eligible=targetsPlan.filter(t=>t.bookmaker===bookmaker&&t.intervalMinutes!==null);
     // Priority: recovery (near-term feed without coverage) first, then relative lateness, then nearest kickoff.
     const waitAge=(t:typeof eligible[number])=>t.pendingSince?Math.max(0,(now.getTime()-Date.parse(t.pendingSince))/60000):0;

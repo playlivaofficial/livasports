@@ -1,10 +1,11 @@
 import { FixtureStatus, MarketCode, OutcomeCode } from '@/domain/enums';
 
-export type SiteLocale = 'br' | 'mx';
+export type SiteLocale = 'br' | 'mx' | 'co' | 'pe';
+export function isSiteLocale(value:unknown):value is SiteLocale{return value==='br'||value==='mx'||value==='co'||value==='pe';}
 export type PageKey = 'home' | 'football' | 'live' | 'today';
 
 export interface LocaleDictionary {
-  locale: 'pt-BR' | 'es-MX'; countryCode: 'BR' | 'MX'; countryName: string; timeZone: string;
+  locale: 'pt-BR' | 'es-MX' | 'es-CO' | 'es-PE'; countryCode: 'BR' | 'MX' | 'CO' | 'PE'; countryName: string; timeZone: string;
   navigation: { home: string; football: string; live: string; today: string };
   pages: Record<PageKey, { title: string; description: string }>;
   labels: {
@@ -18,7 +19,7 @@ export interface LocaleDictionary {
   status: { foundation: string; noFabricatedData: string; providerBoundary: string; nextMilestone: string; routeFoundation: string };
 }
 
-const dictionaries: Record<SiteLocale, LocaleDictionary> = {
+const baseDictionaries: Record<'br'|'mx', LocaleDictionary> = {
   br: {
     locale: 'pt-BR', countryCode: 'BR', countryName: 'Brasil', timeZone: 'America/Sao_Paulo',
     navigation: { home: 'Início', football: 'Futebol', live: 'Ao vivo', today: 'Jogos de hoje' },
@@ -101,8 +102,19 @@ const dictionaries: Record<SiteLocale, LocaleDictionary> = {
   },
 };
 
+const spanish=baseDictionaries.mx;
+const dictionaries:Record<SiteLocale,LocaleDictionary>={...baseDictionaries,
+  co:{...spanish,locale:'es-CO',countryCode:'CO',countryName:'Colombia',timeZone:'America/Bogota',labels:{...spanish.labels,coverageUnavailableDescription:'La cobertura de esta competición aún no está disponible. No mostramos partidos sin confirmar.'},pages:{...spanish.pages,
+    home:{title:'Fútbol: próximos 7 días en Colombia',description:'Partidos, resultados y cuotas con prioridad para el fútbol colombiano y los grandes torneos internacionales.'},
+    today:{title:'Partidos de hoy en Colombia',description:'Consulta los partidos de hoy en horario de Colombia.'}}},
+  pe:{...spanish,locale:'es-PE',countryCode:'PE',countryName:'Perú',timeZone:'America/Lima',labels:{...spanish.labels,coverageUnavailableDescription:'La cobertura de esta competición aún no está disponible. No mostramos partidos sin confirmar.'},pages:{...spanish.pages,
+    home:{title:'Fútbol: próximos 7 días en Perú',description:'Partidos, resultados y cuotas con prioridad para el fútbol peruano y los grandes torneos internacionales.'},
+    today:{title:'Partidos de hoy en Perú',description:'Consulta los partidos de hoy en horario de Perú.'}}},
+};
 export function getDictionary(locale: SiteLocale): LocaleDictionary { return dictionaries[locale]; }
 export const localeRoutes = {
   br: { home: '/br', football: '/br/futebol', live: '/br/ao-vivo', today: '/br/jogos/hoje' },
   mx: { home: '/mx', football: '/mx/futbol', live: '/mx/en-vivo', today: '/mx/partidos/hoy' },
+  co: { home: '/co', football: '/co/futbol', live: '/co/en-vivo', today: '/co/partidos/hoy' },
+  pe: { home: '/pe', football: '/pe/futbol', live: '/pe/en-vivo', today: '/pe/partidos/hoy' },
 } as const;

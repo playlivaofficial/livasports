@@ -17,6 +17,7 @@ vi.mock('@/localization/LegacyPageShell',()=>({LegacyPageShell:()=>null}));
 
 const request=(cookie='',extra:Record<string,string>={})=>new NextRequest('https://livasports.com/api/presentation',{headers:{cookie,...extra}});
 beforeEach(()=>{
+  vi.stubEnv('VERCEL','');vi.stubEnv('AFFILIATE_QA_GEO','');
   vi.stubEnv('OWNER_QA_SESSION_SECRET','test-only-session-material-'.repeat(3));
   vi.stubEnv('OWNER_QA_ACCESS_HASH',accessKeyHash('test-only-access-key-material-'.repeat(3)));
 });
@@ -28,35 +29,45 @@ describe('private presentation endpoint',()=>{
     expect(response.status).toBe(200);expect(response.headers.get('cache-control')).toBe('private, no-store');
     expect(response.headers.get('vary')).toBe('Cookie');expect(response.headers.get('x-robots-tag')).toBe('noindex, nofollow');
     expect(response.headers.has('set-cookie')).toBe(false);expect(response.headers.has('access-control-allow-origin')).toBe(false);
-    expect(await response.json()).toEqual({manual:null,device:null,owner:{authorized:false,preview:false}});
+    expect(await response.json()).toEqual({manual:null,device:null,commercialLocale:null,owner:{authorized:false,preview:false,previewGeo:null}});
   });
-  it('returns only validated time zones and two owner flags, never session IDs or secrets',async()=>{
-    const session={...newOwnerSession(),preview:true};const token=signOwnerSession(session);
+  it('returns only validated preferences and signed GEO, never session IDs or secrets',async()=>{
+    const session={...newOwnerSession(),preview:true,previewGeo:'CO' as const};const token=signOwnerSession(session);
     const response=GET(request(`${ownerCookie}=${token}; livasports_time_zone=Asia%2FTokyo; livasports_device_time_zone=America%2FMexico_City`));
     const body=await response.text();
-    expect(JSON.parse(body)).toEqual({manual:'Asia/Tokyo',device:'America/Mexico_City',owner:{authorized:true,preview:true}});
+    expect(JSON.parse(body)).toEqual({manual:'Asia/Tokyo',device:'America/Mexico_City',commercialLocale:'co',owner:{authorized:true,preview:true,previewGeo:'CO'}});
     expect(body).not.toContain(session.id);expect(body).not.toContain(token);expect(body).not.toContain('expiresAt');expect(body).not.toContain(process.env.OWNER_QA_SESSION_SECRET!);
   });
   it('fails closed for forged headers, signatures, expired sessions, and duplicated owner cookies',async()=>{
-    const valid=signOwnerSession({...newOwnerSession(),preview:true});
-    const expired=signOwnerSession({...newOwnerSession(),expiresAt:Date.now()-1000,preview:true});
+    const valid=signOwnerSession({...newOwnerSession(),preview:true,previewGeo:'CO'});
+    const expired=signOwnerSession({...newOwnerSession(),expiresAt:Date.now()-1000,preview:true,previewGeo:'CO'});
     for(const cookie of [`${ownerCookie}=forged`,`${ownerCookie}=${valid.slice(0,-1)}!`,`${ownerCookie}=${expired}`,`${ownerCookie}=${valid}; ${ownerCookie}=${valid}`]){
       const body=await GET(request(cookie,{'x-owner-authorized':'true','x-livasports-owner-preview':'BR'})).json();
-      expect(body.owner).toEqual({authorized:false,preview:false});
+      expect(body.owner).toEqual({authorized:false,preview:false,previewGeo:null});
+      expect(body.commercialLocale).toBeNull();
     }
   });
   it('does not trust invalid timezone cookies or silently turn a device preference into GEO authority',async()=>{
     const response=GET(request('livasports_time_zone=not-a-zone; livasports_device_time_zone=%2F%2Fevil.test',{'x-vercel-ip-country':'PE'}));
-    const body=await response.json();expect(body.manual).toBeNull();expect(body.device).toBeNull();expect(Object.keys(body).sort()).toEqual(['device','manual','owner']);
+    const body=await response.json();expect(body.manual).toBeNull();expect(body.device).toBeNull();expect(body.commercialLocale).toBeNull();expect(Object.keys(body).sort()).toEqual(['commercialLocale','device','manual','owner']);
   });
   it('denies previously signed sessions after owner access is unconfigured',async()=>{
     const token=signOwnerSession({...newOwnerSession(),preview:true});vi.stubEnv('OWNER_QA_SESSION_SECRET','');
-    expect((await GET(request(`${ownerCookie}=${token}`)).json()).owner).toEqual({authorized:false,preview:false});
+    expect((await GET(request(`${ownerCookie}=${token}`)).json()).owner).toEqual({authorized:false,preview:false,previewGeo:null});
+  });
+  it.each(['MX','CO','PE'] as const)('uses trusted %s jurisdiction independently of route language and timezone',async geo=>{
+    vi.stubEnv('VERCEL','1');
+    const body=await GET(request('livasports_time_zone=America%2FSao_Paulo; livasports_language=br',{'x-vercel-ip-country':geo})).json();
+    expect(body.commercialLocale).toBe(geo.toLowerCase());expect(body.owner.authorized).toBe(false);
+  });
+  it.each(['BR','GE','US'])('does not restore commercial jurisdiction for %s',async geo=>{
+    vi.stubEnv('VERCEL','1');
+    expect((await GET(request('',{'x-vercel-ip-country':geo})).json()).commercialLocale).toBeNull();
   });
 });
 
 describe('public root shell privacy and deterministic hydration',()=>{
-  it.each(['br','mx','en'] as const)('renders the explicit %s locale and footer with no owner state in shared HTML',locale=>{
+  it.each(['br','mx','co','pe','en'] as const)('renders the explicit %s locale and footer with no owner state in shared HTML',locale=>{
     const fetch=vi.spyOn(globalThis,'fetch');
     const html=renderToStaticMarkup(<PublicRootLayout locale={locale}><main>Public fixture facts</main></PublicRootLayout>);
     expect(html).toContain(`<html lang="${languageTags[locale]}"`);expect(html).toContain(`<footer class="sports-site-footer" lang="${languageTags[locale]}"`);
@@ -79,7 +90,7 @@ describe('public root shell privacy and deterministic hydration',()=>{
     expect(shouldDetectDeviceTimeZone(true,null,null,'')).toBe(false);
     expect(shouldDetectDeviceTimeZone(true,null,null,'Asia/Tokyo')).toBe(true);
   });
-  it.each([['br','09:00'],['mx','06:00'],['en','12:00']] as const)('uses route-default time for %s server output', (locale,expected)=>{
+  it.each([['br','09:00'],['mx','06:00'],['co','07:00'],['pe','07:00'],['en','12:00']] as const)('uses route-default time for %s server output', (locale,expected)=>{
     const html=renderToStaticMarkup(<LocalizedTimeText value="2026-10-04T12:00:00Z" locale={locale} options={{hour:'2-digit',minute:'2-digit',hourCycle:'h23'}}/>);
     expect(html).toBe(expected);
   });

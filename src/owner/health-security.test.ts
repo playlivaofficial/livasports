@@ -59,7 +59,7 @@ describe('P3 owner control plane security (§15, §23, §31)',()=>{
     const refresh=vi.fn(async(_db:DatabaseClient,competition:string)=>({ok:true,code:'OK',competition,requests:2,budgetHeadroomAfter:8}));
     expect((await ownerHealthAction(post({action:'refresh-target',competition:'Bundesliga!'},ownerHeaders()),deps({refresh}))).status).toBe(400);
     const unconfirmed=await ownerHealthAction(post({action:'refresh-target',competition:'bundesliga'},ownerHeaders()),deps({refresh}));
-    expect(unconfirmed.status).toBe(409);expect(await unconfirmed.json()).toEqual({error:'CONFIRMATION_REQUIRED',requestCost:2});
+    expect(unconfirmed.status).toBe(409);expect(await unconfirmed.json()).toEqual({error:'CONFIRMATION_REQUIRED',requestCostLimit:6});
     expect((await ownerHealthAction(post({action:'refresh-target',competition:'bundesliga',confirm:true},ownerHeaders()),deps({refresh,providerKey:()=>null}))).status).toBe(503);
     const limited=await ownerHealthAction(post({action:'refresh-target',competition:'bundesliga',confirm:true},ownerHeaders()),deps({refresh,recentOwnerRefresh:async()=>'2026-09-18T11:58:00.000Z'}));
     expect(limited.status).toBe(429);expect(limited.headers.get('retry-after')).toBe('300');
@@ -69,6 +69,14 @@ describe('P3 owner control plane security (§15, §23, §31)',()=>{
     expect(refresh).toHaveBeenCalledTimes(1);expect(refresh.mock.calls[0][1]).toBe('bundesliga');
     const rejected=await ownerHealthAction(post({action:'refresh-target',competition:'bundesliga',confirm:true},ownerHeaders()),deps({refresh:async()=>({ok:false,code:'BUDGET_HEADROOM'})}));
     expect(rejected.status).toBe(409);
+  });
+  it.each(['MX:liga-mx','CO:liga-betplay','PE:peru-liga-1'])('accepts the authenticated scoped health target %s without flattening its GEO',async competition=>{
+    const refresh=vi.fn(async()=>({ok:true,requests:0}));
+    const response=await ownerHealthAction(post({action:'refresh-target',competition,confirm:true},ownerHeaders()),deps({refresh}));
+    expect(response.status).toBe(200);expect(refresh).toHaveBeenCalledWith(expect.anything(),competition);
+  });
+  it.each(['BR:bundesliga','US:liga-mx','CO:liga:extra','CO:../private'])('rejects invalid country target %s without provider activity',async competition=>{
+    const refresh=vi.fn();expect((await ownerHealthAction(post({action:'refresh-target',competition,confirm:true},ownerHeaders()),deps({refresh}))).status).toBe(400);expect(refresh).not.toHaveBeenCalled();
   });
   it('acknowledge validates the incident id; retry-mapping never calls the provider',async()=>{
     expect((await ownerHealthAction(post({action:'acknowledge',incidentId:'nope'},ownerHeaders()),deps())).status).toBe(400);

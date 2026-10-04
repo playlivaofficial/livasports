@@ -122,7 +122,7 @@ function PlayerPerformances({locale,match,linkPlayers}:{locale:SiteLocale;match:
   })}</div></section>;
 }
 
-export async function EnglishMatchCenter({ locale, match, replay = false, commercialLocale = 'br', timeZone = resolveTimeZone(locale,null,null) }: { locale: SiteLocale; match: MatchCenterView; replay?: boolean; commercialLocale?: 'br' | 'mx'; timeZone?: string }){
+export async function EnglishMatchCenter({ locale, match, replay = false, commercialLocale = 'br', timeZone = resolveTimeZone(locale,null,null) }: { locale: SiteLocale; match: MatchCenterView; replay?: boolean; commercialLocale?: import('@/config/i18n').SiteLocale; timeZone?: string }){
   const text=copy[locale]; const dictionary=getDictionary(locale); const canonical=matchPath(locale,match.header.publicId,match.header.home.name,match.header.away.name);
   const alternate={br:matchPath('br',match.header.publicId,match.header.home.name,match.header.away.name),mx:matchPath('mx',match.header.publicId,match.header.home.name,match.header.away.name)};
 

@@ -54,7 +54,10 @@ describe('P4 owner reporting (§19–§25, §31, §37)',()=>{
   });
   it('owner analytics filters are allowlisted and the route stays private, noindex and out of sitemaps',()=>{
     expect(parseFilters({window:'30d',locale:'mx',geo:'MX',bookmaker:'betsson',competition:'la-liga',pageType:'match',source:'bing_organic',traffic:'QA'})).toEqual({window:'30d',locale:'mx',geo:'MX',bookmaker:'betsson',competition:'la-liga',pageType:'match',source:'bing_organic',traffic:'QA'});
-    expect(parseFilters({window:'x',locale:'fr',geo:'US',bookmaker:'bet365',competition:'DROP TABLE',pageType:'admin',source:'evil',traffic:'ALL'})).toEqual({window:'7d',locale:undefined,geo:undefined,bookmaker:undefined,competition:undefined,pageType:undefined,source:undefined,traffic:undefined});
+    for(const [locale,geo,bookmaker] of [['mx','MX','caliente'],['co','CO','betplay'],['pe','PE','bet365']]){
+      expect(parseFilters({window:'7d',locale,geo,bookmaker})).toMatchObject({window:'7d',locale,geo,bookmaker});
+    }
+    expect(parseFilters({window:'x',locale:'fr',geo:'US',bookmaker:'unknown-bookie',competition:'DROP TABLE',pageType:'admin',source:'evil',traffic:'ALL'})).toEqual({window:'7d',locale:undefined,geo:undefined,bookmaker:undefined,competition:undefined,pageType:undefined,source:undefined,traffic:undefined});
     expect(isPrivatePath('/owner/analytics')).toBe(true);expect(robotsDisallow).toContain('/owner/');
   });
 });

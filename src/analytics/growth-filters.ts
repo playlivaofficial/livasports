@@ -24,7 +24,7 @@ export function parseGrowthQuery(query:Record<string,string|string[]|undefined>,
   }else{to=now;from=new Date(now.getTime()-(preset==='30d'?30:preset==='14d'?14:7)*DAY);}
   const locale=one(query.locale),geo=one(query.geo),source=one(query.source),competition=one(query.competition),team=one(query.team),pageType=one(query.pageType),week=one(query.week);
   return {preset,week:week&&DATE.test(week)?weekStart(localDay(week)):weekStart(now),filters:{from,to,
-    locale:locale==='br'||locale==='mx'||locale==='en'?locale:undefined,geo:geo==='BR'||geo==='MX'?geo:undefined,
+    locale:locale==='br'||locale==='mx'||locale==='co'||locale==='pe'||locale==='en'?locale:undefined,geo:geo==='BR'||geo==='MX'||geo==='CO'||geo==='PE'||geo==='ROW'?geo:undefined,
     source:(ACQUISITION_BUCKETS as readonly string[]).includes(source??'')?source as AcquisitionBucket:undefined,
     competition:competition&&/^[a-z0-9-]{2,64}$/.test(competition)?competition:undefined,team:team&&/^[a-f0-9]{16}$/.test(team)?team:undefined,
     pageType:(PAGE_TYPES as readonly string[]).includes(pageType??'')?pageType:undefined}};

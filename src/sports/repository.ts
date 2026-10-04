@@ -8,7 +8,8 @@ import {interfaceDictionary} from '@/localization/interface';
 import {localDateKey} from '@/delivery/time';
 import {competitionName,numericStatistic,resolveDefaultSeason,sportsPageSize} from './policy';
 import {rankSportsSearch} from './search-rank';
-import {targetBySlug} from '@/config/footballCompetitions';
+import {targetBySlug,APPROVED_COMPETITION_SLUGS,isAcquisitionCompetition} from '@/config/footballCompetitions';
+import {competitionDemand,geoForLocale,isSpanishLocale} from '@/config/geo';
 import {deliveryWindow} from '@/delivery/time';
 import {countryCodeFromName} from '@/profiles/localization';
 import type {CompetitionHub,CompetitionNavItem,PendingSportsFixture,SportsFixture,SportsSearchResult,SportsStanding,SportsTeam} from './types';
@@ -45,14 +46,16 @@ export class SportsRepository {
     const now=new Date();
     const window=deliveryWindow(locale==='en'?'br':locale,'football',now,timeZone);
     const rows=(await this.db.query<Row>(`SELECT c.slug,c.canonical_name,c.display_name_pt_br,c.display_name_es_mx,c.competition_group,c.region,
-      co.iso2 AS country_code,co.name AS country_name,count(f.id)::int AS n
+      co.iso2 AS country_code,co.name AS country_name,count(f.id)::int AS n,min(p.priority_rank) AS growth_rank
       FROM competitions c LEFT JOIN countries co ON co.id=c.country_id
       LEFT JOIN fixtures f ON f.competition_id=c.id AND f.kickoff>=$1 AND f.kickoff<$2
-      WHERE c.enabled GROUP BY c.id,co.iso2,co.name
-      ORDER BY CASE WHEN $3='br' THEN c.priority_br WHEN $3='mx' THEN c.priority_mx ELSE c.priority_br END NULLS LAST,c.canonical_name`,[window.from,window.to,locale])).rows;
-    return rows.map(row=>{const slug=String(row.slug),target=targetBySlug(slug),canonical=string(row.canonical_name)??target?.canonicalName??slug;return {slug,name:(locale==='br'?string(row.display_name_pt_br):locale==='mx'?string(row.display_name_es_mx):null)??competitionName(locale,slug)??canonical,
+      LEFT JOIN growth_geo_priorities p ON p.fixture_id=f.id AND p.geo=$3 AND p.active AND p.priority_rank<=5
+        AND f.status='SCHEDULED' AND f.kickoff>now() AND f.kickoff<=now()+interval '7 days'
+      WHERE c.enabled AND c.slug=ANY($4::text[]) GROUP BY c.id,co.iso2,co.name ORDER BY c.slug`,[window.from,window.to,geoForLocale(locale),APPROVED_COMPETITION_SLUGS])).rows;
+    return rows.filter(row=>isAcquisitionCompetition(String(row.slug))).map(row=>{const slug=String(row.slug),target=targetBySlug(slug),canonical=string(row.canonical_name)??target?.canonicalName??slug;return {slug,name:(locale==='br'?string(row.display_name_pt_br):isSpanishLocale(locale)?string(row.display_name_es_mx):null)??competitionName(locale,slug)??canonical,
+      priority:row.growth_rank!==null&&row.growth_rank!==undefined?-100+Number(row.growth_rank):100-competitionDemand(geoForLocale(locale),slug),
       group:['BRAZIL','AMERICAS','EUROPE'].includes(String(row.competition_group))?String(row.competition_group):'OTHER',count:Number(row.n),
-      countryCode:string(row.country_code),countryName:string(row.country_name),region:string(row.region)??target?.region??'OTHER'};});
+      countryCode:string(row.country_code),countryName:string(row.country_name),region:string(row.region)??target?.region??'OTHER'};}).sort((a,b)=>a.priority-b.priority||a.slug.localeCompare(b.slug));
   }
   async calendar(locale:InterfaceLocale,timeZone=interfaceDictionary(locale).timeZone){
     const today=localDateKey(new Date(),timeZone);
@@ -115,17 +118,40 @@ export class SportsRepository {
   }
   async search(query:string,locale:InterfaceLocale):Promise<SportsSearchResult[]>{
     if(query.length<1)return [];
-    const pattern='%'+query.replace(/[\\%_]/g,'\\$&')+'%';
+    const literal=query.replace(/[\\%_]/g,'\\$&'),pattern='%'+literal+'%';
+    const geo=geoForLocale(locale);
+    // Apply shared demand before the bounded candidate queries, not only after LIMIT.
+    // Historical entities retain their direct URLs; this is the active discovery pool.
+    const acquisitionSlugs=APPROVED_COMPETITION_SLUGS.filter(isAcquisitionCompetition)
+      .sort((a,b)=>competitionDemand(geo,b)-competitionDemand(geo,a)||a.localeCompare(b));
+    const searchArgs=[pattern,acquisitionSlugs,acquisitionSlugs.map(slug=>competitionDemand(geo,slug)),literal,literal+'%'];
     const [competitions,teams,players]=await Promise.all([
-      this.db.query<Row>(`SELECT c.slug,c.canonical_name,c.region,co.iso2 AS country_code,co.name AS country_name FROM competitions c LEFT JOIN countries co ON co.id=c.country_id WHERE c.enabled AND (c.canonical_name ILIKE $1 OR c.display_name_pt_br ILIKE $1 OR c.display_name_es_mx ILIKE $1) ORDER BY c.priority_br LIMIT 20`,[pattern]),
-      this.db.query<Row>(`SELECT t.public_id,t.name,t.image_url,co.iso2 AS country_code,co.name AS context FROM teams t LEFT JOIN countries co ON co.id=t.country_id WHERE (t.name ILIKE $1 OR t.short_name ILIKE $1) AND EXISTS(SELECT 1 FROM team_seasons ts JOIN seasons s ON s.id=ts.season_id JOIN competitions c ON c.id=s.competition_id WHERE ts.team_id=t.id AND c.enabled) ORDER BY t.name LIMIT 20`,[pattern]),
-      this.db.query<Row>(`SELECT p.public_id,p.display_name AS name,p.position_name AS context,COALESCE(p.nationality_name,p.country_name) AS country_name FROM players p WHERE (p.display_name ILIKE $1 OR p.name ILIKE $1) AND EXISTS(SELECT 1 FROM team_squad_memberships sm JOIN seasons s ON s.id=sm.season_id JOIN competitions c ON c.id=s.competition_id WHERE sm.player_id=p.id AND c.enabled) ORDER BY p.display_name LIMIT 20`,[pattern]),
+      this.db.query<Row>(`SELECT c.slug,c.canonical_name,c.region,co.iso2 AS country_code,co.name AS country_name
+        FROM competitions c LEFT JOIN countries co ON co.id=c.country_id
+        WHERE c.enabled AND c.slug=ANY($2::text[]) AND (c.canonical_name ILIKE $1 OR c.display_name_pt_br ILIKE $1 OR c.display_name_es_mx ILIKE $1)
+        ORDER BY CASE WHEN c.canonical_name ILIKE $4 OR c.display_name_pt_br ILIKE $4 OR c.display_name_es_mx ILIKE $4 THEN 0
+          WHEN c.canonical_name ILIKE $5 OR c.display_name_pt_br ILIKE $5 OR c.display_name_es_mx ILIKE $5 THEN 1 ELSE 2 END,
+          ($3::integer[])[array_position($2::text[],c.slug)] DESC,c.slug LIMIT 20`,searchArgs),
+      this.db.query<Row>(`SELECT t.public_id,t.name,t.image_url,co.iso2 AS country_code,co.name AS context,discovery.competition_slugs
+        FROM teams t LEFT JOIN countries co ON co.id=t.country_id
+        JOIN LATERAL (SELECT array_agg(DISTINCT c.slug) AS competition_slugs,max(($3::integer[])[array_position($2::text[],c.slug)]) AS priority
+          FROM team_seasons ts JOIN seasons s ON s.id=ts.season_id JOIN competitions c ON c.id=s.competition_id
+          WHERE ts.team_id=t.id AND c.enabled AND c.slug=ANY($2::text[])) discovery ON discovery.priority IS NOT NULL
+        WHERE t.name ILIKE $1 OR t.short_name ILIKE $1
+        ORDER BY CASE WHEN t.name ILIKE $4 THEN 0 WHEN t.name ILIKE $5 THEN 1 ELSE 2 END,discovery.priority DESC,t.name,t.public_id LIMIT 20`,searchArgs),
+      this.db.query<Row>(`SELECT p.public_id,p.display_name AS name,p.position_name AS context,COALESCE(p.nationality_name,p.country_name) AS country_name,discovery.competition_slugs
+        FROM players p
+        JOIN LATERAL (SELECT array_agg(DISTINCT c.slug) AS competition_slugs,max(($3::integer[])[array_position($2::text[],c.slug)]) AS priority
+          FROM team_squad_memberships sm JOIN seasons s ON s.id=sm.season_id JOIN competitions c ON c.id=s.competition_id
+          WHERE sm.player_id=p.id AND c.enabled AND c.slug=ANY($2::text[])) discovery ON discovery.priority IS NOT NULL
+        WHERE p.display_name ILIKE $1 OR p.name ILIKE $1
+        ORDER BY CASE WHEN p.display_name ILIKE $4 THEN 0 WHEN p.display_name ILIKE $5 THEN 1 ELSE 2 END,discovery.priority DESC,p.display_name,p.public_id LIMIT 20`,searchArgs),
     ]);
     return rankSportsSearch([
       ...competitions.rows.map(r=>{const slug=String(r.slug);return {kind:'competition' as const,publicId:slug,name:competitionName(locale,slug)??String(r.canonical_name),context:null,slug,countryCode:string(r.country_code)??targetBySlug(slug)?.countryCode??null,countryName:string(r.country_name),region:string(r.region),imageUrl:null};}),
-      ...teams.rows.map(r=>({kind:'team' as const,publicId:String(r.public_id),name:String(r.name),context:string(r.context),slug:null,countryCode:string(r.country_code),countryName:string(r.context),region:null,imageUrl:string(r.image_url)})),
-      ...players.rows.map(r=>{const countryName=string(r.country_name);return {kind:'player' as const,publicId:String(r.public_id),name:String(r.name),context:string(r.context),slug:null,countryCode:countryCodeFromName(countryName),countryName,region:null,imageUrl:null};}),
-    ],query);
+      ...teams.rows.map(r=>({kind:'team' as const,publicId:String(r.public_id),name:String(r.name),context:string(r.context),slug:null,countryCode:string(r.country_code),countryName:string(r.context),region:null,imageUrl:string(r.image_url),competitionSlugs:Array.isArray(r.competition_slugs)?r.competition_slugs.map(String):[]})),
+      ...players.rows.map(r=>{const countryName=string(r.country_name);return {kind:'player' as const,publicId:String(r.public_id),name:String(r.name),context:string(r.context),slug:null,countryCode:countryCodeFromName(countryName),countryName,region:null,imageUrl:null,competitionSlugs:Array.isArray(r.competition_slugs)?r.competition_slugs.map(String):[]};}),
+    ],query,geo);
   }
   async pending(publicId:string):Promise<PendingSportsFixture|null>{
     const r=(await this.db.query<Row>(`SELECT p.*,c.slug,s.name AS season_name FROM sports_pending_fixtures p JOIN competitions c ON c.id=p.competition_id JOIN seasons s ON s.id=p.season_id WHERE p.public_id=$1 AND c.enabled`,[publicId])).rows[0];

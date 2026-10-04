@@ -19,6 +19,12 @@ function hub(status:string):CompetitionHub {
 }
 
 describe('competition source availability notices',()=>{
+  it.each(['co','pe'] as const)('%s keeps coverage and season explanations in Spanish with canonical links',async locale=>{
+    const data={...hub('EMPTY'),seasonFallback:{id:'future',name:'2027',current:true,fixtures:0}};
+    const html=renderToStaticMarkup(await CompetitionPanel({hub:data,locale,tab:'scorers'}));
+    expect(html).toContain('La fuente no informa datos');expect(html).toContain('Mostrando 2026/2027');
+    expect(html).not.toContain('The source');expect(html).toContain(`/${locale}/futbol?competition=europa-league`);
+  });
   it.each(['EMPTY','UNAVAILABLE'])('shows real fallback scorer totals without a false %s notice',async status=>{
     const data=hub(status);
     data.scorers=[{publicId:null,name:'Recorded scorer',team:null,nationality:null,countryCode:null,goals:6,assists:null,appearances:null,minutes:null,rank:1}];

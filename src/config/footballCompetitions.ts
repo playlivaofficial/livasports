@@ -1,6 +1,7 @@
 import { CompetitionType, TeamType } from '@/domain/enums';
+import {competitionDemand,CORE_GEOS,type CoreGeo} from './geo';
 
-export type ProductGeo = 'BR' | 'MX';
+export type ProductGeo = 'BR' | CoreGeo;
 export type CompetitionRegion = 'EUROPE' | 'SOUTH_AMERICA' | 'NORTH_AMERICA' | 'MIDDLE_EAST' | 'GLOBAL';
 export type CompetitionGroup = 'BRAZIL' | 'EUROPE' | 'AMERICAS' | 'INTERNATIONAL' | 'OTHER';
 export type SeasonStrategy = 'STANDARD' | 'SPLIT' | 'EDITION' | 'CYCLE';
@@ -18,13 +19,34 @@ export interface FootballCompetitionTarget {
   lookupNames: readonly string[];
   enabled: boolean;
   automatic?: boolean;
+  /** Retired inventory keeps its canonical URL/history but is excluded from new acquisition and ingestion. */
+  approvedInventory?: boolean;
+  parentSlug?: string;
+  sportmonksId?: number;
   priority: Readonly<Record<'br' | 'mx', number>>;
   geoRelevance: readonly ProductGeo[];
   seasonStrategy: SeasonStrategy;
   teamType: TeamType;
 }
 
-const target = (value: FootballCompetitionTarget): FootballCompetitionTarget => value;
+const historicalOnly = new Set(['ligue-2','serie-b-italy','super-lig','brasileirao-serie-b','paulista-a1','carioca-serie-a','copa-do-nordeste','uefa-super-cup']);
+/** Read-only subscribed catalog verified 2026-10-04. IDs are immutable identities, not inferred from names. */
+export const VERIFIED_SPORTMONKS_IDS:Readonly<Record<string,number>>={
+  'champions-league':2,'europa-league':5,'premier-league':8,championship:9,'fa-cup':24,'carabao-cup':27,
+  eredivisie:72,bundesliga:82,'ligue-1':301,'serie-a-italy':384,'coppa-italia':390,'liga-portugal':462,
+  'la-liga':564,'la-liga-2':567,'copa-del-rey':570,'argentina-primera-division':636,'brasileirao-serie-a':648,
+  'copa-do-brasil':654,'colombia-primera-a':672,'colombia-primera-b':678,'copa-colombia':681,'liga-mx':743,
+  'liga-expansion-mx':749,'peru-liga-1':764,'peru-liga-2':767,mls:779,'saudi-pro-league':944,
+  'concacaf-champions-cup':1111,'copa-sudamericana':1116,'copa-libertadores':1122,
+  'saudi-pro-league-playoffs':1678,'conference-league':2286,'leagues-cup':3211,
+};
+const target = (value: FootballCompetitionTarget): FootballCompetitionTarget => ({...value,
+  sportmonksId:VERIFIED_SPORTMONKS_IDS[value.slug],
+  approvedInventory:!historicalOnly.has(value.slug),
+  ...(value.slug==='saudi-pro-league-playoffs'?{parentSlug:'saudi-pro-league'}:{}),
+  geoRelevance:CORE_GEOS,
+  priority:{br:100,mx:100-competitionDemand('MX',value.slug)},
+});
 
 export const FOOTBALL_COMPETITION_TARGETS: readonly FootballCompetitionTarget[] = [
   target({ key: 'eng-premier-league', slug: 'premier-league', canonicalName: 'Premier League', displayNames: { br: 'Premier League', mx: 'Premier League' }, type: CompetitionType.DOMESTIC_LEAGUE, region: 'EUROPE', group: 'EUROPE', countryCode: 'GB', countryNames: ['England'], lookupNames: ['Premier League', 'English Premier League'], enabled: true, priority: { br: 90, mx: 50 }, geoRelevance: ['BR', 'MX'], seasonStrategy: 'STANDARD', teamType: TeamType.CLUB }),
@@ -63,13 +85,28 @@ export const FOOTBALL_COMPETITION_TARGETS: readonly FootballCompetitionTarget[] 
   target({ key: 'uefa-super-cup', slug: 'uefa-super-cup', canonicalName: 'UEFA Super Cup', displayNames: { br: 'Supercopa da UEFA', mx: 'Supercopa de la UEFA' }, type: CompetitionType.CONTINENTAL_CLUB, region: 'EUROPE', group: 'EUROPE', countryCode: null, countryNames: ['Europe'], lookupNames: ['UEFA Super Cup', 'Super Cup'], enabled: true, priority: { br: 230, mx: 110 }, geoRelevance: ['BR', 'MX'], seasonStrategy: 'EDITION', teamType: TeamType.CLUB }),
 ] as const;
 
+// Canonical aliases only. Provider IDs must be discovered and persisted from the real subscription.
+const localTarget=(key:string,slug:string,name:string,countryCode:string,countryNames:string[],lookupNames:string[],type:CompetitionType,seasonStrategy:SeasonStrategy='SPLIT')=>target({key,slug,canonicalName:name,displayNames:{br:name,mx:name},countryCode,countryNames,lookupNames,type,seasonStrategy,region:countryCode==='MX'?'NORTH_AMERICA':'SOUTH_AMERICA',group:'AMERICAS',enabled:true,priority:{br:100,mx:100},geoRelevance:CORE_GEOS,teamType:TeamType.CLUB});
+export const NEW_GEO_COMPETITION_TARGETS:readonly FootballCompetitionTarget[]=[
+  localTarget('mx-liga-expansion','liga-expansion-mx','Liga de Expansión MX','MX',['Mexico'],['Liga de Expansión MX','Liga de Expansion MX','Liga de Expansión','Liga de Expansion','Liga de Ascenso','Ascenso MX'],CompetitionType.DOMESTIC_LEAGUE),
+  {...localTarget('concacaf-leagues-cup','leagues-cup','Leagues Cup','MX',['North & Central America','USA','United States','Mexico'],['Leagues Cup'],CompetitionType.CONTINENTAL_CLUB,'EDITION'),countryCode:null},
+  localTarget('co-primera-a','colombia-primera-a','Liga BetPlay / Primera A','CO',['Colombia'],['Primera A','Liga BetPlay','Liga Betplay Dimayor','Liga BetPlay Dimayor'],CompetitionType.DOMESTIC_LEAGUE),
+  localTarget('co-copa-colombia','copa-colombia','Copa Colombia','CO',['Colombia'],['Copa Colombia','Copa BetPlay','Copa Betplay Dimayor'],CompetitionType.DOMESTIC_CUP,'STANDARD'),
+  localTarget('co-primera-b','colombia-primera-b','Primera B / Torneo BetPlay','CO',['Colombia'],['Primera B','Torneo BetPlay','Torneo Betplay Dimayor'],CompetitionType.DOMESTIC_LEAGUE),
+  localTarget('pe-liga-1','peru-liga-1','Liga 1 de Perú','PE',['Peru','Perú'],['Primera Division','Primera División','Liga 1'],CompetitionType.DOMESTIC_LEAGUE),
+  localTarget('pe-liga-2','peru-liga-2','Liga 2 de Perú','PE',['Peru','Perú'],['Segunda Division','Segunda División','Liga 2'],CompetitionType.DOMESTIC_LEAGUE),
+];
+export const CANONICAL_COMPETITION_TARGETS:readonly FootballCompetitionTarget[]=[...FOOTBALL_COMPETITION_TARGETS,...NEW_GEO_COMPETITION_TARGETS];
+export const APPROVED_COMPETITION_TARGETS=CANONICAL_COMPETITION_TARGETS.filter(item=>item.approvedInventory);
+export const APPROVED_COMPETITION_SLUGS=APPROVED_COMPETITION_TARGETS.map(item=>item.slug);
+export function isAcquisitionCompetition(slug:string):boolean{return APPROVED_COMPETITION_TARGETS.some(item=>item.slug===slug&&!item.parentSlug);}
+
 export const DEFAULT_INGESTION_WINDOW = { daysPast: 7, daysFuture: 21 } as const;
 
 export function targetBySlug(slug: string): FootballCompetitionTarget | undefined {
-  return FOOTBALL_COMPETITION_TARGETS.find(item => item.slug === slug);
+  return CANONICAL_COMPETITION_TARGETS.find(item => item.slug === slug);
 }
 
 export function targetsForGeo(geo: ProductGeo): FootballCompetitionTarget[] {
-  const locale = geo === 'BR' ? 'br' : 'mx';
-  return [...FOOTBALL_COMPETITION_TARGETS].sort((left, right) => left.priority[locale] - right.priority[locale]);
+  return APPROVED_COMPETITION_TARGETS.filter(item=>!item.parentSlug).sort((left,right)=>competitionDemand(geo,right.slug)-competitionDemand(geo,left.slug)||left.slug.localeCompare(right.slug));
 }

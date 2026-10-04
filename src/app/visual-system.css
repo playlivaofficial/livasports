@@ -243,9 +243,13 @@
   .match-share { width: 44px; }
   .match-scoreboard { grid-template-columns: minmax(0,1fr) 96px minmax(0,1fr); gap: 6px; padding: 24px 10px; }
   .match-team .team-mark { width: 52px; height: 52px; border-radius: 10px; }
-  .match-team .team-name { font-size: .83rem; line-height: 1.4; }
+  .match-team .team-name { font-size: .83rem; line-height: 1.4; overflow: visible; text-overflow: clip; }
+  /* Localized times such as "04:41 a. m." must stay inside the 96px center
+     track instead of overlapping full team names on narrow phones. */
+  .match-score { min-width: 0; }
+  .match-score>* { max-width: 100%; overflow-wrap: anywhere; }
   .match-score strong { font-size: 2.3rem; }
-  .match-score.is-scheduled strong { font-size: 1.8rem; }
+  .match-score.is-scheduled strong { font-size: 1.2rem; line-height: 1.25; white-space: normal; }
   .match-score time { font-size: .68rem; line-height: 1.5; }
   .match-score small { font-size: .65rem; }
   .match-tabs,.profile-tabs { margin: 16px -16px; padding-inline: 8px; }

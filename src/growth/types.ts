@@ -1,5 +1,7 @@
 import type {FixturePriority,FixtureSignals} from './scoring';
 import type {GrowthChannel,GrowthVideoChannel} from './config';
+import type {CoreGeo} from '@/config/geo';
+import type {BettingEvidence,DemandProfile,SearchEvidence} from './demand';
 
 export interface GrowthOddsBookmaker {slug:string;name:string;}
 export interface GrowthOddsSummary {
@@ -16,6 +18,9 @@ export interface GrowthPlayerCandidate {id:string;publicId:string;teamId:string;
 export interface GrowthTeamForm {played:number;wins:number;draws:number;losses:number;goalsFor:number;goalsAgainst:number;}
 export interface GrowthStorySignals {players:{home:GrowthPlayerCandidate[];away:GrowthPlayerCandidate[]};form:{home:GrowthTeamForm|null;away:GrowthTeamForm|null};}
 export interface GrowthFixture {
+  geo?:CoreGeo;
+  bettingEvidence?:BettingEvidence;
+  searchEvidence?:SearchEvidence;
   signals:FixtureSignals;
   destinationPath:string;
   destinationUrl:string;
@@ -141,6 +146,9 @@ export interface GrowthContentItem {
 }
 
 export interface GrowthDashboard {
+  geo?:CoreGeo;
+  demand?:DemandProfile[];
+  selection?:GrowthSelectionHistory|null;
   publishing?:import('./manual-publishing').PublishingOverview;
   generatedAt:string;
   social:RankedGrowthFixture[];
@@ -148,4 +156,10 @@ export interface GrowthDashboard {
   items:GrowthContentItem[];
   considered:number;
   producible:number;
+}
+export interface GrowthSelectionHistory {
+  selectedAt:string;
+  current:Array<{fixtureId:string;rank:number;score:number;label:string}>;
+  previous:Array<{fixtureId:string;rank:number;score:number;label:string}>;
+  rotations:Array<{fixtureId:string;label:string;action:'ENTERED'|'EXITED'|'MOVED';reason:string}>;
 }

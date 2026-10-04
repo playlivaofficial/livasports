@@ -11,7 +11,7 @@ import {ApproximatePrice} from '@/components/odds/ApproximatePrice';
 function fixtureTitle(fixture:ResolvedSelection['fixture'],fallback:string){
   return fixture?`${fixture.home} vs ${fixture.away}`:fallback;
 }
-const intlLocale={br:'pt-BR',mx:'es-MX',en:'en-GB'} as const;
+const intlLocale={br:'pt-BR',mx:'es-MX',co:'es-CO',pe:'es-PE',en:'en-GB'} as const;
 /** Day and time in the visitor's own zone; the element keeps the machine-readable kickoff. */
 function kickoffLabel(kickoff:string,uiLocale:SlipUiLocale){
   const date=new Date(kickoff);
@@ -25,7 +25,7 @@ export function SlipLegs({uiLocale,selections,resolvedByKey,comparison,checking,
   resolvedAt:string|null;now:number;onRemove:(selection:SavedSelection,index:number)=>void;onNavigate?:()=>void;
 }){
   const text=slipCopy[uiLocale];
-  const approximateLabel=uiLocale==='br'?'preço aproximado':uiLocale==='mx'?'cuota aproximada':'approximate price';
+  const approximateLabel=uiLocale==='br'?'preço aproximado':uiLocale==='en'?'approximate price':'cuota aproximada';
   const books=comparison?.bookmakers??[];
   return <ol className="slip-list" aria-label={`${selections.length} ${selections.length===1?text.selection:text.selections}`}>
     {selections.map((s,index)=>{

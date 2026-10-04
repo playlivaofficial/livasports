@@ -3,7 +3,9 @@ import type { Country, Fixture, Sport, Team } from '@/domain/entities';
 import { CompetitionCoverageStatus, CompetitionType, FixtureStatus, TeamType } from '@/domain/enums';
 import { domainId, type SeasonId } from '@/domain/ids';
 import type { CompetitionReadRecord, FootballIngestionStore, FootballReadRepository, FixtureReadRecord, StoredCompetition, StoredSeason, SyncKind, WriteCounts } from '@/ingestion/store';
-import { targetBySlug } from '@/config/footballCompetitions';
+import { targetBySlug,APPROVED_COMPETITION_SLUGS,isAcquisitionCompetition,type ProductGeo } from '@/config/footballCompetitions';
+import {competitionDemand,isCoreGeo} from '@/config/geo';
+import {readGeoPriorityRanks} from '@/growth/priority-read';
 
 async function counted(executor: QueryExecutor, sql: string, values: readonly unknown[]): Promise<'inserted' | 'updated'> {
   const result = await executor.query<{ inserted: boolean }>(sql, values);
@@ -66,7 +68,7 @@ export class PostgresFootballRepository implements FootballIngestionStore, Footb
   async listTargetCompetitions(): Promise<StoredCompetition[]> {
     const result = await this.database.query<{ id: string; sport_id: string; country_id: string | null; name: string; slug: string; coverage_status: CompetitionCoverageStatus }>(
       `SELECT id,sport_id,country_id,name,slug,coverage_status FROM competitions
-       WHERE enabled AND coverage_status IN ('SUPPORTED','SUPPORTED_BUT_NO_CURRENT_FIXTURES') ORDER BY priority_br,slug`,
+       WHERE enabled AND slug=ANY($1::text[]) AND coverage_status IN ('SUPPORTED','SUPPORTED_BUT_NO_CURRENT_FIXTURES') ORDER BY slug`,[APPROVED_COMPETITION_SLUGS],
     );
     return result.rows.map(row => ({ targetKey: targetBySlug(row.slug)?.key ?? row.slug,
       target: targetBySlug(row.slug), coverageStatus: row.coverage_status,
@@ -93,11 +95,11 @@ export class PostgresFootballRepository implements FootballIngestionStore, Footb
   async listRelevantSeasons(): Promise<StoredSeason[]> {
     const result = await this.database.query<{ id: string; competition_id: string; name: string; starts_at: Date | null; ends_at: Date | null; is_current: boolean; slug: string }>(
       `SELECT s.id,s.competition_id,s.name,s.starts_at,s.ends_at,s.is_current,c.slug FROM seasons s JOIN competitions c ON c.id=s.competition_id
-       WHERE c.enabled AND c.coverage_status IN ('SUPPORTED','SUPPORTED_BUT_NO_CURRENT_FIXTURES')
+       WHERE c.enabled AND c.slug=ANY($1::text[]) AND c.coverage_status IN ('SUPPORTED','SUPPORTED_BUT_NO_CURRENT_FIXTURES')
        AND (s.is_current OR (NOT EXISTS (SELECT 1 FROM seasons current_season
          WHERE current_season.competition_id=s.competition_id AND current_season.is_current)
          AND (s.ends_at IS NULL OR s.ends_at >= now())))
-       ORDER BY s.is_current DESC,s.starts_at DESC NULLS LAST`,
+       ORDER BY s.is_current DESC,s.starts_at DESC NULLS LAST`,[APPROVED_COMPETITION_SLUGS],
     );
     return result.rows.map(row => ({ id: domainId<'Season'>(row.id), competitionId: domainId<'Competition'>(row.competition_id),
       name: row.name, startsAt: row.starts_at ? new Date(row.starts_at) : null, endsAt: row.ends_at ? new Date(row.ends_at) : null,
@@ -181,7 +183,7 @@ export class PostgresFootballRepository implements FootballIngestionStore, Footb
     await this.database.query(`UPDATE ingestion_sync_runs SET status='FAILED',completed_at=now(),error_message=$2,provider_requests=$3 WHERE id=$1`, [id, safeMessage, providerRequests]);
   }
 
-  async listCompetitions(countryCode: 'BR' | 'MX'): Promise<CompetitionReadRecord[]> {
+  async listCompetitions(countryCode: ProductGeo): Promise<CompetitionReadRecord[]> {
     const result = await this.database.query<{
       competition_name: string;
       competition_slug: string;
@@ -196,11 +198,11 @@ export class PostgresFootballRepository implements FootballIngestionStore, Footb
       ORDER BY CASE competition_group
         WHEN 'BRAZIL' THEN 1 WHEN 'AMERICAS' THEN 2 WHEN 'EUROPE' THEN 3 WHEN 'OTHER' THEN 4 ELSE 5 END,
         competition_priority,slug`, [countryCode]);
-    return result.rows.map(row => ({ competitionName: row.competition_name, competitionSlug: row.competition_slug,
-      competitionGroup: row.competition_group, competitionPriority: Number(row.competition_priority) }));
+    return result.rows.filter(row=>isAcquisitionCompetition(row.competition_slug)).map(row => ({ competitionName: row.competition_name, competitionSlug: row.competition_slug,
+      competitionGroup: row.competition_group, competitionPriority: 100-competitionDemand(countryCode,row.competition_slug) })).sort((a,b)=>a.competitionPriority-b.competitionPriority||a.competitionSlug.localeCompare(b.competitionSlug));
   }
 
-  async listFixtures(countryCode: 'BR' | 'MX', from: Date, to: Date, statuses: readonly string[] = [], competitionSlug?:string): Promise<FixtureReadRecord[]> {
+  async listFixtures(countryCode: ProductGeo, from: Date, to: Date, statuses: readonly string[] = [], competitionSlug?:string): Promise<FixtureReadRecord[]> {
     const result = await this.database.query<Record<string, unknown>>(`SELECT f.id,f.public_id,f.sport_id,f.competition_id,f.season_id,f.home_team_id,f.away_team_id,
       f.kickoff,f.status,f.home_score,f.away_score,f.created_at,f.updated_at,f.provider_updated_at,
       CASE WHEN $1='BR' THEN c.display_name_pt_br ELSE c.display_name_es_mx END AS competition_name,
@@ -215,9 +217,12 @@ export class PostgresFootballRepository implements FootballIngestionStore, Footb
       AND ($5::text IS NULL OR c.slug=$5)
       AND NOT EXISTS(SELECT 1 FROM sports_pending_fixtures p WHERE p.id=f.id)
       ORDER BY competition_priority,f.kickoff,f.id`, [countryCode, from, to, statuses,competitionSlug??null]);
-    return result.rows.map(row => ({ fixture: this.fixture(row), publicId: row.public_id ? String(row.public_id) : undefined, competitionName: String(row.competition_name),
+    const ranks=isCoreGeo(countryCode)?await readGeoPriorityRanks(this.database,countryCode):new Map<string,number>();
+    const competitionRanks=new Map<string,number>();
+    for(const row of result.rows){const rank=ranks.get(String(row.id));if(rank!==undefined){const slug=String(row.competition_slug);competitionRanks.set(slug,Math.min(rank,competitionRanks.get(slug)??Infinity));}}
+    return result.rows.filter(row=>!!competitionSlug||isAcquisitionCompetition(String(row.competition_slug))).map(row => ({ fixture: this.fixture(row), publicId: row.public_id ? String(row.public_id) : undefined, competitionName: String(row.competition_name),
       competitionSlug: String(row.competition_slug), competitionGroup: String(row.competition_group),
-      competitionPriority: Number(row.competition_priority),
+      competitionPriority: competitionRanks.has(String(row.competition_slug))?-100+competitionRanks.get(String(row.competition_slug))!:100-competitionDemand(countryCode,String(row.competition_slug)),
       homeTeamName: String(row.home_team_name), homeTeamShortName: row.home_team_short_name ? String(row.home_team_short_name) : null,
       homeTeamImageUrl: row.home_team_image_url ? String(row.home_team_image_url) : null,
       awayTeamName: String(row.away_team_name), awayTeamShortName: row.away_team_short_name ? String(row.away_team_short_name) : null,

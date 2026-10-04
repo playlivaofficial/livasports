@@ -1,4 +1,6 @@
 'use client';
+import {isSpanishLocale} from '@/config/geo';
+
 import {useState} from 'react';
 import Link from 'next/link';
 import {teamPath,type InterfaceLocale} from '@/localization/interface';
@@ -9,7 +11,7 @@ import {unlinkedTeamLabel} from './unlinked-competition';
 import {standingRule} from './standing-policy';
 export function StandingsTable({locale,rows,label}:{locale:InterfaceLocale;rows:SportsStanding[];label:string}){
   const [view,setView]=useState<'overall'|'home'|'away'>('overall');const t=sportsCopy[locale];
-  const labels=locale==='br'?{overall:'Geral',home:'Mandante',away:'Visitante',order:'Ordem da classificação geral'}:locale==='mx'?{overall:'General',home:'Local',away:'Visitante',order:'Orden de la clasificación general'}:{overall:'Overall',home:'Home',away:'Away',order:'Overall table order'};
+  const labels=locale==='br'?{overall:'Geral',home:'Mandante',away:'Visitante',order:'Ordem da classificação geral'}:isSpanishLocale(locale)?{overall:'General',home:'Local',away:'Visitante',order:'Orden de la clasificación general'}:{overall:'Overall',home:'Home',away:'Away',order:'Overall table order'};
   const splits=rows.some(r=>r.home.played!==null||r.away.played!==null);
   const rules=[...new Map(rows.flatMap(r=>{const rule=standingRule(locale,r.rule);return rule?[[rule.label,rule] as const]:[];})).values()];
   return <>{splits?<div className="sports-table-views" role="group" aria-label={t.standings}>{(['overall','home','away'] as const).map(key=><button type="button" key={key} aria-pressed={view===key} onClick={()=>setView(key)}>{labels[key]}</button>)}</div>:null}

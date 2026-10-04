@@ -2,7 +2,8 @@ import {beforeEach,describe,it,expect,vi} from 'vitest';
 import {readFileSync} from 'node:fs';
 import {renderToStaticMarkup} from 'react-dom/server';
 vi.mock('server-only',()=>({}));
-vi.mock('./repository',()=>({readGrowthFixtures:vi.fn(),enrichGrowthStorySignals:vi.fn(async(_db,rows)=>rows),upsertGrowthSeoPriorities:vi.fn(),readLatestGrowthItems:vi.fn(async()=>[])}));
+vi.mock('./repository',()=>({readGrowthFixtures:vi.fn(),readGrowthSelectionHistory:vi.fn(async()=>null),upsertGrowthSeoPriorities:vi.fn(),readLatestGrowthItems:vi.fn(async()=>[])}));
+vi.mock('./evidence-repository',()=>({readGeoGrowthEvidence:vi.fn(async()=>({fixtures:new Map(),demand:[],adjustments:new Map(),search:new Map()})),persistGeoDemand:vi.fn(async()=>new Map())}));
 vi.mock('./manual-repository',()=>({readPublishingOverview:vi.fn(async()=>({posts:[]})),readCurrentPostingReceipts:vi.fn(async()=>[])}));
 import * as repository from './repository';
 import {runGrowthSelection,readGrowthDashboard,regenerateGrowthPlatform,regenerateV1Drafts,regeneratePremiumDrafts,regenerateRightsFallbackDrafts} from './service';
@@ -18,18 +19,18 @@ const candidates=Array.from({length:11},(_,i)=>rankedFixture({fixtureId:`1111111
 beforeEach(()=>{vi.clearAllMocks();vi.mocked(repository.readGrowthFixtures).mockResolvedValue(candidates);});
 
 describe('media shutdown preserves daily intelligence',()=>{
-  it('uses unchanged scoring/diversity and makes a new important fixture displace a weaker one',async()=>{
+  it('uses shared GEO scoring/diversity and makes a new important fixture displace a weaker one',async()=>{
     await runGrowthSelection(db,'AUTOMATIC',{now:testNow});
     const first=vi.mocked(repository.upsertGrowthSeoPriorities).mock.calls[0][1];
-    const expected=buildShortlist(candidates.map(row=>scoreFixture(row.signals,testNow)));
+    const expected=buildShortlist(candidates.map(row=>scoreFixture(row.signals,testNow,{geo:'MX'})),{size:5});
     expect(first.map(row=>row.fixtureId)).toEqual(expected.content.map(row=>row.fixtureId));
     expect(new Set(expected.content.map(row=>row.competitionSlug)).size).toBeGreaterThan(1);
     const important=rankedFixture({fixtureId:'22222222-2222-4222-8222-222222222222',publicId:'2222222222222222',competitionSlug:'copa-libertadores',
-      home:{slug:'flamengo',name:'Flamengo',publicId:'a',imageUrl:null},away:{slug:'palmeiras',name:'Palmeiras',publicId:'b',imageUrl:null},stageName:'Final',oddsBookmakers:3});
+      home:{slug:'real-madrid',name:'Real Madrid',publicId:'a',imageUrl:null},away:{slug:'barcelona',name:'Barcelona',publicId:'b',imageUrl:null},stageName:'Final',oddsBookmakers:3});
     vi.mocked(repository.readGrowthFixtures).mockResolvedValue([...candidates,important]);
     const result=await runGrowthSelection(db,'AUTOMATIC',{now:new Date(testNow.getTime()+60_000)});
-    const second=vi.mocked(repository.upsertGrowthSeoPriorities).mock.calls[1][1];
-    expect(second).toHaveLength(10);expect(second[0].fixtureId).toBe(important.signals.fixtureId);
+    const second=vi.mocked(repository.upsertGrowthSeoPriorities).mock.calls[3][1];
+    expect(second).toHaveLength(5);expect(second[0].fixtureId).toBe(important.signals.fixtureId);
     expect(first.filter(row=>!second.some(next=>next.fixtureId===row.fixtureId))).toHaveLength(1);
     expect(second.filter(row=>row.topSocial)).toHaveLength(5);
     expect(result).toMatchObject({generated:0,jobId:null,pending:0,providerRequests:0,mediaGeneration:'DISABLED'});
@@ -38,7 +39,7 @@ describe('media shutdown preserves daily intelligence',()=>{
   it('allows eligible empty days without inventing opportunities or media',async()=>{
     vi.mocked(repository.readGrowthFixtures).mockResolvedValue([]);
     expect(await runGrowthSelection(db,'AUTOMATIC',{now:testNow})).toMatchObject({state:'SUCCEEDED',selectionCount:0,socialCount:0,generated:0});
-    expect(repository.upsertGrowthSeoPriorities).toHaveBeenCalledWith(db,[],testNow);
+    for(const geo of ['MX','CO','PE'])expect(repository.upsertGrowthSeoPriorities).toHaveBeenCalledWith(db,[],testNow,geo);
   });
   it('surfaces failures without retrying or creating a video job',async()=>{
     vi.mocked(repository.readGrowthFixtures).mockRejectedValueOnce(Error('DB_UNAVAILABLE'));
@@ -50,11 +51,12 @@ describe('media shutdown preserves daily intelligence',()=>{
     expect(await regenerateGrowthPlatform(db,'any','TIKTOK')).toMatchObject({error:'MEDIA_GENERATION_DISABLED',generated:0});
     expect(repository.readGrowthFixtures).not.toHaveBeenCalled();expect(db.query).not.toHaveBeenCalled();
   });
-  it('keeps the owner Top 10 readable without any media and removes generation controls',async()=>{
+  it('keeps independent owner Top 5 readable without any media and removes generation controls',async()=>{
     const dashboard=await readGrowthDashboard(db,testNow);delete dashboard.publishing;
     const html=renderToStaticMarkup(<GrowthQueue dashboard={dashboard}/>);
-    expect(html).toContain('Top 10 agora');expect(html).toContain('Atualizar Top 10');expect(html).toContain('desativada');
-    expect(dashboard.content).toHaveLength(10);expect(dashboard.social).toHaveLength(5);
+    expect(html).toContain('Top 5 actual');expect(html).toContain('Actualizar Top 5');expect(html).toContain('desactivada');
+    expect(dashboard.content).toHaveLength(5);expect(dashboard.social).toHaveLength(5);
+    expect(html).toContain('geo=MX');expect(html).toContain('geo=CO');expect(html).toContain('geo=PE');
     expect(html).not.toContain('Atualizar e gerar');expect(html).not.toContain('Regenerar plataforma');
     expect(repository.upsertGrowthSeoPriorities).not.toHaveBeenCalled();
   });

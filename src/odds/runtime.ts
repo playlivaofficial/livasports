@@ -4,7 +4,7 @@ import {databaseUrl,PostgresDatabaseClient} from '@/database/client';
 import {buildComparison} from './comparison';
 import {readOddsSnapshot} from './read-repository';
 import {SELECTIONS,type OddsComparison,type OddsMarket} from './types';
-import {requestCommercialGeo,type CommercialGeo} from './commercial-geo';
+import {requestCommercialGeo,commercialLocale,type CommercialGeo} from './commercial-geo';
 
 // Hard-expiring process cache, not stale-while-revalidate: a cached active status has a bounded lifetime.
 // Cross-instance misses cost one indexed DB query, never an upstream request.
@@ -14,8 +14,8 @@ function database(){const url=databaseUrl();if(!url)throw new Error('Odds DB una
 export async function loadOddsComparisons(fixtureId:string,geo:CommercialGeo|null):Promise<OddsComparison[]>{
   const snapshot=(await cache.getOrSet(`odds:m5:${fixtureId}:${geo??'none'}`,{ttlSeconds:15,staleIfErrorSeconds:0},()=>readOddsSnapshot(database(),fixtureId,geo))).value;
   return (Object.keys(SELECTIONS) as OddsMarket[]).map(market=>{
-    const locale=geo==='BR'?'br':geo==='MX'?'mx':'br';
-    const actions=Object.fromEntries(Object.keys(snapshot.destinations).map(bookmaker=>[bookmaker,`/go/${bookmaker}?fixtureId=${fixtureId}&locale=${locale}&market=${market}&placement=match-odds`]));
+    const locale=commercialLocale(geo);
+    const actions=Object.fromEntries((locale?Object.keys(snapshot.destinations):[]).map(bookmaker=>[bookmaker,`/go/${bookmaker}?fixtureId=${fixtureId}&locale=${locale}&market=${market}&placement=match-odds`]));
     return buildComparison(snapshot,market,Date.now(),actions);
   });
 }

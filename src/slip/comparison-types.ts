@@ -9,6 +9,8 @@ export type BookmakerAvailabilityState='COMPLETE'|'ESTIMATED_COMPLETE'|'MISSING_
 export interface BookmakerConfig {
   bookmakerId:string;
   displayName:string;
+  displayOrder?:number;
+  insuranceEnabled?:boolean;
   geoEligibility:{locale:SiteLocale;eligible:boolean};
   affiliateEligibility:{approved:boolean;destinationConfigured:boolean;destinationType?:'HOMEPAGE'|'SPORTSBOOK'};
 }

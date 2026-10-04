@@ -14,11 +14,11 @@ import {requestLimit} from '@/security/request-limit';
 
 const season='11111111-1111-4111-8111-111111111111';
 const profile:TeamHistoryProfile={publicId:'0123456789abcdef',name:'Team',competitions:[{seasonId:season}] as TeamHistoryProfile['competitions']};
-const request=(query='')=>new NextRequest(`https://livasports.com/api/profiles/team-history?id=${profile.publicId}&locale=mx${query}`);
+const request=(query='',locale='mx')=>new NextRequest(`https://livasports.com/api/profiles/team-history?id=${profile.publicId}&locale=${locale}${query}`);
 beforeEach(()=>{vi.clearAllMocks();vi.mocked(loadTeamProfile).mockResolvedValue({kind:'found',profile} as never);vi.mocked(loadTeamHistory).mockResolvedValue({rows:[],hasNext:false});vi.mocked(requestLimit).mockResolvedValue(null);});
 
 describe('public profile ISR policy',()=>{
-  it.each([['br/time',3600],['mx/equipo',3600],['en/team',3600],['br/jogador',21600],['mx/jugador',21600],['en/player',21600]])('%s has on-demand path-keyed ISR', (route,ttl)=>{
+  it.each([['br/time',3600],['mx/equipo',3600],['co/equipo',3600],['pe/equipo',3600],['en/team',3600],['br/jogador',21600],['mx/jugador',21600],['co/jugador',21600],['pe/jugador',21600],['en/player',21600]])('%s has on-demand path-keyed ISR', (route,ttl)=>{
     const source=readFileSync(`src/app/${route}/[profile]/page.tsx`,'utf8');
     expect(source).toContain(`export const revalidate = ${ttl}`);expect(source).toContain('generateStaticParams(){return [];}');
     expect(source).not.toContain('force-dynamic');expect(source).not.toContain('force-static');
@@ -38,12 +38,16 @@ describe('public profile ISR policy',()=>{
 });
 
 describe('read-only public team history island',()=>{
-  it('returns public cacheable sports facts in the explicit URL locale, regardless of cookies or IP GEO',async()=>{
-    const req=request(`&matches=fixtures&p=2&season=${season}`);req.headers.set('cookie','owner_preview=BR');req.headers.set('x-vercel-ip-country','PE');
+  it.each(['br','mx','co','pe','en'] as const)('returns public cacheable %s sports facts in the explicit URL locale, regardless of cookies or IP GEO',async locale=>{
+    const req=request(`&matches=fixtures&p=2&season=${season}`,locale);req.headers.set('cookie','owner_preview=BR');req.headers.set('x-vercel-ip-country','PE');
     const response=await GET(req);
     expect(response.status).toBe(200);expect(response.headers.get('cache-control')).toContain('s-maxage=300');expect(response.headers.has('set-cookie')).toBe(false);
-    expect(loadTeamHistory).toHaveBeenCalledWith(profile.publicId,'mx','fixtures',2,season);
+    expect(loadTeamProfile).toHaveBeenCalledWith(profile.publicId,locale==='en'?'br':locale);
+    expect(loadTeamHistory).toHaveBeenCalledWith(profile.publicId,locale,'fixtures',2,season);
     expect(await response.json()).toEqual({rows:[],hasNext:false});
+  });
+  it.each(['CO','es-CO','cl',''])('rejects unsupported locale %s before database work',async locale=>{
+    expect((await GET(request('',locale))).status).toBe(400);expect(loadTeamProfile).not.toHaveBeenCalled();expect(requestLimit).not.toHaveBeenCalled();
   });
   it.each(['&locale=br','&extra=cachebuster','&p=1&p=2'])('rejects duplicate or arbitrary query keys %s before database work',async query=>{
     expect((await GET(request(query))).status).toBe(400);expect(loadTeamProfile).not.toHaveBeenCalled();expect(requestLimit).not.toHaveBeenCalled();

@@ -9,13 +9,27 @@ const baseline = [
 ];
 
 describe('OddsPapi catalog identity', () => {
+  it('does not rediscover or schedule retired acquisition targets or the Saudi child',()=>{
+    const historical=[{tournamentId:326,tournamentSlug:'brasileiro-serie-b',categorySlug:'brazil'},
+      {tournamentId:1678,tournamentSlug:'pro-league-play-offs',categorySlug:'saudi-arabia',tournamentName:'Pro League Play-offs'}];
+    expect(resolveCatalogTournaments(historical)).toEqual([]);
+    expect(schedulerTournaments([...baseline,...historical]).some(row=>['326','1678'].includes(row.id))).toBe(false);
+    expect(catalogNeedsExpansion(baseline,['brasileirao-serie-b','saudi-pro-league-playoffs'])).toBe(false);
+  });
+  it('copies new CO/PE tournament IDs only from unique approved country/name evidence',()=>{
+    const rows=[{tournamentId:61001,tournamentSlug:'sponsor-a',categorySlug:'colombia',tournamentName:'Primera A'},
+      {tournamentId:61002,tournamentSlug:'sponsor-b',categorySlug:'peru',tournamentName:'Liga 1'},
+      {tournamentId:61003,tournamentSlug:'sponsor-c',categorySlug:'mexico',tournamentName:'Primera A'}];
+    expect(resolveCatalogTournaments(rows).map(row=>[row.id,row.canonical])).toEqual([['61001','colombia-primera-a'],['61002','peru-liga-1']]);
+    expect(resolveCatalogTournaments([...rows,{...rows[0],tournamentId:61004}]).some(row=>row.canonical==='colombia-primera-a')).toBe(false);
+  });
   it('copies verified provider IDs and never invents them from slugs alone', () => {
-    const extra = [...baseline, {tournamentId: 326, tournamentSlug: 'brasileiro-serie-b', categorySlug: 'brazil'}];
+    const extra = [...baseline, {tournamentId: 9999, tournamentSlug: 'uefa-europa-conference-league', categorySlug: 'international-clubs'}];
     const resolved = resolveCatalogTournaments(extra);
-    expect(resolved.find(row => row.canonical === 'brasileirao-serie-b')).toEqual({
-      id: '326', slug: 'brasileiro-serie-b', category: 'brazil', canonical: 'brasileirao-serie-b',
+    expect(resolved.find(row => row.canonical === 'conference-league')).toEqual({
+      id: '9999', slug: 'uefa-europa-conference-league', category: 'international-clubs', canonical: 'conference-league',
     });
-    expect(resolveCatalogTournaments([{tournamentSlug: 'brasileiro-serie-b', categorySlug: 'brazil'}])).toEqual([]);
+    expect(resolveCatalogTournaments([{tournamentSlug: 'uefa-europa-conference-league', categorySlug: 'international-clubs'}])).toEqual([]);
   });
 
   it('rejects ambiguous slug/category collisions and italy/brazil serie-a mixups', () => {
@@ -39,14 +53,14 @@ describe('OddsPapi catalog identity', () => {
 
   it('keeps the baseline four when catalog metadata is empty and flags missing upcoming coverage', () => {
     expect(schedulerTournaments([]).map(row => row.id)).toEqual(['325', '27464', '17', '384']);
-    expect(catalogNeedsExpansion(baseline, ['brasileirao-serie-a', 'brasileirao-serie-b'])).toBe(true);
+    expect(catalogNeedsExpansion(baseline, ['brasileirao-serie-a', 'conference-league'])).toBe(true);
     expect(catalogNeedsExpansion(baseline, ['brasileirao-serie-a'])).toBe(false);
   });
 
   it('schedules every catalog row that resolves to an enabled registry competition (P0 incident: no manual allowlist gate)', () => {
     // A returning competition whose catalog ID differs from the historical allowlist is scheduled from the catalog row itself.
-    const extra = [...baseline, {tournamentId: 326, tournamentSlug: 'brasileiro-serie-b', categorySlug: 'brazil'}];
-    expect(schedulerTournaments(extra).map(row => row.id)).toEqual(['325', '27464', '17', '384', '326']);
+    const extra = [...baseline, {tournamentId: 9999, tournamentSlug: 'uefa-europa-conference-league', categorySlug: 'international-clubs'}];
+    expect(schedulerTournaments(extra).map(row => row.id)).toEqual(['325', '27464', '17', '384', '9999']);
     // The Conference League has an identity rule but never had an allowlisted ID; the catalog row now suffices.
     const uefa = [...baseline,
       {tournamentId: 679, tournamentSlug: 'uefa-europa-league', categorySlug: 'international-clubs'},
@@ -64,7 +78,7 @@ describe('OddsPapi catalog identity', () => {
   });
   it('keeps every well-formed provider row in the stored catalog and surfaces unmatched rows for mapping gaps (P0 incident)', () => {
     const merged = mergeCatalogTournaments(baseline, [
-      {tournamentId: 326, tournamentSlug: 'brasileiro-serie-b', categorySlug: 'brazil'},
+      {tournamentId: 9999, tournamentSlug: 'uefa-europa-conference-league', categorySlug: 'international-clubs'},
       {tournamentId: 999, tournamentSlug: 'nba', categorySlug: 'usa', categoryName: 'USA', tournamentName: 'NBA'},
       {tournamentId: 'x', tournamentSlug: 'broken', categorySlug: 'spain'},
     ]);

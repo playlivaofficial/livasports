@@ -6,7 +6,9 @@ import {ownerHeaders} from './server';
 import {boundedJson} from '@/slip/server';
 import {readReliabilityHealth,type ReliabilityHealth} from '@/odds/reliability/read';
 import {acknowledgeIncident,evaluateReliability,logRecoveryAction} from '@/odds/reliability/incidents';
-import {ownerActionRecentlyRan,runTargetedRefresh} from '@/odds/reliability/recovery';
+import {ownerActionRecentlyRan,runTargetedRefresh,parseRecoveryTarget,TARGETED_REFRESH_REQUEST_CAP} from '@/odds/reliability/recovery';
+import {readVerifiedOperatorFeeds} from '@/odds/operator-feeds';
+import type {CoreGeo} from '@/config/geo';
 import {persistCatalogRows} from '@/odds/reliability/catalog';
 import {freshnessState} from '@/odds/reliability/model';
 import {sendOwnerAlertTest} from './alert-test';
@@ -75,9 +77,9 @@ export async function ownerHealthAction(request:Request,deps:OwnerHealthDependen
     }
     if(action==='retry-mapping')return reply({action,...await deps.retryMapping(db)});
     // refresh-target: explicit confirmation, one provider-consuming owner action per window, bounded to one competition.
-    const competition=typeof body.competition==='string'&&/^[a-z0-9-]{2,64}$/.test(body.competition)?body.competition:null;
+    const competition=typeof body.competition==='string'&&parseRecoveryTarget(body.competition)?body.competition:null;
     if(!competition)return reply({error:'INVALID_REQUEST'},400);
-    if(body.confirm!==true)return reply({error:'CONFIRMATION_REQUIRED',requestCost:2},409);
+    if(body.confirm!==true)return reply({error:'CONFIRMATION_REQUIRED',requestCostLimit:TARGETED_REFRESH_REQUEST_CAP},409);
     if(!deps.providerKey())return reply({error:'PROVIDER_NOT_CONFIGURED'},503);
     const recent=await deps.recentOwnerRefresh(db);
     if(recent){const response=reply({error:'RATE_LIMITED',lastRunAt:recent},429);response.headers.set('Retry-After','300');return response;}
@@ -89,6 +91,7 @@ export async function ownerHealthAction(request:Request,deps:OwnerHealthDependen
 }
 
 export interface CompetitionDetail {
+  geo:CoreGeo;canonicalCompetition:string;requestCost:number;operatorFeeds:string[];
   competition:string;fixtures:Array<{publicId:string;kickoff:string;status:string;home:string;away:string;tier:string;
     quotes:Array<{bookmaker:string;market:string;status:string;observedAt:string;ttlMinutes:number|null;ageMinutes:number;freshness:string;price:string}>;mappingState:string|null;mappingReason:string|null}>;
   requests:Array<{startedAt:string;bookmaker:string|null;tournamentIds:string|null;outcome:string;httpStatus:number|null;purpose:string}>;
@@ -97,23 +100,36 @@ export interface CompetitionDetail {
 }
 /** Bounded incident detail for one competition (P3 §18): fixtures inside 14 days, their quotes, recent provider requests, scheduler decisions, actions. */
 export async function readCompetitionDetail(db:QueryExecutor,competition:string,tournamentId:string|null,now=new Date()):Promise<CompetitionDetail>{
+  const target=parseRecoveryTarget(competition);if(!target?.geo)throw Error('INVALID_COUNTRY_COMPETITION');
+  const {geo,canonical}=target;
+  const feedIds=[...new Set((await readVerifiedOperatorFeeds(db)).filter(feed=>feed.geo===geo).map(feed=>feed.providerBookmakerId))];
   const fixtures=(await db.query(`SELECT f.public_id,f.kickoff,f.status,ht.name AS home,at.name AS away,
       (SELECT json_agg(json_build_object('bookmaker',b.provider_slug,'market',o.market_code,'status',o.status,'observedAt',o.observed_at,'ttl',o.freshness_ttl_minutes,'price',o.decimal_odds) ORDER BY b.provider_slug,o.market_code)
-        FROM odds_current o JOIN bookmakers b ON b.id=o.bookmaker_id WHERE o.fixture_id=f.id AND o.outcome_code IN ('HOME','OVER','YES') AND (o.line IS NULL OR o.line=2.5)) AS quotes,
+        FROM odds_geo_current o JOIN bookmakers b ON b.id=o.bookmaker_id
+        JOIN countries country ON country.iso2=o.geo JOIN bookmaker_geo_availability g ON g.bookmaker_id=b.id AND g.country_id=country.id
+        WHERE o.fixture_id=f.id AND o.geo=$2 AND o.source_provider='ODDSPAPI' AND o.provider_bookmaker_id=ANY($3::text[])
+          AND lower(regexp_replace(o.source_domain,'^www\\.',''))=ANY(SELECT lower(regexp_replace(d,'^www\\.','')) FROM unnest(g.source_domains) d)
+          AND EXISTS(SELECT 1 FROM operator_provider_mappings opm WHERE opm.bookmaker_id=b.id AND opm.country_id=country.id
+            AND opm.provider=o.source_provider AND opm.provider_bookmaker_id=o.provider_bookmaker_id AND opm.verified_at IS NOT NULL)
+          AND o.outcome_code IN ('HOME','OVER','YES') AND (o.line IS NULL OR o.line=2.5)) AS quotes,
       (SELECT mr.state FROM odds_mapping_reviews mr WHERE mr.fixture_id=f.id ORDER BY mr.observed_at DESC LIMIT 1) AS mapping_state,
       (SELECT mr.reason FROM odds_mapping_reviews mr WHERE mr.fixture_id=f.id ORDER BY mr.observed_at DESC LIMIT 1) AS mapping_reason
     FROM fixtures f JOIN competitions c ON c.id=f.competition_id JOIN teams ht ON ht.id=f.home_team_id JOIN teams at ON at.id=f.away_team_id
-    WHERE c.slug=$1 AND f.status='SCHEDULED' AND f.kickoff>now() AND f.kickoff<=now()+interval '14 days' ORDER BY f.kickoff LIMIT 60`,[competition])).rows;
+    WHERE c.slug=$1 AND f.status='SCHEDULED' AND f.kickoff>now() AND f.kickoff<=now()+interval '14 days' ORDER BY f.kickoff LIMIT 60`,[canonical,geo,feedIds])).rows;
   const requests=tournamentId?(await db.query(`SELECT started_at,safe_query->>'bookmaker' AS bookmaker,safe_query->>'tournamentIds' AS tournament_ids,outcome,http_status,purpose FROM odds_provider_requests
-    WHERE endpoint='/v4/odds-by-tournaments' AND $1=ANY(string_to_array(safe_query->>'tournamentIds',',')) AND started_at>now()-interval '3 days' ORDER BY started_at DESC LIMIT 12`,[tournamentId])).rows:[];
+    WHERE endpoint='/v4/odds-by-tournaments' AND $1=ANY(string_to_array(safe_query->>'tournamentIds',',')) AND safe_query->>'bookmaker'=ANY($2::text[])
+      AND started_at>now()-interval '3 days' ORDER BY started_at DESC LIMIT 12`,[tournamentId,feedIds])).rows:[];
   const decisions=tournamentId?(await db.query(`SELECT started_at,status,provider_requests,error_code,result->'pacing' AS pacing,
-      (SELECT string_agg((f->>'bookmaker')||':'||(f->>'tournamentIds'),' ') FROM jsonb_array_elements(coalesce(result->'feeds','[]'::jsonb)) f WHERE (f->'tournamentIds') ? $1) AS feeds
-    FROM odds_sync_jobs WHERE started_at>now()-interval '12 hours' AND result->'feeds' @> $2::jsonb ORDER BY started_at DESC LIMIT 8`,[tournamentId,JSON.stringify([{tournamentIds:[tournamentId]}])])).rows:[];
-  const actions=(await db.query(`SELECT at,trigger_source,action,bookmaker,tournament_id,reason,request_cost,outcome,next_retry_at,budget_remaining_after FROM odds_recovery_actions WHERE competition=$1 OR tournament_id=$2 ORDER BY at DESC LIMIT 20`,[competition,tournamentId??'']).catch(()=>({rows:[]}))).rows;
+      (SELECT string_agg((f->>'bookmaker')||':'||(f->>'tournamentIds'),' ') FROM jsonb_array_elements(coalesce(result->'feeds','[]'::jsonb)) f WHERE (f->'tournamentIds') ? $1 AND f->>'bookmaker'=ANY($2::text[])) AS feeds
+    FROM odds_sync_jobs WHERE started_at>now()-interval '12 hours'
+      AND EXISTS(SELECT 1 FROM jsonb_array_elements(coalesce(result->'feeds','[]'::jsonb)) f WHERE (f->'tournamentIds') ? $1 AND f->>'bookmaker'=ANY($2::text[]))
+    ORDER BY started_at DESC LIMIT 8`,[tournamentId,feedIds])).rows:[];
+  const actions=(await db.query(`SELECT at,trigger_source,action,bookmaker,tournament_id,reason,request_cost,outcome,next_retry_at,budget_remaining_after FROM odds_recovery_actions
+    WHERE competition=$1 OR (tournament_id=$2 AND bookmaker=ANY($3::text[])) ORDER BY at DESC LIMIT 20`,[competition,tournamentId??'',feedIds]).catch(()=>({rows:[]}))).rows;
   const incidents=(await db.query(`SELECT id,classification,severity,state,opened_at,last_seen_at,resolved_at,affected_fixtures,detail,resolution FROM odds_incidents WHERE competition=$1 ORDER BY opened_at DESC LIMIT 20`,[competition]).catch(()=>({rows:[]}))).rows;
   const iso=(v:unknown)=>v instanceof Date?v.toISOString():String(v??'');
   const hours=(k:unknown)=>(new Date(iso(k)).getTime()-now.getTime())/3600000;
-  return {competition,
+  return {competition,geo,canonicalCompetition:canonical,requestCost:Math.min(feedIds.length,TARGETED_REFRESH_REQUEST_CAP),operatorFeeds:feedIds,
     fixtures:fixtures.map(f=>({publicId:String(f.public_id),kickoff:iso(f.kickoff),status:String(f.status),home:String(f.home),away:String(f.away),tier:`T${[3,12,24,72,168,336].findIndex(h=>hours(f.kickoff)<=h)}`,
       quotes:((f.quotes as Array<Record<string,unknown>>)??[]).map(q=>({bookmaker:String(q.bookmaker),market:String(q.market),status:String(q.status),observedAt:iso(q.observedAt),ttlMinutes:q.ttl===null?null:Number(q.ttl),
         ageMinutes:Math.round((now.getTime()-new Date(iso(q.observedAt)).getTime())/60000),freshness:String(q.status)==='ACTIVE'?freshnessState(iso(q.observedAt),q.ttl===null?null:Number(q.ttl),now):'CLOSED',price:String(q.price)})),

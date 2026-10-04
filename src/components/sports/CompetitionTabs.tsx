@@ -1,16 +1,16 @@
 import { getDictionary, type SiteLocale } from '@/config/i18n';
 import type { CompetitionSectionView } from '@/delivery/types';
+import {withSpanishLocales} from '@/localization/spanish';
 
 export function competitionAnchor(name?: string): string {
   const slug = (name ?? 'fixtures').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
   return `competition-${slug || 'fixtures'}`;
 }
 
-const groupLabels: Record<SiteLocale, Record<string, string>> = {
+const groupLabels: Record<SiteLocale, Record<string, string>> = withSpanishLocales({
   br: { BRAZIL: 'Brasil', EUROPE: 'Europa', AMERICAS: 'Américas', INTERNATIONAL: 'Seleções', OTHER: 'Outros' },
   mx: { BRAZIL: 'Brasil', EUROPE: 'Europa', AMERICAS: 'Américas', INTERNATIONAL: 'Selecciones', OTHER: 'Otros' },
-};
-const groupOrder = ['BRAZIL', 'AMERICAS', 'EUROPE', 'OTHER'] as const;
+});
 
 export function CompetitionTabs({ locale, sections }: { locale: SiteLocale; sections: readonly CompetitionSectionView[] }) {
   const dictionary = getDictionary(locale);
@@ -22,7 +22,7 @@ export function CompetitionTabs({ locale, sections }: { locale: SiteLocale; sect
     rows.push(section);
     groups.set(group, rows);
   }
-  const orderedGroups = groupOrder.flatMap(group => groups.has(group) ? [[group, groups.get(group)!] as const] : []);
+  const orderedGroups = [...groups.entries()].sort((a,b)=>Math.min(...a[1].map(s=>s.priority))-Math.min(...b[1].map(s=>s.priority))||a[0].localeCompare(b[0]));
 
   return <section className="context-panel competition-panel" aria-label={dictionary.labels.competitions}>
     <h2 className="context-panel-title">{dictionary.labels.competitions}</h2>
