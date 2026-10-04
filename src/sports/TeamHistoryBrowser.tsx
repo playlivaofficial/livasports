@@ -28,7 +28,9 @@ export function TeamHistoryBrowser({profile,locale,initial,failed=false}:{profil
     const controller=new AbortController();
     const params=new URLSearchParams({id:profile.publicId,locale,matches:view,p:String(page)});
     if(season)params.set('season',season);
-    void fetch(`/api/profiles/team-history?${params}`,{signal:controller.signal,credentials:'omit'}).then(async response=>{
+    // Same-origin credentials let Vercel authenticate protected Preview requests.
+    // The endpoint ignores cookies and returns public sports facts only.
+    void fetch(`/api/profiles/team-history?${params}`,{signal:controller.signal,credentials:'same-origin'}).then(async response=>{
       if(!response.ok)throw new Error('HISTORY_UNAVAILABLE');
       const data=await response.json() as TeamHistoryData;
       if(!controller.signal.aborted)setLoaded({key,data,failed:false});
