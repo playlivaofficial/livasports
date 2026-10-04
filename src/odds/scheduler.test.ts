@@ -84,6 +84,37 @@ describe('scheduler independent failure and durable completion',()=>{
     expect(result).toMatchObject({state:'PARTIAL',controlPlaneState:'SUCCEEDED',requests:0,trigger:'AUTOMATIC',feeds:[]});
     expect(mocked.snapshot).not.toHaveBeenCalled();expect(mocked.account).not.toHaveBeenCalled();
   });
+  it('durably completes an empty verified-feed plan without provider requests or NULL decision targets',async()=>{
+    const originalFeeds=verifiedFeeds.splice(0);
+    let targets:unknown[]|null=null;let decisionUpdates=0;
+    const completed:Array<{state:unknown;result:unknown}>=[];
+    const query=vi.fn(async(sql:string,values:unknown[]=[])=>{
+      if(sql.includes('odds_provider_catalog'))return {rows:[{markets:[],tournaments:[]}],rowCount:1};
+      if(sql.includes('INSERT INTO odds_scheduler_decisions'))targets=JSON.parse(String(values[1])) as unknown[];
+      if(sql.includes('UPDATE odds_scheduler_decisions SET targets=')){
+        // PostgreSQL jsonb_agg over zero rows returns SQL NULL; targets is NOT NULL.
+        const aggregate=targets?.length?targets:null;
+        targets=aggregate??(sql.includes('COALESCE(jsonb_agg(')&&sql.includes("'[]'::jsonb")?[]:null);
+        if(targets===null)throw Object.assign(new Error('null value in column "targets" violates not-null constraint'),{code:'23502'});
+        decisionUpdates++;
+      }
+      if(sql.includes('UPDATE odds_sync_jobs SET status=$2,completed_at=now()')){
+        completed.push({state:values[1],result:JSON.parse(String(values[3]))});
+      }
+      return {rows:[],rowCount:0};
+    });
+    const typed=query as unknown as QueryExecutor['query'];
+    const db:DatabaseClient={query:typed,transaction:async w=>w({query:typed}),close:async()=>{}};
+    try{
+      const result=await runOddsScheduler(db,'test-only','AUTOMATIC');
+      expect(result).toMatchObject({state:'PARTIAL',controlPlaneState:'SUCCEEDED',requests:0,trigger:'AUTOMATIC',feeds:[],error:null});
+      expect(targets).toEqual([]);expect(decisionUpdates).toBe(1);
+      expect(completed).toEqual([{state:'PARTIAL',result}]);
+      expect(query.mock.calls.some(([sql])=>sql.includes('INSERT INTO odds_health_rollups'))).toBe(true);
+      expect(mocked.snapshot).not.toHaveBeenCalled();expect(mocked.account).not.toHaveBeenCalled();
+      expect(mocked.tournaments).not.toHaveBeenCalled();expect(mocked.persist).not.toHaveBeenCalled();
+    }finally{verifiedFeeds.push(...originalFeeds);}
+  });
   it('never persists provider response bodies or arbitrary error messages into health',()=>{
     expect(safeSchedulerError(new Error(JSON.stringify({status:400,message:'private'})))).toBe('ODDSPAPI_HTTP_400');
     expect(safeSchedulerError(new Error('contains credentials'))).toBe('ODDS_REFRESH_FAILED');
