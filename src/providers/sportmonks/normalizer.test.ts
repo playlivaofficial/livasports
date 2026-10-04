@@ -3,6 +3,17 @@ import { FixtureStatus, ProviderCode, ProviderEntityType } from '@/domain/enums'
 import { ProviderMappingService } from '@/domain/provider-mapping';
 import { InMemoryProviderEntityMappingRepository } from '@/repositories/provider-mapping.repository';
 import { mapSportmonksFixtureStatus, SportmonksNormalizer } from './normalizer';
+import type {SportmonksFixturePayload} from './types';
+import {hasPregameOddsLayout} from '@/components/sports/board-policy';
+import {publicMatchRevalidate,shouldCheckMatchSnapshot} from '@/match-center/public-cache-policy';
+
+// Minimal fields from the real 2026-10-04 capture; no awarded score or winner was supplied.
+const awardedFixture:SportmonksFixturePayload={
+  id:19890211,sport_id:1,league_id:767,season_id:27568,state_id:17,
+  state:{developer_name:'AWARDED',name:'Awarded'},starting_at:'2026-10-23 00:00:00',starting_at_timestamp:1792713600,
+  participants:[{id:3807,name:'César Vallejo',meta:{location:'away'}},{id:270814,name:'San Marcos',meta:{location:'home'}}],
+  scores:[],
+};
 
 describe('Sportmonks canonical normalization', () => {
   it('maps live, halftime, finished and interrupted states conservatively', () => {
@@ -56,5 +67,22 @@ describe('Sportmonks canonical normalization', () => {
     await expect(normalizer.fixture({ id: 2, sport_id: 1, league_id: 3, season_id: 4, state_id: 5,
       starting_at: '2026-09-08T20:00:00Z', participants: [{id:10,name:'First'},{id:20,name:'Second'}] }))
       .rejects.toThrow('no canonical home/away participants');
+  });
+  it.each(['AWARDED','Awarded',' awarded ','17'])('maps administrative result %s to a terminal canonical status',state=>{
+    expect(mapSportmonksFixtureStatus(state)).toBe(FixtureStatus.FINISHED);
+  });
+  it.each([awardedFixture.state,{name:'Awarded'},undefined])('keeps real awarded fixture 19890211 terminal with unknown scores, including numeric fallback: %j',async state=>{
+    const mappings=new ProviderMappingService(new InMemoryProviderEntityMappingRepository());
+    const fixture=await new SportmonksNormalizer(mappings).fixture({...awardedFixture,state});
+    expect(fixture.status).toBe(FixtureStatus.FINISHED);
+    expect([fixture.homeScore,fixture.awayScore]).toEqual([null,null]);
+    expect(fixture.kickoff.toISOString()).toBe('2026-10-23T00:00:00.000Z');
+    await expect(mappings.lookupProviderId(ProviderCode.SPORTMONKS,ProviderEntityType.FIXTURE,fixture.id)).resolves.toBe('19890211');
+    await expect(mappings.lookupProviderId(ProviderCode.SPORTMONKS,ProviderEntityType.TEAM,fixture.homeTeamId)).resolves.toBe('270814');
+    await expect(mappings.lookupProviderId(ProviderCode.SPORTMONKS,ProviderEntityType.TEAM,fixture.awayTeamId)).resolves.toBe('3807');
+    const header={status:fixture.status,kickoff:fixture.kickoff.toISOString()},now=Date.parse('2026-10-22T23:59:00Z');
+    expect(hasPregameOddsLayout([header],now)).toBe(false);
+    expect(shouldCheckMatchSnapshot(header.status,header.kickoff,now)).toBe(false);
+    expect(publicMatchRevalidate(header,now)).toBe(3600);
   });
 });
