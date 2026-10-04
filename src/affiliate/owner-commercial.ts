@@ -31,7 +31,9 @@ export async function readCommercialOperators(db:QueryExecutor):Promise<Commerci
       WHERE o.bookmaker_id=b.id AND o.geo=c.iso2 AND o.status='ACTIVE' AND o.source_domain=ANY(g.source_domains)
       AND EXISTS(SELECT 1 FROM operator_provider_mappings opm WHERE opm.bookmaker_id=b.id AND opm.country_id=c.id
         AND opm.provider=o.source_provider AND opm.provider_bookmaker_id=o.provider_bookmaker_id AND opm.verified_at IS NOT NULL)) q ON true
-    WHERE c.iso2 IN ('MX','CO','PE') ORDER BY c.iso2,g.public_priority,b.display_name LIMIT 96`);
+    WHERE c.iso2 IN ('MX','CO','PE') AND g.commercial_status<>'UNAVAILABLE'
+      AND b.provider_slug<>'betano.bet.br'
+    ORDER BY c.iso2,g.public_priority,b.display_name LIMIT 96`);
   const date=(v:unknown)=>v instanceof Date?v.toISOString():typeof v==='string'?v:null;
   return result.rows.map(r=>({operator:r.provider_slug,brand:r.display_name,geo:r.iso2,currency:r.currency,status:r.commercial_status,legalStatus:r.legal_status,legalReference:r.legal_reference,
     legalVerifiedAt:date(r.legal_verified_at),providerMappings:r.mappings,sourceDomains:r.source_domains,destinationDomains:r.destination_domains,
@@ -51,12 +53,16 @@ export function parseActivation(value:unknown):ActivationInput|null{
 }
 export async function activateOperator(db:DatabaseClient,input:ActivationInput,actorId:string){
   const value=parseActivation(input);if(!value)throw Error('INVALID_ACTIVATION');
+  // A BR-only feed identity is never a core-GEO operator, even if a legacy row
+  // or erroneous mapping exists. Generic Betano CO/PE uses the separate ID.
+  if(value.operator==='betano.bet.br')throw Error('OPERATOR_GEO_NOT_CONFIGURED');
   return db.transaction(async q=>{
     const row=(await q.query(`SELECT b.id AS bookmaker_id,c.id AS country_id,g.*,
       EXISTS(SELECT 1 FROM operator_provider_mappings m WHERE m.bookmaker_id=b.id AND m.country_id=c.id AND m.verified_at IS NOT NULL) AS mapped
       FROM bookmakers b JOIN bookmaker_geo_availability g ON g.bookmaker_id=b.id JOIN countries c ON c.id=g.country_id
-      WHERE b.provider_slug=$1 AND c.iso2=$2 AND b.enabled FOR UPDATE OF g`,[value.operator,value.geo])).rows[0];
+      WHERE b.provider_slug=$1 AND c.iso2=$2 AND b.enabled AND g.commercial_status<>'UNAVAILABLE' FOR UPDATE OF g`,[value.operator,value.geo])).rows[0];
     if(!row)throw Error('OPERATOR_GEO_NOT_CONFIGURED');
+    if(row.commercial_status==='UNAVAILABLE')throw Error('OPERATOR_GEO_NOT_CONFIGURED');
     if(row.commercial_version!==value.version)throw Error('CONFIGURATION_CHANGED');
     const version=value.version+1;
     if(value.action==='suspend'){

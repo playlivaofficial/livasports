@@ -1,6 +1,6 @@
 import {afterEach,describe,expect,it,vi} from 'vitest';
 vi.mock('server-only',()=>({}));
-import {activateOperator,parseActivation,ownerCommercialRequest,type ActivationInput} from './owner-commercial';
+import {activateOperator,parseActivation,ownerCommercialRequest,readCommercialOperators,type ActivationInput} from './owner-commercial';
 import type {DatabaseClient,QueryExecutor} from '@/database/client';
 import {safeAffiliateDestination} from '@/odds/affiliate';
 import {accessKeyHash,newOwnerSession,ownerCookie,signOwnerSession} from '@/owner/session';
@@ -18,6 +18,23 @@ function database(overrides:Record<string,unknown>={}){
 }
 afterEach(()=>vi.unstubAllEnvs());
 describe('per-GEO owner activation',()=>{
+  it('omits unavailable rows and the historical BR-only feed from the owner candidate pool',async()=>{
+    const query=vi.fn<(sql:string)=>Promise<{rows:never[];rowCount:number}>>(async()=>({rows:[],rowCount:0}));await readCommercialOperators({query} as unknown as QueryExecutor);
+    expect(query.mock.calls[0]?.[0]).toContain("g.commercial_status<>'UNAVAILABLE'");
+    expect(query.mock.calls[0]?.[0]).toContain("b.provider_slug<>'betano.bet.br'");
+  });
+  it.each(['MX','CO','PE'] as const)('rejects the BR-only feed in %s before any database or campaign mutation',async geo=>{
+    const f=database();await expect(activateOperator(f.db,{...input(),geo,operator:'betano.bet.br'},'owner')).rejects.toThrow('OPERATOR_GEO_NOT_CONFIGURED');
+    expect(f.query).not.toHaveBeenCalled();expect(f.transaction).not.toHaveBeenCalled();
+  });
+  it('fails closed for unavailable operator rows before activation or suspension writes',async()=>{
+    for(const action of ['activate','suspend'] as const){
+      const f=database({commercial_status:'UNAVAILABLE'});
+      const value=action==='activate'?input():{action,geo:'CO' as const,operator:'betsson',version:0};
+      await expect(activateOperator(f.db,value,'owner')).rejects.toThrow('OPERATOR_GEO_NOT_CONFIGURED');
+      expect(f.query.mock.calls.every(([sql])=>sql.startsWith('SELECT'))).toBe(true);
+    }
+  });
   it('binds every signed grant to the exact activation revision',async()=>{
     const c={...campaign(),commercialVersion:1},deps=dependencies(c),offer=(await resolveOffer(context(),deps))!;
     const grant=verifyOffer(publicOffer(offer,key).token,key)!;expect(grant.campaignVersion).toBe(1);

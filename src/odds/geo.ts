@@ -8,6 +8,9 @@ export function verifiedGeo(state:unknown,geo:CommercialGeo|null){
 /** Commercial jurisdiction evidence is separate from the provider feed's domain and from UI locale. */
 export function eligibleSource(bookmaker:string,geo:CommercialGeo|null,state:unknown,domain:unknown,configuredDomains?:readonly string[]):boolean{
   if(!geo||!verifiedGeo(state,geo)||typeof domain!=='string')return false;
+  // An explicit domain allowlist cannot turn a historical BR-only feed into
+  // a Mexico/Colombia/Peru operator. Those jurisdictions use distinct mappings.
+  if(['betano.bet.br','sportingbet.bet.br','betboo.bet.br'].includes(bookmaker)&&geo!=='BR')return false;
   const host=domain.toLowerCase().replace(/^www\./,'');
   if(configuredDomains!==undefined)return configuredDomains.some(value=>value.toLowerCase().replace(/^www\./,'')===host);
   if(geo==='CO'||geo==='PE')return false;
