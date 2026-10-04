@@ -19,7 +19,10 @@ export function PublicPresentation({children}:{children:ReactNode}){
     void fetch('/api/presentation',{credentials:'same-origin',cache:'no-store',signal:controller.signal})
       .then(r=>r.ok?r.json():null).then(body=>{
         if(!body||controller.signal.aborted)return;
-        const manual=validTimeZone(body.manual),device=validTimeZone(body.device)??validTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone);
+        // Keep persisted preferences distinct from browser detection. Pretending a
+        // detected zone is saved prevents TimeZoneSelector's persistence/reload,
+        // leaving the server-rendered board in a different zone from Growth.
+        const manual=validTimeZone(body.manual),device=validTimeZone(body.device);
         const authorized=body.owner?.authorized===true,preview=authorized&&body.owner?.preview===true;
         const commercialLocale=['mx','co','pe'].includes(body.commercialLocale)?body.commercialLocale:null;
         setValue({manual,device,commercialLocale,owner:{authorized,preview,previewGeo:preview&&isCoreGeo(body.owner?.previewGeo)?body.owner.previewGeo:null}});
