@@ -1,19 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { databaseUrl, PostgresDatabaseClient } from '@/database/client';
-import {parseMatchParam} from '@/match-center/routes';
-import {parseProfileParam} from '@/profiles/routes';
 import {FOOTBALL_COMPETITION_TARGETS} from '@/config/footballCompetitions';
-import {defaultLanguage,languageCookie,pathLocale,matchPath,playerPath,teamPath,type InterfaceLocale} from '@/localization/interface';
-
-let database: PostgresDatabaseClient | null = null;
-function matchDatabase(): PostgresDatabaseClient {
-  if (database) return database;
-  const connectionString = databaseUrl();
-  if (!connectionString) throw new Error('Match route database is not configured');
-  database = new PostgresDatabaseClient(connectionString);
-  return database;
-}
+import {defaultLanguage,languageCookie,pathLocale,type InterfaceLocale} from '@/localization/interface';
 
 function notFoundResponse(locale: InterfaceLocale, head: boolean, entity: 'match'|'team'|'player'|'competition'='match'): Response {
   const text = locale === 'en'?{lang:'en',title:entity==='team'?'Team not found':entity==='player'?'Player not found':entity==='competition'?'Competition not found':'Match not found',body:entity==='match'?'This address does not match a recorded match.':entity==='competition'?'This address does not match a covered competition.':'This address does not match a recorded profile.',back:'Back to football',href:'/en/football'}:locale === 'br'
@@ -47,28 +35,9 @@ export async function proxy(request: NextRequest): Promise<Response> {
     const requested=request.nextUrl.searchParams.get('competition');
     if(requested&&!FOOTBALL_COMPETITION_TARGETS.some(target=>target.slug===requested))return notFoundResponse(locale,request.method==='HEAD','competition');
   }
-  if(!['jogo','partido','match','time','equipo','team','jogador','jugador','player'].includes(segment))return next();
-  const entity: 'match'|'team'|'player'=['time','equipo','team'].includes(segment)?'team':['jogador','jugador','player'].includes(segment)?'player':'match';
-  if(segments.length!==3)return notFoundResponse(locale,request.method==='HEAD',entity);
-  const parsed = entity==='match'?parseMatchParam(segments[2] ?? ''):parseProfileParam(segments[2] ?? '');
-  if (!parsed) return notFoundResponse(locale,request.method === 'HEAD',entity);
-  try {
-    const result = entity==='match'
-      ? await matchDatabase().query<{ public_id:string; home:string; away:string }>(`SELECT f.public_id,ht.name AS home,at.name AS away
-        FROM fixtures f JOIN teams ht ON ht.id=f.home_team_id JOIN teams at ON at.id=f.away_team_id WHERE f.public_id=$1`,[parsed.publicId])
-      : entity==='team'
-        ? await matchDatabase().query<{ public_id:string; name:string }>('SELECT public_id,name FROM teams WHERE public_id=$1',[parsed.publicId])
-        : await matchDatabase().query<{ public_id:string; name:string }>('SELECT public_id,display_name AS name FROM players WHERE public_id=$1',[parsed.publicId]);
-    const row = result.rows[0];
-    if (!row) return notFoundResponse(locale,request.method === 'HEAD',entity);
-    const canonical = entity==='match' ? matchPath(locale,row.public_id,(row as {home:string}).home,(row as {away:string}).away)
-      : entity==='team' ? teamPath(locale,row.public_id,(row as {name:string}).name) : playerPath(locale,row.public_id,(row as {name:string}).name);
-    if (request.nextUrl.pathname !== canonical) return NextResponse.redirect(new URL(canonical,request.url),308);
-    return next();
-  } catch {
-    // A database outage must reach the route error boundary, never masquerade as a missing match.
-    return next();
-  }
+  // Public entity routes validate canonical identities in their ISR page loader.
+  // Do not put a database query ahead of every CDN hit.
+  return next();
 }
 
-export const config = { matcher: ['/','/br/:path*','/mx/:path*','/en/:path*'] };
+export const config = { matcher: ['/','/br/futebol','/mx/futbol','/en/football'] };

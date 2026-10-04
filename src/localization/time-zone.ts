@@ -9,6 +9,10 @@ export function validTimeZone(value:unknown):string|null{
 export function resolveTimeZone(locale:InterfaceLocale,manual:unknown,device:unknown):string{
   return validTimeZone(manual)??validTimeZone(device)??(locale==='br'?'America/Sao_Paulo':locale==='mx'?'America/Mexico_City':'UTC');
 }
+/** A cached shell must finish its private preference read before attempting device persistence. */
+export function shouldDetectDeviceTimeZone(ready:boolean,manual:string|null,device:string|null,detected:string){
+  return ready&&!manual&&!!detected&&device!==detected;
+}
 export function safeTimeZoneReturn(input:unknown):string{
   if(typeof input!=='string'||input.length>2048||!/^\/(br|mx|en)(?:\/|\?|#|$)/.test(input)||/[\\\u0000-\u001f\u007f]/.test(input))return '/en';
   return input;

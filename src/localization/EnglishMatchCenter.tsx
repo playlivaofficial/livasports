@@ -1,4 +1,6 @@
-import {requestTimeZone} from '@/localization/time-zone-server';
+import {resolveTimeZone} from '@/localization/time-zone';
+import {LocalizedTimeText} from '@/localization/LocalizedTime';
+import {MatchTimeZone} from '@/components/match/MatchTimeZone';
 import {MatchHistory} from '@/sports/MatchHistory';
 import {EventPeople} from '@/sports/EventPeople';
 import {competitionPath,sportStage} from '@/sports/policy';
@@ -120,16 +122,13 @@ function PlayerPerformances({locale,match,linkPlayers}:{locale:SiteLocale;match:
   })}</div></section>;
 }
 
-export async function EnglishMatchCenter({ locale, match, replay = false, commercialLocale = 'br' }: { locale: SiteLocale; match: MatchCenterView; replay?: boolean; commercialLocale?: 'br' | 'mx' }){
-  const timeZone=await requestTimeZone(locale);
+export async function EnglishMatchCenter({ locale, match, replay = false, commercialLocale = 'br', timeZone = resolveTimeZone(locale,null,null) }: { locale: SiteLocale; match: MatchCenterView; replay?: boolean; commercialLocale?: 'br' | 'mx'; timeZone?: string }){
   const text=copy[locale]; const dictionary=getDictionary(locale); const canonical=matchPath(locale,match.header.publicId,match.header.home.name,match.header.away.name);
   const alternate={br:matchPath('br',match.header.publicId,match.header.home.name,match.header.away.name),mx:matchPath('mx',match.header.publicId,match.header.home.name,match.header.away.name)};
 
-  const kickoff=new Intl.DateTimeFormat(dictionary.locale,{dateStyle:'medium',timeStyle:'short',timeZone}).format(new Date(match.header.kickoff));
   const displayStatus=replay?FixtureStatus.LIVE:match.header.status;
   const scheduled=displayStatus===FixtureStatus.SCHEDULED;
   const decayed=isFinishedMatchDecayed(match.header.status,match.header.kickoff);
-  const kickoffTime=new Intl.DateTimeFormat(dictionary.locale,{hour:'2-digit',minute:'2-digit',timeZone}).format(new Date(match.header.kickoff));
   const brPath=brMatchPath('br',match.header.publicId,match.header.home.name,match.header.away.name);
   const banners=commercialLocale==='br'&&!replay;
   return <div lang={dictionary.locale} className="app-shell match-shell english-sports"><SiteHeader locale={locale} activePage="football" localeHrefs={alternate} contentId="match-content"/>
@@ -139,7 +138,7 @@ export async function EnglishMatchCenter({ locale, match, replay = false, commer
       {!replay&&match.liveSnapshotStale?<p className="stale-live-label">{text.liveStale}</p>:null}
       <header className="match-hero" data-status={displayStatus}><div className="match-competition"><Link href={competitionPath(locale,match.header.competitionSlug)}>{match.header.competition}</Link><FavoriteButton locale={locale} kind="competition" id={match.header.competitionSlug} className="favorite-toggle-compact"/><FavoriteButton locale={locale} kind="fixture" id={match.header.publicId}/><b>{statusLabel(locale,displayStatus)}</b></div>
         <div className="match-scoreboard"><div className="match-team"><Link href={teamPath(locale,match.header.home.publicId,match.header.home.name)}><TeamIdentity name={match.header.home.name} shortName={match.header.home.shortName} imageUrl={match.header.home.imageUrl} size={80}/></Link><FavoriteButton locale={locale} kind="team" id={match.header.home.publicId} className="favorite-toggle-compact"/></div>
-          <div className={`match-score${scheduled?' is-scheduled':''}`}><strong>{scheduled?kickoffTime:<>{match.header.homeScore??'—'} <span>–</span> {match.header.awayScore??'—'}</>}</strong><time dateTime={match.header.kickoff}>{kickoff}</time><small>{timeZone.replaceAll('_',' ')}</small></div>
+          <div className={`match-score${scheduled?' is-scheduled':''}`}><strong>{scheduled?<LocalizedTimeText value={match.header.kickoff} locale={locale} options={{hour:'2-digit',minute:'2-digit'}} fallbackTimeZone={timeZone}/>:<>{match.header.homeScore??'—'} <span>–</span> {match.header.awayScore??'—'}</>}</strong><time dateTime={match.header.kickoff}><LocalizedTimeText value={match.header.kickoff} locale={locale} options={{dateStyle:'medium',timeStyle:'short'}} fallbackTimeZone={timeZone}/></time><small><MatchTimeZone locale={locale} fallbackTimeZone={timeZone}/></small></div>
           <div className="match-team is-away"><Link href={teamPath(locale,match.header.away.publicId,match.header.away.name)}><TeamIdentity name={match.header.away.name} shortName={match.header.away.shortName} imageUrl={match.header.away.imageUrl} size={80}/></Link><FavoriteButton locale={locale} kind="team" id={match.header.away.publicId} className="favorite-toggle-compact"/></div></div>
         <MatchClientActions canonicalUrl={`https://livasports.com${canonical}`} shareText={`${match.header.home.name} x ${match.header.away.name}`} labels={{share:text.share,copied:text.copied}}/>
       </header>
@@ -151,6 +150,6 @@ export async function EnglishMatchCenter({ locale, match, replay = false, commer
         {!replay?<PregameOdds uiLocale="en" fixturePublicId={match.header.publicId} initial={match.oddsComparisons??[]} context={{fixtureId:match.header.id,competitionId:match.header.competitionId,locale:commercialLocale}}/>:null}
         <NextMatches locale="en" matches={match.nextMatches} timeZone={timeZone}/></div>
         <aside className="match-context">{banners?<SponsoredSlot copyLocale="en" context={{locale:'br',pagePath:brPath,placement:'match_right_rail'}}/>:null}<section><h2>{text.summary}</h2><dl><div><dt>{text.season}</dt><dd>{match.header.season??'—'}</dd></div><div><dt>{text.stage}</dt><dd>{sportStage(locale,match.header.stage) ?? '—'}</dd></div><div><dt>{text.venue}</dt><dd>{match.header.venue??'—'}</dd></div></dl></section></aside></div>
-      {!replay?<LiveRefreshBoundary publicId={match.header.publicId} locale="br" status={match.header.status} snapshotAt={match.snapshotAt}/>:null}
+      {!replay?<LiveRefreshBoundary publicId={match.header.publicId} locale="br" status={match.header.status} snapshotAt={match.snapshotAt} kickoff={match.header.kickoff} providerUpdatedAt={match.header.providerUpdatedAt}/>:null}
     </main></div>;
 }

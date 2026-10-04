@@ -1,0 +1,89 @@
+{
+  "purpose": "Deny only the seven approved non-essential crawlers before application execution; preserve Google/Bing, normal users, and sharing previews.",
+  "project": "livasports",
+  "appliedUiRuleId": "rule_deny_non_essential_crawlers_ua_fallback_R53hOB",
+  "enforcementMode": "explicit-user-agent-fallback",
+  "verifiedIdentityAvailability": "Official SDK exposes bot_name, but this project's authenticated dashboard denied access to that condition; current CLI account access returned 403. UA fallback is not verified identity.",
+  "deniedPlatformBotNames": [
+    "meta-externalagent",
+    "perplexitybot",
+    "gptbot",
+    "seranking-backlinks",
+    "dataforseobot",
+    "petalbot",
+    "claudebot"
+  ],
+  "deniedUserAgentTokens": [
+    "meta-externalagent",
+    "PerplexityBot",
+    "GPTBot",
+    "SERankingBacklinksBot",
+    "DataForSeoBot",
+    "PetalBot",
+    "ClaudeBot"
+  ],
+  "userAgentFallbackRule": {
+    "name": "Deny non-essential crawlers (UA fallback)",
+    "active": true,
+    "conditionGroup": [
+      {
+        "conditions": [
+          {
+            "type": "user_agent",
+            "op": "re",
+            "value": "(^|[^a-zA-Z0-9_-])([mM][eE][tT][aA]-[eE][xX][tT][eE][rR][nN][aA][lL][aA][gG][eE][nN][tT]|[pP][eE][rR][pP][lL][eE][xX][iI][tT][yY][bB][oO][tT]|[gG][pP][tT][bB][oO][tT]|[sS][eE][rR][aA][nN][kK][iI][nN][gG][bB][aA][cC][kK][lL][iI][nN][kK][sS][bB][oO][tT]|[dD][aA][tT][aA][fF][oO][rR][sS][eE][oO][bB][oO][tT]|[pP][eE][tT][aA][lL][bB][oO][tT]|[cC][lL][aA][uU][dD][eE][bB][oO][tT])([^a-zA-Z0-9_-]|$)"
+          }
+        ]
+      }
+    ],
+    "action": {
+      "mitigate": {
+        "action": "deny"
+      }
+    }
+  },
+  "desiredVerifiedIdentityRule": {
+    "name": "Deny non-essential crawlers (verified identity)",
+    "active": true,
+    "conditionGroup": [
+      {
+        "conditions": [
+          {
+            "type": "bot_name",
+            "op": "inc",
+            "value": [
+              "meta-externalagent",
+              "perplexitybot",
+              "gptbot",
+              "seranking-backlinks",
+              "dataforseobot",
+              "petalbot",
+              "claudebot"
+            ]
+          }
+        ]
+      }
+    ],
+    "action": {
+      "mitigate": {
+        "action": "deny"
+      }
+    }
+  },
+  "safety": {
+    "noBroadBotCategoryRule": true,
+    "noPersistentIpBan": true,
+    "noPaidBotIdActivation": true,
+    "noBypassRule": true,
+    "noGoogleBingOrPreviewTokens": true,
+    "deploymentMechanism": "Project Vercel Firewall UI/API only; this JSON is an audited configuration record and does not auto-apply on Git deployment.",
+    "rollout": "Inspect all draft changes before publish; preserve existing unrelated security rules; verify deny/allow UA probes and real classified traffic separately.",
+    "recovery": "Disable only the named rule, review the diff, then publish. Do not clear unrelated WAF configuration."
+  },
+  "sources": [
+    "https://vercel.com/docs/vercel-firewall/vercel-waf/rule-configuration",
+    "https://vercel.com/docs/vercel-firewall/vercel-waf/usage-and-pricing",
+    "https://raw.githubusercontent.com/vercel/sdk/main/src/models/updatefirewallconfigop.ts",
+    "https://help.seranking.com/hc/en-us/articles/23020353159964-SERankingBacklinksBot-Crawler"
+  ]
+}

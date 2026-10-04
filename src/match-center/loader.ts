@@ -3,7 +3,7 @@ import type { Cache } from '@/cache/cache';
 import { cacheKeys } from '@/cache/keys';
 import type { SiteLocale } from '@/config/i18n';
 import { FixtureStatus } from '@/domain/enums';
-import type { MatchCenterView, MatchModule, MatchReadResult } from './types';
+import type { MatchCenterView, MatchHeaderView, MatchModule, MatchReadResult } from './types';
 import type { MatchModuleMeta, PostgresMatchCenterRepository } from './repository';
 import { isLiveSnapshotStale, latestSnapshotAt } from './rules';
 import {loadOddsComparisons} from '@/odds/runtime';
@@ -20,8 +20,11 @@ export class MatchCenterLoader {
     }, loader)).value;
   }
 
-  async load(publicId: string, locale: SiteLocale, geo: CommercialGeo | null = null): Promise<MatchReadResult> {
-    const header = await this.cached(publicId, locale, 'header', 120, () => this.repository.header(publicId, locale));
+  async load(publicId: string, locale: SiteLocale, geo: CommercialGeo | null = null,
+    options: {header?: MatchHeaderView | null; includeOdds?: boolean; strictPublicSnapshot?: boolean} = {}): Promise<MatchReadResult> {
+    const header = options.header === undefined
+      ? await this.cached(publicId, locale, 'header', 120, () => this.repository.header(publicId, locale))
+      : options.header;
     if (!header) return { kind: 'not-found' };
     const stateMap = await this.cached(header.id, locale, 'states-v2', 60, () => this.repository.moduleStates(header.id));
     const defaultState = header.status === FixtureStatus.SCHEDULED ? 'NOT_YET_AVAILABLE' : 'NO_DATA_IN_WINDOW';
@@ -37,7 +40,7 @@ export class MatchCenterLoader {
       // Small season table read: never hide a freshly committed revision in fixture-scoped caches.
       this.repository.standings(header),
       this.cached(header.id, locale, 'form-v2', 120, () => this.repository.form(header)),
-      loadOddsComparisons(header.id,geo),
+      options.includeOdds === false ? Promise.resolve([]) : loadOddsComparisons(header.id,geo),
       // M1: a finished match is otherwise a dead end, so it carries the next relevant upcoming fixtures.
       // Only finished matches pay for this query; live and upcoming pages already point forward.
       header.status === FixtureStatus.FINISHED
@@ -45,6 +48,13 @@ export class MatchCenterLoader {
         : Promise.resolve([]),
     ] as const;
     const [eventsResult, statisticsResult, lineupsResult, playerStatisticsResult, standingsResult, formResult, oddsResult, nextMatchesResult] = await Promise.allSettled(calls);
+    // ISR must retain its last good snapshot during a database outage instead of
+    // caching a partially empty ERROR page for an hour/day. Stored NOT_COVERED,
+    // NOT_YET_AVAILABLE and empty modules remain truthful successful snapshots.
+    if(options.strictPublicSnapshot && [eventsResult,statisticsResult,lineupsResult,playerStatisticsResult,
+      standingsResult,formResult,oddsResult,nextMatchesResult].some(result=>result.status==='rejected')){
+      throw new Error('PUBLIC_MATCH_SNAPSHOT_UNAVAILABLE');
+    }
     const value = <T>(result: PromiseSettledResult<T>, fallback: T): T => result.status === 'fulfilled' ? result.value : fallback;
     const state = <T>(result: PromiseSettledResult<T>, requested: MatchModule<T>): MatchModule<T> => result.status === 'fulfilled' ? requested : { ...requested, state: 'ERROR' };
     const eventsData = value(eventsResult, []); const statisticsData = value(statisticsResult, []); const lineupsData = value(lineupsResult, []);
