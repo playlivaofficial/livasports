@@ -92,9 +92,9 @@ export async function schedulerInputs(db:DatabaseClient,tournaments:readonly Cat
 }
 export async function schedulerPlan(db:DatabaseClient,now=new Date(),tournaments:readonly CatalogTournament[]=[]){const {targets,budget}=await schedulerInputs(db,tournaments);return planScheduler(targets,now,budget);}
 async function recordDecision(db:DatabaseClient,job:string,bookmaker:string|null,ids:string[],decision:string){
-  await db.query(`UPDATE odds_scheduler_decisions SET targets=(SELECT jsonb_agg(CASE
+  await db.query(`UPDATE odds_scheduler_decisions SET targets=(SELECT COALESCE(jsonb_agg(CASE
     WHEN t->>'decision'='SELECTED' AND ($2::text IS NULL OR (t->>'bookmaker'=$2 AND t->>'tournamentId'=ANY($3::text[])))
-    THEN t||jsonb_build_object('decision',$4::text) ELSE t END) FROM jsonb_array_elements(targets) t) WHERE job_id=$1`,[job,bookmaker,ids,decision]);
+    THEN t||jsonb_build_object('decision',$4::text) ELSE t END),'[]'::jsonb) FROM jsonb_array_elements(targets) t) WHERE job_id=$1`,[job,bookmaker,ids,decision]);
 }
 export function schedulerDeferral(code:string|null){
   if(code==='ODDS_UPSTREAM_COOLDOWN')return 'CIRCUIT_BREAKER';
