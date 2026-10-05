@@ -77,8 +77,8 @@ export async function creativeRequest(request:Request,provided?:CommercialServic
   try{const s=provided??services();if(!s.key)return response(404);const token=verifyOffer(q.get('offer'),s.key);
     if(!token?.embedPermission||mode==='consent'&&token.embedPermission!=='consent'||!tokenAllowed(request,token,s))return response(404);
     const offer=await resolveOffer(token.context,s.deps,Date.now(),token.campaignId,token.campaignVersion),c=offer?.creative;
-    if(!offer||c?.delivery!=='BETSSON_EMBED'||!safeBetssonEmbed(c.embedSourceUrl,offer.campaign.operatorCampaignId))return response(404);
-    if(qaRequest(request,token))return await qaCreativeDocument(c,offer.campaign.operatorCampaignId,new URL(request.url).origin,q.get('offer')!.slice(-43));
+    if(!offer||c?.delivery!=='BETSSON_EMBED'||!safeBetssonEmbed(c.embedSourceUrl,offer.campaign.operatorCampaignId,offer.campaign.bookmaker,offer.campaign.locale))return response(404);
+    if(qaRequest(request,token))return await qaCreativeDocument(c,offer.campaign.operatorCampaignId,new URL(request.url).origin,q.get('offer')!.slice(-43),offer.campaign.bookmaker);
     return embedDocument(c,new URL(request.url).origin,q.get('offer')!.slice(-43));
   }catch{return response(404);}
 }

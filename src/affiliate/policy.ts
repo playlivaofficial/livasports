@@ -1,7 +1,7 @@
 import {parseResolutionRequest} from '@/slip/types';
 import {requestCommercialGeo} from '@/odds/commercial-geo';
 import {safeAffiliateDestination} from '@/odds/affiliate';
-import {embedDimensions,safeBetssonEmbed} from './embed-policy';
+import {embedDimensions,embedTrackingHost,safeBetssonEmbed} from './embed-policy';
 import {placements,type Campaign,type CommercialContext,type Creative,type PageType,type TrafficClass} from './types';
 import {isVisibleBookmaker,bookmakerConfig} from '@/odds/registry';
 import type {SiteLocale} from '@/config/i18n';
@@ -45,10 +45,13 @@ export function campaignDestination(c:Campaign,context:CommercialContext,now:num
   const destination=safeAffiliateDestination(c.bookmaker,c.locale,c.destination,c.operatorDomains);if(!destination)return null;
   return c.domains.includes(new URL(destination).hostname)?destination:null;
 }
-export function validCreative(c:Creative,context:CommercialContext,now:number,campaignId?:string){
+export function validCreative(c:Creative,context:CommercialContext,now:number,campaignId?:string,operator?:string){
   return c.enabled&&c.approved&&c.placement===context.placement&&c.locale===context.locale&&
     (!c.startsAt||Number.isFinite(Date.parse(c.startsAt))&&now>=Date.parse(c.startsAt))&&(!c.endsAt||Number.isFinite(Date.parse(c.endsAt))&&now<Date.parse(c.endsAt))&&
-    (c.delivery==='BETSSON_EMBED'?c.locale==='br'&&c.imageUrl===null&&embedDimensions(c.placement,c.width,c.height)&&!!campaignId&&!!safeBetssonEmbed(c.embedSourceUrl,campaignId):
+    // A publisher embed is allowed only for an operator/GEO that has a known tracking host. That
+    // replaces the previous BR-only literal without widening anything else: an operator absent from
+    // EMBED_TRACKING_HOSTS, such as bwin Colombia, still cannot serve one.
+    (c.delivery==='BETSSON_EMBED'?!!operator&&!!embedTrackingHost(operator,c.locale)&&c.imageUrl===null&&embedDimensions(c.placement,c.width,c.height)&&!!campaignId&&!!safeBetssonEmbed(c.embedSourceUrl,campaignId,operator,c.locale):
       (!c.delivery||c.delivery==='IMAGE')&&!c.embedSourceUrl&&typeof c.imageUrl==='string'&&/^\/sponsors\/[a-zA-Z0-9/_-]+\.(png|webp|jpg|jpeg|avif)$/.test(c.imageUrl))&&c.imageAlt.trim().length>0&&c.imageAlt.length<=300&&
     Number.isInteger(c.width)&&c.width>=100&&c.width<=2400&&Number.isInteger(c.height)&&c.height>=40&&c.height<=1600;
 }

@@ -33,7 +33,7 @@ export async function resolveOffer(context:CommercialContext,deps:OfferDependenc
   const candidates=(await deps.campaigns(context.locale)).filter(c=>campaignDestination(c,context,now));
   const eligible=candidates.flatMap<{campaign:Campaign;creative:Creative|null}>(c=>{
     if(!isSponsorPlacement(context.placement))return [{campaign:c,creative:null}];
-    const creatives=c.creatives.filter(s=>validCreative(s,context,now,c.operatorCampaignId));return creatives.length===1?[{campaign:c,creative:creatives[0]}]:[];
+    const creatives=c.creatives.filter(s=>validCreative(s,context,now,c.operatorCampaignId,c.bookmaker));return creatives.length===1?[{campaign:c,creative:creatives[0]}]:[];
   });
   // Ambiguous commercial configuration fails closed; no commission-based choice.
   if(eligible.length!==1)return null;const {campaign,creative}=eligible[0];if(expectedCampaign&&campaign.id!==expectedCampaign)return null;

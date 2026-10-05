@@ -24,7 +24,7 @@ export function parseCampaignConfiguration(value:unknown):CampaignConfiguration|
     destination:c.destinationUrl,destinationType:c.destinationType,operatorCampaignId:c.operatorCampaignId,startsAt:c.validFrom,endsAt:c.validUntil} as Campaign;
   if(!campaignDestination(campaign,{locale:c.locale,pagePath:'/'+c.locale,placement:c.placements[0]},Date.parse(c.validFrom)))return null;
   if(c.creatives!==undefined&&(!Array.isArray(c.creatives)||c.creatives.length>17||new Set(c.creatives.map(s=>s?.id)).size!==c.creatives.length||new Set(c.creatives.map(s=>s?.placement)).size!==c.creatives.length||c.creatives.some(s=>!s||Object.keys(s).some(k=>!['id','placement','imageUrl','imageAlt','width','height','approvalReference','delivery','embedSourceUrl'].includes(k))||typeof s.id!=='string'||!/^[-a-zA-Z0-9_]{1,100}$/.test(s.id)||typeof s.imageAlt!=='string'||typeof s.approvalReference!=='string'||!s.approvalReference.trim()||s.approvalReference.length>500||!c.placements.includes(s.placement)||!isSponsorPlacement(s.placement)||s.delivery==='BETSSON_EMBED'&&c.bookmaker!=='betsson'||
-    !validCreative({...s,imageUrl:s.imageUrl??null,locale:c.locale,approved:true,enabled:true,startsAt:null,endsAt:null},{locale:c.locale,pagePath:'/'+c.locale,placement:s.placement},Date.now(),c.operatorCampaignId))))return null;
+    !validCreative({...s,imageUrl:s.imageUrl??null,locale:c.locale,approved:true,enabled:true,startsAt:null,endsAt:null},{locale:c.locale,pagePath:'/'+c.locale,placement:s.placement},Date.now(),c.operatorCampaignId,c.bookmaker))))return null;
   return c;
 }
 export async function configureCampaign(db:DatabaseClient,c:CampaignConfiguration){return db.transaction(async q=>{

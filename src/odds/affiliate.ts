@@ -6,12 +6,14 @@ const hosts:Record<string,readonly string[]>={
   'betano.bet.br:br':['betano.bet.br','www.betano.bet.br'],
   // Exact BR tracking host observed in the authenticated approved sportsbook link.
   'betsson:br':['betsson.bet.br','www.betsson.bet.br','record.betsson.bet.br'],
-  'betsson:mx':['betsson.mx','www.betsson.mx'],
+  // Operator domain plus the exact tracking host from the collected MX affiliate inventory.
+  'betsson:mx':['betsson.mx','www.betsson.mx','record.betsson.mx'],
   // Jurisdiction destination allowlists only. These authorise nothing on their own: an outbound link
   // still needs an approved campaign row, and migration 057/063 keep affiliate_enabled false.
-  'betsson:co':['betsson.co','www.betsson.co'],
+  'betsson:co':['betsson.co','www.betsson.co','record.betsson.co'],
+  // bwin Colombia is odds-only: no Entain affiliate access exists, so it gets no tracking host.
   'bwin:co':['sports.bwin.co','www.bwin.co','bwin.co'],
-  'inkabet:pe':['inkabet.pe','www.inkabet.pe'],
+  'inkabet:pe':['inkabet.pe','www.inkabet.pe','record.inkabet.pe'],
   'sportingbet.bet.br:br':['sportingbet.bet.br','www.sportingbet.bet.br','sports.sportingbet.bet.br'],
   // Approved partner links use the exact BR tracking host. Private campaign IDs stay server-side.
   '1xbet:br':['1xaff.com.br','www.1xaff.com.br'],

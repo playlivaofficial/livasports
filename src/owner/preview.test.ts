@@ -156,7 +156,7 @@ describe('QA artwork without third-party tracking',()=>{
   it('embeds only artwork bytes and a first-party event bridge; CSP blocks network and conversions',async()=>{
     const source='https://c.bannerflow.net/a/'+'a'.repeat(24)+'?'+new URLSearchParams({display:'image',did:'b'.repeat(24),deeplink:'on',adgroupid:'c'.repeat(24),redirecturl:'https://record.betsson.bet.br/synthetic-test-only/7',media:'123456',campaign:'7'});
     const fetch=vi.spyOn(globalThis,'fetch').mockResolvedValueOnce(new Response(script())).mockResolvedValueOnce(new Response(new Uint8Array([255,216,255]),{headers:{'content-type':'image/jpeg'}}));
-    const r=await qaCreativeDocument({id:'test',placement:'mobile_inline',locale:'br',imageUrl:null,imageAlt:'Betsson',width:320,height:100,approved:true,enabled:true,startsAt:null,endsAt:null,delivery:'BETSSON_EMBED',embedSourceUrl:source},'7',origin,'bridge');
+    const r=await qaCreativeDocument({id:'test',placement:'mobile_inline',locale:'br',imageUrl:null,imageAlt:'Betsson',width:320,height:100,approved:true,enabled:true,startsAt:null,endsAt:null,delivery:'BETSSON_EMBED',embedSourceUrl:source},'7',origin,'bridge','betsson');
     const body=await r.text();expect(body).toContain('data:image/jpeg;base64,');expect(body).not.toContain('bannerflow.net');expect(body).not.toContain('record.betsson');expect(body).not.toContain('window.open');expect(r.headers.get('content-security-policy')).toContain("connect-src 'none'");expect(fetch).toHaveBeenCalledTimes(2);
   });
 });

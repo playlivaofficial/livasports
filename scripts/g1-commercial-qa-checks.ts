@@ -44,7 +44,7 @@ export function configuredCampaignChecks(config:CampaignConfiguration,br:Campaig
       creative.placement===source.placement&&creative.locale===config.locale&&creative.imageAlt===source.imageAlt);
     check(label+' date window matches configuration',sameInstant(creative.startsAt,config.validFrom)&&sameInstant(creative.endsAt,config.validUntil));
     check(label+' is approved and active under production validation',validCreative(creative,
-      {locale:'br',pagePath:'/br',placement:source.placement},now,campaign.operatorCampaignId));
+      {locale:'br',pagePath:'/br',placement:source.placement},now,campaign.operatorCampaignId,campaign.bookmaker));
   });
   const betano=[...br,...mx].filter(c=>c.bookmaker==='betano.bet.br');
   check('Betano campaigns and creatives remain disabled',betano.every(c=>!c.enabled&&c.creatives.every(s=>!s.enabled)&&
