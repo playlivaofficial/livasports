@@ -7,6 +7,11 @@ const hosts:Record<string,readonly string[]>={
   // Exact BR tracking host observed in the authenticated approved sportsbook link.
   'betsson:br':['betsson.bet.br','www.betsson.bet.br','record.betsson.bet.br'],
   'betsson:mx':['betsson.mx','www.betsson.mx'],
+  // Jurisdiction destination allowlists only. These authorise nothing on their own: an outbound link
+  // still needs an approved campaign row, and migration 057/063 keep affiliate_enabled false.
+  'betsson:co':['betsson.co','www.betsson.co'],
+  'bwin:co':['sports.bwin.co','www.bwin.co','bwin.co'],
+  'inkabet:pe':['inkabet.pe','www.inkabet.pe'],
   'sportingbet.bet.br:br':['sportingbet.bet.br','www.sportingbet.bet.br','sports.sportingbet.bet.br'],
   // Approved partner links use the exact BR tracking host. Private campaign IDs stay server-side.
   '1xbet:br':['1xaff.com.br','www.1xaff.com.br'],

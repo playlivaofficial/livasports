@@ -11,11 +11,11 @@ import {inspectCatalogMarkets,SUPPORTED_M5_MARKETS} from '@/providers/oddspapi/m
 
 const now=Date.parse('2026-09-12T18:00:00Z');
 const quote=(overrides:Partial<ReadOddsQuote>={}):ReadOddsQuote=>({
-  quoteId:'quote-test',fixtureId:'f',providerFixtureId:'p',bookmaker:'betano.bet.br',bookmakerId:'b',bookmakerName:'Betano BR',
+  quoteId:'quote-test',fixtureId:'f',providerFixtureId:'p',bookmaker:'betsson',bookmakerId:'b',bookmakerName:'Betsson',
   market:'MATCH_WINNER',outcome:'HOME',line:null,decimalOdds:'1.90',status:'ACTIVE',scope:'FULL_TIME_REGULATION',
   phase:'PREGAME',providerUpdatedAt:'2026-09-12T10:00:00Z',observedAt:new Date(now).toISOString(),
   persistedAt:new Date(now).toISOString(),lastSuccessfulRefreshAt:new Date(now).toISOString(),
-  providerKickoff:'2026-09-12T19:00:00Z',sourceDomain:'www.betano.bet.br',geoEligible:true,...overrides,
+  providerKickoff:'2026-09-12T19:00:00Z',sourceDomain:'www.betsson.com',geoEligible:true,...overrides,
 });
 const allMarkets=(bookmaker:ReadOddsQuote['bookmaker'],name:string,home:string):ReadOddsQuote[]=>[
   quote({bookmaker,bookmakerName:name,decimalOdds:home}),
@@ -27,6 +27,9 @@ const allMarkets=(bookmaker:ReadOddsQuote['bookmaker'],name:string,home:string):
   quote({bookmaker,bookmakerName:name,market:'TOTAL_GOALS',outcome:'UNDER',line:2.5,decimalOdds:'1.85'}),
 ];
 
+/** Colombia: the only jurisdiction with two public books, so the only honest two-book parity case. */
+const CO=[{id:'betsson',name:'Betsson',priority:10},{id:'bwin',name:'bwin',priority:20}];
+
 describe('full odds parity identity',()=>{
   it('normalizes bookmaker slugs without changing canonical identity',()=>{
     expect(canonicalBookmakerSlug('betano')).toBe('betano');
@@ -36,23 +39,23 @@ describe('full odds parity identity',()=>{
     expect(canonicalBookmakerSlug('unknown')).toBeNull();
   });
   it('keeps listing, match page and slip on the same quotes when both books price the match',()=>{
-    const snapshot:OddsReadSnapshot={kickoff:'2026-09-12T19:00:00Z',fixtureStatus:'SCHEDULED',quotes:[...allMarkets('betano.bet.br','Betano BR','1.90'),...allMarkets('betsson','Betsson','1.85')]};
+    const snapshot:OddsReadSnapshot={kickoff:'2026-09-12T19:00:00Z',fixtureStatus:'SCHEDULED',eligibleBookmakers:CO,quotes:[...allMarkets('betsson','Betsson','1.90'),...allMarkets('bwin','bwin','1.85')]};
     const listing=listingMatchWinnerOdds(snapshot,now);
     expect(listing.oddsState).toBe('complete');
-    expect(listing.odds[0].outcomes[0].prices.map(price=>price.bookmaker)).toEqual(['Betsson','Sportingbet BR','1xBet']);
+    expect(listing.odds[0].outcomes[0].prices.map(price=>price.bookmaker)).toEqual(['Betsson','bwin']);
     for(const market of SUPPORTED_M5_MARKETS){
       const comparison=buildComparison(snapshot,market,now);
-      expect(comparison.rows.map(row=>row.bookmaker)).toEqual(['betsson','sportingbet.bet.br','1xbet']);
+      expect(comparison.rows.map(row=>row.bookmaker)).toEqual(['betsson','bwin']);
       expect(comparison.rows.every(row=>row.cells.some(cell=>cell.decimalOdds!==null))).toBe(true);
     }
   });
   it('presents both target bookmaker rows from either single current source',()=>{
-    const betano=listingMatchWinnerOdds({kickoff:'2026-09-12T19:00:00Z',fixtureStatus:'SCHEDULED',quotes:allMarkets('betano.bet.br','Betano BR','1.90')},now);
-    const betsson=listingMatchWinnerOdds({kickoff:'2026-09-12T19:00:00Z',fixtureStatus:'SCHEDULED',quotes:allMarkets('betsson','Betsson','1.85')},now);
-    expect(betano.oddsState).toBe('complete');
-    expect(betano.odds[0].outcomes[0].prices.map(price=>[price.bookmaker,price.priceKind])).toEqual([['Betsson','PROXY'],['Sportingbet BR','PROXY'],['1xBet','PROXY']]);
+    const bwinOnly=listingMatchWinnerOdds({kickoff:'2026-09-12T19:00:00Z',fixtureStatus:'SCHEDULED',eligibleBookmakers:CO,quotes:allMarkets('bwin','bwin','1.90')},now);
+    const betsson=listingMatchWinnerOdds({kickoff:'2026-09-12T19:00:00Z',fixtureStatus:'SCHEDULED',eligibleBookmakers:CO,quotes:allMarkets('betsson','Betsson','1.85')},now);
+    expect(bwinOnly.oddsState).toBe('complete');
+    expect(bwinOnly.odds[0].outcomes[0].prices.map(price=>[price.bookmaker,price.priceKind])).toEqual([['Betsson','PROXY'],['bwin','REAL']]);
     expect(betsson.oddsState).toBe('complete');
-    expect(betsson.odds[0].outcomes[0].prices.map(price=>[price.bookmaker,price.priceKind])).toEqual([['Betsson','REAL'],['Sportingbet BR','PROXY'],['1xBet','PROXY']]);
+    expect(betsson.odds[0].outcomes[0].prices.map(price=>[price.bookmaker,price.priceKind])).toEqual([['Betsson','REAL'],['bwin','PROXY']]);
   });
   it('keeps canonical market identity independent of locale labels',()=>{
     expect(SUPPORTED_M5_MARKETS).toEqual(['MATCH_WINNER','BTTS','TOTAL_GOALS']);

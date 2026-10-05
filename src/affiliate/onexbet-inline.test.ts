@@ -3,11 +3,19 @@ vi.mock('server-only',()=>({}));
 import {validCreative,campaignDestination,isSponsorPlacement} from './policy';
 import {resolveOffer} from './service';
 import {campaign,dependencies} from './fixtures.test-support';
+import {isRetiredBookmaker} from '@/odds/registry';
 import type {Campaign,CommercialContext,Creative} from './types';
 
 const now=Date.now();
-// Mirrors migration 044: the official static 970x90 leaderboard on the free match_inline slot.
-const inlineCreative=(overrides:Partial<Creative>={}):Creative=>({
+
+/**
+ * These were 1xBet's inline-leaderboard and home-top-banner tests (migrations 044/045). 1xBet is now
+ * RETIRED, so the creative paths it owned can no longer resolve at all. Two things are pinned here:
+ * the retired contract for banners and embeds, and the creative-safety rules themselves — the latter
+ * retargeted to a live operator because they are what will guard the real MX/CO/PE banner assets.
+ */
+const RETIRED='1xbet';
+const retiredCreative=(overrides:Partial<Creative>={}):Creative=>({
   id:'1xbet-match-inline-br',placement:'match_inline',locale:'br',
   imageUrl:'/sponsors/1xbet/match-inline-970x90.webp',
   imageAlt:'1xBet: apostas esportivas. Proibido para menores de 18 anos. Jogue com responsabilidade.',
@@ -16,80 +24,79 @@ const inlineCreative=(overrides:Partial<Creative>={}):Creative=>({
   delivery:'IMAGE',embedSourceUrl:null,...overrides,
 });
 const onexbet=(overrides:Partial<Campaign>={}):Campaign=>({...campaign(now),
-  id:'cccccccc-cccc-4ccc-8ccc-cccccccccccc',bookmaker:'1xbet',operatorCampaignId:'SYNTHETIC_CAMPAIGN',
+  id:'cccccccc-cccc-4ccc-8ccc-cccccccccccc',bookmaker:RETIRED,operatorCampaignId:'SYNTHETIC_CAMPAIGN',
   destination:'https://1xaff.com.br/L?tag=synthetic-test-only&site=test-only&ad=test-only',
-  domains:['1xaff.com.br'],placements:['match_odds_table','match_slip_comparison','slip_bookmaker_comparison','match_inline'],
-  creatives:[inlineCreative()],...overrides});
+  domains:['1xaff.com.br'],placements:['match_odds_table','match_slip_comparison','slip_bookmaker_comparison','match_inline','home_top_banner'],
+  creatives:[retiredCreative()],...overrides});
 const inlineContext:CommercialContext={locale:'br',pagePath:'/br/partida/x',placement:'match_inline'};
+const topContext:CommercialContext={locale:'br',pagePath:'/br',placement:'home_top_banner'};
 
-describe('1xBet match_inline placement',()=>{
-  it('serves the official static leaderboard through the local IMAGE path',()=>{
-    expect(isSponsorPlacement('match_inline')).toBe(true);
-    expect(validCreative(inlineCreative(),inlineContext,now,'SYNTHETIC_CAMPAIGN')).toBe(true);
+describe('retired bookmaker produces no inline embed or banner',()=>{
+  it('is RETIRED',()=>{expect(isRetiredBookmaker(RETIRED)).toBe(true);});
+
+  it('resolves no inline creative even though the creative itself is well formed',async()=>{
+    // The creative passes shape validation; the operator gate is what refuses it.
+    expect(validCreative(retiredCreative(),inlineContext,now,'SYNTHETIC_CAMPAIGN')).toBe(true);
+    expect(await resolveOffer(inlineContext,dependencies(onexbet()),now)).toBeNull();
+    expect(campaignDestination(onexbet(),inlineContext,now)).toBeNull();
   });
-  it('rejects an animated or remote source, so library GIFs can never be wired in',()=>{
-    // Only /sponsors/ paths with a still image extension pass; .gif and absolute URLs do not.
-    expect(validCreative(inlineCreative({imageUrl:'/sponsors/1xbet/banner.gif'}),inlineContext,now)).toBe(false);
-    expect(validCreative(inlineCreative({imageUrl:'https://partners.1xbet.bet.br/x.jpg'}),inlineContext,now)).toBe(false);
-    expect(validCreative(inlineCreative({embedSourceUrl:'https://c.bannerflow.net/a/'+'a'.repeat(24)}),inlineContext,now)).toBe(false);
+
+  it('resolves no home top banner and no tracking destination',async()=>{
+    const top=onexbet({creatives:[retiredCreative({id:'1xbet-home-top-banner-br',placement:'home_top_banner',
+      imageUrl:'/sponsors/1xbet/top-banner-970x90.webp'})]});
+    expect(await resolveOffer(topContext,dependencies(top),now)).toBeNull();
+    expect(campaignDestination(top,topContext,now)).toBeNull();
   });
-  it('sends clicks only to the verified 1xAff tracking host',()=>{
-    expect(campaignDestination(onexbet(),inlineContext,now)).toBe('https://1xaff.com.br/L?tag=synthetic-test-only&site=test-only&ad=test-only');
-    // An operator domain outside the campaign allowlist is refused even with a valid destination.
-    expect(campaignDestination(onexbet({domains:['1xbet.com']}),inlineContext,now)).toBeNull();
-  });
-  it('is Brazil only',()=>{
-    expect(campaignDestination(onexbet({locale:'mx'}),{...inlineContext,locale:'mx'},now)).toBeNull();
-  });
-  it('never competes with Betsson, which holds no inline slot',async()=>{
-    const betsson=campaign(now);
-    expect(betsson.placements).not.toContain('match_inline');
-    const offer=await resolveOffer(inlineContext,dependencies(onexbet()),now);
-    expect(offer?.campaign.bookmaker).toBe('1xbet');
-    expect(offer?.creative?.imageUrl).toBe('/sponsors/1xbet/match-inline-970x90.webp');
-  });
-  it('still fails closed if a second campaign ever claims the same slot',async()=>{
-    const rival=onexbet({id:'dddddddd-dddd-4ddd-8ddd-dddddddddddd'});
-    const deps={...dependencies(onexbet()),campaigns:async()=>[onexbet(),rival]};
-    expect(await resolveOffer(inlineContext,deps,now)).toBeNull();
+
+  it('cannot be revived by relisting its previously verified tracking host',()=>{
+    expect(campaignDestination(onexbet({domains:['1xaff.com.br']}),inlineContext,now)).toBeNull();
   });
 });
 
-// Mirrors migration 045: the desktop home top banner moves from Betsson to 1xBet.
-const topCreative=(overrides:Partial<Creative>={}):Creative=>({...inlineCreative(),
-  id:'1xbet-home-top-banner-br',placement:'home_top_banner',
-  imageUrl:'/sponsors/1xbet/top-banner-970x90.webp',...overrides});
-const topContext:CommercialContext={locale:'br',pagePath:'/br',placement:'home_top_banner'};
-const betssonAfter=():Campaign=>({...campaign(now),
-  placements:['match_odds_table','match_slip_comparison','slip_bookmaker_comparison','home_right_rail',
-    'match_right_rail','team_right_rail','player_right_rail','mobile_inline','profile_mobile_inline'],creatives:[]});
+/**
+ * Creative-safety rules, retargeted to a live operator. These are the guards that will stand between
+ * the real affiliate panel assets and the production page, so they are kept rather than retired.
+ */
+const liveCreative=(overrides:Partial<Creative>={}):Creative=>({
+  id:'betsson-mx-home-top-banner',placement:'home_top_banner',locale:'mx',
+  imageUrl:'/sponsors/betsson/home-top-banner-970x90.webp',
+  imageAlt:'Betsson: apuestas deportivas. Prohibido para menores de 18 anos. Juega con responsabilidad.',
+  width:970,height:90,approved:true,enabled:true,startsAt:null,endsAt:null,
+  delivery:'IMAGE',embedSourceUrl:null,...overrides});
+const liveContext:CommercialContext={locale:'mx',pagePath:'/mx',placement:'home_top_banner'};
 
-describe('1xBet desktop home top banner',()=>{
-  it('serves the official 970x90 leaderboard from the local IMAGE path',()=>{
-    expect(validCreative(topCreative(),topContext,now,'SYNTHETIC_CAMPAIGN')).toBe(true);
+describe('creative safety rules for live banner slots',()=>{
+  it('accepts a well formed local still image on a sponsor placement',()=>{
+    expect(isSponsorPlacement('home_top_banner')).toBe(true);
+    expect(validCreative(liveCreative(),liveContext,now,'LIVE_CAMPAIGN')).toBe(true);
   });
-  it('resolves uniquely, because Betsson no longer claims home_top_banner',async()=>{
-    const onex=onexbet({placements:[...onexbet().placements,'home_top_banner'] as Campaign['placements'],creatives:[topCreative()]});
-    const deps={...dependencies(onex),campaigns:async()=>[onex,betssonAfter()]};
-    const offer=await resolveOffer(topContext,deps,now);
-    expect(offer?.campaign.bookmaker).toBe('1xbet');
-    expect(offer?.creative?.imageUrl).toBe('/sponsors/1xbet/top-banner-970x90.webp');
+
+  it('rejects animated, remote and embed sources, so library GIFs can never be wired in',()=>{
+    expect(validCreative(liveCreative({imageUrl:'/sponsors/betsson/banner.gif'}),liveContext,now)).toBe(false);
+    expect(validCreative(liveCreative({imageUrl:'https://partners.betsson.mx/x.jpg'}),liveContext,now)).toBe(false);
+    expect(validCreative(liveCreative({embedSourceUrl:'https://c.bannerflow.net/a/'+'a'.repeat(24)}),liveContext,now)).toBe(false);
   });
-  it('would blank the slot if Betsson still competed, which is why the slot was reallocated',async()=>{
-    const onex=onexbet({placements:[...onexbet().placements,'home_top_banner'] as Campaign['placements'],creatives:[topCreative()]});
-    const rival={...betssonAfter(),placements:[...betssonAfter().placements,'home_top_banner'] as Campaign['placements'],
-      creatives:[{...topCreative(),id:'betsson-br-home-top-banner'}]};
-    expect(await resolveOffer(topContext,{...dependencies(onex),campaigns:async()=>[onex,rival]},now)).toBeNull();
+
+  it('rejects a creative whose locale or placement does not match its context',()=>{
+    expect(validCreative(liveCreative({locale:'co'}),liveContext,now)).toBe(false);
+    expect(validCreative(liveCreative({placement:'home_right_rail'}),liveContext,now)).toBe(false);
   });
-  it('leaves every other Betsson placement untouched',()=>{
-    const p=betssonAfter().placements;
-    for(const kept of ['home_right_rail','match_right_rail','team_right_rail','player_right_rail','mobile_inline','profile_mobile_inline'])
-      expect(p).toContain(kept);
-    expect(p).not.toContain('home_top_banner');
+
+  it('requires alt text and sane dimensions',()=>{
+    expect(validCreative(liveCreative({imageAlt:'   '}),liveContext,now)).toBe(false);
+    expect(validCreative(liveCreative({width:99}),liveContext,now)).toBe(false);
+    expect(validCreative(liveCreative({height:39}),liveContext,now)).toBe(false);
   });
-  it('sends banner clicks to the verified 1xAff host only',()=>{
-    const onex=onexbet({placements:[...onexbet().placements,'home_top_banner'] as Campaign['placements']});
-    expect(campaignDestination(onex,topContext,now)).toBe('https://1xaff.com.br/L?tag=synthetic-test-only&site=test-only&ad=test-only');
-    expect(campaignDestination({...onex,locale:'mx'},{...topContext,locale:'mx',pagePath:'/mx'},now)).toBeNull();
+
+  it('covers the desktop top and right slots plus the mobile inline slot',()=>{
+    for(const placement of ['home_top_banner','home_right_rail','match_top_banner','match_right_rail','mobile_inline'] as const){
+      expect(isSponsorPlacement(placement)).toBe(true);
+      expect(validCreative(liveCreative({placement}),{...liveContext,placement},now,'LIVE_CAMPAIGN')).toBe(true);
+    }
+  });
+
+  it('still fails closed if two campaigns ever claim the same slot',async()=>{
+    const a=onexbet();const b=onexbet({id:'dddddddd-dddd-4ddd-8ddd-dddddddddddd'});
+    expect(await resolveOffer(inlineContext,{...dependencies(a),campaigns:async()=>[a,b]},now)).toBeNull();
   });
 });

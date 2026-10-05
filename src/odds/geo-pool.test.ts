@@ -26,7 +26,7 @@ describe('explicit jurisdiction bookmaker pools',()=>{
     const configs=f.data.bookmakers.map(b=>({...b,insuranceEnabled:false,geoEligibility:{eligible:true,locale:'co' as const}}));
     const book=buildSlipComparison(f.selections,'co',f.data.fixtures,configs,f.now).bookmakers.find(b=>b.bookmakerId==='betsson')!;
     expect(book.complete).toBe(false);expect(book.combinedDecimalOdds).toBeNull();expect(book.ctaState).toBe('INCOMPLETE');
-    expect(buildComparison({...first.snapshot,insuranceEnabled:false,eligibleBookmakers:[{id:'betsson',name:'Betsson',priority:1},{id:'sportingbet.bet.br',name:'Synthetic comparison source',priority:2}]},'MATCH_WINNER',f.now).rows.find(b=>b.bookmaker==='betsson')?.cells.every(c=>c.decimalOdds===null)).toBe(true);
+    expect(buildComparison({...first.snapshot,insuranceEnabled:false,eligibleBookmakers:[{id:'betsson',name:'Betsson',priority:1},{id:'bwin',name:'Synthetic comparison source',priority:2}]},'MATCH_WINNER',f.now).rows.find(b=>b.bookmaker==='betsson')?.cells.every(c=>c.decimalOdds===null)).toBe(true);
   });
   it('uses correct money labels without converting decimal odds',()=>{
     expect(formatMoney('10','mx')).toContain('MX$');expect(formatMoney('10','co')).toContain('COP$');expect(formatMoney('10','pe')).toContain('S/');expect(formatMoney('10','en')).not.toContain('R$');

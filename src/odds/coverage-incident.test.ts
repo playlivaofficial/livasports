@@ -52,28 +52,31 @@ describe('B — daily cadence must not leave a near-term competition at zero cov
   });
 });
 
-const quote=(over:Partial<ReadOddsQuote>={}):ReadOddsQuote=>({quoteId:'q',fixtureId:'f',providerFixtureId:'p',bookmaker:'betano.bet.br',bookmakerId:'b',bookmakerName:'Betano BR',market:'MATCH_WINNER',outcome:'HOME',line:null,
+const quote=(over:Partial<ReadOddsQuote>={}):ReadOddsQuote=>({quoteId:'q',fixtureId:'f',providerFixtureId:'p',bookmaker:'bwin',bookmakerId:'b',bookmakerName:'bwin',market:'MATCH_WINNER',outcome:'HOME',line:null,
   decimalOdds:'2.10',status:'ACTIVE',scope:'FULL_TIME_REGULATION',phase:'PREGAME',providerUpdatedAt:now.toISOString(),observedAt:now.toISOString(),persistedAt:now.toISOString(),lastSuccessfulRefreshAt:now.toISOString(),
-  providerKickoff:hoursAhead(30),sourceDomain:'www.betano.bet.br',geoEligible:true,freshnessTtlMinutes:120,...over});
-const snapshot=(quotes:ReadOddsQuote[]):OddsReadSnapshot=>({kickoff:hoursAhead(30),fixtureStatus:'SCHEDULED',quotes});
+  providerKickoff:hoursAhead(30),sourceDomain:'sports.bwin.com',geoEligible:true,freshnessTtlMinutes:120,...over});
+/** Colombia: Betsson then bwin, by configured public_priority. Proxy coverage is opted into so the
+ * disclosure rules stay covered; production pins insuranceEnabled false. */
+const CO=[{id:'betsson',name:'Betsson',priority:10},{id:'bwin',name:'bwin',priority:20}];
+const snapshot=(quotes:ReadOddsQuote[]):OddsReadSnapshot=>({kickoff:hoursAhead(30),fixtureStatus:'SCHEDULED',quotes,eligibleBookmakers:CO,insuranceEnabled:true});
 describe('C/D/E/G — real-first resolution with disclosed proxy fallback',()=>{
   it('a failed/stopped refresh leaves stored REAL usable until fixed expiry, then disclosed insurance, then unavailable',()=>{
-    const own=quote({bookmaker:'sportingbet.bet.br',bookmakerName:'Sportingbet BR',freshnessTtlMinutes:30});
+    const own=quote({bookmaker:'betsson',bookmakerName:'Betsson',freshnessTtlMinutes:30});
     const insurance=quote({freshnessTtlMinutes:60});
     const stored=snapshot([own,insurance]);const before=JSON.stringify(stored);
-    const price=(minutes:number)=>buildComparison(stored,'MATCH_WINNER',+now+minutes*60000).rows.find(r=>r.bookmaker==='sportingbet.bet.br')!.cells[0];
-    expect(price(29)).toMatchObject({priceKind:'REAL',sourceBookmaker:'sportingbet.bet.br',decimalOdds:'2.10'});
-    expect(price(30)).toMatchObject({priceKind:'PROXY',sourceBookmaker:'betano.bet.br',decimalOdds:'2.10'});
+    const price=(minutes:number)=>buildComparison(stored,'MATCH_WINNER',+now+minutes*60000).rows.find(r=>r.bookmaker==='betsson')!.cells[0];
+    expect(price(29)).toMatchObject({priceKind:'REAL',sourceBookmaker:'betsson',decimalOdds:'2.10'});
+    expect(price(30)).toMatchObject({priceKind:'PROXY',sourceBookmaker:'bwin',decimalOdds:'2.10'});
     expect(price(60)).toMatchObject({decimalOdds:null});
     expect(JSON.stringify(stored)).toBe(before);
   });
-  it('C: independent Betano and Betsson prices both reach the read model as REAL',()=>{
+  it('C: independent bwin and Betsson prices both reach the read model as REAL',()=>{
     const c=buildComparison(snapshot([quote(),quote({bookmaker:'betsson',bookmakerName:'Betsson',bookmakerId:'s',decimalOdds:'2.05'})]),'MATCH_WINNER',now.getTime());
-    expect(c.rows.map(r=>[r.bookmaker,r.cells[0].priceKind,r.cells[0].decimalOdds])).toEqual([['betsson','REAL','2.05'],['sportingbet.bet.br','PROXY','2.10'],['1xbet','PROXY','2.10']]);
+    expect(c.rows.map(r=>[r.bookmaker,r.cells[0].priceKind,r.cells[0].decimalOdds])).toEqual([['betsson','REAL','2.05'],['bwin','REAL','2.10']]);
   });
   it('D: one bookmaker only → the other side shows a disclosed PROXY, never blank',()=>{
     const c=buildComparison(snapshot([quote({bookmaker:'betsson',bookmakerName:'Betsson',bookmakerId:'s',decimalOdds:'2.05'})]),'MATCH_WINNER',now.getTime());
-    expect(c.rows.map(r=>[r.bookmaker,r.cells[0].priceKind,r.cells[0].decimalOdds])).toEqual([['betsson','REAL','2.05'],['sportingbet.bet.br','PROXY','2.05'],['1xbet','PROXY','2.05']]);
+    expect(c.rows.map(r=>[r.bookmaker,r.cells[0].priceKind,r.cells[0].decimalOdds])).toEqual([['betsson','REAL','2.05'],['bwin','PROXY','2.05']]);
   });
   it('E: neither bookmaker → unavailable, never invented',()=>{
     const listing=listingMatchWinnerOdds(snapshot([]),now.getTime());
@@ -82,10 +85,10 @@ describe('C/D/E/G — real-first resolution with disclosed proxy fallback',()=>{
   it('G: a REAL quote replaces a proxy immediately, and a stale REAL quote falls back to the peer proxy',()=>{
     const betsson=quote({bookmaker:'betsson',bookmakerName:'Betsson',bookmakerId:'s',decimalOdds:'2.05'});
     const before=buildComparison(snapshot([betsson]),'MATCH_WINNER',now.getTime());
-    expect(before.rows[1].bookmaker).toBe('sportingbet.bet.br');expect(before.rows[1].cells[0]).toMatchObject({priceKind:'PROXY',decimalOdds:'2.05'});
-    const after=buildComparison(snapshot([betsson,quote({bookmaker:'sportingbet.bet.br',decimalOdds:'2.20'})]),'MATCH_WINNER',now.getTime());
+    expect(before.rows[1].bookmaker).toBe('bwin');expect(before.rows[1].cells[0]).toMatchObject({priceKind:'PROXY',decimalOdds:'2.05'});
+    const after=buildComparison(snapshot([betsson,quote({bookmaker:'bwin',decimalOdds:'2.20'})]),'MATCH_WINNER',now.getTime());
     expect(after.rows[1].cells[0]).toMatchObject({priceKind:'REAL',decimalOdds:'2.20'});
-    const stale=buildComparison(snapshot([betsson,quote({bookmaker:'sportingbet.bet.br',decimalOdds:'2.20',observedAt:hoursAhead(-5),freshnessTtlMinutes:60})]),'MATCH_WINNER',now.getTime());
+    const stale=buildComparison(snapshot([betsson,quote({bookmaker:'bwin',decimalOdds:'2.20',observedAt:hoursAhead(-5),freshnessTtlMinutes:60})]),'MATCH_WINNER',now.getTime());
     expect(stale.rows[1].cells[0]).toMatchObject({priceKind:'PROXY',decimalOdds:'2.05'});
   });
 });

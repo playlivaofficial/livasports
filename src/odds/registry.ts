@@ -3,19 +3,30 @@ export const BOOKMAKER_MARKETS=['MATCH_WINNER','TOTAL_GOALS','BTTS'] as const;
 export const GATED_AFFILIATE={affiliateEnabled:false,affiliateCampaignId:null,affiliateDestination:null} as const;
 /** Public identities. Commercial fields are overlaid with verified server-side campaign configuration. */
 const IDENTITIES = [
-  {canonicalId:'betsson',providerSlug:'betsson',displayName:'Betsson',shortLabel:'Betsson',countries:['BR','MX'],displayRole:'VISIBLE_PRIMARY',displayOrder:1,insurancePriority:1,logoAsset:'/bookmakers/betsson.webp'},
-  {canonicalId:'sportingbet.bet.br',providerSlug:'sportingbet.bet.br',displayName:'Sportingbet BR',shortLabel:'Sportingbet',countries:['BR'],displayRole:'VISIBLE_PRIMARY',displayOrder:2,insurancePriority:2,logoAsset:'/bookmakers/sportingbet.webp'},
-  // Took Betboo's third public slot. OddsPapi exposes one 1xBet feed (slug '1xbet', cloneOf null)
-  // and no .bet.br clone, so this is the generic feed — the same shape as Betsson, and owner-approved
-  // for Brazil on that basis. Its provider flags are honest (bookmakerIsActive/suspended/active all
-  // report truthfully), so it stays on the STRICT policy below rather than Betsson's relaxation.
-  {canonicalId:'1xbet',providerSlug:'1xbet',displayName:'1xBet',shortLabel:'1xBet',countries:['BR'],displayRole:'VISIBLE_PRIMARY',displayOrder:3,insurancePriority:3,logoAsset:'/bookmakers/1xbet.webp'},
-  // Retired when 1xBet replaced it, and simultaneously dropped from our OddsPapi subscription, so it
-  // can no longer be priced at all. The identity stays so historical odds rows, analytics events and
-  // audit exports still normalize, but a RETIRED book is never displayed, never comparable, never
-  // affiliate-linked and — via ACTIVE_BOOKMAKER_IDS — never requested from the provider again.
+  // Entitled for MX/CO/PE pregame since 2026-10-02. OddsPapi publishes ONE generic Betsson feed
+  // ('betsson', cloneOf null) and no .mx or .co clone, so Mexico and Colombia price off the same
+  // feed. BR stays listed so historical Brazilian quotes keep resolving; BR promotion is retired.
+  {canonicalId:'betsson',providerSlug:'betsson',displayName:'Betsson',shortLabel:'Betsson',countries:['BR','MX','CO'],displayRole:'VISIBLE_PRIMARY',displayOrder:1,insurancePriority:1,logoAsset:'/bookmakers/betsson.webp'},
+  // Colombia's second public book: an independent Entain feed ('bwin', cloneOf null, sports.bwin.com)
+  // whose prices genuinely differ from Betsson's, so CO is a real comparison. Odds and slip
+  // comparison are live while every CTA stays dark — no Entain affiliate access exists yet.
+  {canonicalId:'bwin',providerSlug:'bwin',displayName:'bwin',shortLabel:'bwin',countries:['CO'],displayRole:'VISIBLE_PRIMARY',displayOrder:2,insurancePriority:2,logoAsset:null},
+  // Peru's only public book. OddsPapi declares it cloneOf 'betsson' and it was observed mirroring
+  // Betsson's 1/X/2 prices exactly on every Liga 1 fixture, so showing the two side by side would
+  // be a fake comparison. PE being Inkabet-only keeps them apart; a test asserts they never overlap.
+  {canonicalId:'inkabet',providerSlug:'inkabet',displayName:'Inkabet',shortLabel:'Inkabet',countries:['PE'],displayRole:'VISIBLE_PRIMARY',displayOrder:3,insurancePriority:3,logoAsset:null},
+  // Dropped from the OddsPapi subscription on 2026-10-02 by the MX/CO/PE cutover, so they can no
+  // longer be priced at all — exactly the position betboo was already in. The identities stay so
+  // historical odds rows, analytics events and audit exports still normalize, but a RETIRED book is
+  // never displayed, never comparable, never affiliate-linked and — via ACTIVE_BOOKMAKER_IDS —
+  // never requested from the provider again. Keeping them in the entitlement gate is what stopped
+  // the refresh pipeline on 2026-10-02: verifiedAccountPeriod demands every active ID be entitled.
+  // Retiring Betano also removes Brazil's hidden insurance source. It is unpurchasable, so there is
+  // nothing to fall back to and resolveInsurance correctly reports no preferred source at all.
+  {canonicalId:'sportingbet.bet.br',providerSlug:'sportingbet.bet.br',displayName:'Sportingbet BR',shortLabel:'Sportingbet',countries:['BR'],displayRole:'RETIRED',displayOrder:97,insurancePriority:97,logoAsset:'/bookmakers/sportingbet.webp'},
+  {canonicalId:'1xbet',providerSlug:'1xbet',displayName:'1xBet',shortLabel:'1xBet',countries:['BR'],displayRole:'RETIRED',displayOrder:98,insurancePriority:98,logoAsset:'/bookmakers/1xbet.webp'},
   {canonicalId:'betboo.bet.br',providerSlug:'betboo.bet.br',displayName:'betboo BR',shortLabel:'betboo',countries:['BR'],displayRole:'RETIRED',displayOrder:99,insurancePriority:99,logoAsset:'/bookmakers/betboo.webp'},
-  {canonicalId:'betano.bet.br',providerSlug:'betano.bet.br',displayName:'Betano BR',shortLabel:'Betano',countries:['BR'],displayRole:'HIDDEN_INSURANCE',displayOrder:4,insurancePriority:0,logoAsset:null},
+  {canonicalId:'betano.bet.br',providerSlug:'betano.bet.br',displayName:'Betano BR',shortLabel:'Betano',countries:['BR'],displayRole:'RETIRED',displayOrder:100,insurancePriority:100,logoAsset:null},
 ] as const;
 /** A public card, the hidden insurance source, or an operator kept only so history still resolves. */
 export type BookmakerDisplayRole='VISIBLE_PRIMARY'|'HIDDEN_INSURANCE'|'RETIRED';
@@ -28,15 +39,13 @@ export type BookmakerId=string;
 export type BookmakerDisplayName=string;
 export const VISIBLE_BOOKMAKERS=BOOKMAKER_REGISTRY.filter(book=>book.displayRole==='VISIBLE_PRIMARY').sort((a,b)=>a.displayOrder-b.displayOrder);
 /** Approved inventory of candidate identities, NOT provider mappings or permission to display odds. */
-export const CANDIDATE_OPERATOR_IDS=['codere','caliente','10bet','bwin','betano','betplay','inkabet','betsafe','bet365'] as const;
+export const CANDIDATE_OPERATOR_IDS=['codere','caliente','10bet','betano','betplay','betsafe','bet365'] as const;
 const CANDIDATE_IDENTITIES=[
   {canonicalId:'codere',displayName:'Codere',countries:['MX','CO']},
   {canonicalId:'caliente',displayName:'Caliente',countries:['MX']},
   {canonicalId:'10bet',displayName:'10Bet',countries:['MX']},
-  {canonicalId:'bwin',displayName:'bwin',countries:['CO']},
   {canonicalId:'betano',displayName:'Betano',countries:['CO','PE']},
   {canonicalId:'betplay',displayName:'BetPlay',countries:['CO']},
-  {canonicalId:'inkabet',displayName:'Inkabet',countries:['PE']},
   {canonicalId:'betsafe',displayName:'Betsafe',countries:['PE']},
   {canonicalId:'bet365',displayName:'bet365',countries:['PE']},
 ].map(b=>({...b,shortLabel:b.displayName,providerSlug:null,displayRole:'VISIBLE_PRIMARY' as BookmakerDisplayRole,displayOrder:100,insurancePriority:100,logoAsset:null,marketSupport:BOOKMAKER_MARKETS,providerFlagPolicy:'STRICT' as const,...GATED_AFFILIATE}));
