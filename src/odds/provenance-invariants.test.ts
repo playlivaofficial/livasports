@@ -10,43 +10,67 @@ const quote=(bookmaker:string,decimalOdds:string,overrides:Partial<ReadOddsQuote
   market:'MATCH_WINNER',outcome:'HOME',line:null,decimalOdds,status:'ACTIVE',scope:'FULL_TIME_REGULATION',phase:'PREGAME',
   providerUpdatedAt:new Date(now-60000).toISOString(),observedAt:new Date(now).toISOString(),persistedAt:new Date(now).toISOString(),
   lastSuccessfulRefreshAt:new Date(now).toISOString(),providerKickoff:kickoff,sourceDomain:'test.invalid',geoEligible:true,...overrides});
-const snap=(quotes:ReadOddsQuote[]):OddsReadSnapshot=>({quotes,kickoff,fixtureStatus:'SCHEDULED'});
-const home=(c:ReturnType<typeof buildComparison>,bk:string)=>c.rows.find(r=>r.bookmaker===bk)?.cells[0];
+
+/**
+ * Colombia is the only jurisdiction that compares two books, so Betsson and bwin are the pair these
+ * invariants are expressed against. Proxy coverage is dormant in production (insuranceEnabled false
+ * on both read paths); it is enabled here so the disclosure rules stay covered.
+ */
+const CO=[{id:'betsson',name:'Betsson',priority:10},{id:'bwin',name:'bwin',priority:20}];
+const snap=(quotes:ReadOddsQuote[],insuranceEnabled=true):OddsReadSnapshot=>
+  ({quotes,kickoff,fixtureStatus:'SCHEDULED',eligibleBookmakers:CO,insuranceEnabled});
+const home=(c:ReturnType<typeof buildComparison>,bk:string)=>c.rows.find(row=>row.bookmaker===bk)?.cells[0];
+const RETIRED=['1xbet','sportingbet.bet.br','betano.bet.br','betboo.bet.br'];
 
 describe('public odds provenance invariants',()=>{
-  it('never replaces a valid native 1xBet price with a proxy',()=>{
-    // Betano is present and cheaper, which is exactly when a careless resolver would substitute.
-    const c=buildComparison(snap([quote('1xbet','2.50'),quote('betano.bet.br','1.80'),quote('betsson','2.10')]),'MATCH_WINNER',now);
-    expect(home(c,'1xbet')).toMatchObject({decimalOdds:'2.50',priceKind:'REAL',sourceBookmaker:'1xbet'});
+  it('never replaces a valid native price with a cheaper peer proxy',()=>{
+    // bwin is present and cheaper, which is exactly when a careless resolver would substitute.
+    const c=buildComparison(snap([quote('betsson','2.50'),quote('bwin','1.80')]),'MATCH_WINNER',now);
+    expect(home(c,'betsson')).toMatchObject({decimalOdds:'2.50',priceKind:'REAL',sourceBookmaker:'betsson'});
+    expect(home(c,'bwin')).toMatchObject({decimalOdds:'1.80',priceKind:'REAL',sourceBookmaker:'bwin'});
   });
-  it('labels a shared Betano fallback as proxy for BOTH books, so neither looks native',()=>{
-    // This is the real production shape behind visually identical 1xBet/Sportingbet cells.
-    const c=buildComparison(snap([quote('betano.bet.br','1.95')]),'MATCH_WINNER',now);
-    const x=home(c,'1xbet'),s=home(c,'sportingbet.bet.br');
-    expect(x).toMatchObject({decimalOdds:'1.95',priceKind:'PROXY',sourceBookmaker:'betano.bet.br'});
-    expect(s).toMatchObject({decimalOdds:'1.95',priceKind:'PROXY',sourceBookmaker:'betano.bet.br'});
-    // Identical displayed numbers are permitted, but only while both are disclosed as approximate.
-    expect(x!.decimalOdds).toBe(s!.decimalOdds);
-    expect([x!.priceKind,s!.priceKind]).toEqual(['PROXY','PROXY']);
+
+  it('discloses a borrowed price as PROXY so it never looks native',()=>{
+    const c=buildComparison(snap([quote('betsson','1.95')]),'MATCH_WINNER',now);
+    expect(home(c,'betsson')).toMatchObject({decimalOdds:'1.95',priceKind:'REAL',sourceBookmaker:'betsson'});
+    const borrowed=home(c,'bwin');
+    expect(borrowed).toMatchObject({decimalOdds:'1.95',priceKind:'PROXY',sourceBookmaker:'betsson'});
+    // Identical displayed numbers are permitted, but only while the borrowed one is disclosed.
+    expect(borrowed!.decimalOdds).toBe(home(c,'betsson')!.decimalOdds);
   });
+
   it('keeps one book native and the other proxied when only one has its own price',()=>{
-    const c=buildComparison(snap([quote('1xbet','2.40'),quote('betano.bet.br','2.40')]),'MATCH_WINNER',now);
-    expect(home(c,'1xbet')).toMatchObject({priceKind:'REAL',sourceBookmaker:'1xbet'});
-    expect(home(c,'sportingbet.bet.br')).toMatchObject({priceKind:'PROXY'});
+    const c=buildComparison(snap([quote('bwin','2.40')]),'MATCH_WINNER',now);
+    expect(home(c,'bwin')).toMatchObject({priceKind:'REAL',sourceBookmaker:'bwin'});
+    expect(home(c,'betsson')).toMatchObject({priceKind:'PROXY',sourceBookmaker:'bwin'});
   });
+
   it('identical native prices stay native for both and never trigger fallback',()=>{
-    const c=buildComparison(snap([quote('1xbet','2.20'),quote('sportingbet.bet.br','2.20')]),'MATCH_WINNER',now);
-    expect(home(c,'1xbet')).toMatchObject({decimalOdds:'2.20',priceKind:'REAL',sourceBookmaker:'1xbet'});
-    expect(home(c,'sportingbet.bet.br')).toMatchObject({decimalOdds:'2.20',priceKind:'REAL',sourceBookmaker:'sportingbet.bet.br'});
+    const c=buildComparison(snap([quote('betsson','2.20'),quote('bwin','2.20')]),'MATCH_WINNER',now);
+    expect(home(c,'betsson')).toMatchObject({decimalOdds:'2.20',priceKind:'REAL',sourceBookmaker:'betsson'});
+    expect(home(c,'bwin')).toMatchObject({decimalOdds:'2.20',priceKind:'REAL',sourceBookmaker:'bwin'});
   });
-  it('never exposes Betano as a public row, even when it supplies every price',()=>{
-    const c=buildComparison(snap([quote('betano.bet.br','1.95')]),'MATCH_WINNER',now);
-    expect(c.rows.map(r=>r.bookmaker)).toEqual(VISIBLE_BOOKMAKERS.map(b=>b.canonicalId));
-    expect(c.rows.some(r=>r.bookmaker==='betano.bet.br')).toBe(false);
-    expect(c.rows.some(r=>r.bookmaker==='betboo.bet.br')).toBe(false);
+
+  it('exposes only the GEO eligible books as public rows',()=>{
+    const c=buildComparison(snap([quote('betsson','1.95')]),'MATCH_WINNER',now);
+    expect(c.rows.map(row=>row.bookmaker)).toEqual(['betsson','bwin']);
+    for(const retired of RETIRED)expect(c.rows.some(row=>row.bookmaker===retired)).toBe(false);
+    // No jurisdiction shows every registered identity; the public set is always a GEO subset.
+    expect(c.rows.length).toBeLessThan(VISIBLE_BOOKMAKERS.length+RETIRED.length);
   });
-  it('does not treat a retired Betboo quote as a usable source',()=>{
-    const c=buildComparison(snap([quote('betboo.bet.br','1.50')]),'MATCH_WINNER',now);
-    expect(c.rows.every(r=>r.cells.every(cell=>cell.decimalOdds===null))).toBe(true);
+
+  it('does not treat a retired quote as a usable source for any book',()=>{
+    for(const retired of RETIRED){
+      const c=buildComparison(snap([quote(retired,'1.50')]),'MATCH_WINNER',now);
+      expect(c.rows.every(row=>row.cells.every(cell=>cell.decimalOdds===null))).toBe(true);
+      expect(c.rows.every(row=>row.cells.every(cell=>cell.sourceBookmaker!==retired))).toBe(true);
+      expect(c.eligiblePrices).toBe(0);
+    }
+  });
+
+  it('leaves a selection blank rather than borrowing once proxy coverage is off',()=>{
+    const c=buildComparison(snap([quote('betsson','1.95')],false),'MATCH_WINNER',now);
+    expect(home(c,'betsson')).toMatchObject({priceKind:'REAL'});
+    expect(home(c,'bwin')).toMatchObject({decimalOdds:null,priceKind:null});
   });
 });

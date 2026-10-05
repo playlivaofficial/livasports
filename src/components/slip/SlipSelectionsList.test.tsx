@@ -38,12 +38,12 @@ describe('My Slip — selected matches list',()=>{
   it('shows competition, kickoff, both teams, market, pick and the reference price on every row',()=>{
     const f=comparisonFixture(1);const selections=saved(f);const html=render(f,selections);
     const kickoff=f.data.fixtures.get(selections[0].fixturePublicId)!.fixture.kickoff;
-    expect(html).toContain('Competição de teste');
+    expect(html).toContain('Competición de prueba');
     expect(html).toMatch(new RegExp(`<time [^>]*datetime="${kickoff}"`,'i'));
-    expect(html).toContain('Flamengo vs Palmeiras');
-    expect(html).toContain('<span>Full-time result</span><strong>Flamengo</strong>');
+    expect(html).toContain('Atlético Nacional vs Junior');
+    expect(html).toContain('<span>Full-time result</span><strong>Atlético Nacional</strong>');
     expect(html).toContain('2.10');
-    expect(html).toContain('aria-label="Remove: Flamengo vs Palmeiras, Flamengo"');
+    expect(html).toContain('aria-label="Remove: Atlético Nacional vs Junior, Atlético Nacional"');
   });
   it('removes only the targeted selection — first, middle or last — and keeps the canonical order of the rest',()=>{
     const f=comparisonFixture(5);const all=saved(f);

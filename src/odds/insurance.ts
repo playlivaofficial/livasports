@@ -1,4 +1,4 @@
-import {bookmakerConfig,BOOKMAKER_REGISTRY} from './registry';
+import {bookmakerConfig,BOOKMAKER_REGISTRY,isRetiredBookmaker} from './registry';
 import {compareDecimal,validDecimalOdds} from '@/slip/decimal';
 
 export type InsuranceResolution='OWN_REAL'|'BETANO_INSURANCE_USED'|'ALTERNATE_INSURANCE_USED'|'NO_INSURANCE_AVAILABLE';
@@ -6,7 +6,8 @@ export interface InsuranceCandidate<T> {bookmaker:string;priceKind:'REAL'|'PROXY
 /** Inputs must already be scoped to ONE exact fixture/market/outcome/line and freshness-checked.
  * Only native quotes are candidates. This pure resolver never mutates/persists a displayed proxy. */
 export function resolveInsurance<T>(target:string,candidates:readonly InsuranceCandidate<T>[]):{candidate:InsuranceCandidate<T>|null;resolution:InsuranceResolution;preferredInsuranceFailed:boolean} {
-  const real=candidates.filter(c=>c.current&&c.priceKind==='REAL'&&validDecimalOdds(c.decimalOdds??'')&&bookmakerConfig(c.bookmaker));
+  // A retired operator is never comparable, so it cannot be a source even for its own row.
+  const real=candidates.filter(c=>c.current&&c.priceKind==='REAL'&&validDecimalOdds(c.decimalOdds??'')&&bookmakerConfig(c.bookmaker)&&!isRetiredBookmaker(c.bookmaker));
   const own=real.find(c=>c.bookmaker===target);
   if(own)return {candidate:own,resolution:'OWN_REAL',preferredInsuranceFailed:false};
   const hidden=real.filter(c=>bookmakerConfig(c.bookmaker)?.displayRole==='HIDDEN_INSURANCE')

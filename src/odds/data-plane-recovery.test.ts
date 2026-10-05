@@ -5,6 +5,7 @@ import {dataPlaneTargets} from './reliability/data-plane';
 import {claimRefreshTargets,reconcileRefreshQueue,releaseRefreshTargets} from './refresh-queue';
 import {planScheduler,planTarget,type RefreshTarget} from './scheduler-policy';
 import {reserveOddsRequest} from './budget';
+import {ACTIVE_BOOKMAKER_IDS} from './registry';
 import type {DatabaseClient,QueryExecutor} from '@/database/client';
 import type {OddsSnapshot,CanonicalOddsFixture,ProviderOddsFixture} from './types';
 const now=new Date('2026-10-01T10:00:00Z');
@@ -54,9 +55,9 @@ describe('durable queue, fairness and unchanged quota protections',()=>{
    await releaseRefreshTargets({query:query as unknown as QueryExecutor['query']},'our-job');expect(String((query.mock.calls as unknown as string[][])[1][0])).toContain('WHERE lease_job_id=$1');
  });
  it('serves a deferred target before a repeatedly rescued competing bookmaker',()=>{
-   const old={...target,bookmaker:'1xbet',tournamentId:'54',pendingSince:new Date(+now-30*60000).toISOString()};
+   const old={...target,bookmaker:'bwin',tournamentId:'54',pendingSince:new Date(+now-30*60000).toISOString()};
    const rescue={...target,nativeExpiryAt:new Date(+now+60000).toISOString(),lastSuccessAt:new Date(+now-120*60000).toISOString()};
-   expect(planScheduler([rescue,old],now).batches[0].bookmaker).toBe('1xbet');
+   expect(planScheduler([rescue,old],now).batches[0].bookmaker).toBe('bwin');
  });
  it('uses verified checks for empty/mapping cadence without pretending native success',()=>{
    expect(planTarget({...target,lastCheckedAt:now.toISOString()},4,now)).toMatchObject({due:false,lastSuccessAt:null});
@@ -64,9 +65,9 @@ describe('durable queue, fairness and unchanged quota protections',()=>{
  it('blocks paid retries for a permanent identity/schema failure, without suppressing other targets',()=>{
    const blocked={...target,mappingBlocked:true};
    expect(planTarget(blocked,4,now)).toMatchObject({due:false,delayReason:'MAPPING_REVIEW_REQUIRED'});
-   const plan=planScheduler([blocked,{...target,bookmaker:'1xbet'}],now);
+   const plan=planScheduler([blocked,{...target,bookmaker:'bwin'}],now);
    expect(plan.batches.some(b=>b.bookmaker==='betsson')).toBe(false);
-   expect(plan.batches.some(b=>b.bookmaker==='1xbet')).toBe(true);
+   expect(plan.batches.some(b=>b.bookmaker==='bwin')).toBe(true);
  });
  it('does not starve unproven targets before the per-bookmaker probe limit is applied',()=>{
    const waiting={...target,tournamentId:'900',pendingSince:new Date(+now-30*60000).toISOString()};
@@ -83,14 +84,14 @@ describe('durable queue, fairness and unchanged quota protections',()=>{
    expect(query.mock.calls.some(([sql])=>sql.includes('INSERT'))).toBe(false);
  });
 });
-describe('all four targets are explainable without hidden-insurance greenwashing',()=>{
+describe('every entitled target is explainable without hidden-insurance greenwashing',()=>{
  const comps=[{competition:fixture.competition,tournamentId:'325',nearestKickoff:raw.kickoff,fixtures7d:1}];
  it('never calls an out-of-window competition overdue',()=>{
-   const rows=dataPlaneTargets([{...comps[0],fixtures7d:0}],[],[],now,false);expect(rows).toHaveLength(4);expect(rows.every(r=>r.state==='OUTSIDE_REFRESH_WINDOW'&&r.staleAfter===null)).toBe(true);
+   const rows=dataPlaneTargets([{...comps[0],fixtures7d:0}],[],[],now,false);expect(rows).toHaveLength(ACTIVE_BOOKMAKER_IDS.length);expect(rows.every(r=>r.state==='OUTSIDE_REFRESH_WINDOW'&&r.staleAfter===null)).toBe(true);
  });
  it('reports per-bookmaker overdue independently of hidden coverage',()=>{
    const records=[{bookmaker:'betsson',tournament_id:'325',due_at:new Date(+now-60*60000),stale_after:new Date(+now-55*60000)}];
-   const rows=dataPlaneTargets(comps,records,[{competition:fixture.competition,bookmaker:'betano.bet.br',kind:'REAL'}],now,false);
+   const rows=dataPlaneTargets(comps,records,[{competition:fixture.competition,bookmaker:'betsson',kind:'REAL'}],now,false);
    expect(rows.find(r=>r.bookmaker==='betsson')).toMatchObject({state:'REFRESH_OVERDUE',overdueMinutes:55,responsibility:'LIVASPORTS'});
    expect(dataPlaneTargets(comps,records,[],now,true).find(r=>r.bookmaker==='betsson')?.state).toBe('BUDGET_DEFERRED');
  });

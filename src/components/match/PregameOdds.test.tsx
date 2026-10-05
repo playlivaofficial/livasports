@@ -23,12 +23,14 @@ describe('restrained commercial odds rendering',()=>{
   });
   it('renders both Match Center rows with the same approximate mark from one current source',()=>{
     const now=Date.parse('2026-10-01T18:00:00Z');
-    const source:ReadOddsQuote={quoteId:'quote-betano',fixtureId:'fixture',providerFixtureId:'provider',bookmaker:'betano.bet.br',bookmakerId:'book',bookmakerName:'Betano BR',market:'MATCH_WINNER',outcome:'HOME',line:null,decimalOdds:'2.92',status:'ACTIVE',scope:'FULL_TIME_REGULATION',phase:'PREGAME',providerUpdatedAt:new Date(now).toISOString(),observedAt:new Date(now).toISOString(),persistedAt:new Date(now).toISOString(),lastSuccessfulRefreshAt:new Date(now).toISOString(),providerKickoff:'2026-10-01T19:00:00Z',sourceDomain:'www.betano.bet.br',geoEligible:true};
+    const source:ReadOddsQuote={quoteId:'quote-bwin',fixtureId:'fixture',providerFixtureId:'provider',bookmaker:'bwin',bookmakerId:'book',bookmakerName:'bwin',market:'MATCH_WINNER',outcome:'HOME',line:null,decimalOdds:'2.92',status:'ACTIVE',scope:'FULL_TIME_REGULATION',phase:'PREGAME',providerUpdatedAt:new Date(now).toISOString(),observedAt:new Date(now).toISOString(),persistedAt:new Date(now).toISOString(),lastSuccessfulRefreshAt:new Date(now).toISOString(),providerKickoff:'2026-10-01T19:00:00Z',sourceDomain:'sports.bwin.com',geoEligible:true};
     const quotes=[source,{...source,quoteId:'quote-draw',outcome:'DRAW' as const,decimalOdds:'3.80'},{...source,quoteId:'quote-away',outcome:'AWAY' as const,decimalOdds:'2.25'}];
-    const union=buildComparison({quotes,kickoff:source.providerKickoff,fixtureStatus:'SCHEDULED'},'MATCH_WINNER',now);
+    // Colombia: bwin priced the match, so Betsson's card borrows and the borrowing is disclosed.
+    const union=buildComparison({quotes,kickoff:source.providerKickoff,fixtureStatus:'SCHEDULED',eligibleBookmakers:[{id:'betsson',name:'Betsson',priority:10},{id:'bwin',name:'bwin',priority:20}],insuranceEnabled:true},'MATCH_WINNER',now);
     const html=renderToStaticMarkup(<PregameOdds initial={[union]} fixturePublicId="aaaaaaaaaaaaaaaa" context={{fixtureId:'fixture',competitionId:'test',locale:'br'}}/>);
-    expect(html.match(/<tr/g)?.length).toBe(4);expect(html.match(/odds-approx-mark/g)?.length).toBe(9);
-    expect(union.rows.flatMap(r=>r.cells).every(c=>c.priceKind==='PROXY'&&c.sourceBookmaker==='betano.bet.br')).toBe(true);
+    expect(html.match(/<tr/g)?.length).toBe(3);expect(html.match(/odds-approx-mark/g)?.length).toBe(6);
+    expect(union.rows.find(r=>r.bookmaker==='betsson')!.cells.every(c=>c.priceKind==='PROXY'&&c.sourceBookmaker==='bwin')).toBe(true);
+    expect(union.rows.find(r=>r.bookmaker==='bwin')!.cells.every(c=>c.priceKind==='REAL')).toBe(true);
     expect(html).toContain('data-target-bookmaker="betsson"');expect(html).not.toMatch(/Estimated|Estimado|Fonte estimada|Betano|bookmaker-source-label|data-source/);
     expect(html).toContain('data-outcome-label="1"');
   });

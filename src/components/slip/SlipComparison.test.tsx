@@ -13,7 +13,7 @@ const CARDS=PUBLIC_CARD_IDS.length;
 // The card under inspection is the second public one: it has no approved destination, so every
 // provenance branch below is observed on a card that must still render a complete price.
 const INSPECTED=PUBLIC_CARD_IDS[1];
-// With the inspected card's own quote gone and Betano withheld, the cheapest surviving public card wins.
+// With the inspected card's own quote gone, the cheapest surviving public card of the GEO wins.
 const LOWEST_ALTERNATE=PUBLIC_CARD_IDS.filter(id=>id!==INSPECTED)[0];
 
 describe('P5 compact comparison / internal provenance',()=>{
@@ -22,18 +22,18 @@ describe('P5 compact comparison / internal provenance',()=>{
     const html=renderToStaticMarkup(<SlipComparison locale={locale} uiLocale="en" stake="10" selections={f.selections.map(s=>({...s,addedAt:new Date(f.now).toISOString()}))} checking={false} value={value}/>);
     expect(html).toContain(symbol);expect(html).not.toContain('USD');expect(html).not.toContain('R$');
   });
-  for(const locale of ['br','mx','en'] as const)for(const count of [1,2,5,10])for(const mode of ['native','betano','alternate','missing'] as const){
+  for(const locale of ['br','mx','en'] as const)for(const count of [1,2,5,10])for(const mode of ['native','alternate','missing'] as const){
     it(`${locale} / ${count} selections / ${mode}`,()=>{
       const f=withPublicCards(comparisonFixture(count));
       for(const [i,read] of [...f.data.fixtures.values()].entries()){
         const base=read.snapshot.quotes[0];
         read.snapshot.quotes=SOURCES.map(bookmaker=>({...base,bookmaker,bookmakerName:bookmaker,quoteId:`${i}-${bookmaker}`,decimalOdds:PRICE[bookmaker]}));
-        if(mode==='betano'||mode==='alternate')read.snapshot.quotes=read.snapshot.quotes.filter(q=>q.bookmaker!==INSPECTED&&(mode!=='alternate'||q.bookmaker!==BETANO));
+        if(mode==='alternate')read.snapshot.quotes=read.snapshot.quotes.filter(q=>q.bookmaker!==INSPECTED);
         if(mode==='missing'&&i===count-1)read.snapshot.quotes=[];
       }
-      const value=buildSlipComparison(f.selections,'br',f.data.fixtures,f.data.bookmakers,f.now);
+      const value=buildSlipComparison(f.selections,'co',f.data.fixtures,f.data.bookmakers,f.now);
       const before=JSON.stringify(value);
-      const html=renderToStaticMarkup(<SlipComparison locale="br" uiLocale={locale} stake="10" selections={f.selections.map(s=>({...s,addedAt:new Date(f.now).toISOString()}))} checking={false} value={value}/>);
+      const html=renderToStaticMarkup(<SlipComparison locale="co" uiLocale={locale} stake="10" selections={f.selections.map(s=>({...s,addedAt:new Date(f.now).toISOString()}))} checking={false} value={value}/>);
       expect(value.bookmakers.map(b=>b.bookmakerId)).toEqual(PUBLIC_CARD_IDS);
       expect(html.match(/class="slip-bookmaker"/g)).toHaveLength(CARDS);
       expect(html).not.toMatch(/estimated|estimad|based on|baseada|basada|Betano|betano|data-source|slip-proxy-legs|slip-missing|<ul/i);
@@ -44,12 +44,12 @@ describe('P5 compact comparison / internal provenance',()=>{
         expect(inspected.complete).toBe(false);expect(html).not.toContain('class="slip-combined"');
         expect(value.bookmakers.every(b=>b.ctaState==='INCOMPLETE')).toBe(true);
       }else{
-        const source=mode==='native'?INSPECTED:mode==='betano'?BETANO:LOWEST_ALTERNATE;
+        const source=mode==='native'?INSPECTED:LOWEST_ALTERNATE;
         expect(inspected.selectionQuotes.every(q=>q.sourceBookmakerId===source&&q.sourceQuoteId&&q.sourceObservedAt)).toBe(true);
         expect(inspected.priceClassification).toBe(mode==='native'?'REAL_COMPLETE':'ESTIMATED_COMPLETE');
         for(const b of value.bookmakers){
           expect(html).toContain(formatSlipOdds(b.combinedDecimalOdds!,locale));
-          expect(html).toContain(formatMoney(potentialReturn('10',b.combinedDecimalOdds!)!,'br'));
+          expect(html).toContain(formatMoney(potentialReturn('10',b.combinedDecimalOdds!)!,'co'));
         }
         expect(html.match(/class="slip-return"/g)).toHaveLength(CARDS);
         expect(html).toContain('rel="sponsored nofollow noopener noreferrer"');

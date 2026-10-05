@@ -4,80 +4,98 @@ import {outboundRequest,legacySlipRequest,type CommercialServices} from './serve
 import {publicOffer,resolveOffer} from './service';
 import {campaign,context as betssonContext,key} from './fixtures.test-support';
 import {comparisonFixture} from '@/slip/comparison-fixtures.test-support';
+import {ACTIVE_BOOKMAKER_IDS,BOOKMAKER_REGISTRY,SOURCE_BOOKMAKER_IDS,VISIBLE_BOOKMAKERS,bookmakerConfig,isRetiredBookmaker,isVisibleBookmaker} from '@/odds/registry';
+import {canonicalBookmakerSlug} from '@/odds/bookmaker';
+import {safeAffiliateDestination} from '@/odds/affiliate';
+import {parseContext} from './policy';
 import type {Campaign,CommercialContext} from './types';
 
 afterEach(()=>{vi.restoreAllMocks();vi.unstubAllEnvs();});
 
+/**
+ * 1xBet was dropped from the OddsPapi subscription on 2026-10-02 by the MX/CO/PE cutover and its
+ * Brazilian affiliate links were disabled by migration 057, so it is RETIRED: unpurchasable and
+ * non-commercial. These were its outbound-link tests; they now pin the retired contract instead, so
+ * a later change cannot quietly resurrect an operator we can neither price nor legally promote.
+ */
+const RETIRED='1xbet';
 const DESTINATION='https://1xaff.com.br/L?tag=synthetic-test-only&site=test-only&ad=test-only';
 const onexbet=(overrides:Partial<Campaign>={}):Campaign=>({...campaign(),
-  id:'cccccccc-cccc-4ccc-8ccc-cccccccccccc',bookmaker:'1xbet',operatorCampaignId:'SYNTHETIC_CAMPAIGN',
+  id:'cccccccc-cccc-4ccc-8ccc-cccccccccccc',bookmaker:RETIRED,operatorCampaignId:'SYNTHETIC_CAMPAIGN',
   destination:DESTINATION,domains:['1xaff.com.br'],
   placements:['match_odds_table','match_slip_comparison','slip_bookmaker_comparison','match_inline','home_top_banner'],
   creatives:[],...overrides});
 const MATCH_PATH='/br/jogo/home-x-away-abcdef0123456789';
 const ctx=(placement:CommercialContext['placement']='match_odds_table'):CommercialContext=>placement==='match_odds_table'
-  ?{locale:'br',bookmaker:'1xbet',pagePath:MATCH_PATH,placement,fixturePublicId:'abcdef0123456789',market:'MATCH_WINNER'}
-  :{locale:'br',bookmaker:'1xbet',pagePath:'/br',placement,selections:comparisonFixture(2).selections};
+  ?{locale:'br',bookmaker:RETIRED,pagePath:MATCH_PATH,placement,fixturePublicId:'abcdef0123456789',market:'MATCH_WINNER'}
+  :{locale:'br',bookmaker:RETIRED,pagePath:'/br',placement,selections:comparisonFixture(2).selections};
 
-async function harness(c=onexbet(),context=ctx()){
-  const tasks:Array<()=>Promise<void>>=[];
-  const deps={campaigns:async()=>[c],page:async(x:CommercialContext)=>({pageType:'HOME' as const,pagePath:x.pagePath}),
-    pricing:async()=>Date.now()+60000};
-  const offer=(await resolveOffer(context,deps))!;
-  const value=publicOffer(offer,key);
-  const services:CommercialServices={deps,key,geo:()=>true,defer:fn=>{tasks.push(fn);},
-    click:vi.fn().mockResolvedValue('11111111-1111-4111-8111-111111111111'),impression:vi.fn().mockResolvedValue(undefined)};
-  const request=(extra:Record<string,string>={},suffix='')=>new Request('https://livasports.com'+value.href+suffix,
-    {headers:{'sec-fetch-user':'?1','sec-fetch-mode':'navigate','sec-fetch-dest':'document','user-agent':'Browser',...extra}});
-  return {tasks,c,offer,value,services,request,context};
-}
+const deps=(c:Campaign)=>({campaigns:async()=>[c],
+  page:async(x:CommercialContext)=>({pageType:'HOME' as const,pagePath:x.pagePath}),pricing:async()=>Date.now()+60000});
+const services=(c:Campaign):CommercialServices=>({deps:deps(c),key,geo:()=>true,defer:()=>{},
+  click:vi.fn().mockResolvedValue('11111111-1111-4111-8111-111111111111'),impression:vi.fn().mockResolvedValue(undefined)});
+const browser=(href:string)=>new Request('https://livasports.com'+href,
+  {headers:{'sec-fetch-user':'?1','sec-fetch-mode':'navigate','sec-fetch-dest':'document','user-agent':'Browser'}});
 
-describe('1xBet outbound redirect',()=>{
-  it('issues a 303 to the verified 1xAff destination with the partner tag intact',async()=>{
-    const f=await harness();
-    const r=await outboundRequest(f.request(),'1xbet','match_odds_table',f.services);
+describe('retired bookmaker contract (1xBet)',()=>{
+  it('is registered as RETIRED rather than removed',()=>{
+    expect(isRetiredBookmaker(RETIRED)).toBe(true);
+    expect(bookmakerConfig(RETIRED)?.displayRole).toBe('RETIRED');
+  });
+
+  it('produces no outbound destination',async()=>{
+    // Refused at the registry gate, before any token or campaign is consulted.
+    expect(await outboundRequest(browser(`/go/${RETIRED}/match_odds_table?offer=anything`),RETIRED,'match_odds_table',services(onexbet()))).toMatchObject({status:400});
+    expect(await legacySlipRequest(new Request('https://livasports.com/go/slip/'+RETIRED+'?locale=br&selections='+
+      encodeURIComponent(JSON.stringify([{fixturePublicId:'abcdef0123456789',market:'MATCH_WINNER',outcome:'HOME',line:null,scope:'FULL_TIME_REGULATION'}])),
+      {headers:{'user-agent':'Browser'}}),RETIRED,services(onexbet()))).toMatchObject({status:400});
+    // Even its own previously verified 1xAff host is refused now.
+    expect(safeAffiliateDestination(RETIRED,'br',DESTINATION,['1xaff.com.br'])).toBeNull();
+  });
+
+  it('cannot mint an offer or a signed token on any placement',async()=>{
+    for(const placement of ['match_odds_table','slip_bookmaker_comparison','match_inline','home_top_banner'] as const){
+      expect(parseContext(ctx(placement as CommercialContext['placement']))).toBeNull();
+      expect(await resolveOffer(ctx(placement as CommercialContext['placement']),deps(onexbet()))).toBeNull();
+    }
+  });
+
+  it('produces no inline embed, banner or creative',async()=>{
+    const withCreative=onexbet({creatives:[{id:'retired-creative',placement:'home_top_banner',locale:'br',
+      imageUrl:'/sponsors/1xbet/banner.webp',imageAlt:'retired',width:728,height:90,approved:true,enabled:true,startsAt:null,endsAt:null}]});
+    expect(await resolveOffer(ctx('home_top_banner'),deps(withCreative))).toBeNull();
+  });
+
+  it('is not requested from the provider and not displayed',()=>{
+    expect(ACTIVE_BOOKMAKER_IDS).not.toContain(RETIRED);
+    expect(VISIBLE_BOOKMAKERS.map(b=>b.canonicalId)).not.toContain(RETIRED);
+    expect(isVisibleBookmaker(RETIRED)).toBe(false);
+  });
+
+  it('keeps historical identity and slug normalization intact',()=>{
+    // Stored odds rows, analytics events and audit exports must still resolve after retirement.
+    expect(SOURCE_BOOKMAKER_IDS).toContain(RETIRED);
+    expect(BOOKMAKER_REGISTRY.find(b=>b.canonicalId===RETIRED)).toBeDefined();
+    for(const historical of ['1xbet','1xbet.com','www.1xbet.com','1xbet.bet.br','www.1xbet.bet.br'])
+      expect(canonicalBookmakerSlug(historical)).toBe(RETIRED);
+    expect(bookmakerConfig(RETIRED)?.logoAsset).toBe('/bookmakers/1xbet.webp');
+  });
+
+  it('applies the same contract to every other retired operator',()=>{
+    for(const retired of ['sportingbet.bet.br','betano.bet.br','betboo.bet.br']){
+      expect(isRetiredBookmaker(retired)).toBe(true);
+      expect(isVisibleBookmaker(retired)).toBe(false);
+      expect(ACTIVE_BOOKMAKER_IDS).not.toContain(retired);
+      expect(SOURCE_BOOKMAKER_IDS).toContain(retired);
+    }
+  });
+
+  it('leaves an entitled operator unaffected',async()=>{
+    const c=campaign();
+    const offer=(await resolveOffer(betssonContext(),deps(c)))!;
+    const value=publicOffer(offer,key);
+    const r=await outboundRequest(browser(value.href),'betsson','slip_bookmaker_comparison',services(c));
     expect(r.status).toBe(303);
-    expect(r.headers.get('location')).toBe(DESTINATION);
-    // The partner tag must survive untouched: no stripping, no reconstruction.
-    expect(new URL(r.headers.get('location')!).searchParams.get('tag')).toBe('synthetic-test-only');
-  });
-  it('records the click as 1xbet on the right placement',async()=>{
-    const f=await harness();
-    await outboundRequest(f.request(),'1xbet','match_odds_table',f.services);
-    expect(f.tasks).toHaveLength(1);await f.tasks[0]();
-    expect(f.services.click).toHaveBeenCalledWith(
-      expect.objectContaining({campaign:expect.objectContaining({bookmaker:'1xbet'}),
-        context:expect.objectContaining({placement:'match_odds_table'})}),
-      expect.any(String),'HUMAN_CLICK',key);
-  });
-  it('completes an owner QA redirect while still classifying the click as QA_TEST',async()=>{
-    const f=await harness();
-    const r=await outboundRequest(f.request({},'&qa=1'),'1xbet','match_odds_table',f.services);
-    // QA must reach the real destination so an owner can verify the partner link end to end.
-    expect(r.headers.get('location')).toBe(DESTINATION);
-    await f.tasks[0]();
-    expect(f.services.click).toHaveBeenCalledWith(expect.anything(),expect.any(String),'QA_TEST',key);
-  });
-  it('serves the slip CTA',async()=>{
-    const f=await harness(onexbet(),ctx('slip_bookmaker_comparison'));
-    const r=await outboundRequest(f.request(),'1xbet','slip_bookmaker_comparison',f.services);
-    expect(r.status).toBe(303);expect(r.headers.get('location')).toBe(DESTINATION);
-  });
-  it('accepts 1xbet on the legacy slip route',async()=>{
-    const f=await harness();
-    const url='https://livasports.com/go/slip/1xbet?locale=br&selections='+encodeURIComponent(JSON.stringify([{fixturePublicId:'abcdef0123456789',market:'MATCH_WINNER',outcome:'HOME',line:null,scope:'FULL_TIME_REGULATION'}]));
-    const r=await legacySlipRequest(new Request(url,{headers:{'user-agent':'Browser'}}),'1xbet',f.services);
-    expect(r.status).not.toBe(400);
-  });
-  it('never mints an offer for a destination outside the verified 1xAff host',async()=>{
-    // safeAffiliateDestination refuses the operator domain, so resolution fails before a token exists.
-    const deps={campaigns:async()=>[onexbet({destination:'https://1xbet.com/?ref=x',domains:['1xbet.com']})],
-      page:async(x:CommercialContext)=>({pageType:'HOME' as const,pagePath:x.pagePath}),pricing:async()=>Date.now()+60000};
-    expect(await resolveOffer(ctx(),deps)).toBeNull();
-  });
-  it('leaves Betsson behaviour unchanged',async()=>{
-    const f=await harness(campaign(),betssonContext());
-    const r=await outboundRequest(f.request(),'betsson','slip_bookmaker_comparison',f.services);
-    expect(r.status).toBe(303);expect(r.headers.get('location')).toBe(campaign().destination);
+    expect(r.headers.get('location')).toBe(c.destination);
   });
 });

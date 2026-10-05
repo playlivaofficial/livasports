@@ -7,7 +7,7 @@ import {discoverCanonicalMarketRules} from '@/providers/oddspapi/m5-normalizer';
 import {planScheduler,type RefreshTarget} from './scheduler-policy';
 
 const now=Date.parse('2026-10-01T12:00:00Z'),kickoff='2026-10-01T18:00:00Z';
-const quote=(provider:string,outcome:'HOME'|'DRAW'|'AWAY',observedAt:string,price:string):ReadOddsQuote=>({provider,quoteId:`${provider}-${outcome}`,fixtureId:'f',providerFixtureId:`${provider}-f`,bookmaker:'sportingbet.bet.br',bookmakerId:'b',bookmakerName:'Sportingbet',market:'MATCH_WINNER',outcome,line:null,decimalOdds:price,status:'ACTIVE',scope:'FULL_TIME_REGULATION',phase:'PREGAME',providerUpdatedAt:observedAt,observedAt,persistedAt:observedAt,lastSuccessfulRefreshAt:observedAt,providerKickoff:kickoff,freshnessTtlMinutes:600,sourceDomain:'sportingbet.bet.br',geoEligible:true});
+const quote=(provider:string,outcome:'HOME'|'DRAW'|'AWAY',observedAt:string,price:string):ReadOddsQuote=>({provider,quoteId:`${provider}-${outcome}`,fixtureId:'f',providerFixtureId:`${provider}-f`,bookmaker:'bwin',bookmakerId:'b',bookmakerName:'bwin',market:'MATCH_WINNER',outcome,line:null,decimalOdds:price,status:'ACTIVE',scope:'FULL_TIME_REGULATION',phase:'PREGAME',providerUpdatedAt:observedAt,observedAt,persistedAt:observedAt,lastSuccessfulRefreshAt:observedAt,providerKickoff:kickoff,freshnessTtlMinutes:600,sourceDomain:'sports.bwin.com',geoEligible:true});
 const market=(provider:string,stamp:string,prices=['2.0','3.0','4.0'])=>['HOME','DRAW','AWAY'].map((outcome,i)=>quote(provider,outcome as 'HOME'|'DRAW'|'AWAY',stamp,prices[i]));
 
 describe('failure-proportional target backoff',()=>{
@@ -41,7 +41,7 @@ describe('provider-independent native market resolution',()=>{
     const snapshot:OddsReadSnapshot={quotes:[...a,...b],kickoff,fixtureStatus:'SCHEDULED',approvedNativeProviders:['ODDSPAPI','SECONDARY']};
     const selected=selectNativeMarketQuotes(snapshot.quotes,'MATCH_WINNER',snapshot,now);
     expect([...selected.values()].map(row=>row.provider)).toEqual(['SECONDARY','SECONDARY','SECONDARY']);
-    expect(buildComparison(snapshot,'MATCH_WINNER',now).rows.find(row=>row.bookmaker==='sportingbet.bet.br')?.cells.map(cell=>cell.decimalOdds)).toEqual(['2.2','3.2','4.2']);
+    expect(buildComparison(snapshot,'MATCH_WINNER',now).rows.find(row=>row.bookmaker==='bwin')?.cells.map(cell=>cell.decimalOdds)).toEqual(['2.2','3.2','4.2']);
   });
   it('never synthesizes 1X2 from partial provider A plus partial provider B',()=>{
     const a=market('ODDSPAPI','2026-10-01T11:00:00Z').slice(0,2),b=market('SECONDARY','2026-10-01T11:05:00Z').slice(2);
@@ -50,8 +50,8 @@ describe('provider-independent native market resolution',()=>{
     expect(selected.provider).toBe('ODDSPAPI');expect([...selected.keys()]).toEqual(['HOME','DRAW']);expect(selected.has('AWAY')).toBe(false);
   });
   it('accepts a verified future adapter batch without changing public bookmaker identity',()=>{
-    const {batch,rejected}=validateNativeSourceBatch({sourceProvider:'SECONDARY',observedAt:'2026-10-01T11:05:00Z',requestCount:1,quotes:[{sourceProvider:'SECONDARY',fixture:{providerFixtureId:'pf',canonicalFixtureId:'11111111-1111-4111-8111-111111111111',mappingVerified:true},bookmaker:'sportingbet.bet.br',providerBookmakerId:'sportingbet-br',market:'MATCH_WINNER',providerMarketId:'1x2',outcome:'HOME',line:null,decimalOdds:'2.20',status:'ACTIVE',providerUpdatedAt:'2026-10-01T11:04:00Z',observedAt:'2026-10-01T11:05:00Z',providerKickoff:kickoff,freshnessTtlMinutes:30,sourceDomain:'sportingbet.bet.br',confidence:'VERIFIED'}]});
-    expect(batch.quotes[0].bookmaker).toBe('sportingbet.bet.br');expect(batch.sourceProvider).toBe('SECONDARY');expect(rejected).toEqual([]);
+    const {batch,rejected}=validateNativeSourceBatch({sourceProvider:'SECONDARY',observedAt:'2026-10-01T11:05:00Z',requestCount:1,quotes:[{sourceProvider:'SECONDARY',fixture:{providerFixtureId:'pf',canonicalFixtureId:'11111111-1111-4111-8111-111111111111',mappingVerified:true},bookmaker:'bwin',providerBookmakerId:'bwin',market:'MATCH_WINNER',providerMarketId:'1x2',outcome:'HOME',line:null,decimalOdds:'2.20',status:'ACTIVE',providerUpdatedAt:'2026-10-01T11:04:00Z',observedAt:'2026-10-01T11:05:00Z',providerKickoff:kickoff,freshnessTtlMinutes:30,sourceDomain:'sports.bwin.com',confidence:'VERIFIED'}]});
+    expect(batch.quotes[0].bookmaker).toBe('bwin');expect(batch.sourceProvider).toBe('SECONDARY');expect(rejected).toEqual([]);
   });
 });
 

@@ -1,9 +1,11 @@
+import {ACTIVE_BOOKMAKER_IDS} from './registry';
 /**
- * Current OddsPapi account verification requires has_live_odds=false for both
- * paid bookmakers. Official GET /v4/odds?fixtureId= returns current prices
+ * Current OddsPapi account verification requires has_live_odds=false for every
+ * paid bookmaker. Official GET /v4/odds?fixtureId= returns current prices
  * (pregame or in-play) with a 500ms endpoint cooldown. Live prices are only
- * usable after GET /v4/bookmakers reports liveOdds=true for betano.bet.br and
- * betsson. That entitlement is outside the verified pregame odds-by-tournaments
+ * usable after the account reports has_live_odds=true for Betsson, bwin and
+ * Inkabet, which the MX/CO/PE plan does not. That entitlement is outside the
+ * verified pregame odds-by-tournaments
  * gateway and 5,000-request period budget. Do not purchase a plan from code.
  */
 export const LIVE_ODDS_CAPABILITY={
@@ -11,8 +13,8 @@ export const LIVE_ODDS_CAPABILITY={
   status:'PLAN-BLOCKED',
   reason:'ACCOUNT_HAS_LIVE_ODDS_FALSE',
   provider:'ODDSPAPI',
-  endpointRequired:'GET /v4/odds?fixtureId={id} (optional bookmakers=betano.bet.br,betsson); 500ms cooldown',
-  requiredProviderCapability:'liveOdds=true on betano.bet.br and betsson in GET /v4/bookmakers / account.bookmakers',
+  endpointRequired:'GET /v4/odds?fixtureId={id} (optional bookmakers=betsson,bwin,inkabet); 500ms cooldown',
+  requiredProviderCapability:'has_live_odds=true on betsson, bwin and inkabet in account.bookmakers',
   estimatedPlanImpact:'Public OddsPapi docs do not list a separate live-odds SKU price. Enabling live would add one billable GET /v4/odds per live fixture refresh and cannot reuse the pregame tournament batch.',
   requestImpact:'Each live fixture refresh is a separate billable OddsPapi request; a live cadence cannot reuse the pregame tournament batch without live entitlement',
   engineeringAfterEntitlement:[
@@ -29,11 +31,17 @@ export type LiveOddsUiState='PREGAME'|'LIVE'|'SUSPENDED'|'WITHDRAWN'|'STALE'|'UN
 export const LIVE_QUOTE_STATES=['LIVE_CURRENT','LIVE_SUSPENDED','LIVE_STALE','LIVE_WITHDRAWN','LIVE_UNAVAILABLE'] as const;
 export type LiveQuoteState=typeof LIVE_QUOTE_STATES[number];
 
+/**
+ * Live entitlement across the operators we actually buy. The MX/CO/PE plan reports has_live_odds
+ * false for Betsson, bwin and Inkabet alike, so this stays PLAN-BLOCKED and live ingestion is never
+ * attempted. Generalised over ACTIVE_BOOKMAKER_IDS so a plan change cannot be half-detected.
+ */
 export function liveOddsEntitlementFromBookmakers(bookmakers:Record<string,{has_live_odds?:boolean}>|null|undefined){
-  const betanoLive=bookmakers?.['betano.bet.br']?.has_live_odds===true;
-  const betssonLive=bookmakers?.betsson?.has_live_odds===true;
-  if(betanoLive&&betssonLive)return {supported:true as const,status:'SUPPORTED' as const,reason:'ACCOUNT_HAS_LIVE_ODDS_TRUE',betanoLive,betssonLive};
-  return {supported:false as const,status:'PLAN-BLOCKED' as const,reason:'ACCOUNT_HAS_LIVE_ODDS_FALSE',betanoLive,betssonLive};
+  const operatorsLive=Object.fromEntries(ACTIVE_BOOKMAKER_IDS.map(id=>[id,bookmakers?.[id]?.has_live_odds===true]));
+  const all=ACTIVE_BOOKMAKER_IDS.length>0&&ACTIVE_BOOKMAKER_IDS.every(id=>operatorsLive[id]);
+  return all
+    ?{supported:true as const,status:'SUPPORTED' as const,reason:'ACCOUNT_HAS_LIVE_ODDS_TRUE',operatorsLive}
+    :{supported:false as const,status:'PLAN-BLOCKED' as const,reason:'ACCOUNT_HAS_LIVE_ODDS_FALSE',operatorsLive};
 }
 
 export function liveOddsUiState(input:{fixtureStatus:string;capabilitySupported?:boolean;quotePhase?:string|null;quoteStatus?:string|null;fresh?:boolean}):LiveOddsUiState {

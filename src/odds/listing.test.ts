@@ -8,22 +8,25 @@ import type {OddsReadSnapshot,ReadOddsQuote} from './types';
 const now=Date.parse('2026-09-12T18:00:00Z');
 const fixtureId='aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
 const quote=(overrides:Partial<ReadOddsQuote>={}):ReadOddsQuote=>({
-  quoteId:'quote-test',fixtureId,providerFixtureId:'p',bookmaker:'betano.bet.br',bookmakerId:'b',bookmakerName:'Betano BR',
+  quoteId:'quote-test',fixtureId,providerFixtureId:'p',bookmaker:'bwin',bookmakerId:'b',bookmakerName:'bwin',
   market:'MATCH_WINNER',outcome:'HOME',line:null,decimalOdds:'4.45',status:'ACTIVE',scope:'FULL_TIME_REGULATION',
   phase:'PREGAME',providerUpdatedAt:'2026-09-12T10:00:00Z',observedAt:new Date(now).toISOString(),
   persistedAt:new Date(now).toISOString(),lastSuccessfulRefreshAt:new Date(now).toISOString(),
-  providerKickoff:'2026-09-12T19:00:00Z',sourceDomain:'www.betano.bet.br',geoEligible:true,...overrides,
+  providerKickoff:'2026-09-12T19:00:00Z',sourceDomain:'sports.bwin.com',geoEligible:true,...overrides,
 });
-const snapshot=(quotes:ReadOddsQuote[]):OddsReadSnapshot=>({quotes,kickoff:'2026-09-12T19:00:00Z',fixtureStatus:'SCHEDULED'});
+/** Colombia: Betsson first then bwin, by configured public_priority. */
+const CO=[{id:'betsson',name:'Betsson',priority:10},{id:'bwin',name:'bwin',priority:20}];
+const snapshot=(quotes:ReadOddsQuote[]):OddsReadSnapshot=>({quotes,kickoff:'2026-09-12T19:00:00Z',fixtureStatus:'SCHEDULED',eligibleBookmakers:CO});
 
 describe('listing MATCH_WINNER read model',()=>{
-  it('reproduces Brentford–Chelsea Betano 2.92/3.80/2.25 as complete two-row union coverage',()=>{
+  it('reproduces a single-source 2.92/3.80/2.25 board as complete two-row union coverage',()=>{
     const attached=listingMatchWinnerOdds(snapshot([
       quote({decimalOdds:'2.92'}),quote({quoteId:'quote-draw',outcome:'DRAW',decimalOdds:'3.80'}),quote({quoteId:'quote-away',outcome:'AWAY',decimalOdds:'2.25'}),
     ]),now);
     expect(attached.oddsState).toBe('complete');
-    expect(attached.odds[0].outcomes.map(outcome=>outcome.prices.map(price=>price.decimalOdds))).toEqual([[2.92,2.92,2.92],[3.8,3.8,3.8],[2.25,2.25,2.25]]);
-    expect(attached.odds[0].outcomes.every(outcome=>outcome.prices.every(price=>price.priceKind==='PROXY'))).toBe(true);
+    expect(attached.odds[0].outcomes.map(outcome=>outcome.prices.map(price=>price.decimalOdds))).toEqual([[2.92,2.92],[3.8,3.8],[2.25,2.25]]);
+    // bwin priced it natively; Betsson borrows, and the borrowing is disclosed as PROXY.
+    expect(attached.odds[0].outcomes.every(outcome=>outcome.prices.map(price=>price.priceKind).join()==='PROXY,REAL')).toBe(true);
     expect(JSON.stringify(attached)).not.toMatch(/sourceBookmaker|sourceQuoteId|betano\.bet\.br/);
   });
   it('attaches current 1X2 from the same quoteState as the match page',()=>{
@@ -36,8 +39,8 @@ describe('listing MATCH_WINNER read model',()=>{
     expect(attached.oddsState).toBe('complete');
     expect(attached.odds[0].market).toBe(MarketCode.MATCH_WINNER);
     expect(attached.odds[0].outcomes.map(outcome=>outcome.outcome)).toEqual([OutcomeCode.HOME,OutcomeCode.DRAW,OutcomeCode.AWAY]);
-    expect(attached.odds[0].outcomes[0].prices.map(price=>price.decimalOdds)).toEqual([4.2,4.45,4.45]);
-    expect(attached.odds[0].outcomes[0].prices.map(price=>price.priceKind)).toEqual(['REAL','PROXY','PROXY']);
+    expect(attached.odds[0].outcomes[0].prices.map(price=>price.decimalOdds)).toEqual([4.2,4.45]);
+    expect(attached.odds[0].outcomes[0].prices.map(price=>price.priceKind)).toEqual(['REAL','REAL']);
   });
 
   it('does not treat geo-ineligible or stale quotes as listing prices',()=>{

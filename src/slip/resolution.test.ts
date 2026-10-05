@@ -5,9 +5,9 @@ import {freshnessTtlMs} from '@/odds/scheduler-policy';
 import type {ReadOddsQuote} from '@/odds/types';
 const now=Date.parse('2026-09-12T18:00:00Z');
 export const testPick:CanonicalSelection={fixturePublicId:'1111111111111111',scope:SLIP_SCOPE,market:'MATCH_WINNER',outcome:'HOME',line:null};
-const quote:ReadOddsQuote={quoteId:'quote-test',fixtureId:'test',providerFixtureId:'test-provider',bookmaker:'betano.bet.br',bookmakerId:'test-book',bookmakerName:'Betano BR',market:'MATCH_WINNER',outcome:'HOME',line:null,
+const quote:ReadOddsQuote={quoteId:'quote-test',fixtureId:'test',providerFixtureId:'test-provider',bookmaker:'betsson',bookmakerId:'test-book',bookmakerName:'Betsson',market:'MATCH_WINNER',outcome:'HOME',line:null,
   decimalOdds:'2.12345678',status:'ACTIVE',scope:SLIP_SCOPE,phase:'PREGAME',providerUpdatedAt:'2026-09-12T17:59:00Z',observedAt:new Date(now).toISOString(),persistedAt:new Date(now).toISOString(),lastSuccessfulRefreshAt:new Date(now).toISOString(),
-  providerKickoff:'2026-09-12T19:00:00Z',sourceDomain:'www.betano.bet.br',geoEligible:true};
+  providerKickoff:'2026-09-12T19:00:00Z',sourceDomain:'www.betsson.com',geoEligible:true};
 export const testRead:SlipFixtureRead={fixture:{publicId:testPick.fixturePublicId,home:'Test Home',away:'Test Away',competition:'Test Competition',kickoff:quote.providerKickoff,status:'SCHEDULED'},snapshot:{quotes:[quote],kickoff:quote.providerKickoff,fixtureStatus:'SCHEDULED'}};
 describe('current reference, not a frozen bet',()=>{
   it('retains precision, single price without best, no combined product/CTA/provider identifiers',()=>{
@@ -15,8 +15,9 @@ describe('current reference, not a frozen bet',()=>{
     expect(JSON.stringify(result)).not.toMatch(/providerFixtureId|sourceDomain|destination|combined/);
   });
   it('chooses exact highest reference only when M5 has two genuinely eligible prices',()=>{
-    const read={...testRead,snapshot:{...testRead.snapshot,quotes:[quote,{...quote,quoteId:'quote-betsson',bookmaker:'betsson',bookmakerName:'Test second book',decimalOdds:'2.50'}]}};
-    expect(resolveSelection(testPick,read,now).price).toMatchObject({best:false,decimalOdds:'2.50',bookmaker:'betsson'});
+    const read={...testRead,snapshot:{...testRead.snapshot,quotes:[quote,{...quote,quoteId:'quote-bwin',bookmaker:'bwin',bookmakerName:'Test second book',decimalOdds:'2.50'}]}};
+    // Two genuinely eligible public books, so the higher reference is marked best.
+    expect(resolveSelection(testPick,read,now).price).toMatchObject({best:true,decimalOdds:'2.50',bookmaker:'bwin'});
     read.snapshot.quotes[1].geoEligible=false;expect(resolveSelection(testPick,read,now).price?.best).toBe(false);
   });
   it.each(['STALE','SUSPENDED','CLOSED'] as const)('preserves %s intent but no price',status=>{

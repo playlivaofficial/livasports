@@ -51,11 +51,13 @@ describe('native expiry deadlines',()=>{
  it('success moves expiry deadline forward; no immediate rescue loop',()=>{expect(planTarget({...target,lastSuccessAt:now.toISOString(),nativeExpiryAt:'2026-09-21T14:05:00Z'},4,now).due).toBe(false);});
  it('bounds configuration',()=>{expect(nativeSafetyMarginMinutes('bad')).toBe(10);expect(nativeSafetyMarginMinutes('0')).toBe(5);expect(nativeSafetyMarginMinutes('100')).toBe(30);});
 });
-const quote={bookmaker:'sportingbet.bet.br',bookmakerName:'Sportingbet',provider:'ODDSPAPI',quoteId:'p',market:'MATCH_WINNER',outcome:'HOME',line:null,decimalOdds:'2.2',status:'ACTIVE',scope:'FULL_TIME_REGULATION',phase:'PREGAME',geoEligible:true,observedAt:'2026-09-21T11:00:00Z',providerUpdatedAt:'2026-09-21T11:00:00Z',lastSuccessfulRefreshAt:'2026-09-21T11:00:00Z',providerKickoff:'2026-09-22T12:00:00Z',freshnessTtlMinutes:65} as ReadOddsQuote;
-const snap:OddsReadSnapshot={quotes:[quote,{...quote,bookmaker:'betano.bet.br',quoteId:'fallback',freshnessTtlMinutes:180}],kickoff:quote.providerKickoff,fixtureStatus:'SCHEDULED'};
+const quote={bookmaker:'betsson',bookmakerName:'Betsson',provider:'ODDSPAPI',quoteId:'p',market:'MATCH_WINNER',outcome:'HOME',line:null,decimalOdds:'2.2',status:'ACTIVE',scope:'FULL_TIME_REGULATION',phase:'PREGAME',geoEligible:true,observedAt:'2026-09-21T11:00:00Z',providerUpdatedAt:'2026-09-21T11:00:00Z',lastSuccessfulRefreshAt:'2026-09-21T11:00:00Z',providerKickoff:'2026-09-22T12:00:00Z',freshnessTtlMinutes:65} as ReadOddsQuote;
+// Colombia: Betsson is the card under test and bwin is the only other public source it can borrow
+// from. Proxy coverage is opted into here; production pins insuranceEnabled false.
+const snap:OddsReadSnapshot={quotes:[quote,{...quote,bookmaker:'bwin',bookmakerName:'bwin',quoteId:'fallback',freshnessTtlMinutes:180}],kickoff:quote.providerKickoff,fixtureStatus:'SCHEDULED',eligibleBookmakers:[{id:'betsson',name:'Betsson',priority:10},{id:'bwin',name:'bwin',priority:20}],insuranceEnabled:true};
 describe('continuity truth and second supplier boundary',()=>{
  it('native wins, expires honestly under quota/500, recovers immediately after successful refresh',()=>{
-  const cell=(s:OddsReadSnapshot,t:number)=>buildComparison(s,'MATCH_WINNER',t).rows.find(r=>r.bookmaker==='sportingbet.bet.br')!.cells[0];
+  const cell=(s:OddsReadSnapshot,t:number)=>buildComparison(s,'MATCH_WINNER',t).rows.find(r=>r.bookmaker==='betsson')!.cells[0];
   expect(cell(snap,+now).priceKind).toBe('REAL');
   expect(cell(snap,+now+6*60000).priceKind).toBe('PROXY');
   const recovered={...snap,quotes:[{...quote,observedAt:new Date(+now+6*60000).toISOString(),lastSuccessfulRefreshAt:new Date(+now+6*60000).toISOString()},snap.quotes[1]]};
@@ -65,7 +67,7 @@ describe('continuity truth and second supplier boundary',()=>{
   const secondary={...quote,provider:'APPROVED_SECONDARY',quoteId:'s',decimalOdds:'2.3',freshnessTtlMinutes:180};
   const s={...snap,quotes:[quote,secondary,snap.quotes[1]],approvedNativeProviders:['ODDSPAPI','APPROVED_SECONDARY']};
   expect(selectNativeQuote([quote,secondary],s,+now)?.quoteId).toBe('p');
-  expect(buildComparison(s,'MATCH_WINNER',+now+6*60000).rows.find(r=>r.bookmaker==='sportingbet.bet.br')?.cells[0]).toMatchObject({priceKind:'REAL',sourceQuoteId:'s',sourceBookmaker:'sportingbet.bet.br'});
+  expect(buildComparison(s,'MATCH_WINNER',+now+6*60000).rows.find(r=>r.bookmaker==='betsson')?.cells[0]).toMatchObject({priceKind:'REAL',sourceQuoteId:'s',sourceBookmaker:'betsson'});
   expect(selectNativeQuote([secondary],snap,+now)).toBeUndefined();
  });
  it('measures transitions and observed time, excluding unsampled downtime',()=>{
