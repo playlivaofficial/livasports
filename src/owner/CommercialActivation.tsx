@@ -3,13 +3,25 @@ import {useState,type FormEvent} from 'react';
 import {CORE_GEOS,geoProfile,type CoreGeo} from '@/config/geo';
 import type {CommercialOperator} from '@/affiliate/owner-commercial';
 
+/**
+ * Media galleries hand out either a bare image-mode URL (Betsson Group Affiliates) or a whole iframe
+ * snippet (1xBet Partners). Accept both and send only the source URL. This is input normalisation,
+ * not a relaxation: the server still checks the result against the approved inventory and the
+ * delivery's own contract, so anything mis-extracted fails the activation rather than being served.
+ */
+export function embedSource(raw:unknown):string{
+  const text=String(raw??'').trim();if(!text)return '';
+  const src=text.match(/\bsrc\s*=\s*["']([^"']+)["']/)?.[1];
+  return (src??text).trim().replaceAll('&amp;','&');
+}
+
 export function CommercialActivation({operators}:{operators:CommercialOperator[]}){
   const [geo,setGeo]=useState<CoreGeo>('MX'),[busy,setBusy]=useState<string|null>(null),[error,setError]=useState('');
   async function submit(event:FormEvent<HTMLFormElement>,operator:CommercialOperator){event.preventDefault();const form=event.currentTarget,data=new FormData(form);setBusy(operator.operator);setError('');
     try{const response=await fetch('/api/owner/commercial',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'activate',geo,operator:operator.operator,version:operator.version,affiliateUrl:String(data.get('affiliateUrl')),campaignId:String(data.get('campaignId')),subId:String(data.get('subId')),approvalReference:String(data.get('approvalReference')),validFrom:new Date().toISOString(),validUntil:new Date(String(data.get('validUntil'))+'T23:59:59Z').toISOString(),confirmedApproval:data.get('confirmedApproval')==='on',offer:{title:String(data.get('offerTitle')??''),terms:String(data.get('offerTerms')??'')},
       // Optional publisher embeds from the affiliate media gallery. The server checks each one against
       // the approved inventory for this operator and country, so a wrong tag fails the activation.
-      creatives:(['top','right','mobile'] as const).map(role=>({role,embedSourceUrl:String(data.get(`embed_${role}`)??'').trim()})).filter(c=>c.embedSourceUrl)}),cache:'no-store'});const result=await response.json();if(!response.ok)throw Error(result.error??'ACTIVATION_FAILED');window.location.reload();}catch(e){setError((e as Error).message);setBusy(null);}}
+      creatives:(['top','right','mobile'] as const).map(role=>({role,embedSourceUrl:embedSource(data.get(`embed_${role}`))})).filter(c=>c.embedSourceUrl)}),cache:'no-store'});const result=await response.json();if(!response.ok)throw Error(result.error??'ACTIVATION_FAILED');window.location.reload();}catch(e){setError((e as Error).message);setBusy(null);}}
   async function suspend(operator:CommercialOperator){if(!window.confirm(`Suspend commercial links for ${operator.brand} in ${geo}? Odds remain independent.`))return;setBusy(operator.operator);setError('');try{const response=await fetch('/api/owner/commercial',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'suspend',geo,operator:operator.operator,version:operator.version}),cache:'no-store'});const result=await response.json();if(!response.ok)throw Error(result.error??'SUSPENSION_FAILED');window.location.reload();}catch(e){setError((e as Error).message);setBusy(null);}}
   return <main className="commercial-owner"><h1>Commercial Activation</h1><p>Each country has independent legal, feed and affiliate eligibility. Approval and activation require explicit confirmation; no candidate can emit an affiliate link.</p>
     <nav aria-label="Commercial country">{CORE_GEOS.map(g=><button type="button" key={g} aria-pressed={geo===g} onClick={()=>setGeo(g)}>{geoProfile(g).countryName}</button>)}</nav>
@@ -34,10 +46,11 @@ export function CommercialActivation({operators}:{operators:CommercialOperator[]
         <label>Approved offer title (optional)<input name="offerTitle" maxLength={1000} defaultValue={operator.offer.title??''}/></label>
         <label>Approved terms (optional)<textarea name="offerTerms" maxLength={1000} defaultValue={operator.offer.terms??''}/></label>
         <label>Valid through (UTC)<input name="validUntil" type="date" required defaultValue={operator.validUntil?.slice(0,10)??''}/></label>
-        <fieldset><legend>Banner embeds (optional, image-mode URL from the media gallery)</legend>
-          <label>Desktop top<input name="embed_top" type="url" maxLength={4096} autoComplete="off"/></label>
-          <label>Desktop right<input name="embed_right" type="url" maxLength={4096} autoComplete="off"/></label>
-          <label>Mobile top<input name="embed_mobile" type="url" maxLength={4096} autoComplete="off"/></label>
+        <fieldset><legend>Banner embeds (optional)</legend>
+          <p>Paste the generated code from the operator&apos;s media gallery: either the image-mode URL or the whole iframe snippet. Leave a slot blank when this operator does not hold it in {geoProfile(geo).countryName}.</p>
+          <label>Desktop top<input name="embed_top" type="text" maxLength={4096} autoComplete="off" spellCheck={false}/></label>
+          <label>Desktop right<input name="embed_right" type="text" maxLength={4096} autoComplete="off" spellCheck={false}/></label>
+          <label>Mobile top<input name="embed_mobile" type="text" maxLength={4096} autoComplete="off" spellCheck={false}/></label>
         </fieldset>
         <label className="commercial-confirm"><input name="confirmedApproval" type="checkbox" required/>I confirm this exact operator and campaign are approved for {geoProfile(geo).countryName}.</label>
         <button disabled={!ready||busy!==null}>Approve and activate for {geo}</button>
