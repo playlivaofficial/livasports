@@ -9,6 +9,9 @@ import {ownerHeaders} from '@/owner/server';
 import {boundedJson} from '@/slip/server';
 import {configureCampaignInTransaction} from './configuration';
 import type {SiteLocale} from '@/config/i18n';
+import {embedTrackingHost} from './embed-policy';
+import {CREATIVE_ROLES,ROLE_PLACEMENTS,creativeAlt,inventoryCreative,type CreativeRole} from './creative-inventory';
+import type {Placement} from './types';
 
 export interface CommercialOperator {
   operator:string;brand:string;geo:CoreGeo;currency:string;status:string;legalStatus:string;legalReference:string|null;
@@ -40,16 +43,38 @@ export async function readCommercialOperators(db:QueryExecutor):Promise<Commerci
     sportsbookEnabled:r.sportsbook_enabled,oddsVisible:r.odds_enabled&&r.comparison_enabled,version:r.commercial_version,lastValidatedAt:date(r.last_validated_at),quoteCount:Number(r.quote_count),lastQuoteAt:date(r.last_quote_at),
     affiliateUrl:r.destination_url,campaignId:r.operator_campaign_id,subId:r.sub_id,validUntil:date(r.valid_until),offer:r.offer_metadata??{}}));
 }
-export interface ActivationInput {action:'activate'|'suspend';geo:CoreGeo;operator:string;version:number;affiliateUrl?:string;campaignId?:string;subId?:string;validFrom?:string;validUntil?:string;approvalReference?:string;confirmedApproval?:boolean;offer?:{title?:string;terms?:string};}
+/** A platform-generated publisher embed for one role. The server expands the role to its placements. */
+export interface ActivationCreative {role:CreativeRole;embedSourceUrl:string}
+export interface ActivationInput {action:'activate'|'suspend';geo:CoreGeo;operator:string;version:number;affiliateUrl?:string;campaignId?:string;subId?:string;validFrom?:string;validUntil?:string;approvalReference?:string;confirmedApproval?:boolean;offer?:{title?:string;terms?:string};creatives?:ActivationCreative[];}
 export function parseActivation(value:unknown):ActivationInput|null{
   if(!value||typeof value!=='object'||Array.isArray(value))return null;
   const v=value as ActivationInput;
-  if(Object.keys(v).some(k=>!['action','geo','operator','version','affiliateUrl','campaignId','subId','validFrom','validUntil','approvalReference','confirmedApproval','offer'].includes(k))||!['activate','suspend'].includes(v.action)||!isCoreGeo(v.geo)||typeof v.operator!=='string'||!/^[a-z0-9][a-z0-9.-]{1,79}$/.test(v.operator)||!Number.isInteger(v.version)||v.version<0)return null;
+  if(Object.keys(v).some(k=>!['action','geo','operator','version','affiliateUrl','campaignId','subId','validFrom','validUntil','approvalReference','confirmedApproval','offer','creatives'].includes(k))||!['activate','suspend'].includes(v.action)||!isCoreGeo(v.geo)||typeof v.operator!=='string'||!/^[a-z0-9][a-z0-9.-]{1,79}$/.test(v.operator)||!Number.isInteger(v.version)||v.version<0)return null;
   if(v.action==='suspend')return Object.keys(v).every(k=>['action','geo','operator','version'].includes(k))?v:null;
   if(v.confirmedApproval!==true||typeof v.affiliateUrl!=='string'||v.affiliateUrl.length>4096||typeof v.approvalReference!=='string'||!v.approvalReference.trim()||v.approvalReference.length>500||typeof v.validFrom!=='string'||typeof v.validUntil!=='string'||!Number.isFinite(Date.parse(v.validFrom))||!Number.isFinite(Date.parse(v.validUntil))||Date.parse(v.validUntil)<=Date.parse(v.validFrom)||Date.parse(v.validUntil)<=Date.now())return null;
   for(const text of [v.campaignId,v.subId])if(text!==undefined&&(typeof text!=='string'||text.length>160||/[\u0000-\u001f]/.test(text)))return null;
   if(v.offer!==undefined&&(!v.offer||Array.isArray(v.offer)||typeof v.offer!=='object'||Object.keys(v.offer).some(k=>!['title','terms'].includes(k))||Object.values(v.offer).some(s=>typeof s!=='string'||s.length>1000)))return null;
+  // Shape only. Whether each embed is an approved creative for this operator and GEO is decided
+  // server-side against the inventory and the embed policy during activation.
+  if(v.creatives!==undefined&&(!Array.isArray(v.creatives)||v.creatives.length>CREATIVE_ROLES.length||
+    new Set(v.creatives.map(c=>c?.role)).size!==v.creatives.length||
+    v.creatives.some(c=>!c||typeof c!=='object'||Array.isArray(c)||Object.keys(c).some(k=>!['role','embedSourceUrl'].includes(k))||
+      !CREATIVE_ROLES.includes(c.role)||typeof c.embedSourceUrl!=='string'||c.embedSourceUrl.length>4096)))return null;
   return v;
+}
+
+/**
+ * Expands approved role embeds into one creative per placement. Throws rather than skipping, so an
+ * owner never activates a campaign believing a banner is live when it was silently dropped.
+ */
+export function activationCreatives(operator:string,locale:SiteLocale,creatives:readonly ActivationCreative[],approvalReference:string){
+  return creatives.flatMap(({role,embedSourceUrl})=>{
+    const item=inventoryCreative(operator,locale,role,embedSourceUrl);
+    if(!item)throw Error('CREATIVE_NOT_IN_INVENTORY');
+    return ROLE_PLACEMENTS[role].map(placement=>({
+      id:`${operator.replace(/[^a-z0-9]/g,'')}-${locale}-${placement}-${item.mediaId}`,placement,imageAlt:creativeAlt(operator),
+      width:item.width,height:item.height,approvalReference,delivery:'BETSSON_EMBED' as const,embedSourceUrl}));
+  });
 }
 export async function activateOperator(db:DatabaseClient,input:ActivationInput,actorId:string){
   const value=parseActivation(input);if(!value)throw Error('INVALID_ACTIVATION');
@@ -73,16 +98,24 @@ export async function activateOperator(db:DatabaseClient,input:ActivationInput,a
     }
     if(row.legal_status!=='VERIFIED'||!row.legal_verified_at||typeof row.legal_reference!=='string'||!row.legal_reference.trim()||!row.mapped||!row.sportsbook_enabled||!row.odds_enabled||!row.comparison_enabled||!row.verified_at||!verifiedGeo(row.verification_state,value.geo)||!row.source_domains?.length)throw Error('TECHNICAL_OR_LEGAL_VERIFICATION_REQUIRED');
     const locale=value.geo.toLowerCase() as SiteLocale;
-    const destination=safeAffiliateDestination(value.operator,locale,value.affiliateUrl,row.destination_domains??[]);
+    // The jurisdiction's tracking host comes from server code, never from the request, so admitting
+    // it here widens nothing an owner could choose. Operators without one, like bwin, gain nothing.
+    const trackingHost=embedTrackingHost(value.operator,locale);
+    const domains=[...new Set([...(row.destination_domains??[]),...(trackingHost?[trackingHost]:[])])];
+    const destination=safeAffiliateDestination(value.operator,locale,value.affiliateUrl,domains);
     if(!destination)throw Error('DESTINATION_NOT_ALLOWLISTED');
+    const creatives=activationCreatives(value.operator,locale,value.creatives??[],value.approvalReference!);
+    const bannerPlacements=[...new Set(creatives.map(c=>c.placement))] as Placement[];
     const url=new URL(destination);
     // Only recognized unambiguous URL fields; no guessing or changing the approved destination.
     const derived=(names:string[])=>{const values=names.flatMap(n=>url.searchParams.getAll(n)).filter(Boolean);return values.length===1&&values[0].length<=160?values[0]:'';};
     const campaignId=value.campaignId?.trim()||derived(['campaignId','campaign_id','campaign']);
     if(!campaignId)throw Error('CAMPAIGN_ID_REQUIRED');
     const subId=value.subId?.trim()||derived(['subid','sub_id'])||null;
-    await q.query(`UPDATE bookmaker_geo_availability SET commercial_status='ACTIVE',affiliate_enabled=true,commercial_version=$3,last_validated_at=now(),updated_at=now() WHERE bookmaker_id=$1 AND country_id=$2`,[row.bookmaker_id,row.country_id,version]);
-    const saved=await configureCampaignInTransaction(q,{bookmaker:value.operator,locale,operatorCampaignId:campaignId,destinationUrl:destination,destinationType:'SPORTSBOOK',enabled:true,validFrom:value.validFrom!,validUntil:value.validUntil!,placements:['match_odds_table','slip_bookmaker_comparison','match_slip_comparison'],domains:[url.hostname],approvalReference:value.approvalReference!});
+    await q.query(`UPDATE bookmaker_geo_availability SET commercial_status='ACTIVE',affiliate_enabled=true,commercial_version=$3,destination_domains=$4,last_validated_at=now(),updated_at=now() WHERE bookmaker_id=$1 AND country_id=$2`,[row.bookmaker_id,row.country_id,version,domains]);
+    const saved=await configureCampaignInTransaction(q,{bookmaker:value.operator,locale,operatorCampaignId:campaignId,destinationUrl:destination,destinationType:'SPORTSBOOK',enabled:true,validFrom:value.validFrom!,validUntil:value.validUntil!,
+      placements:['match_odds_table','slip_bookmaker_comparison','match_slip_comparison',...bannerPlacements],domains:[url.hostname],approvalReference:value.approvalReference!,
+      ...(creatives.length?{creatives}:{})});
     await q.query(`UPDATE affiliate_campaigns SET sub_id=$2,offer_metadata=$3::jsonb WHERE id=$1`,[saved.campaignId,subId,JSON.stringify(value.offer??{})]);
     await q.query(`INSERT INTO operator_activation_audit(bookmaker_id,country_id,actor_id,action,version,campaign_id,destination_hash,approval_reference) VALUES($1,$2,$3,'ACTIVATE',$4,$5,$6,$7)`,[row.bookmaker_id,row.country_id,actorId,version,saved.campaignId,createHash('sha256').update(destination).digest('hex'),value.approvalReference]);
     return {operator:value.operator,geo:value.geo,status:'ACTIVE',version,campaignId:saved.campaignId};
@@ -96,5 +129,5 @@ export async function ownerCommercialRequest(request:Request,db:()=>DatabaseClie
   if(request.method!=='POST'||request.headers.get('origin')!==url.origin||request.headers.get('sec-fetch-site')!=='same-origin'||url.protocol!=='https:'&&!['localhost','127.0.0.1'].includes(url.hostname))return reply({error:'INVALID_ORIGIN'},403);
   if(request.headers.get('content-type')?.split(';')[0]!=='application/json')return reply({error:'INVALID_REQUEST'},400);
   let value;try{value=parseActivation(await boundedJson(request,8192));}catch{return reply({error:'INVALID_REQUEST'},400);}if(!value)return reply({error:'INVALID_ACTIVATION'},400);
-  try{return reply(await activateOperator(db(),value,createHash('sha256').update(session.id).digest('hex')));}catch(error){const code=error instanceof Error?error.message:'';const known=['OPERATOR_GEO_NOT_CONFIGURED','CONFIGURATION_CHANGED','TECHNICAL_OR_LEGAL_VERIFICATION_REQUIRED','DESTINATION_NOT_ALLOWLISTED','CAMPAIGN_ID_REQUIRED','INVALID_APPROVED_CONFIGURATION','EXISTING_COMMERCIAL_APPROVAL_REQUIRED'];return reply({error:known.includes(code)?code:'COMMERCIAL_UNAVAILABLE'},code==='CONFIGURATION_CHANGED'?409:known.includes(code)?422:503);}
+  try{return reply(await activateOperator(db(),value,createHash('sha256').update(session.id).digest('hex')));}catch(error){const code=error instanceof Error?error.message:'';const known=['OPERATOR_GEO_NOT_CONFIGURED','CONFIGURATION_CHANGED','TECHNICAL_OR_LEGAL_VERIFICATION_REQUIRED','DESTINATION_NOT_ALLOWLISTED','CAMPAIGN_ID_REQUIRED','INVALID_APPROVED_CONFIGURATION','EXISTING_COMMERCIAL_APPROVAL_REQUIRED','CREATIVE_NOT_IN_INVENTORY','CREATIVE_BELONGS_TO_ANOTHER_CAMPAIGN'];return reply({error:known.includes(code)?code:'COMMERCIAL_UNAVAILABLE'},code==='CONFIGURATION_CHANGED'?409:known.includes(code)?422:503);}
 }
