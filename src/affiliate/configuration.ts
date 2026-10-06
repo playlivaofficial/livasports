@@ -1,7 +1,7 @@
 import 'server-only';
 import {createHash} from 'node:crypto';
 import type {DatabaseClient,QueryExecutor} from '@/database/client';
-import {placements,type Campaign,type Placement} from './types';
+import {placements,type Campaign,type CreativeDelivery,type Placement} from './types';
 import {campaignDestination,isSponsorPlacement,validCreative} from './policy';
 import {isVisibleBookmaker,type BookmakerId} from '@/odds/registry';
 import type {SiteLocale} from '@/config/i18n';
@@ -11,7 +11,7 @@ import {embedTrackingHost} from './embed-policy';
 export interface CampaignConfiguration {
   bookmaker:BookmakerId;locale:SiteLocale;operatorCampaignId:string;destinationUrl:string;destinationType:'HOMEPAGE'|'SPORTSBOOK';
   enabled:boolean;validFrom:string;validUntil:string;placements:Placement[];domains:string[];approvalReference:string;
-  creatives?:Array<{id:string;placement:Placement;imageUrl?:string;imageAlt:string;width:number;height:number;approvalReference:string;delivery?:'IMAGE'|'BETSSON_EMBED';embedSourceUrl?:string}>;
+  creatives?:Array<{id:string;placement:Placement;imageUrl?:string;imageAlt:string;width:number;height:number;approvalReference:string;delivery?:CreativeDelivery;embedSourceUrl?:string}>;
 }
 export function parseCampaignConfiguration(value:unknown):CampaignConfiguration|null{
   if(!value||typeof value!=='object'||Array.isArray(value))return null;const c=value as CampaignConfiguration;

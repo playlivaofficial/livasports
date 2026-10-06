@@ -73,7 +73,7 @@ export function activationCreatives(operator:string,locale:SiteLocale,creatives:
     if(!item)throw Error('CREATIVE_NOT_IN_INVENTORY');
     return ROLE_PLACEMENTS[role].map(placement=>({
       id:`${operator.replace(/[^a-z0-9]/g,'')}-${locale}-${placement}-${item.mediaId}`,placement,imageAlt:creativeAlt(operator),
-      width:item.width,height:item.height,approvalReference,delivery:'BETSSON_EMBED' as const,embedSourceUrl}));
+      width:item.width,height:item.height,approvalReference,delivery:item.delivery,embedSourceUrl}));
   });
 }
 export async function activateOperator(db:DatabaseClient,input:ActivationInput,actorId:string){

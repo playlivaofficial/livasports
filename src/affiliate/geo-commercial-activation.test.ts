@@ -14,18 +14,36 @@ const HOST={mx:'record.betsson.mx',co:'record.betsson.co',pe:'record.inkabet.pe'
 const embed=(host:string,media:string,campaign='1',redirectMedia=media)=>'https://c.bannerflow.net/a/'+'a'.repeat(24)+'?'+new URLSearchParams({
   display:'image',did:'b'.repeat(24),deeplink:'on',adgroupid:'c'.repeat(24),
   redirecturl:`https://${host}/${TOKEN}/1/&media=${redirectMedia}&campaign=${campaign}`,media,campaign});
+// The 1xBet Peru partner iframe. `tag` is synthetic here; the real channel token is server-side only.
+const iframe=(media:string,site='6175483')=>'https://partners.1xbet.pe/I?'+new URLSearchParams({tag:'SyntheticTag_000001',site,ad:media});
 
+/**
+ * The owner's final commercial layout. Mexico and Colombia are single-operator. Peru is split so that
+ * no two campaigns ever claim one sponsor placement, which resolveOffer would fail closed on: 1xBet
+ * takes the desktop top banner and the mobile slot, Inkabet the desktop right rail.
+ */
 const GEOS=[
-  {geo:'MX',locale:'mx',operator:'betsson',top:'207553',right:'207557',mobile:'207552',domains:['betsson.mx','www.betsson.mx']},
-  {geo:'CO',locale:'co',operator:'betsson',top:'209366',right:'207980',mobile:'207978',domains:['betsson.co']},
-  {geo:'PE',locale:'pe',operator:'inkabet',top:'208590',right:'208596',mobile:'208595',domains:['inkabet.pe']},
+  {geo:'MX',locale:'mx',operator:'betsson',tracking:HOST.mx,destination:`https://${HOST.mx}/${TOKEN}/1/`,delivery:'BETSSON_EMBED',
+    roles:{top:'207553',right:'207557',mobile:'207552'},top:[970,90],
+    placements:['home_right_rail','home_top_banner','match_right_rail','match_top_banner','mobile_inline'],domains:['betsson.mx','www.betsson.mx']},
+  {geo:'CO',locale:'co',operator:'betsson',tracking:HOST.co,destination:`https://${HOST.co}/${TOKEN}/1/`,delivery:'BETSSON_EMBED',
+    roles:{top:'209366',right:'207980',mobile:'207978'},top:[728,90],
+    placements:['home_right_rail','home_top_banner','match_right_rail','match_top_banner','mobile_inline'],domains:['betsson.co']},
+  {geo:'PE',locale:'pe',operator:'inkabet',tracking:HOST.pe,destination:`https://${HOST.pe}/${TOKEN}/1/`,delivery:'BETSSON_EMBED',
+    roles:{right:'208596'},top:null,
+    placements:['home_right_rail','match_right_rail'],domains:['inkabet.pe']},
+  {geo:'PE',locale:'pe',operator:'1xbet',tracking:null,destination:`https://1xbet.pe/${TOKEN}/1/`,delivery:'ONE_XBET_IFRAME',
+    roles:{top:'178222',mobile:'178222'},top:[320,50],
+    placements:['home_top_banner','match_top_banner','mobile_inline'],domains:['1xbet.pe']},
 ] as const;
 type G=typeof GEOS[number];
+const roleEntries=(g:G)=>Object.entries(g.roles) as Array<['top'|'right'|'mobile',string]>;
+const sourceFor=(g:G,media:string,campaign='1')=>g.delivery==='ONE_XBET_IFRAME'?iframe(media):embed(g.tracking!,media,campaign);
 
 const input=(g:G,overrides:Partial<ActivationInput>={}):ActivationInput=>({action:'activate',geo:g.geo,operator:g.operator,version:0,
-  affiliateUrl:`https://${HOST[g.locale]}/${TOKEN}/1/`,campaignId:'1',validFrom:'2026-01-01T00:00:00Z',validUntil:'2099-01-01T00:00:00Z',
+  affiliateUrl:g.destination,campaignId:'1',validFrom:'2026-01-01T00:00:00Z',validUntil:'2099-01-01T00:00:00Z',
   approvalReference:'Synthetic test approval',confirmedApproval:true,
-  creatives:[{role:'top',embedSourceUrl:embed(HOST[g.locale],g.top)},{role:'right',embedSourceUrl:embed(HOST[g.locale],g.right)},{role:'mobile',embedSourceUrl:embed(HOST[g.locale],g.mobile)}],
+  creatives:roleEntries(g).map(([role,media])=>({role,embedSourceUrl:sourceFor(g,media)})),
   ...overrides});
 
 /** Stateful enough to mirror Postgres: the campaign step re-reads the row after the same-transaction UPDATE. */
@@ -47,23 +65,34 @@ const creativeRows=(writes:Array<{sql:string;params:unknown[]}>)=>writes.filter(
   .map(w=>({id:w.params[0],placement:w.params[4],delivery:w.params[13],source:String(w.params[14]??''),width:w.params[9],height:w.params[10]}));
 
 describe('MX/CO/PE banner activation',()=>{
-  it.each(GEOS)('activates $operator in $geo with its own banners on its own tracking host',async g=>{
+  it.each(GEOS)('activates $operator in $geo with only the banners that jurisdiction grants it',async g=>{
     const f=database(g);
     await expect(activateOperator(f.db,input(g),'owner')).resolves.toMatchObject({operator:g.operator,geo:g.geo,status:'ACTIVE'});
     const rows=creativeRows(f.writes);
-    // Desktop top on both page types, right rail on both, and mobile top only.
-    expect(rows.map(r=>r.placement).sort()).toEqual(['home_right_rail','home_top_banner','match_right_rail','match_top_banner','mobile_inline']);
-    expect(rows.every(r=>r.delivery==='BETSSON_EMBED')).toBe(true);
-    expect(rows.every(r=>new URL(new URL(r.source).searchParams.get('redirecturl')!).hostname===HOST[g.locale])).toBe(true);
-    // The server-owned tracking host is admitted for this jurisdiction only.
-    expect(f.row.destination_domains).toEqual([...g.domains,HOST[g.locale]]);
+    expect(rows.map(r=>r.placement).sort()).toEqual([...g.placements]);
+    expect(rows.every(r=>r.delivery===g.delivery)).toBe(true);
+    // A Bannerflow embed must redirect through its own jurisdiction's tracking host. A partner iframe
+    // has no redirect of ours at all: it must be the approved 1xBet Peru origin and media id.
+    expect(rows.every(r=>g.delivery==='ONE_XBET_IFRAME'
+      ?new URL(r.source).origin==='https://partners.1xbet.pe'&&new URL(r.source).searchParams.get('ad')==='178222'
+      :new URL(new URL(r.source).searchParams.get('redirecturl')!).hostname===g.tracking)).toBe(true);
+    // The server-owned tracking host is admitted for this jurisdiction only, and only when one exists.
+    expect(f.row.destination_domains).toEqual([...g.domains,...(g.tracking?[g.tracking]:[])]);
   });
 
-  it('uses the preferred 970x90 for Mexico and 728x90 where no 970x90 exists',async()=>{
+  it('never gives two Peru campaigns the same sponsor placement',()=>{
+    const pe=GEOS.filter(g=>g.geo==='PE');
+    expect(pe.map(g=>g.operator)).toEqual(['inkabet','1xbet']);
+    const all=pe.flatMap(g=>[...g.placements]);
+    expect(new Set(all).size).toBe(all.length);
+  });
+
+  it('serves each jurisdiction its approved top size, and never stretches the compact Peru creative',async()=>{
     for(const g of GEOS){
       const f=database(g);await activateOperator(f.db,input(g),'owner');
-      const top=creativeRows(f.writes).find(r=>r.placement==='home_top_banner')!;
-      expect([top.width,top.height]).toEqual(g.geo==='MX'?[970,90]:[728,90]);
+      const top=creativeRows(f.writes).find(r=>r.placement==='home_top_banner');
+      if(!g.top){expect(top).toBeUndefined();continue;}
+      expect([top!.width,top!.height]).toEqual([...g.top]);
     }
   });
 
@@ -79,7 +108,7 @@ describe('MX/CO/PE banner activation',()=>{
     // A real Colombian media id, but pointed at the Mexican tracking host.
     const co=GEOS[1];
     const f=database(co);
-    await expect(activateOperator(f.db,input(co,{creatives:[{role:'top',embedSourceUrl:embed(HOST.mx,co.top)}]}),'owner')).rejects.toThrow();
+    await expect(activateOperator(f.db,input(co,{creatives:[{role:'top',embedSourceUrl:embed(HOST.mx,co.roles.top)}]}),'owner')).rejects.toThrow();
     expect(creativeRows(f.writes)).toEqual([]);
   });
 
@@ -95,9 +124,9 @@ describe('MX/CO/PE banner activation',()=>{
 
   it('refuses a creative offered in the wrong role',()=>{
     const mx=GEOS[0];
-    expect(inventoryCreative('betsson','mx','top',embed(HOST.mx,mx.right))).toBeNull();
-    expect(inventoryCreative('betsson','mx','mobile',embed(HOST.mx,mx.top))).toBeNull();
-    expect(inventoryCreative('betsson','mx','right',embed(HOST.mx,mx.right))).toMatchObject({width:300,height:250});
+    expect(inventoryCreative('betsson','mx','top',embed(HOST.mx,mx.roles.right))).toBeNull();
+    expect(inventoryCreative('betsson','mx','mobile',embed(HOST.mx,mx.roles.top))).toBeNull();
+    expect(inventoryCreative('betsson','mx','right',embed(HOST.mx,mx.roles.right))).toMatchObject({width:300,height:250});
   });
 
   it('refuses a tag whose tracking redirect names different media than the tag itself',()=>{
@@ -106,7 +135,7 @@ describe('MX/CO/PE banner activation',()=>{
 
   it('refuses a creative whose campaign does not match the activated campaign',async()=>{
     const pe=GEOS[2];const f=database(pe);
-    await expect(activateOperator(f.db,input(pe,{creatives:[{role:'top',embedSourceUrl:embed(HOST.pe,pe.top,'2')}]}),'owner')).rejects.toThrow();
+    await expect(activateOperator(f.db,input(pe,{creatives:[{role:'right',embedSourceUrl:embed(HOST.pe,pe.roles.right,'2')}]}),'owner')).rejects.toThrow();
     expect(creativeRows(f.writes)).toEqual([]);
   });
 
@@ -144,10 +173,9 @@ describe('MX/CO/PE banner activation',()=>{
   });
 
   it('accepts an Inkabet publisher embed in campaign configuration',()=>{
-    const pe=GEOS[2];
     const config={bookmaker:'inkabet',locale:'pe' as const,operatorCampaignId:'1',destinationUrl:`https://${HOST.pe}/${TOKEN}/1/`,destinationType:'SPORTSBOOK' as const,
       enabled:true,validFrom:'2026-01-01T00:00:00Z',validUntil:'2099-01-01T00:00:00Z',placements:['home_top_banner' as const],domains:[HOST.pe],approvalReference:'ref',
-      creatives:[{id:'inkabet-pe-home_top_banner-208590',placement:'home_top_banner' as const,imageAlt:'Inkabet',width:728,height:90,approvalReference:'ref',delivery:'BETSSON_EMBED' as const,embedSourceUrl:embed(HOST.pe,pe.top)}]};
+      creatives:[{id:'inkabet-pe-home_top_banner-208590',placement:'home_top_banner' as const,imageAlt:'Inkabet',width:728,height:90,approvalReference:'ref',delivery:'BETSSON_EMBED' as const,embedSourceUrl:embed(HOST.pe,'208590')}]};
     expect(parseCampaignConfiguration(config)).not.toBeNull();
   });
 });
