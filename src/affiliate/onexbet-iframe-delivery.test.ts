@@ -9,6 +9,7 @@ import {validCreative} from './policy';
 import {parseCampaignConfiguration} from './configuration';
 import {publicOffer,resolveOffer} from './service';
 import {campaign,dependencies,key} from './fixtures.test-support';
+import {safeAffiliateDestination} from '@/odds/affiliate';
 import {isPublisherEmbed,type Creative} from './types';
 
 // Synthetic token only. The real per-channel tag is private server-side configuration and is never
@@ -258,6 +259,23 @@ describe('the sandboxed publisher document',()=>{
     expect(r.headers.get('x-robots-tag')).toBe('noindex, nofollow');
     expect(r.headers.get('referrer-policy')).toBe('no-referrer');
     expect(r.headers.get('x-content-type-options')).toBe('nosniff');
+  });
+});
+
+describe('the Peru destination allowlist follows the regulator record',()=>{
+  it('admits the authorised 1xBet Peru domain for Peru only',()=>{
+    expect(safeAffiliateDestination('1xbet','pe','https://1xbet.pe/x')).toBe('https://1xbet.pe/x');
+    expect(safeAffiliateDestination('1xbet','pe','https://www.1xbet.pe/x')).toBe('https://www.1xbet.pe/x');
+    // A Peruvian licence authorises Peru alone, and the Brazilian host stays Brazilian.
+    expect(safeAffiliateDestination('1xbet','br','https://1xbet.pe/x')).toBeNull();
+    expect(safeAffiliateDestination('1xbet','pe','https://1xaff.com.br/x')).toBeNull();
+    expect(safeAffiliateDestination('1xbet','pe','https://1xbet.com/x')).toBeNull();
+    // And no other operator may route through it.
+    for(const operator of ['inkabet','betsson','bwin']) expect(safeAffiliateDestination(operator,'pe','https://1xbet.pe/x')).toBeNull();
+  });
+  it('gives 1xBet Peru no tracking host, so it can never serve a Bannerflow embed',()=>{
+    expect(embedTrackingHost('1xbet','pe')).toBeNull();
+    expect(safeAffiliateDestination('1xbet','pe','https://record.1xbet.pe/x')).toBeNull();
   });
 });
 

@@ -14,6 +14,11 @@ const hosts:Record<string,readonly string[]>={
   // bwin Colombia is odds-only: no Entain affiliate access exists, so it gets no tracking host.
   'bwin:co':['sports.bwin.co','www.bwin.co','bwin.co'],
   'inkabet:pe':['inkabet.pe','www.inkabet.pe','record.inkabet.pe'],
+  // The exact domain the MINCETUR register of authorisation holders names for 1xBet Peru (Terminus
+  // Platform Peru SAC, RD 4249-2024, registro 21002610010000, VIGENTE), verified 2026-10-07. No
+  // tracking host: the approved Peru creative is the operator's own partner iframe, which carries its
+  // tracking internally. PE is listed here and BR is not, so a Peruvian licence authorises Peru only.
+  '1xbet:pe':['1xbet.pe','www.1xbet.pe'],
   'sportingbet.bet.br:br':['sportingbet.bet.br','www.sportingbet.bet.br','sports.sportingbet.bet.br'],
   // Approved partner links use the exact BR tracking host. Private campaign IDs stay server-side.
   '1xbet:br':['1xaff.com.br','www.1xaff.com.br'],
