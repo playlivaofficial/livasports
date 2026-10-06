@@ -56,6 +56,18 @@ export const TOURNAMENT_IDENTITY_RULES: readonly {slug: string; category: string
   {slug: 'liga-mx-apertura', category: 'mexico', canonical: 'liga-mx'},
   {slug: 'liga-mx-clausura', category: 'mexico', canonical: 'liga-mx'},
   {slug: 'liga-mx', category: 'mexico', canonical: 'liga-mx'},
+  // OddsPapi splits these seasons into Apertura/Clausura containers and keeps the old season-less
+  // row with zero fixtures. Matching by name picked that empty row for Liga de Expansión and Primera A
+  // (404 on every refresh), and the BetPlay→DIMAYOR rename left Primera B and the cup unmatched.
+  // Slugs are the stable identity; ids are still copied from the provider rows.
+  {slug: 'liga-de-expansion-mx-apertura', category: 'mexico', canonical: 'liga-expansion-mx'},
+  {slug: 'liga-de-expansion-mx-clausura', category: 'mexico', canonical: 'liga-expansion-mx'},
+  {slug: 'primera-a-apertura', category: 'colombia', canonical: 'colombia-primera-a'},
+  {slug: 'primera-a-clausura', category: 'colombia', canonical: 'colombia-primera-a'},
+  {slug: 'primera-b', category: 'colombia', canonical: 'colombia-primera-b'},
+  {slug: 'copa-colombia', category: 'colombia', canonical: 'copa-colombia'},
+  {slug: 'liga-1', category: 'peru', canonical: 'peru-liga-1'},
+  {slug: 'liga-2', category: 'peru', canonical: 'peru-liga-2'},
   {slug: 'mls', category: 'usa', canonical: 'mls'},
   {slug: 'major-league-soccer', category: 'usa', canonical: 'mls'},
   {slug: 'concacaf-champions-cup', category: 'international-clubs', canonical: 'concacaf-champions-cup'},
@@ -88,7 +100,10 @@ export function resolveCatalogTournaments(raw: unknown[]): CatalogTournament[] {
     resolved.push({id, slug: rule.slug, category: rule.category, canonical: rule.canonical});
   }
   const byCanonical = new Map<string, CatalogTournament>();
-  for (const row of resolved) if (!byCanonical.has(row.canonical)) byCanonical.set(row.canonical, row);
+  // Several season containers can resolve to one competition. Keep rule order, but never let an empty
+  // container shadow one that has fixtures, so the Apertura→Clausura flip needs no code change.
+  const hasFixtures = (t: CatalogTournament) => {const row = rows.find(r => String(r.tournamentId) === t.id);return !(row?.futureFixtures === 0 && row?.upcomingFixtures === 0);};
+  for (const row of resolved) {const current = byCanonical.get(row.canonical);if (!current || (!hasFixtures(current) && hasFixtures(row))) byCanonical.set(row.canonical, row);}
   // P0 incident fallback: an enabled registry competition without a slug rule resolves only when exactly one
   // provider row in the matching country/clubs category carries one of the registry's reviewed lookup names.
   // The ID is still copied from the provider row; nothing is guessed.
