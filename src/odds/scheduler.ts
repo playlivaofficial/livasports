@@ -110,13 +110,28 @@ export function schedulerDeferral(code:string|null){
   if(code)return 'REFRESH_FAILED';
   return 'DEFERRED_BY_PRIORITY';
 }
-async function persistCatalogCompetitionMappings(db:DatabaseClient,tournaments:readonly CatalogTournament[]){
+export async function persistCatalogCompetitionMappings(db:DatabaseClient,tournaments:readonly CatalogTournament[]){
   if(!tournaments.length)return;
-  await db.query(`INSERT INTO provider_entity_mappings(provider,entity_type,provider_entity_id,livasports_entity_id,metadata)
-    SELECT 'ODDSPAPI','COMPETITION',t.id,c.id,jsonb_build_object('canonical',t.canonical,'slug',t.slug,'category',t.category)
-    FROM jsonb_to_recordset($1::jsonb) AS t(id text, slug text, category text, canonical text)
-    JOIN competitions c ON c.slug=t.canonical AND c.enabled
-    ON CONFLICT DO NOTHING`,[JSON.stringify(tournaments)]);
+  const payload=JSON.stringify(tournaments);
+  await db.transaction(async tx=>{
+    // A competition moves between season containers every Apertura/Clausura. The old row would
+    // otherwise survive ON CONFLICT DO NOTHING and make the new container collide with itself in
+    // assertMappingConsistency, which is what left Liga DIMAYOR (27070) failing ODDS_IDENTITY_CONFLICT
+    // while the provider returned 200. Only the COMPETITION binding is retired, and only when the
+    // catalog resolves a different provider id for that same competition; FIXTURE and TEAM identities
+    // are never touched here.
+    await tx.query(`WITH resolved AS(
+        SELECT t.id,c.id AS competition_id FROM jsonb_to_recordset($1::jsonb) AS t(id text, slug text, category text, canonical text)
+        JOIN competitions c ON c.slug=t.canonical AND c.enabled)
+      DELETE FROM provider_entity_mappings m USING resolved r
+      WHERE m.provider='ODDSPAPI' AND m.entity_type='COMPETITION'
+        AND m.livasports_entity_id=r.competition_id AND m.provider_entity_id<>r.id`,[payload]);
+    await tx.query(`INSERT INTO provider_entity_mappings(provider,entity_type,provider_entity_id,livasports_entity_id,metadata)
+      SELECT 'ODDSPAPI','COMPETITION',t.id,c.id,jsonb_build_object('canonical',t.canonical,'slug',t.slug,'category',t.category)
+      FROM jsonb_to_recordset($1::jsonb) AS t(id text, slug text, category text, canonical text)
+      JOIN competitions c ON c.slug=t.canonical AND c.enabled
+      ON CONFLICT DO NOTHING`,[payload]);
+  });
 }
 export async function runOddsScheduler(db:DatabaseClient,key:string,trigger:'CONTROLLED'|'AUTOMATIC'='CONTROLLED'){
   const job=await startOddsJob(db);const started=Date.now();

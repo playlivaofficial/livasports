@@ -296,3 +296,45 @@ describe('scheduler independent failure and durable completion',()=>{
     });
   });
 });
+
+describe('catalog competition mapping rebind', () => {
+  const tournaments = [
+    {id: '27070', slug: 'primera-a-apertura', category: 'colombia', canonical: 'colombia-primera-a'},
+    {id: '1238', slug: 'primera-b', category: 'colombia', canonical: 'colombia-primera-b'},
+  ];
+  const run = async () => {
+    const calls: Array<{sql: string; params: unknown[]}> = [];
+    const query = vi.fn(async (sql: string, params: unknown[] = []) => {calls.push({sql, params}); return {rows: [], rowCount: 0};});
+    const typed = query as unknown as QueryExecutor['query'];
+    const db: DatabaseClient = {query: typed, transaction: async work => work({query: typed}), close: async () => {}};
+    const {persistCatalogCompetitionMappings} = await import('./scheduler');
+    await persistCatalogCompetitionMappings(db, tournaments);
+    return calls;
+  };
+  it('retires a stale season-container binding before inserting the live one', async () => {
+    const calls = await run();
+    const del = calls.find(c => /DELETE FROM provider_entity_mappings/.test(c.sql));
+    const ins = calls.find(c => /INSERT INTO provider_entity_mappings/.test(c.sql));
+    expect(del).toBeTruthy();
+    expect(ins).toBeTruthy();
+    // The delete must run first, or the insert is still shadowed by the old row.
+    expect(calls.indexOf(del!)).toBeLessThan(calls.indexOf(ins!));
+    expect(del!.params[0]).toBe(JSON.stringify(tournaments));
+  });
+  it('only retires COMPETITION rows, and only where the provider id actually changed', async () => {
+    const [del] = (await run()).filter(c => /DELETE FROM provider_entity_mappings/.test(c.sql));
+    const sql = del.sql.replace(/\s+/g, ' ');
+    expect(sql).toContain("m.entity_type='COMPETITION'");
+    expect(sql).toContain('m.provider_entity_id<>r.id');
+    expect(sql).toContain('m.livasports_entity_id=r.competition_id');
+    // Fixture and team identity must never be swept up by a season roll.
+    expect(sql).not.toMatch(/'FIXTURE'|'TEAM'/);
+  });
+  it('does nothing at all when the catalog resolved no tournaments', async () => {
+    const query = vi.fn(async () => ({rows: [], rowCount: 0}));
+    const typed = query as unknown as QueryExecutor['query'];
+    const {persistCatalogCompetitionMappings} = await import('./scheduler');
+    await persistCatalogCompetitionMappings({query: typed, transaction: async w => w({query: typed}), close: async () => {}}, []);
+    expect(query).not.toHaveBeenCalled();
+  });
+});
