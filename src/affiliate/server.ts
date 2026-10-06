@@ -12,9 +12,9 @@ import {signingKey,verifyOffer} from './tokens';
 import {publicOffer,resolveOffer,type OfferDependencies} from './service';
 import {affiliateDatabase,runtimeDependencies} from './runtime';
 import {recordClick,recordImpression,recordOperationalError} from './analytics';
-import {uuid,type CommercialContext,type TrafficClass,type VerifiedOffer} from './types';
+import {isPublisherEmbed,uuid,type CommercialContext,type TrafficClass,type VerifiedOffer} from './types';
 import {embedDocument} from './embed-document';
-import {safeBetssonEmbed} from './embed-policy';
+import {safePublisherEmbed} from './embed-policy';
 import {isVisibleBookmaker} from '@/odds/registry';
 import {deviceClass,revenueContext} from './attribution';
 export const commercialHeaders={'Cache-Control':'private, no-store','X-Robots-Tag':'noindex, nofollow','Referrer-Policy':'no-referrer','Vary':'Cookie'};
@@ -60,7 +60,7 @@ export async function offersRequest(request:Request,provided?:CommercialServices
       const resolved=commercial&&isOddsCtaPlacement(context.placement)?{...context,locale:commercial}:context;
       if(isOddsCtaPlacement(context.placement)?!commercial:!s.geo(request,context.locale)){offers.push(null);continue;}
       const offer=await resolveOffer(resolved,deps);
-      if(offer?.creative?.delivery==='BETSSON_EMBED'&&!analyticsAllowed(request)){offers.push(null);continue;}
+      if(isPublisherEmbed(offer?.creative?.delivery)&&!analyticsAllowed(request)){offers.push(null);continue;}
       offers.push(offer?publicOffer(offer,s.key,Date.now(),process.env.AFFILIATE_ANALYTICS_MODE==='consent'?'consent':'anonymous',previewBinding(request.headers)):null);}
     return Response.json({offers,providerRequests:0},{headers:commercialHeaders});
   }catch{console.warn('[LivaSports M8] {"event":"offer-config-unavailable","providerRequests":0}');return Response.json({offers:contexts.map(()=>null),providerRequests:0},{headers:commercialHeaders});}
@@ -77,8 +77,11 @@ export async function creativeRequest(request:Request,provided?:CommercialServic
   try{const s=provided??services();if(!s.key)return response(404);const token=verifyOffer(q.get('offer'),s.key);
     if(!token?.embedPermission||mode==='consent'&&token.embedPermission!=='consent'||!tokenAllowed(request,token,s))return response(404);
     const offer=await resolveOffer(token.context,s.deps,Date.now(),token.campaignId,token.campaignVersion),c=offer?.creative;
-    if(!offer||c?.delivery!=='BETSSON_EMBED'||!safeBetssonEmbed(c.embedSourceUrl,offer.campaign.operatorCampaignId,offer.campaign.bookmaker,offer.campaign.locale))return response(404);
-    if(qaRequest(request,token))return await qaCreativeDocument(c,offer.campaign.operatorCampaignId,new URL(request.url).origin,q.get('offer')!.slice(-43),offer.campaign.bookmaker);
+    if(!offer||!c||!isPublisherEmbed(c.delivery)||!safePublisherEmbed(c.delivery,c.embedSourceUrl,offer.campaign.operatorCampaignId,offer.campaign.bookmaker,offer.campaign.locale))return response(404);
+    // Owner QA substitutes a declaratively extracted still for a Bannerflow script, so the publisher
+    // script is never executed server-side. A 1xBet partner iframe has no script to extract: owner QA
+    // previews the operator's own frame, which is what the owner needs to sign off.
+    if(c.delivery==='BETSSON_EMBED'&&qaRequest(request,token))return await qaCreativeDocument(c,offer.campaign.operatorCampaignId,new URL(request.url).origin,q.get('offer')!.slice(-43),offer.campaign.bookmaker);
     return embedDocument(c,new URL(request.url).origin,q.get('offer')!.slice(-43));
   }catch{return response(404);}
 }
@@ -91,6 +94,8 @@ export async function embedClickRequest(request:Request,body:Record<string,unkno
     // Owner-preview Betsson creatives navigate through the signed outbound route.
     // That route alone records the click, including for an older mounted creative.
     if(token.context.bookmaker==='betsson'&&qaRequest(request,token))return response(204);
+    // Only the Bannerflow document has a click bridge. A cross-origin partner iframe owns its own
+    // click-through, so an activation claimed for one is never recorded.
     const offer=await resolveOffer(token.context,s.deps,Date.now(),token.campaignId,token.campaignVersion);if(offer?.creative?.delivery!=='BETSSON_EMBED')return response(204);
     const traffic=qaRequest(request,token)||body.qa||request.headers.get('x-livasports-qa')==='1'?'QA_TEST':'HUMAN_CLICK';
     deferred(s,async()=>{const clickId=await s.click(offer,token.viewId,traffic,s.key!,'EMBED_ACTIVATION');await recordOutcome(request,offer,clickId,traffic,true);});

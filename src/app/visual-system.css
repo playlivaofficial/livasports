@@ -287,7 +287,9 @@
 .commercial-sponsor p { max-width: 60rem; }
 .commercial-sponsor[class*="right_rail"] { margin-top: 16px; }
 .sponsor-home_top_banner { margin: 0 auto 24px; }
-.sponsor-embed-box { position: relative; overflow: hidden; background: transparent; }
+/* A publisher embed keeps its native size. A slot wider than the creative centres it rather than
+   stretching it, which is what keeps the compact 320x50 Peru top banner from becoming a hero unit. */
+.sponsor-embed-box { position: relative; overflow: hidden; margin-inline: auto; background: transparent; }
 .sponsor-embed-box iframe { display: block; position: absolute; top: 0; left: 0; border: 0; max-width: none; transform-origin: top left; background: transparent; }
 .sponsor-embed-box:not([data-ready="true"]) iframe { opacity: 0; }
 .match-context>.commercial-sponsor,.profile-rail>.commercial-sponsor { margin-top: 0; margin-bottom: 24px; }

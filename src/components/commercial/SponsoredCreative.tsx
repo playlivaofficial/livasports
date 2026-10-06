@@ -1,6 +1,6 @@
 'use client';
 import {useEffect,useRef,useState} from 'react';
-import type {PublicOffer} from '@/affiliate/types';
+import {isPublisherEmbed,type PublicOffer} from '@/affiliate/types';
 import {privacyOptOut,qaBrowser} from '@/affiliate/client';
 import {emitProductEvent} from '@/components/match/events';
 import {AffiliateAnchor,commercialCopy} from './AffiliateLink';
@@ -55,7 +55,7 @@ export function SponsoredCreative({offer,locale}:{offer:PublicOffer;locale:'br'|
   const c=offer.creative;if(!c||expired||failed)return null;const text=commercialCopy[locale];
   return <aside className={`commercial-sponsor sponsor-${offer.placement}`} aria-label={text.advertisement} data-placement={offer.placement}>
     <span className="commercial-label">{text.advertisement}</span>
-    {c.delivery==='BETSSON_EMBED'?<PublisherEmbed offer={offer} onFailure={()=>setFailed(true)}/>:c.imageUrl?<AffiliateAnchor offer={offer} locale={locale}>
+    {isPublisherEmbed(c.delivery)?<PublisherEmbed offer={offer} onFailure={()=>setFailed(true)}/>:c.imageUrl?<AffiliateAnchor offer={offer} locale={locale}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={c.imageUrl} alt={c.imageAlt} width={c.width} height={c.height} loading="lazy" onError={()=>setFailed(true)}/>
     </AffiliateAnchor>:null}

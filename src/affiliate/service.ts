@@ -7,7 +7,7 @@ import {buildComparison} from '@/odds/comparison';
 import {campaignDestination,isSlipPlacement,isSponsorPlacement,validCreative} from './policy';
 import {readCampaigns,readPageContext} from './repository';
 import {signOffer} from './tokens';
-import type {Campaign,CommercialContext,Creative,PageContext,PublicOffer,VerifiedOffer} from './types';
+import {isPublisherEmbed,type Campaign,type CommercialContext,type Creative,type PageContext,type PublicOffer,type VerifiedOffer} from './types';
 import type {SiteLocale} from '@/config/i18n';
 import {commercialGeoFromLocale} from '@/odds/commercial-geo';
 
@@ -44,11 +44,11 @@ export async function resolveOffer(context:CommercialContext,deps:OfferDependenc
   return {campaign,context:{...context,bookmaker:campaign.bookmaker},page,expiresAt,creative};
 }
 export function publicOffer(offer:VerifiedOffer,key:string,now=Date.now(),embedPermission?:'anonymous'|'consent',qaSession?:string):PublicOffer{
-  if(offer.creative?.delivery==='BETSSON_EMBED'&&!embedPermission)throw Error('EMBED_PRIVACY_PERMISSION_REQUIRED');
-  const token=signOffer({v:1,viewId:randomUUID(),campaignId:offer.campaign.id,...(offer.campaign.commercialVersion!==undefined?{campaignVersion:offer.campaign.commercialVersion}:{}),context:offer.context,expiresAt:offer.expiresAt,...(qaSession?{qaSession}:{}),...(offer.creative?.delivery==='BETSSON_EMBED'?{embedPermission}:{})},key);
+  if(isPublisherEmbed(offer.creative?.delivery)&&!embedPermission)throw Error('EMBED_PRIVACY_PERMISSION_REQUIRED');
+  const token=signOffer({v:1,viewId:randomUUID(),campaignId:offer.campaign.id,...(offer.campaign.commercialVersion!==undefined?{campaignVersion:offer.campaign.commercialVersion}:{}),context:offer.context,expiresAt:offer.expiresAt,...(qaSession?{qaSession}:{}),...(isPublisherEmbed(offer.creative?.delivery)?{embedPermission}:{})},key);
   const c=offer.creative;return {campaignId:offer.campaign.id,bookmaker:offer.campaign.bookmaker,placement:offer.context.placement,...(qaSession?{qaPreview:true}:{}),
     analytics:{fixturePublicId:offer.context.fixturePublicId??(/\/(jogo|partido|match)\//.test(offer.context.pagePath)?offer.context.pagePath.slice(-16):undefined),competitionSlug:offer.context.competitionSlug,
       market:offer.context.market,slipLegCount:offer.context.selections?.length??(offer.context.market?1:undefined)},
     href:`/go/${offer.campaign.bookmaker}/${offer.context.placement}?offer=${token}`,token,expiresAt:new Date(offer.expiresAt).toISOString(),resolvedAt:new Date(now).toISOString(),
-    destinationType:offer.campaign.destinationType,...(c?.delivery==='BETSSON_EMBED'?{embedPermission}:{}),creative:c?{id:c.id,placement:c.placement,locale:c.locale,imageUrl:c.imageUrl,imageAlt:c.imageAlt,width:c.width,height:c.height,...(c.delivery==='BETSSON_EMBED'?{delivery:'BETSSON_EMBED' as const}:{})}:null};
+    destinationType:offer.campaign.destinationType,...(isPublisherEmbed(c?.delivery)?{embedPermission}:{}),creative:c?{id:c.id,placement:c.placement,locale:c.locale,imageUrl:c.imageUrl,imageAlt:c.imageAlt,width:c.width,height:c.height,...(isPublisherEmbed(c.delivery)?{delivery:c.delivery}:{})}:null};
 }
