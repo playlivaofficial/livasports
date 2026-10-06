@@ -120,3 +120,64 @@ describe('OddsPapi catalog identity', () => {
     ])).toThrow('ODDS_TOURNAMENT_ALREADY_SCHEDULED');
   });
 });
+
+// Real provider shapes observed in the production catalog on 2026-10-06. OddsPapi splits these
+// seasons into Apertura/Clausura containers and keeps the old season-less row at zero fixtures.
+const co = {
+  legacy: {tournamentId: 241, tournamentSlug: 'primera-a', categorySlug: 'colombia', tournamentName: 'Primera A', futureFixtures: 0, upcomingFixtures: 0},
+  apertura: {tournamentId: 27070, tournamentSlug: 'primera-a-apertura', categorySlug: 'colombia', tournamentName: 'Liga DIMAYOR', futureFixtures: 73, upcomingFixtures: 1},
+  clausura: {tournamentId: 27072, tournamentSlug: 'primera-a-clausura', categorySlug: 'colombia', tournamentName: 'Primera A, Clausura', futureFixtures: 0, upcomingFixtures: 0},
+};
+const mx = {
+  legacy: {tournamentId: 697, tournamentSlug: 'liga-de-expansion-mx', categorySlug: 'mexico', tournamentName: 'Liga de Expansion MX', futureFixtures: 0, upcomingFixtures: 0},
+  apertura: {tournamentId: 27382, tournamentSlug: 'liga-de-expansion-mx-apertura', categorySlug: 'mexico', tournamentName: 'Liga de Expansion MX', futureFixtures: 33, upcomingFixtures: 0},
+  clausura: {tournamentId: 27384, tournamentSlug: 'liga-de-expansion-mx-clausura', categorySlug: 'mexico', tournamentName: 'Liga de Expansion MX, Clausura', futureFixtures: 0, upcomingFixtures: 0},
+};
+const idOf = (rows: unknown[], canonical: string) => resolveCatalogTournaments(rows).find(row => row.canonical === canonical)?.id ?? null;
+
+describe('OddsPapi season containers', () => {
+  it('prefers the season container that has fixtures over the empty legacy row', () => {
+    // 241 is the row the name fallback used to pick, and it 404s on every refresh.
+    expect(idOf([co.legacy, co.apertura, co.clausura], 'colombia-primera-a')).toBe('27070');
+    expect(idOf([mx.legacy, mx.apertura, mx.clausura], 'liga-expansion-mx')).toBe('27382');
+  });
+  it('is order-independent, so the Apertura to Clausura flip needs no code change', () => {
+    // Same rows, reversed, and then with the season that carries fixtures swapped over.
+    expect(idOf([co.clausura, co.apertura, co.legacy], 'colombia-primera-a')).toBe('27070');
+    const flipped = [{...co.apertura, futureFixtures: 0, upcomingFixtures: 0}, {...co.clausura, futureFixtures: 58, upcomingFixtures: 2}];
+    expect(idOf(flipped, 'colombia-primera-a')).toBe('27072');
+  });
+  it('still resolves a single empty container rather than dropping the competition', () => {
+    const resolved = resolveCatalogTournaments([co.legacy, co.clausura]);
+    const row = resolved.find(r => r.canonical === 'colombia-primera-a');
+    // Nothing has fixtures, so the rule match stands and the emptiness is reported, not hidden.
+    expect(row?.id).toBe('27072');
+    expect(row?.catalogEmpty).toBe(true);
+  });
+  it('resolves the competitions the BetPlay to DIMAYOR rename left unmatched', () => {
+    const rows = [
+      {tournamentId: 1238, tournamentSlug: 'primera-b', categorySlug: 'colombia', tournamentName: 'Torneo DIMAYOR', futureFixtures: 34, upcomingFixtures: 2},
+      {tournamentId: 1335, tournamentSlug: 'copa-colombia', categorySlug: 'colombia', tournamentName: 'Copa DIMAYOR', futureFixtures: 0, upcomingFixtures: 0},
+      {tournamentId: 406, tournamentSlug: 'liga-1', categorySlug: 'peru', tournamentName: 'Liga 1', futureFixtures: 63, upcomingFixtures: 0},
+      {tournamentId: 15235, tournamentSlug: 'liga-2', categorySlug: 'peru', tournamentName: 'Liga 2', futureFixtures: 37, upcomingFixtures: 0},
+    ];
+    expect(resolveCatalogTournaments(rows).map(r => [r.canonical, r.id]).sort()).toEqual([
+      ['colombia-primera-b', '1238'], ['copa-colombia', '1335'], ['peru-liga-1', '406'], ['peru-liga-2', '15235'],
+    ].sort());
+    // The cup is genuinely between seasons; it must be flagged so the scheduler backs off instead of hammering it.
+    expect(resolveCatalogTournaments(rows).find(r => r.canonical === 'copa-colombia')?.catalogEmpty).toBe(true);
+  });
+  it('copies provider IDs and refuses an ambiguous or malformed container', () => {
+    // Two rows sharing one slug/category are ambiguous, so neither is used.
+    expect(idOf([co.apertura, {...co.apertura, tournamentId: 99999}], 'colombia-primera-a')).toBeNull();
+    expect(idOf([{...co.apertura, tournamentId: 'not-a-number'}], 'colombia-primera-a')).toBeNull();
+    // A season container in the wrong country is never borrowed.
+    expect(idOf([{...co.apertura, categorySlug: 'peru'}], 'colombia-primera-a')).toBeNull();
+  });
+  it('keeps the empty container out of the scheduler ahead of the live one', () => {
+    const ids = schedulerTournaments([co.legacy, co.apertura, co.clausura, mx.legacy, mx.apertura]).map(row => row.id);
+    expect(ids).toContain('27070');
+    expect(ids).toContain('27382');
+    for (const stale of ['241', '27072', '697']) expect(ids).not.toContain(stale);
+  });
+});
