@@ -57,7 +57,7 @@ describe('exact-selection native insurance resolver',()=>{
   it('rejects unknown sources even with a valid price',()=>expect(resolveInsurance('betsson',[candidate('unknown')]).candidate).toBeNull());
 
   it('rejects retired operators as sources, including for their own row',()=>{
-    for(const retired of ['1xbet','sportingbet.bet.br','betano.bet.br','betboo.bet.br']){
+    for(const retired of ['sportingbet.bet.br','betano.bet.br','betboo.bet.br']){
       expect(resolveInsurance('betsson',[candidate(retired)]).candidate).toBeNull();
       expect(resolveInsurance(retired,[candidate(retired)]).candidate).toBeNull();
     }

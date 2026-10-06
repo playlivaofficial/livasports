@@ -18,11 +18,11 @@ afterEach(()=>{vi.restoreAllMocks();vi.unstubAllEnvs();});
  * non-commercial. These were its outbound-link tests; they now pin the retired contract instead, so
  * a later change cannot quietly resurrect an operator we can neither price nor legally promote.
  */
-const RETIRED='1xbet';
-const DESTINATION='https://1xaff.com.br/L?tag=synthetic-test-only&site=test-only&ad=test-only';
+const RETIRED='betboo.bet.br';
+const DESTINATION='https://betboo.bet.br/?tag=synthetic-test-only';
 const onexbet=(overrides:Partial<Campaign>={}):Campaign=>({...campaign(),
   id:'cccccccc-cccc-4ccc-8ccc-cccccccccccc',bookmaker:RETIRED,operatorCampaignId:'SYNTHETIC_CAMPAIGN',
-  destination:DESTINATION,domains:['1xaff.com.br'],
+  destination:DESTINATION,domains:['betboo.bet.br'],
   placements:['match_odds_table','match_slip_comparison','slip_bookmaker_comparison','match_inline','home_top_banner'],
   creatives:[],...overrides});
 const MATCH_PATH='/br/jogo/home-x-away-abcdef0123456789';
@@ -37,7 +37,7 @@ const services=(c:Campaign):CommercialServices=>({deps:deps(c),key,geo:()=>true,
 const browser=(href:string)=>new Request('https://livasports.com'+href,
   {headers:{'sec-fetch-user':'?1','sec-fetch-mode':'navigate','sec-fetch-dest':'document','user-agent':'Browser'}});
 
-describe('retired bookmaker contract (1xBet)',()=>{
+describe('retired bookmaker contract (Betboo)',()=>{
   it('is registered as RETIRED rather than removed',()=>{
     expect(isRetiredBookmaker(RETIRED)).toBe(true);
     expect(bookmakerConfig(RETIRED)?.displayRole).toBe('RETIRED');
@@ -49,8 +49,8 @@ describe('retired bookmaker contract (1xBet)',()=>{
     expect(await legacySlipRequest(new Request('https://livasports.com/go/slip/'+RETIRED+'?locale=br&selections='+
       encodeURIComponent(JSON.stringify([{fixturePublicId:'abcdef0123456789',market:'MATCH_WINNER',outcome:'HOME',line:null,scope:'FULL_TIME_REGULATION'}])),
       {headers:{'user-agent':'Browser'}}),RETIRED,services(onexbet()))).toMatchObject({status:400});
-    // Even its own previously verified 1xAff host is refused now.
-    expect(safeAffiliateDestination(RETIRED,'br',DESTINATION,['1xaff.com.br'])).toBeNull();
+    // Even its own previously approved operator host is refused now.
+    expect(safeAffiliateDestination(RETIRED,'br',DESTINATION,['betboo.bet.br'])).toBeNull();
   });
 
   it('cannot mint an offer or a signed token on any placement',async()=>{
@@ -62,7 +62,7 @@ describe('retired bookmaker contract (1xBet)',()=>{
 
   it('produces no inline embed, banner or creative',async()=>{
     const withCreative=onexbet({creatives:[{id:'retired-creative',placement:'home_top_banner',locale:'br',
-      imageUrl:'/sponsors/1xbet/banner.webp',imageAlt:'retired',width:728,height:90,approved:true,enabled:true,startsAt:null,endsAt:null}]});
+      imageUrl:'/sponsors/betboo/banner.webp',imageAlt:'retired',width:728,height:90,approved:true,enabled:true,startsAt:null,endsAt:null}]});
     expect(await resolveOffer(ctx('home_top_banner'),deps(withCreative))).toBeNull();
   });
 
@@ -76,9 +76,9 @@ describe('retired bookmaker contract (1xBet)',()=>{
     // Stored odds rows, analytics events and audit exports must still resolve after retirement.
     expect(SOURCE_BOOKMAKER_IDS).toContain(RETIRED);
     expect(BOOKMAKER_REGISTRY.find(b=>b.canonicalId===RETIRED)).toBeDefined();
-    for(const historical of ['1xbet','1xbet.com','www.1xbet.com','1xbet.bet.br','www.1xbet.bet.br'])
+    for(const historical of ['betboo.bet.br'])
       expect(canonicalBookmakerSlug(historical)).toBe(RETIRED);
-    expect(bookmakerConfig(RETIRED)?.logoAsset).toBe('/bookmakers/1xbet.webp');
+    expect(bookmakerConfig(RETIRED)?.logoAsset).toBe('/bookmakers/betboo.webp');
   });
 
   it('applies the same contract to every other retired operator',()=>{

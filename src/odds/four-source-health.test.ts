@@ -17,7 +17,7 @@ describe('per-jurisdiction source eligibility', ()=>{
   it('derives each jurisdiction line-up from the registry',()=>{
     expect(MX).toEqual(['betsson']);
     expect(CO).toEqual(['betsson','bwin']);
-    expect(PE).toEqual(['inkabet']);
+    expect(PE).toEqual(['inkabet','1xbet']);
   });
 });
 
@@ -31,8 +31,8 @@ describe('jurisdiction health is evaluated in isolation',()=>{
   });
 
   it('does not penalise bwin for zero Mexico or Peru coverage',()=>{
-    for(const [eligible,priced] of [[MX,'betsson'],[PE,'inkabet']] as const){
-      const health=summarizeFourSources(many(10,()=>[quote(priced)],eligible),now,eligible);
+    for(const [eligible,priced] of [[MX,['betsson']],[PE,['inkabet','1xbet']]] as const){
+      const health=summarizeFourSources(many(10,()=>priced.map(book=>quote(book)),eligible),now,eligible);
       expect(health.degraded).toBe(false);
       expect(source(health,'bwin').eligibleFixtures).toBe(0);
     }
@@ -49,8 +49,10 @@ describe('jurisdiction health is evaluated in isolation',()=>{
     expect(collapsed.degraded).toBe(true);
   });
 
-  it('evaluates Peru against Inkabet alone',()=>{
-    expect(summarizeFourSources(many(10,()=>[quote('inkabet')],PE),now,PE).degraded).toBe(false);
+  it('evaluates Peru against both of its books',()=>{
+    expect(summarizeFourSources(many(10,()=>[quote('inkabet'),quote('1xbet')],PE),now,PE).degraded).toBe(false);
+    // One Peruvian book pricing nothing is a Peruvian outage, not an acceptable half-service.
+    expect(summarizeFourSources(many(10,()=>[quote('inkabet')],PE),now,PE).degraded).toBe(true);
     expect(summarizeFourSources(many(10,()=>[],PE),now,PE).degraded).toBe(true);
   });
 
@@ -66,18 +68,18 @@ describe('jurisdiction health is evaluated in isolation',()=>{
   });
 
   it('never lets a retired book participate in any baseline',()=>{
-    const health=summarizeFourSources(many(6,()=>[quote('betsson'),quote('1xbet'),quote('sportingbet.bet.br'),quote('betano.bet.br')],MX),now,MX);
-    for(const retired of ['1xbet','sportingbet.bet.br','betano.bet.br','betboo.bet.br'])
+    const health=summarizeFourSources(many(6,()=>[quote('betsson'),quote('betboo.bet.br'),quote('sportingbet.bet.br'),quote('betano.bet.br')],MX),now,MX);
+    for(const retired of ['sportingbet.bet.br','betano.bet.br','betboo.bet.br'])
       expect(health.sources.some(s=>s.bookmaker===retired)).toBe(false);
     expect(health.sources.map(s=>s.bookmaker)).toEqual([...ACTIVE_BOOKMAKER_IDS]);
     // A retired book pricing everything cannot make the jurisdiction look healthy either.
-    expect(summarizeFourSources(many(6,()=>[quote('1xbet')],MX),now,MX).degraded).toBe(true);
+    expect(summarizeFourSources(many(6,()=>[quote('betboo.bet.br')],MX),now,MX).degraded).toBe(true);
   });
 });
 
 describe('merged owner view does not let jurisdictions contaminate each other',()=>{
   const healthyCo={geo:'CO' as const,summary:summarizeFourSources(many(10,()=>[quote('betsson'),quote('bwin')],CO),now,CO)};
-  const healthyPe={geo:'PE' as const,summary:summarizeFourSources(many(10,()=>[quote('inkabet')],PE),now,PE)};
+  const healthyPe={geo:'PE' as const,summary:summarizeFourSources(many(10,()=>[quote('inkabet'),quote('1xbet')],PE),now,PE)};
   const brokenMx={geo:'MX' as const,summary:summarizeFourSources(many(10,()=>[],MX),now,MX)};
   const healthyMx={geo:'MX' as const,summary:summarizeFourSources(many(10,()=>[quote('betsson')],MX),now,MX)};
 

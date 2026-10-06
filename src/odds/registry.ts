@@ -15,6 +15,12 @@ const IDENTITIES = [
   // Betsson's 1/X/2 prices exactly on every Liga 1 fixture, so showing the two side by side would
   // be a fake comparison. PE being Inkabet-only keeps them apart; a test asserts they never overlap.
   {canonicalId:'inkabet',providerSlug:'inkabet',displayName:'Inkabet',shortLabel:'Inkabet',countries:['PE'],displayRole:'VISIBLE_PRIMARY',displayOrder:3,insurancePriority:3,logoAsset:null},
+  // Peru's second public book, entitled in the live subscription and verified on 2026-10-06 against
+  // Liga 1: 9 of 9 fixtures priced, with MATCH_WINNER, BTTS and TOTAL_GOALS present. OddsPapi
+  // publishes one generic 1xBet feed (cloneOf null, 1xbet.com) and no .pe clone, so Peru prices off
+  // it — the same shape already accepted for the generic Betsson feed in MX/CO. Because cloneOf is
+  // null it is NOT a Betsson mirror the way Inkabet is, so Inkabet vs 1xBet is a genuine comparison.
+  {canonicalId:'1xbet',providerSlug:'1xbet',displayName:'1xBet',shortLabel:'1xBet',countries:['PE'],displayRole:'VISIBLE_PRIMARY',displayOrder:4,insurancePriority:4,logoAsset:'/bookmakers/1xbet.webp'},
   // Dropped from the OddsPapi subscription on 2026-10-02 by the MX/CO/PE cutover, so they can no
   // longer be priced at all — exactly the position betboo was already in. The identities stay so
   // historical odds rows, analytics events and audit exports still normalize, but a RETIRED book is
@@ -24,16 +30,25 @@ const IDENTITIES = [
   // Retiring Betano also removes Brazil's hidden insurance source. It is unpurchasable, so there is
   // nothing to fall back to and resolveInsurance correctly reports no preferred source at all.
   {canonicalId:'sportingbet.bet.br',providerSlug:'sportingbet.bet.br',displayName:'Sportingbet BR',shortLabel:'Sportingbet',countries:['BR'],displayRole:'RETIRED',displayOrder:97,insurancePriority:97,logoAsset:'/bookmakers/sportingbet.webp'},
-  {canonicalId:'1xbet',providerSlug:'1xbet',displayName:'1xBet',shortLabel:'1xBet',countries:['BR'],displayRole:'RETIRED',displayOrder:98,insurancePriority:98,logoAsset:'/bookmakers/1xbet.webp'},
   {canonicalId:'betboo.bet.br',providerSlug:'betboo.bet.br',displayName:'betboo BR',shortLabel:'betboo',countries:['BR'],displayRole:'RETIRED',displayOrder:99,insurancePriority:99,logoAsset:'/bookmakers/betboo.webp'},
   {canonicalId:'betano.bet.br',providerSlug:'betano.bet.br',displayName:'Betano BR',shortLabel:'Betano',countries:['BR'],displayRole:'RETIRED',displayOrder:100,insurancePriority:100,logoAsset:null},
 ] as const;
 /** A public card, the hidden insurance source, or an operator kept only so history still resolves. */
 export type BookmakerDisplayRole='VISIBLE_PRIMARY'|'HIDDEN_INSURANCE'|'RETIRED';
+/**
+ * Feeds whose bookmaker-level active/suspended flags are known-unreliable provider metadata while the
+ * individual market prices are listed and active. Observed on 2026-10-06 for 1xBet: 0 of 9 Peru Liga 1
+ * fixtures reported bookmakerIsActive=true while 27 of 27 prices reported active=true.
+ *
+ * This relaxes ONLY those bookmaker-level flags. It cannot show a stale price: the timestamp check
+ * that marks a quote STALE, and the freshness TTL applied downstream by quoteState, are both outside
+ * this policy and still apply in full.
+ */
+const VERIFIED_LISTED_MARKET_FEEDS=new Set(['betsson','1xbet','betano.bet.br']);
 export const BOOKMAKER_REGISTRY=IDENTITIES.map(book=>({...book,...GATED_AFFILIATE,marketSupport:BOOKMAKER_MARKETS,
   // Widened past the literals above so role checks stay meaningful while no operator is retired yet.
   displayRole:book.displayRole as BookmakerDisplayRole,
-  providerFlagPolicy:book.canonicalId==='betsson'||book.canonicalId==='betano.bet.br'?'VERIFIED_LISTED_MARKET':'STRICT' as 'VERIFIED_LISTED_MARKET'|'STRICT'}));
+  providerFlagPolicy:VERIFIED_LISTED_MARKET_FEEDS.has(book.canonicalId)?'VERIFIED_LISTED_MARKET':'STRICT' as 'VERIFIED_LISTED_MARKET'|'STRICT'}));
 /** Canonical DB operator ID; provider mappings are independently verified per GEO. */
 export type BookmakerId=string;
 export type BookmakerDisplayName=string;

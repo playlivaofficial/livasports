@@ -2,7 +2,7 @@ import {describe,it,expect,vi} from 'vitest';
 import {verifiedAccountPeriod,reserveOddsRequest,reconcileAccountPeriod,budgetHealth,budgetGovernor,routineDailyCap} from './budget';
 import type {DatabaseClient,QueryExecutor} from '@/database/client';
 const account={subscriptions:[{is_active:true,valid_from:'2026-09-02T11:10:51Z',valid_until:'2026-10-02T11:10:51Z',request_limit:5000,request_count:65,
-  sport_ids:[10,11],bookmakers:{betsson:{has_live_odds:false,has_player_props:false},bwin:{has_live_odds:false,has_player_props:false},inkabet:{has_live_odds:false,has_player_props:false}}}]};
+  sport_ids:[10,11],bookmakers:{betsson:{has_live_odds:false,has_player_props:false},bwin:{has_live_odds:false,has_player_props:false},inkabet:{has_live_odds:false,has_player_props:false},'1xbet':{has_live_odds:false,has_player_props:false}}}]};
 const input={id:'request',jobId:'job',endpoint:'/v4/odds-by-tournaments',query:{bookmaker:'betsson'},routine:true,unmetered:false};
 function transaction(rows:unknown[]){const query=vi.fn(async(sql:string)=>({rows:sql.includes('FROM odds_budget_baselines')?rows:[],rowCount:sql.includes('UPDATE odds_sync_jobs')?1:0}));return {query:query as unknown as QueryExecutor['query'],mock:query};}
 describe('durable subscription request budget',()=>{

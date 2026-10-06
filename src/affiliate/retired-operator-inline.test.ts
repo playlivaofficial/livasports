@@ -14,7 +14,7 @@ const now=Date.now();
  * the retired contract for banners and embeds, and the creative-safety rules themselves — the latter
  * retargeted to a live operator because they are what will guard the real MX/CO/PE banner assets.
  */
-const RETIRED='1xbet';
+const RETIRED='betboo.bet.br';
 const retiredCreative=(overrides:Partial<Creative>={}):Creative=>({
   id:'1xbet-match-inline-br',placement:'match_inline',locale:'br',
   imageUrl:'/sponsors/1xbet/match-inline-970x90.webp',
@@ -26,7 +26,7 @@ const retiredCreative=(overrides:Partial<Creative>={}):Creative=>({
 const onexbet=(overrides:Partial<Campaign>={}):Campaign=>({...campaign(now),
   id:'cccccccc-cccc-4ccc-8ccc-cccccccccccc',bookmaker:RETIRED,operatorCampaignId:'SYNTHETIC_CAMPAIGN',
   destination:'https://1xaff.com.br/L?tag=synthetic-test-only&site=test-only&ad=test-only',
-  domains:['1xaff.com.br'],placements:['match_odds_table','match_slip_comparison','slip_bookmaker_comparison','match_inline','home_top_banner'],
+  domains:['betboo.bet.br'],placements:['match_odds_table','match_slip_comparison','slip_bookmaker_comparison','match_inline','home_top_banner'],
   creatives:[retiredCreative()],...overrides});
 const inlineContext:CommercialContext={locale:'br',pagePath:'/br/partida/x',placement:'match_inline'};
 const topContext:CommercialContext={locale:'br',pagePath:'/br',placement:'home_top_banner'};
@@ -49,7 +49,7 @@ describe('retired bookmaker produces no inline embed or banner',()=>{
   });
 
   it('cannot be revived by relisting its previously verified tracking host',()=>{
-    expect(campaignDestination(onexbet({domains:['1xaff.com.br']}),inlineContext,now)).toBeNull();
+    expect(campaignDestination(onexbet({domains:['betboo.bet.br']}),inlineContext,now)).toBeNull();
   });
 });
 
