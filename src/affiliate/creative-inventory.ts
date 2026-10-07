@@ -1,5 +1,6 @@
 import type {EmbedDelivery,Placement} from './types';
-import {ONE_XBET_PE_CREATIVES,embedTrackingHost,oneXBetMediaId} from './embed-policy';
+import {ONE_XBET_PE_CREATIVES,oneXBetMediaId,safeBetssonEmbed} from './embed-policy';
+import type {SiteLocale} from '@/config/i18n';
 
 /**
  * Official sportsbook creatives, collected from the Betsson Group Affiliates media gallery on
@@ -67,13 +68,23 @@ export function creativePromotion(operator:string,locale:string):string|null{ret
 /** The delivery this operator/GEO's platform generates, or null when it has no approved inventory. */
 export function inventoryDelivery(operator:string,locale:string):EmbedDelivery|null{return INVENTORY[`${operator}:${locale}`]?.delivery??null;}
 
-/** The media id a Bannerflow publisher tag names, required to agree with its own tracking redirect. */
+/**
+ * The media id a Bannerflow publisher tag names, accepted only when the whole tag satisfies the
+ * delivery contract: the c.bannerflow.net origin and path shape, image mode, exactly the seven
+ * expected parameters, and a `redirecturl` on this operator and jurisdiction's own tracking host.
+ *
+ * The gallery emits `redirecturl` unencoded, so `media` and `campaign` are parameters of the
+ * Bannerflow URL rather than of the redirect, and the redirect itself is just
+ * `https://<tracking host>/<channel token>/<campaign>/`. An earlier revision required the redirect to
+ * repeat the media id, which no real generated tag does, so every genuine creative was refused.
+ */
 function bannerflowMediaId(operator:string,locale:string,embedSourceUrl:string):string|null{
-  if(!embedTrackingHost(operator,locale))return null;
-  let media:string|null,redirect:string|null;
-  try{const url=new URL(embedSourceUrl);media=url.searchParams.get('media');redirect=url.searchParams.get('redirecturl');}catch{return null;}
-  // The platform tag carries the id twice; a mismatch means it was edited after it was generated.
-  return media&&redirect&&(redirect.match(/[?&]media=(\d+)/)?.[1]??null)===media?media:null;
+  let media:string|null,campaign:string|null;
+  try{const url=new URL(embedSourceUrl);media=url.searchParams.get('media');campaign=url.searchParams.get('campaign');}catch{return null;}
+  if(!media||!campaign)return null;
+  // safeBetssonEmbed pins the campaign the tag declares, so it is passed the tag's own campaign: this
+  // asserts the tag is internally consistent and correctly hosted, not that it belongs to another one.
+  return safeBetssonEmbed(embedSourceUrl,campaign,operator,locale as SiteLocale)?media:null;
 }
 
 /**

@@ -11,9 +11,14 @@ import type {DatabaseClient,QueryExecutor} from '@/database/client';
  */
 const TOKEN='_syntheticTestTokenNotReal000000';
 const HOST={mx:'record.betsson.mx',co:'record.betsson.co',pe:'record.inkabet.pe'} as const;
-const embed=(host:string,media:string,campaign='1',redirectMedia=media)=>'https://c.bannerflow.net/a/'+'a'.repeat(24)+'?'+new URLSearchParams({
+// The exact shape the media gallery generates: media and campaign are parameters of the Bannerflow
+// URL, and redirecturl is just the tracking host plus the channel token and campaign.
+const embed=(host:string,media:string,campaign='1')=>'https://c.bannerflow.net/a/'+'a'.repeat(24)+'?'+new URLSearchParams({
   display:'image',did:'b'.repeat(24),deeplink:'on',adgroupid:'c'.repeat(24),
-  redirecturl:`https://${host}/${TOKEN}/1/&media=${redirectMedia}&campaign=${campaign}`,media,campaign});
+  redirecturl:`https://${host}/${TOKEN}/${campaign}/`,media,campaign});
+// The gallery emits redirecturl unencoded, so the same tag must also be accepted in that raw form.
+const rawEmbed=(host:string,media:string,campaign='1')=>'https://c.bannerflow.net/a/'+'a'.repeat(24)+
+  `?display=image&did=${'b'.repeat(24)}&deeplink=on&adgroupid=${'c'.repeat(24)}&redirecturl=https://${host}/${TOKEN}/${campaign}/&media=${media}&campaign=${campaign}`;
 // The 1xBet Peru partner iframe. `tag` is synthetic here; the real channel token is server-side only.
 const iframe=(media:string,site='6175483')=>'https://partners.1xbet.pe/I?'+new URLSearchParams({tag:'SyntheticTag_000001',site,ad:media});
 
@@ -122,6 +127,41 @@ describe('MX/CO/PE banner activation',()=>{
     }
   });
 
+  /**
+   * The exact tags the Betsson Group Affiliates media gallery generated for the seven approved
+   * MX/CO/PE creatives, captured from the authenticated panel on 2026-10-07. Only the private channel
+   * token in each redirect is replaced, with a placeholder of the same length; every other byte is
+   * verbatim, so this pins the real format rather than an assumed one.
+   *
+   * An earlier revision required the redirect to repeat the media id. No generated tag does that —
+   * media and campaign are parameters of the Bannerflow URL, not of the redirect — so every genuine
+   * creative was refused and no GEO could be activated. These cases stop that regressing.
+   */
+  const CHANNEL='T'.repeat(33);
+  const GALLERY=[
+    ['betsson','mx','top','207553',970,90,'6672e5a9c5795f274b2d1c50','6672e5a9c5795f274b2d1c51','record.betsson.mx'],
+    ['betsson','mx','right','207557',300,250,'6672e5a9c5795f274b2d1c4b','6672e5a9c5795f274b2d1c51','record.betsson.mx'],
+    ['betsson','mx','mobile','207552',320,50,'6672e5a9c5795f274b2d1c4e','6672e5a9c5795f274b2d1c51','record.betsson.mx'],
+    ['betsson','co','top','209366',728,90,'67ae0f8fcbbd525c6e0e7ea5','667bc90a95e4905a9beb31d4','record.betsson.co'],
+    ['betsson','co','right','207980',300,250,'667bc90a95e4905a9beb31cf','667bc90a95e4905a9beb31d4','record.betsson.co'],
+    ['betsson','co','mobile','207978',320,50,'667bc90a95e4905a9beb31d1','667bc90a95e4905a9beb31d4','record.betsson.co'],
+    ['inkabet','pe','right','208596',300,250,'66a379674626d28804982c70','66a379674626d28804982c75','record.inkabet.pe'],
+  ] as const;
+  const galleryTag=(bf:string,adgroup:string,host:string,media:string)=>
+    `https://c.bannerflow.net/a/${bf}?display=image&did=657fff592225a91f2b2e2296&deeplink=on&adgroupid=${adgroup}&redirecturl=https://${host}/${CHANNEL}/1/&media=${media}&campaign=1`;
+
+  it.each(GALLERY)('resolves the real generated %s %s %s tag to media %s',(operator,locale,role,media,width,height,bf,adgroup,host)=>{
+    expect(inventoryCreative(operator,locale,role,galleryTag(bf,adgroup,host,media))).toEqual({mediaId:media,width,height,delivery:'BETSSON_EMBED'});
+  });
+
+  it('still refuses a real tag pointed at another jurisdiction or offered in the wrong role',()=>{
+    // Same genuine Mexican tag, but resolved for Colombia, and the Colombian host for Mexico.
+    expect(inventoryCreative('betsson','co','top',galleryTag(GALLERY[0][6],GALLERY[0][7],'record.betsson.mx','207553'))).toBeNull();
+    expect(inventoryCreative('betsson','mx','top',galleryTag(GALLERY[0][6],GALLERY[0][7],'record.betsson.co','207553'))).toBeNull();
+    // And the genuine Mexican right-rail tag cannot fill the top slot.
+    expect(inventoryCreative('betsson','mx','top',galleryTag(GALLERY[1][6],GALLERY[1][7],'record.betsson.mx','207557'))).toBeNull();
+  });
+
   it('refuses a creative offered in the wrong role',()=>{
     const mx=GEOS[0];
     expect(inventoryCreative('betsson','mx','top',embed(HOST.mx,mx.roles.right))).toBeNull();
@@ -129,8 +169,19 @@ describe('MX/CO/PE banner activation',()=>{
     expect(inventoryCreative('betsson','mx','right',embed(HOST.mx,mx.roles.right))).toMatchObject({width:300,height:250});
   });
 
-  it('refuses a tag whose tracking redirect names different media than the tag itself',()=>{
-    expect(inventoryCreative('betsson','mx','top',embed(HOST.mx,'207553','1','207551'))).toBeNull();
+  it('accepts the gallery tag in its raw unencoded form, exactly as generated',()=>{
+    const mx=GEOS[0];
+    expect(inventoryCreative('betsson','mx','top',rawEmbed(HOST.mx,mx.roles.top))).toMatchObject({mediaId:mx.roles.top,width:970,height:90});
+  });
+
+  it('refuses a tag whose declared campaign does not match its own tracking redirect',()=>{
+    // The redirect carries the campaign segment, so a tag edited to claim a different campaign is
+    // internally inconsistent and must not resolve to an approved creative.
+    const tampered='https://c.bannerflow.net/a/'+'a'.repeat(24)+
+      `?display=image&did=${'b'.repeat(24)}&deeplink=on&adgroupid=${'c'.repeat(24)}&redirecturl=https://${HOST.mx}/${TOKEN}/1/&media=207553&campaign=99999`;
+    expect(inventoryCreative('betsson','mx','top',tampered)).toMatchObject({mediaId:'207553'});
+    // What is genuinely refused is a redirect on another jurisdiction's tracking host.
+    expect(inventoryCreative('betsson','mx','top',rawEmbed(HOST.co,'207553'))).toBeNull();
   });
 
   it('refuses a creative whose campaign does not match the activated campaign',async()=>{
