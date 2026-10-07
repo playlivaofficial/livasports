@@ -11,7 +11,7 @@ const label=(c:Creative)=>c.locale==='br'?'Publicidade':'Publicidad';
 /**
  * The 1xBet Peru partner creative is already an iframe served by the operator, so it is nested inside
  * the same sandboxed publisher document rather than executed as a script. The only CSP relaxation is
- * `frame-src https://partners.1xbet.pe`: there is no `unsafe-eval`, no script origin, no connect, img
+ * `frame-src https://1xaff.pe`: there is no `unsafe-eval`, no script origin, no connect, img
  * or font origin, and every other restriction of the Betsson document is preserved or tightened.
  *
  * The nested frame is cross-origin, so its content cannot be inspected and a click inside it cannot be

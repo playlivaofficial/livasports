@@ -15,7 +15,7 @@ import {isPublisherEmbed,type Creative} from './types';
 // Synthetic token only. The real per-channel tag is private server-side configuration and is never
 // written into a test, a fixture, a log or a report.
 const TAG='SyntheticTag_000001';
-const iframe=(over:{tag?:string;site?:string;ad?:string}={})=>'https://partners.1xbet.pe/I?'+new URLSearchParams(
+const iframe=(over:{tag?:string;site?:string;ad?:string}={})=>'https://1xaff.pe/I?'+new URLSearchParams(
   {tag:over.tag??TAG,site:over.site??ONE_XBET_SITE_ID,ad:over.ad??'178222'});
 // A real publisher tag carries the media id twice: once as its own parameter and once inside the
 // tracking redirect. The helper mirrors that so the agreement check is exercised, not bypassed.
@@ -36,10 +36,12 @@ describe('1xBet Peru partner-iframe contract',()=>{
     expect(oneXBetMediaId(s,'1xbet','pe')).toBe('178222');
   });
   it('refuses any other host, including other 1xBet domains',()=>{
-    for(const host of ['partners.1xbet.com','partners.1xbet.pe.evil.invalid','1xbet.pe','www.partners.1xbet.pe','affiliates.1xbet.pe'])
-      expect(safeOneXBetIframe(iframe().replace('partners.1xbet.pe',host),'1xbet','pe')).toBeNull();
+    // partners.1xbet.pe is the panel an affiliate signs in to, not the host that serves creatives; it
+    // returns its own 404 page for /I, so admitting it would render an empty banner slot.
+    for(const host of ['partners.1xbet.pe','partners.1xbet.com','1xaff.pe.evil.invalid','1xbet.pe','www.1xaff.pe','1xaff.com.br'])
+      expect(safeOneXBetIframe(iframe().replace('1xaff.pe',host),'1xbet','pe')).toBeNull();
     expect(safeOneXBetIframe(iframe().replace('https://','http://'),'1xbet','pe')).toBeNull();
-    expect(safeOneXBetIframe(iframe().replace('partners.1xbet.pe','partners.1xbet.pe:8443'),'1xbet','pe')).toBeNull();
+    expect(safeOneXBetIframe(iframe().replace('1xaff.pe','1xaff.pe:8443'),'1xbet','pe')).toBeNull();
   });
   it('refuses any other path',()=>{
     for(const path of ['/','/i','/I/','/I/extra','/Index','/II'])
@@ -217,7 +219,7 @@ describe('the sandboxed publisher document',()=>{
   const policy=(c:Creative)=>embedDocument(c,'https://livasports.com','bridge-key').headers.get('content-security-policy')!;
   it('widens frame-src to the single approved 1xBet origin and relaxes nothing else',async()=>{
     const p=policy(creative());
-    expect(p).toContain('frame-src https://partners.1xbet.pe');
+    expect(p).toContain('frame-src https://1xaff.pe');
     expect(p).toContain("default-src 'none'");
     expect(p).toContain("object-src 'none'");
     expect(p).toContain("base-uri 'none'");
@@ -233,18 +235,20 @@ describe('the sandboxed publisher document',()=>{
     expect(p).not.toContain('1xbet.com');
     expect(p).not.toContain('https://1xbet');
     // Exactly one 1xBet origin appears anywhere in the policy, and only as the frame-src value.
-    expect(p.match(/partners\.1xbet\.pe/g)).toHaveLength(1);
+    expect(p.match(/1xaff.pe/g)).toHaveLength(1);
+    // The sign-in panel is never a framed origin; it does not serve creatives.
+    expect(p).not.toContain('partners.1xbet.pe');
     // Top-level navigation stays blocked: the commercial frame must open in a new context.
     expect(p).not.toContain('allow-top-navigation');
   });
   it('keeps the Bannerflow document framing nothing at all',()=>{
     const p=policy({...creative(),locale:'br',delivery:'BETSSON_EMBED',embedSourceUrl:bannerflow('123456','record.betsson.bet.br'),width:320,height:100,placement:'mobile_inline'});
     expect(p).toContain("frame-src 'none'");
-    expect(p).not.toContain('partners.1xbet.pe');
+    expect(p).not.toContain('1xaff.pe');
   });
   it('nests the approved source at its native size and adds no click bridge',async()=>{
     const body=await embedDocument(creative(),'https://livasports.com','bridge-key').text();
-    expect(body).toContain('src="https://partners.1xbet.pe/I?tag='+TAG);
+    expect(body).toContain('src="https://1xaff.pe/I?tag='+TAG);
     expect(body).toContain('width="320" height="50"');
     expect(body).toContain('sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"');
     expect(body).toContain("send('ready')");
@@ -316,7 +320,7 @@ describe('the private channel token never reaches a client',()=>{
     const value=publicOffer(offer!,key,Date.now(),'anonymous');
     const serialized=JSON.stringify(value);
     expect(serialized).not.toContain(TAG);
-    expect(serialized).not.toContain('partners.1xbet.pe');
+    expect(serialized).not.toContain('1xaff.pe');
     expect(value.creative).toMatchObject({delivery:'ONE_XBET_IFRAME',width:320,height:50,imageUrl:null});
     // The delivery is published so the client knows to sandbox it, and consent is required for it.
     expect(value.embedPermission).toBe('anonymous');
