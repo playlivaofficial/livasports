@@ -55,18 +55,20 @@ describe('B — daily cadence must not leave a near-term competition at zero cov
 const quote=(over:Partial<ReadOddsQuote>={}):ReadOddsQuote=>({quoteId:'q',fixtureId:'f',providerFixtureId:'p',bookmaker:'bwin',bookmakerId:'b',bookmakerName:'bwin',market:'MATCH_WINNER',outcome:'HOME',line:null,
   decimalOdds:'2.10',status:'ACTIVE',scope:'FULL_TIME_REGULATION',phase:'PREGAME',providerUpdatedAt:now.toISOString(),observedAt:now.toISOString(),persistedAt:now.toISOString(),lastSuccessfulRefreshAt:now.toISOString(),
   providerKickoff:hoursAhead(30),sourceDomain:'sports.bwin.com',geoEligible:true,freshnessTtlMinutes:120,...over});
-/** Colombia: Betsson then bwin, by configured public_priority. Proxy coverage is opted into so the
- * disclosure rules stay covered; production pins insuranceEnabled false. */
+/** Colombia: Betsson then bwin, by configured public_priority. Insurance is opted into so the refusal
+ * to substitute one primary for another stays covered; production pins insuranceEnabled false. */
 const CO=[{id:'betsson',name:'Betsson',priority:10},{id:'bwin',name:'bwin',priority:20}];
 const snapshot=(quotes:ReadOddsQuote[]):OddsReadSnapshot=>({kickoff:hoursAhead(30),fixtureStatus:'SCHEDULED',quotes,eligibleBookmakers:CO,insuranceEnabled:true});
-describe('C/D/E/G — real-first resolution with disclosed proxy fallback',()=>{
-  it('a failed/stopped refresh leaves stored REAL usable until fixed expiry, then disclosed insurance, then unavailable',()=>{
+describe('C/D/E/G — real-first resolution with no cross-primary substitution',()=>{
+  it('a failed/stopped refresh leaves stored REAL usable until its own fixed expiry, then unavailable',()=>{
     const own=quote({bookmaker:'betsson',bookmakerName:'Betsson',freshnessTtlMinutes:30});
-    const insurance=quote({freshnessTtlMinutes:60});
-    const stored=snapshot([own,insurance]);const before=JSON.stringify(stored);
+    const peer=quote({freshnessTtlMinutes:60});
+    const stored=snapshot([own,peer]);const before=JSON.stringify(stored);
     const price=(minutes:number)=>buildComparison(stored,'MATCH_WINNER',+now+minutes*60000).rows.find(r=>r.bookmaker==='betsson')!.cells[0];
     expect(price(29)).toMatchObject({priceKind:'REAL',sourceBookmaker:'betsson',decimalOdds:'2.10'});
-    expect(price(30)).toMatchObject({priceKind:'PROXY',sourceBookmaker:'bwin',decimalOdds:'2.10'});
+    // Betsson's own price expires at 30 minutes. bwin's is still fresh, but it is bwin's, so Betsson
+    // goes blank rather than inheriting it — the expiry is honest in both directions.
+    expect(price(30)).toMatchObject({decimalOdds:null,priceKind:null,sourceBookmaker:null});
     expect(price(60)).toMatchObject({decimalOdds:null});
     expect(JSON.stringify(stored)).toBe(before);
   });
@@ -74,22 +76,23 @@ describe('C/D/E/G — real-first resolution with disclosed proxy fallback',()=>{
     const c=buildComparison(snapshot([quote(),quote({bookmaker:'betsson',bookmakerName:'Betsson',bookmakerId:'s',decimalOdds:'2.05'})]),'MATCH_WINNER',now.getTime());
     expect(c.rows.map(r=>[r.bookmaker,r.cells[0].priceKind,r.cells[0].decimalOdds])).toEqual([['betsson','REAL','2.05'],['bwin','REAL','2.10']]);
   });
-  it('D: one bookmaker only → the other side shows a disclosed PROXY, never blank',()=>{
+  it('D: one bookmaker only → the other side stays blank rather than borrowing',()=>{
     const c=buildComparison(snapshot([quote({bookmaker:'betsson',bookmakerName:'Betsson',bookmakerId:'s',decimalOdds:'2.05'})]),'MATCH_WINNER',now.getTime());
-    expect(c.rows.map(r=>[r.bookmaker,r.cells[0].priceKind,r.cells[0].decimalOdds])).toEqual([['betsson','REAL','2.05'],['bwin','PROXY','2.05']]);
+    expect(c.rows.map(r=>[r.bookmaker,r.cells[0].priceKind,r.cells[0].decimalOdds])).toEqual([['betsson','REAL','2.05'],['bwin',null,null]]);
   });
   it('E: neither bookmaker → unavailable, never invented',()=>{
     const listing=listingMatchWinnerOdds(snapshot([]),now.getTime());
     expect(listing.oddsState).toBe('none');expect(listing.odds).toEqual([]);
   });
-  it('G: a REAL quote replaces a proxy immediately, and a stale REAL quote falls back to the peer proxy',()=>{
+  it('G: a REAL quote fills a blank slot immediately, and a stale REAL quote goes blank again',()=>{
     const betsson=quote({bookmaker:'betsson',bookmakerName:'Betsson',bookmakerId:'s',decimalOdds:'2.05'});
     const before=buildComparison(snapshot([betsson]),'MATCH_WINNER',now.getTime());
-    expect(before.rows[1].bookmaker).toBe('bwin');expect(before.rows[1].cells[0]).toMatchObject({priceKind:'PROXY',decimalOdds:'2.05'});
+    expect(before.rows[1].bookmaker).toBe('bwin');expect(before.rows[1].cells[0]).toMatchObject({priceKind:null,decimalOdds:null});
     const after=buildComparison(snapshot([betsson,quote({bookmaker:'bwin',decimalOdds:'2.20'})]),'MATCH_WINNER',now.getTime());
     expect(after.rows[1].cells[0]).toMatchObject({priceKind:'REAL',decimalOdds:'2.20'});
+    // A stale own price is withheld and nothing is borrowed to cover it over.
     const stale=buildComparison(snapshot([betsson,quote({bookmaker:'bwin',decimalOdds:'2.20',observedAt:hoursAhead(-5),freshnessTtlMinutes:60})]),'MATCH_WINNER',now.getTime());
-    expect(stale.rows[1].cells[0]).toMatchObject({priceKind:'PROXY',decimalOdds:'2.05'});
+    expect(stale.rows[1].cells[0]).toMatchObject({decimalOdds:null,priceKind:null});
   });
 });
 

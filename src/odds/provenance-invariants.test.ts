@@ -30,19 +30,18 @@ describe('public odds provenance invariants',()=>{
     expect(home(c,'bwin')).toMatchObject({decimalOdds:'1.80',priceKind:'REAL',sourceBookmaker:'bwin'});
   });
 
-  it('discloses a borrowed price as PROXY so it never looks native',()=>{
+  it('never borrows a price into a book that did not publish one',()=>{
     const c=buildComparison(snap([quote('betsson','1.95')]),'MATCH_WINNER',now);
     expect(home(c,'betsson')).toMatchObject({decimalOdds:'1.95',priceKind:'REAL',sourceBookmaker:'betsson'});
-    const borrowed=home(c,'bwin');
-    expect(borrowed).toMatchObject({decimalOdds:'1.95',priceKind:'PROXY',sourceBookmaker:'betsson'});
-    // Identical displayed numbers are permitted, but only while the borrowed one is disclosed.
-    expect(borrowed!.decimalOdds).toBe(home(c,'betsson')!.decimalOdds);
+    // bwin published nothing, so bwin shows nothing. Displaying Betsson's 1.95 here would state that
+    // bwin is offering 1.95, which is the one thing the comparison must never claim.
+    expect(home(c,'bwin')).toMatchObject({decimalOdds:null,priceKind:null,sourceBookmaker:null});
   });
 
-  it('keeps one book native and the other proxied when only one has its own price',()=>{
+  it('leaves the unpriced book empty in either direction',()=>{
     const c=buildComparison(snap([quote('bwin','2.40')]),'MATCH_WINNER',now);
     expect(home(c,'bwin')).toMatchObject({priceKind:'REAL',sourceBookmaker:'bwin'});
-    expect(home(c,'betsson')).toMatchObject({priceKind:'PROXY',sourceBookmaker:'bwin'});
+    expect(home(c,'betsson')).toMatchObject({decimalOdds:null,priceKind:null,sourceBookmaker:null});
   });
 
   it('identical native prices stay native for both and never trigger fallback',()=>{

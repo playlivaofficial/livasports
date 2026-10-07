@@ -52,14 +52,16 @@ describe('native expiry deadlines',()=>{
  it('bounds configuration',()=>{expect(nativeSafetyMarginMinutes('bad')).toBe(10);expect(nativeSafetyMarginMinutes('0')).toBe(5);expect(nativeSafetyMarginMinutes('100')).toBe(30);});
 });
 const quote={bookmaker:'betsson',bookmakerName:'Betsson',provider:'ODDSPAPI',quoteId:'p',market:'MATCH_WINNER',outcome:'HOME',line:null,decimalOdds:'2.2',status:'ACTIVE',scope:'FULL_TIME_REGULATION',phase:'PREGAME',geoEligible:true,observedAt:'2026-09-21T11:00:00Z',providerUpdatedAt:'2026-09-21T11:00:00Z',lastSuccessfulRefreshAt:'2026-09-21T11:00:00Z',providerKickoff:'2026-09-22T12:00:00Z',freshnessTtlMinutes:65} as ReadOddsQuote;
-// Colombia: Betsson is the card under test and bwin is the only other public source it can borrow
-// from. Proxy coverage is opted into here; production pins insuranceEnabled false.
+// Colombia: Betsson is the card under test and bwin is the only other public source. Insurance is
+// opted into here to prove Betsson still never inherits bwin's price; production pins it false.
 const snap:OddsReadSnapshot={quotes:[quote,{...quote,bookmaker:'bwin',bookmakerName:'bwin',quoteId:'fallback',freshnessTtlMinutes:180}],kickoff:quote.providerKickoff,fixtureStatus:'SCHEDULED',eligibleBookmakers:[{id:'betsson',name:'Betsson',priority:10},{id:'bwin',name:'bwin',priority:20}],insuranceEnabled:true};
 describe('continuity truth and second supplier boundary',()=>{
  it('native wins, expires honestly under quota/500, recovers immediately after successful refresh',()=>{
   const cell=(s:OddsReadSnapshot,t:number)=>buildComparison(s,'MATCH_WINNER',t).rows.find(r=>r.bookmaker==='betsson')!.cells[0];
   expect(cell(snap,+now).priceKind).toBe('REAL');
-  expect(cell(snap,+now+6*60000).priceKind).toBe('PROXY');
+  // Betsson's own price has expired. bwin's is still fresh, but it is bwin's: the slot goes blank
+  // rather than quietly presenting a rival's number as Betsson's.
+  expect(cell(snap,+now+6*60000)).toMatchObject({priceKind:null,decimalOdds:null});
   const recovered={...snap,quotes:[{...quote,observedAt:new Date(+now+6*60000).toISOString(),lastSuccessfulRefreshAt:new Date(+now+6*60000).toISOString()},snap.quotes[1]]};
   expect(cell(recovered,+now+6*60000).priceKind).toBe('REAL');
  });

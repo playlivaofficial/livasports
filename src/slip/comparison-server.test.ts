@@ -30,10 +30,12 @@ describe('M7 request/security boundary',()=>{
     expect(await currentSlipDestination('betsson',f.selections,'br',read,'BR')).toBe(f.data.destinations.betsson);
     expect(await currentSlipDestination('betano.bet.br',f.selections,'br',read,'BR')).toBeNull();
     expect(await currentSlipDestination('betsson',f.selections,'mx',read,'BR')).toBe(f.data.destinations.betsson);
+    // Suspending Betsson's own leg withdraws the Betsson slip destination: the slip is only offered
+    // when Betsson itself priced every selection.
     f.data.fixtures.get(f.selections[1].fixturePublicId)!.snapshot.quotes[0].status='SUSPENDED';
-    expect(await currentSlipDestination('betsson',f.selections,'br',read,'BR')).toBe(f.data.destinations.betsson);expect(read).toHaveBeenCalledTimes(3);expect(fetch).not.toHaveBeenCalled();
+    expect(await currentSlipDestination('betsson',f.selections,'br',read,'BR')).toBeNull();expect(read).toHaveBeenCalledTimes(3);expect(fetch).not.toHaveBeenCalled();
   });
-  it('allows current proxy coverage but refuses expired, started, unconfigured or unapproved coverage',async()=>{
+  it('refuses expired, started, partial, unconfigured or unapproved coverage',async()=>{
     for(const scenario of ['expired','started','partial','unconfigured','unapproved']){
       const f=comparisonFixture(3,Date.now()-(scenario==='expired'?freshnessTtlMs(1,2)+1:0));const r=f.data.fixtures.get(f.selections[0].fixturePublicId)!;
       if(scenario==='started'){r.fixture.status='LIVE';r.snapshot.fixtureStatus='LIVE';}
@@ -41,7 +43,8 @@ describe('M7 request/security boundary',()=>{
       if(scenario==='unconfigured')f.data.bookmakers[0].affiliateEligibility.destinationConfigured=false;
       if(scenario==='unapproved')f.data.bookmakers[0].affiliateEligibility.approved=false;
       const destination=await currentSlipDestination('betsson',f.selections,'br',async()=>f.data,'BR');
-      expect(destination).toBe(scenario==='partial'?f.data.destinations.betsson:null);
+      // 'partial' is now refused like the rest: a missing Betsson leg is never covered from bwin.
+      expect(destination).toBeNull();
     }
   });
   it('outbound does not accept arbitrary destinations, duplicate arguments or provider identity',async()=>{

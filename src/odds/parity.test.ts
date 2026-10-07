@@ -49,13 +49,14 @@ describe('full odds parity identity',()=>{
       expect(comparison.rows.every(row=>row.cells.some(cell=>cell.decimalOdds!==null))).toBe(true);
     }
   });
-  it('presents both target bookmaker rows from either single current source',()=>{
+  it('presents only the bookmaker that actually priced it, from either single current source',()=>{
     const bwinOnly=listingMatchWinnerOdds({kickoff:'2026-09-12T19:00:00Z',fixtureStatus:'SCHEDULED',eligibleBookmakers:CO,quotes:allMarkets('bwin','bwin','1.90')},now);
     const betsson=listingMatchWinnerOdds({kickoff:'2026-09-12T19:00:00Z',fixtureStatus:'SCHEDULED',eligibleBookmakers:CO,quotes:allMarkets('betsson','Betsson','1.85')},now);
-    expect(bwinOnly.oddsState).toBe('complete');
-    expect(bwinOnly.odds[0].outcomes[0].prices.map(price=>[price.bookmaker,price.priceKind])).toEqual([['Betsson','PROXY'],['bwin','REAL']]);
-    expect(betsson.oddsState).toBe('complete');
-    expect(betsson.odds[0].outcomes[0].prices.map(price=>[price.bookmaker,price.priceKind])).toEqual([['Betsson','REAL'],['bwin','PROXY']]);
+    // Symmetric in both directions: the unpriced side is absent, never a duplicate of the priced one.
+    expect(bwinOnly.oddsState).toBe('partial');
+    expect(bwinOnly.odds[0].outcomes[0].prices.map(price=>[price.bookmaker,price.priceKind])).toEqual([['bwin','REAL']]);
+    expect(betsson.oddsState).toBe('partial');
+    expect(betsson.odds[0].outcomes[0].prices.map(price=>[price.bookmaker,price.priceKind])).toEqual([['Betsson','REAL']]);
   });
   it('keeps canonical market identity independent of locale labels',()=>{
     expect(SUPPORTED_M5_MARKETS).toEqual(['MATCH_WINNER','BTTS','TOTAL_GOALS']);

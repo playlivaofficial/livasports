@@ -137,36 +137,39 @@ describe('exact selection comparison',()=>{
 });
 
 /**
- * Proxy coverage is dormant: both production read paths set insuranceEnabled false. These tests opt
- * in explicitly to keep the mechanics covered, and assert provenance is always disclosed so a
- * borrowed price can never be mistaken for the row's own.
+ * One visible book's price is never moved into another visible book's row, because that presents
+ * bookmaker B's price as bookmaker A's actual price. These tests opt insuranceEnabled on explicitly —
+ * production sets it false on both read paths — to prove the refusal holds even when substitution is
+ * requested. Continuity is served instead by an explicitly attributed FALLBACK_REFERENCE row, covered
+ * in fallback-reference.test.ts.
  */
-describe('proxy coverage when explicitly enabled',()=>{
-  it('applies exact union coverage in both directions without mutating provider truth',()=>{
+describe('cross-primary substitution is refused even when insurance is enabled',()=>{
+  it('leaves the other book unpriced instead of borrowing, and never mutates provider truth',()=>{
     const away={...q,quoteId:'betsson-away',outcome:'AWAY' as const,decimalOdds:'2.25'};
     const quotes=[away];const before=structuredClone(quotes);
     const c=buildComparison(co(quotes,{insuranceEnabled:true}),'MATCH_WINNER',now);
-    expect(c.rows.find(row=>row.bookmaker==='bwin')!.cells[2]).toMatchObject({decimalOdds:'2.25',priceKind:'PROXY',targetBookmaker:'bwin',sourceBookmaker:'betsson',sourceQuoteId:'betsson-away'});
+    expect(c.rows.find(row=>row.bookmaker==='bwin')!.cells[2]).toMatchObject({decimalOdds:null,priceKind:null,targetBookmaker:'bwin',sourceBookmaker:null,sourceQuoteId:null});
+    // Betsson keeps its own price, attributed to itself.
     expect(c.rows.find(row=>row.bookmaker==='betsson')!.cells[2]).toMatchObject({decimalOdds:'2.25',priceKind:'REAL',targetBookmaker:'betsson',sourceBookmaker:'betsson'});
     expect(quotes).toEqual(before);
   });
 
-  it('fills only exact current missing selections and rejects an invalid source',()=>{
+  it('does not complete the other book a whole market, and still rejects an invalid source',()=>{
     const quotes=[
       {...q,decimalOdds:'2.92'},
       {...q,quoteId:'betsson-draw',outcome:'DRAW' as const,decimalOdds:'3.80'},
       {...q,quoteId:'betsson-away',outcome:'AWAY' as const,decimalOdds:'2.25'},
     ];
     const c=buildComparison(co(quotes,{insuranceEnabled:true}),'MATCH_WINNER',now);
-    expect(c.rows.map(row=>row.cells.map(cell=>cell.decimalOdds))).toEqual([['2.92','3.80','2.25'],['2.92','3.80','2.25']]);
+    expect(c.rows.map(row=>row.cells.map(cell=>cell.decimalOdds))).toEqual([['2.92','3.80','2.25'],[null,null,null]]);
     expect(c.rows.find(row=>row.bookmaker==='betsson')!.cells.map(cell=>cell.priceKind)).toEqual(['REAL','REAL','REAL']);
-    expect(c.rows.find(row=>row.bookmaker==='bwin')!.cells.every(cell=>cell.priceKind==='PROXY')).toBe(true);
+    expect(c.rows.find(row=>row.bookmaker==='bwin')!.cells.every(cell=>cell.priceKind===null)).toBe(true);
     const invalid=buildComparison(co([{...q,status:'SUSPENDED'}],{insuranceEnabled:true}),'MATCH_WINNER',now);
     expect(invalid.eligiblePrices).toBe(0);
     expect(invalid.rows.every(row=>row.cells.every(cell=>cell.decimalOdds===null))).toBe(true);
   });
 
-  it('never proxies across a GEO boundary',()=>{
+  it('never borrows across a GEO boundary either',()=>{
     // Inkabet mirrors Betsson prices, so borrowing one for the other would be a fake comparison.
     const c=buildComparison(pe([q],{insuranceEnabled:true}),'MATCH_WINNER',now);
     expect(c.rows.every(row=>row.cells.every(cell=>cell.sourceBookmaker!=='betsson'))).toBe(true);

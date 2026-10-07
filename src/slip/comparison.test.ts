@@ -39,28 +39,43 @@ describe('M7 bookmaker completeness and price-only ranking',()=>{
     expect(bwin).toMatchObject({complete:true,availableSelectionCount:3,combinedDecimalOdds:'6.45645',best:true,ctaState:'AFFILIATE_UNAVAILABLE',outboundCapability:'NONE'});
     expect(r.states).toContain('MULTIPLE_COMPLETE_BOOKMAKERS');
   });
-  it('uses the other current exact quote as a display-only proxy for a missing leg',()=>{
+  it('withholds a bookmaker accumulator when that bookmaker did not price every leg',()=>{
+    // A combined price is a claim about one book's own market. Filling the gap from another book would
+    // present a number no bookmaker is actually offering, so the whole card goes unavailable instead.
     const f=comparisonFixture();f.data.fixtures.get(f.selections[1].fixturePublicId)!.snapshot.quotes.pop();
-    const [,b]=run(f).bookmakers;expect(b).toMatchObject({complete:true,estimated:true,realSelectionCount:2,proxySelectionCount:1,availabilityState:'ESTIMATED_COMPLETE'});
-    expect(b.selectionQuotes[1]).toMatchObject({priceKind:'PROXY',sourceBookmakerId:'betsson',sourceQuoteId:'quote-betsson-1',sourceObservedAt:new Date(f.now).toISOString()});
+    const [a,b]=run(f).bookmakers;
+    expect(b).toMatchObject({complete:false,estimated:false,realSelectionCount:2,proxySelectionCount:0,combinedDecimalOdds:null,ctaState:'INCOMPLETE'});
+    expect(b.missingSelections).toHaveLength(1);
+    // The missing leg is retained and stays honestly unpriced, never backfilled from Betsson.
+    expect(b.selectionQuotes[1]).toMatchObject({decimalOdds:null,priceKind:null,sourceBookmakerId:null});
+    // Every leg it did price is still its own.
+    for(const q of b.selectionQuotes.filter(q=>q.decimalOdds!==null))expect(q.sourceBookmakerId).toBe(b.bookmakerId);
+    // The book that priced everything is unaffected.
+    expect(a.complete).toBe(true);
   });
   it('shows 0/3 and retains the exact missing selections',()=>{
     const f=comparisonFixture();for(const r of f.data.fixtures.values())r.snapshot.quotes=[];
     for(const b of run(f).bookmakers){expect(b.availableSelectionCount).toBe(0);expect(b.missingSelections).toHaveLength(3);expect(b.combinedDecimalOdds).toBeNull();}
   });
-  it.each(['STALE','SUSPENDED','CLOSED','WITHDRAWN','HISTORICAL','UNKNOWN'])('uses the other current exact quote when the target is %s',state=>{
+  it.each(['STALE','SUSPENDED','CLOSED','WITHDRAWN','HISTORICAL','UNKNOWN'])('withholds the accumulator rather than borrowing when the target leg is %s',state=>{
     const f=comparisonFixture();Object.assign(f.data.fixtures.get(f.selections[0].fixturePublicId)!.snapshot.quotes[1],{status:state});
-    const [a,b]=run(f).bookmakers;expect(a.complete).toBe(true);expect(b).toMatchObject({complete:true,estimated:true,availabilityState:'ESTIMATED_COMPLETE',availableSelectionCount:3,proxySelectionCount:1});
-    expect(b.selectionQuotes[0]).toMatchObject({state:'CURRENT',diagnosticCode:'PROXY_QUOTE',priceKind:'PROXY',sourceBookmakerId:'betsson',decimalOdds:'2.10'});
+    const [a,b]=run(f).bookmakers;
+    expect(a.complete).toBe(true);
+    expect(b).toMatchObject({complete:false,estimated:false,proxySelectionCount:0,combinedDecimalOdds:null,ctaState:'INCOMPLETE'});
+    // The unusable leg keeps its honest state instead of being replaced by Betsson's 2.10.
+    expect(b.selectionQuotes[0].state).not.toBe('CURRENT');
+    expect(b.selectionQuotes[0]).toMatchObject({decimalOdds:null,priceKind:null,sourceBookmakerId:null});
   });
   it.each(['LIVE','HALFTIME','FINISHED','POSTPONED','UNKNOWN'])('invalidates every bookmaker on fixture status %s',status=>{
     const f=comparisonFixture();const r=f.data.fixtures.get(f.selections[0].fixturePublicId)!;r.fixture.status=status;r.snapshot.fixtureStatus=status;
     for(const b of run(f).bookmakers){expect(b.complete).toBe(false);expect(b.invalidSelections).toHaveLength(1);expect(b.ctaState).toBe('INCOMPLETE');}
   });
-  it('expires both feeds at the freshness boundary and proxies an unusable target provider kickoff from the other current book',()=>{
+  it('expires both feeds at the freshness boundary and withholds an unusable target provider kickoff',()=>{
     const f=comparisonFixture();f.now+=freshnessTtlMs(1,2);expect(run(f).bookmakers.every(b=>!b.complete&&b.combinedDecimalOdds===null)).toBe(true);
     const g=comparisonFixture();g.data.fixtures.get(g.selections[0].fixturePublicId)!.snapshot.quotes[0].providerKickoff=new Date(g.now-1).toISOString();
-    expect(run(g).bookmakers[0].selectionQuotes[0]).toMatchObject({state:'CURRENT',priceKind:'PROXY',sourceBookmakerId:'bwin'});
+    const betsson=run(g).bookmakers[0];
+    expect(betsson.selectionQuotes[0].state).not.toBe('CURRENT');
+    expect(betsson).toMatchObject({complete:false,combinedDecimalOdds:null});
   });
   it('updates prices and handles ties without affiliate bias',()=>{
     const f=comparisonFixture();for(const r of f.data.fixtures.values())r.snapshot.quotes[1].decimalOdds=r.snapshot.quotes[0].decimalOdds;
@@ -80,14 +95,19 @@ describe('M7 bookmaker completeness and price-only ranking',()=>{
   it('does not invent BR books when commercial GEO produced none',()=>{
     const f=comparisonFixture();f.data.bookmakers=[];expect(buildSlipComparison(f.selections,'br',f.data.fixtures,f.data.bookmakers,f.now).bookmakers).toEqual([]);
   });
-  it('uses identical duplicates and falls back to the other current exact quote when the target data is conflicting or corrupted',()=>{
+  it('accepts identical duplicates and withholds the card when the target data is conflicting or corrupted',()=>{
     const f=comparisonFixture();const r=f.data.fixtures.get(f.selections[0].fixturePublicId)!;
+    // An exact duplicate is unambiguous, so it is still that book's own price.
     r.snapshot.quotes.push({...r.snapshot.quotes[0]});
     expect(run(f).bookmakers[0].complete).toBe(true);
+    // Two conflicting prices for one selection are ambiguous: the leg is unusable and nothing is
+    // borrowed from bwin to paper over it.
     r.snapshot.quotes.push({...r.snapshot.quotes[0],decimalOdds:'2.99'});
-    expect(run(f).bookmakers[0]).toMatchObject({complete:true,estimated:true,selectionQuotes:expect.arrayContaining([expect.objectContaining({priceKind:'PROXY',sourceBookmakerId:'bwin'})])});
+    expect(run(f).bookmakers[0]).toMatchObject({complete:false,estimated:false,proxySelectionCount:0,combinedDecimalOdds:null});
+    expect(run(f).bookmakers[0].selectionQuotes.every(q=>q.sourceBookmakerId!=='bwin')).toBe(true);
     const g=comparisonFixture();g.data.fixtures.get(g.selections[0].fixturePublicId)!.snapshot.quotes[1].decimalOdds='NaN';
-    expect(run(g).bookmakers[1]).toMatchObject({complete:true,estimated:true,selectionQuotes:expect.arrayContaining([expect.objectContaining({priceKind:'PROXY',sourceBookmakerId:'betsson'})])});
+    expect(run(g).bookmakers[1]).toMatchObject({complete:false,estimated:false,proxySelectionCount:0,combinedDecimalOdds:null});
+    expect(run(g).bookmakers[1].selectionQuotes.every(q=>q.sourceBookmakerId!=='betsson')).toBe(true);
     expect(run(g).bookmakers[0].complete).toBe(true);
   });
   it('browser clock, offline and error guards withdraw totals, best labels and CTAs while keeping intent',()=>{
@@ -133,7 +153,10 @@ describe('explicit bookmaker availability',()=>{
     }
     expect(r.states).toContain(count===1?'ONE_SELECTION':'MULTIPLE_COMPLETE_BOOKMAKERS');
   });
-  it.each([3,5,10])('completes both bookmaker cards for %s mixed real/proxy legs',count=>{
+  it.each([3,5,10])('never manufactures one accumulator from %s legs split across two books',count=>{
+    // Each book is missing a different subset of legs. Between them they cover every leg, which is
+    // exactly the case that must NOT yield two complete cards: an accumulator is a claim about one
+    // bookmaker own market, so neither book gets a combined price.
     const f=comparisonFixture(count);
     f.selections.forEach((selection,index)=>{
       const quotes=f.data.fixtures.get(selection.fixturePublicId)!.snapshot.quotes;
@@ -142,9 +165,12 @@ describe('explicit bookmaker availability',()=>{
     });
     const result=run(f);
     expect(result.bookmakers).toHaveLength(2);
-    expect(result.bookmakers.every(book=>book.complete&&book.combinedDecimalOdds!==null)).toBe(true);
-    expect(result.bookmakers.every(book=>book.proxySelectionCount>0&&book.availabilityState==='ESTIMATED_COMPLETE')).toBe(true);
-    expect(result.bookmakers.every(book=>book.missingSelections.length===0)).toBe(true);
+    expect(result.bookmakers.every(book=>!book.complete&&book.combinedDecimalOdds===null)).toBe(true);
+    expect(result.bookmakers.every(book=>book.proxySelectionCount===0&&book.ctaState==='INCOMPLETE')).toBe(true);
+    expect(result.bookmakers.every(book=>book.missingSelections.length>0)).toBe(true);
+    // Every price that is shown belongs to the book it is shown under.
+    for(const book of result.bookmakers)
+      for(const q of book.selectionQuotes.filter(q=>q.decimalOdds!==null))expect(q.sourceBookmakerId).toBe(book.bookmakerId);
   });
   it('keeps bwin complete and best when its CTA is gated',()=>{
     const r=run(comparisonFixture());
@@ -157,19 +183,21 @@ describe('explicit bookmaker availability',()=>{
     expect(r.bookmakers[0].complete).toBe(false);expect(r.bookmakers[0].availabilityState).toBe('MARKET_UNAVAILABLE');
     expect(r.bookmakers[0].selectionQuotes[1].diagnosticCode).toBe('MARKET_MISSING');expect(r.bookmakers[0].combinedDecimalOdds).toBeNull();
   });
-  it('replaces a stale target quote with the other current exact quote',()=>{
+  it('withholds a stale target leg instead of replacing it with the peer price',()=>{
     const f=comparisonFixture();Object.assign(f.data.fixtures.get(f.selections[0].fixturePublicId)!.snapshot.quotes[1],{status:'STALE'});
     const bwin=run(f).bookmakers[1];
-    expect(bwin).toMatchObject({complete:true,estimated:true,availabilityState:'ESTIMATED_COMPLETE',proxySelectionCount:1});
-    expect(bwin.selectionQuotes[0]).toMatchObject({state:'CURRENT',diagnosticCode:'PROXY_QUOTE',priceKind:'PROXY',sourceBookmakerId:'betsson'});
+    expect(bwin).toMatchObject({complete:false,estimated:false,proxySelectionCount:0,combinedDecimalOdds:null});
+    expect(bwin.selectionQuotes[0].state).not.toBe('CURRENT');
+    expect(bwin.selectionQuotes[0]).toMatchObject({priceKind:null,sourceBookmakerId:null});
   });
-  it('resolves Betsson SUSPENDED plus bwin CURRENT as a complete Betsson proxy card',()=>{
+  it('leaves Betsson incomplete when its leg is SUSPENDED and only bwin is CURRENT',()=>{
     const f=comparisonFixture();Object.assign(f.data.fixtures.get(f.selections[0].fixturePublicId)!.snapshot.quotes[0],{status:'SUSPENDED'});
     const betsson=run(f).bookmakers[0];
-    expect(betsson).toMatchObject({complete:true,estimated:true,availabilityState:'ESTIMATED_COMPLETE',availableSelectionCount:3,proxySelectionCount:1});
-    expect(betsson.selectionQuotes[0]).toMatchObject({state:'CURRENT',diagnosticCode:'PROXY_QUOTE',priceKind:'PROXY',sourceBookmakerId:'bwin',decimalOdds:'2.15'});
+    expect(betsson).toMatchObject({complete:false,estimated:false,availableSelectionCount:2,proxySelectionCount:0,combinedDecimalOdds:null});
+    // The bwin 2.15 belongs to bwin. It is never shown as Betsson suspended selection.
+    expect(betsson.selectionQuotes[0]).toMatchObject({priceKind:null,sourceBookmakerId:null,decimalOdds:null});
   });
-  it('regresses Botafogo–Grêmio Draw: bwin 3.70 real completes the suspended Betsson card as a proxy',()=>{
+  it('regresses Botafogo–Grêmio Draw: bwin 3.70 stays bwin and never completes a suspended Betsson card',()=>{
     const f=comparisonFixture(1);const read=f.data.fixtures.get(f.selections[0].fixturePublicId)!;
     Object.assign(read.fixture,{home:'Botafogo',away:'Grêmio'});
     Object.assign(f.selections[0],{market:'MATCH_WINNER',outcome:'DRAW',line:null});
@@ -178,31 +206,31 @@ describe('explicit bookmaker availability',()=>{
     Object.assign(read.snapshot.quotes.find(q=>q.bookmaker==='betsson')!,{status:'SUSPENDED'});
     const [betsson,bwin]=run(f).bookmakers;
     expect(bwin.selectionQuotes[0]).toMatchObject({state:'CURRENT',priceKind:'REAL',decimalOdds:'3.70',sourceBookmakerId:'bwin'});
-    expect(betsson).toMatchObject({complete:true,estimated:true,availabilityState:'ESTIMATED_COMPLETE',availableSelectionCount:1,requiredSelectionCount:1,proxySelectionCount:1});
-    expect(betsson.selectionQuotes[0]).toMatchObject({state:'CURRENT',diagnosticCode:'PROXY_QUOTE',priceKind:'PROXY',decimalOdds:'3.70',sourceBookmakerId:'bwin'});
+    expect(betsson).toMatchObject({complete:false,estimated:false,availableSelectionCount:0,requiredSelectionCount:1,proxySelectionCount:0,combinedDecimalOdds:null});
+    expect(betsson.selectionQuotes[0]).toMatchObject({priceKind:null,decimalOdds:null,sourceBookmakerId:null});
   });
-  it('resolves bwin SUSPENDED plus Betsson CURRENT as a complete bwin proxy card',()=>{
+  it('leaves bwin incomplete when its leg is SUSPENDED and only Betsson is CURRENT',()=>{
     const f=comparisonFixture();Object.assign(f.data.fixtures.get(f.selections[0].fixturePublicId)!.snapshot.quotes[1],{status:'SUSPENDED'});
     const bwin=run(f).bookmakers[1];
-    expect(bwin).toMatchObject({complete:true,estimated:true,availabilityState:'ESTIMATED_COMPLETE',availableSelectionCount:3,proxySelectionCount:1});
-    expect(bwin.selectionQuotes[0]).toMatchObject({state:'CURRENT',diagnosticCode:'PROXY_QUOTE',priceKind:'PROXY',sourceBookmakerId:'betsson',decimalOdds:'2.10'});
+    expect(bwin).toMatchObject({complete:false,estimated:false,availableSelectionCount:2,proxySelectionCount:0,combinedDecimalOdds:null});
+    expect(bwin.selectionQuotes[0]).toMatchObject({priceKind:null,sourceBookmakerId:null,decimalOdds:null});
   });
-  it('uses Betsson as the proxy source when bwin is missing one exact leg',()=>{
+  it('keeps Betsson complete and bwin incomplete when bwin is missing one exact leg',()=>{
     const f=comparisonFixture();
     const quotes=f.data.fixtures.get(f.selections[1].fixturePublicId)!.snapshot.quotes;
     quotes.splice(quotes.findIndex(q=>q.bookmaker==='bwin'),1);
     const [betsson,bwin]=run(f).bookmakers;
     expect(betsson).toMatchObject({complete:true,availabilityState:'COMPLETE',availableSelectionCount:3,combinedDecimalOdds:'6.048'});
-    expect(bwin).toMatchObject({complete:true,estimated:true,availabilityState:'ESTIMATED_COMPLETE',availableSelectionCount:3,realSelectionCount:2,proxySelectionCount:1});
-    expect(bwin.selectionQuotes[1]).toMatchObject({priceKind:'PROXY',sourceBookmakerId:'betsson'});
+    expect(bwin).toMatchObject({complete:false,estimated:false,availableSelectionCount:2,realSelectionCount:2,proxySelectionCount:0,combinedDecimalOdds:null});
+    expect(bwin.selectionQuotes[1]).toMatchObject({priceKind:null,sourceBookmakerId:null});
   });
-  it('uses bwin as the proxy source when Betsson is missing one exact leg',()=>{
+  it('keeps bwin complete and Betsson incomplete when Betsson is missing one exact leg',()=>{
     const f=comparisonFixture();
     const quotes=f.data.fixtures.get(f.selections[1].fixturePublicId)!.snapshot.quotes;
     quotes.splice(quotes.findIndex(q=>q.bookmaker==='betsson'),1);
     const [betsson,bwin]=run(f).bookmakers;
-    expect(betsson).toMatchObject({complete:true,estimated:true,availabilityState:'ESTIMATED_COMPLETE',proxySelectionCount:1});
-    expect(betsson.selectionQuotes[1]).toMatchObject({priceKind:'PROXY',sourceBookmakerId:'bwin'});
+    expect(betsson).toMatchObject({complete:false,estimated:false,proxySelectionCount:0,combinedDecimalOdds:null});
+    expect(betsson.selectionQuotes[1]).toMatchObject({priceKind:null,sourceBookmakerId:null});
     expect(bwin).toMatchObject({complete:true,availabilityState:'COMPLETE',combinedDecimalOdds:'6.45645'});
   });
   it('marks both books incomplete without inventing a combined total',()=>{
@@ -212,12 +240,14 @@ describe('explicit bookmaker availability',()=>{
       expect(b.availabilityState).toBe('MISSING_LEG');expect(b.availableSelectionCount).toBe(0);
     }
   });
-  it('replaces a prior proxy with the target real quote on the next read',()=>{
+  it('completes the card as soon as the target own quote arrives on the next read',()=>{
+    // The automatic-recovery contract for slips: unavailable while the book is unpriced, complete the
+    // moment the scheduler supplies that book own price. No deploy, no manual action.
     const f=comparisonFixture();const quotes=f.data.fixtures.get(f.selections[1].fixturePublicId)!.snapshot.quotes;
     const target=quotes.splice(quotes.findIndex(q=>q.bookmaker==='betsson'),1)[0];
-    expect(run(f).bookmakers[0]).toMatchObject({estimated:true,proxySelectionCount:1});
+    expect(run(f).bookmakers[0]).toMatchObject({complete:false,estimated:false,proxySelectionCount:0,combinedDecimalOdds:null});
     quotes.push({...target,decimalOdds:'1.91',quoteId:'replacement-real'});
-    expect(run(f).bookmakers[0]).toMatchObject({estimated:false,realSelectionCount:3,proxySelectionCount:0,availabilityState:'COMPLETE'});
+    expect(run(f).bookmakers[0]).toMatchObject({complete:true,estimated:false,realSelectionCount:3,proxySelectionCount:0,availabilityState:'COMPLETE'});
   });
   it.each(['STALE','SUSPENDED','CLOSED'] as const)('never proxies from a %s source',status=>{
     const f=comparisonFixture();const quotes=f.data.fixtures.get(f.selections[0].fixturePublicId)!.snapshot.quotes;
@@ -233,10 +263,14 @@ describe('explicit bookmaker availability',()=>{
     expect(betsson).toMatchObject({complete:false,combinedDecimalOdds:null,proxySelectionCount:0});
     expect(bwin).toMatchObject({complete:false,combinedDecimalOdds:null,proxySelectionCount:0});
   });
-  it('builds proxy presentation without mutating provider truth',()=>{
+  it('builds the presentation without mutating provider truth',()=>{
     const f=comparisonFixture();f.data.fixtures.get(f.selections[1].fixturePublicId)!.snapshot.quotes.pop();
     const before=JSON.stringify([...f.data.fixtures.values()].map(read=>read.snapshot.quotes));
-    const result=run(f);expect(result.bookmakers.some(book=>book.estimated)).toBe(true);
+    const result=run(f);
+    // Nothing is estimated any more: the book that lost a leg is simply incomplete, and either way the
+    // stored provider quotes are untouched.
+    expect(result.bookmakers.some(book=>book.estimated)).toBe(false);
+    expect(result.bookmakers.some(book=>!book.complete)).toBe(true);
     expect(JSON.stringify([...f.data.fixtures.values()].map(read=>read.snapshot.quotes))).toBe(before);
   });
 });

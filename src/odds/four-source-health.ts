@@ -4,6 +4,7 @@ import {readListingOddsSnapshots} from './read-core';
 import {readVerifiedOperatorFeeds} from './operator-feeds';
 import {buildComparison,quoteState} from './comparison';
 import {BOOKMAKER_REGISTRY,VISIBLE_BOOKMAKERS} from './registry';
+import {fallbackReferenceBookmakers} from './fallback-pool';
 import {SELECTIONS,type OddsMarket,type OddsReadSnapshot} from './types';
 
 /**
@@ -21,7 +22,7 @@ export function eligibleOperatorsFor(geo:CoreGeo):string[]{
  * penalised for Mexico and Inkabet is never penalised for Colombia. Retired operators are excluded
  * entirely — we no longer request them, so they would report a permanent zero and misrepresent health.
  */
-export function summarizeFourSources(snapshots:readonly OddsReadSnapshot[],now:number,eligibleOperators?:readonly string[]){
+export function summarizeFourSources(snapshots:readonly OddsReadSnapshot[],now:number,eligibleOperators?:readonly string[],fallbackOperators:readonly string[]=[]){
   const sources=BOOKMAKER_REGISTRY.filter(book=>book.displayRole!=='RETIRED')
     .map(book=>({bookmaker:book.canonicalId,name:book.displayName,role:book.displayRole,fixtures:0,eligibleFixtures:0,currentFixtures:0,staleOrSuspended:0,markets:{MATCH_WINNER:0,TOTAL_GOALS:0,BTTS:0}}));
   const targets=VISIBLE_BOOKMAKERS.map(book=>({bookmaker:book.canonicalId,real:0,proxy:0,unavailable:0,BETANO_INSURANCE_USED:0,BETANO_INSURANCE_FAILED:0,ALTERNATE_INSURANCE_USED:0,NO_INSURANCE_AVAILABLE:0}));
@@ -59,11 +60,14 @@ export function summarizeFourSources(snapshots:readonly OddsReadSnapshot[],now:n
   const total=targets.reduce((n,t)=>n+t.real+t.proxy,0),proxy=targets.reduce((n,t)=>n+t.proxy,0);
   // Only this jurisdiction's own line-up can degrade it. An operator that is active elsewhere but is
   // not eligible here contributes nothing to the baseline and cannot contaminate the score.
-  const accountable=sources.filter(s=>s.role==='VISIBLE_PRIMARY'&&(!eligibleOperators||eligibleOperators.includes(s.bookmaker)));
+  // A configured reference source is reported on its own, never folded into the jurisdiction's
+  // commitment: its outage is not a GEO outage, and its coverage can never paper over a primary's.
+  const accountable=sources.filter(s=>s.role==='VISIBLE_PRIMARY'&&!fallbackOperators.includes(s.bookmaker)&&(!eligibleOperators||eligibleOperators.includes(s.bookmaker)));
+  const fallbackSources=sources.filter(s=>fallbackOperators.includes(s.bookmaker));
   const bestVisible=Math.max(0,...accountable.map(s=>s.currentFixtures));
   const degraded=(snapshots.length>0&&accountable.length>0&&bestVisible===0)||proxy>total*.8||
     accountable.some(s=>s.eligibleFixtures>=5&&s.currentFixtures<s.eligibleFixtures*.25);
-  return {fixtures:snapshots.length,sources,targets,visibleReal,proxyPct:total?Math.round(proxy/total*1000)/10:0,degraded};
+  return {fixtures:snapshots.length,sources,fallbackSources,targets,visibleReal,proxyPct:total?Math.round(proxy/total*1000)/10:0,degraded};
 }
 
 type SourceSummary=ReturnType<typeof summarizeFourSources>;
@@ -74,7 +78,7 @@ type SourceSummary=ReturnType<typeof summarizeFourSources>;
  * Betsson serves both. `fixtures` stays the distinct fixture count rather than the sum of the
  * per-GEO evaluations, so a fixture eligible in three jurisdictions is not counted three times.
  */
-export function mergeSourceHealth(parts:readonly {geo:CoreGeo;summary:SourceSummary;eligible?:readonly string[]}[],fixtures:number):SourceSummary&{geos:Array<{geo:CoreGeo;eligible:string[];fixtures:number;degraded:boolean;proxyPct:number}>}{
+export function mergeSourceHealth(parts:readonly {geo:CoreGeo;summary:SourceSummary;eligible?:readonly string[]}[],fixtures:number):SourceSummary&{geos:Array<{geo:CoreGeo;eligible:string[];fallback:string[];fixtures:number;degraded:boolean;proxyPct:number}>}{
   const base=summarizeFourSources([],0);
   for(const {summary} of parts){
     for(const source of base.sources){
@@ -97,6 +101,7 @@ export function mergeSourceHealth(parts:readonly {geo:CoreGeo;summary:SourceSumm
   return {...base,fixtures,proxyPct:total?Math.round(proxy/total*1000)/10:0,
     degraded:parts.some(part=>part.summary.degraded),
     geos:parts.map(part=>({geo:part.geo,eligible:[...(part.eligible??eligibleOperatorsFor(part.geo))],
+      fallback:fallbackReferenceBookmakers(part.geo).map(source=>source.bookmaker),
       fixtures:part.summary.fixtures,degraded:part.summary.degraded,proxyPct:part.summary.proxyPct}))};
 }
 
@@ -134,7 +139,7 @@ export async function readFourSourceHealth(db:QueryExecutor,now=new Date()):Prom
   const inWindow=(snapshot:OddsReadSnapshot,hours:number)=>Date.parse(snapshot.kickoff)<=now.getTime()+hours*3600000;
   const window=(hours:number)=>mergeSourceHealth(
     perGeo.map(part=>({geo:part.geo,eligible:part.eligible,
-      summary:summarizeFourSources(part.snapshots.filter(snapshot=>inWindow(snapshot,hours)),now.getTime(),part.eligible)})),
+      summary:summarizeFourSources(part.snapshots.filter(snapshot=>inWindow(snapshot,hours)),now.getTime(),part.eligible,fallbackReferenceBookmakers(part.geo).map(source=>source.bookmaker))})),
     fixtures.filter(fixture=>Date.parse(fixture.kickoff)<=now.getTime()+hours*3600000).length);
   return {at:now.toISOString(),providerRequests:0,
     windows:Object.fromEntries(([['24h',24],['3d',72],['7d',168]] as const).map(([key,hours])=>[key,window(hours)])) as FourSourceHealth['windows']};

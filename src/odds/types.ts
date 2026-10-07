@@ -1,3 +1,4 @@
+import type {PoolRole} from './fallback-pool';
 export type OddsMarket = 'MATCH_WINNER' | 'TOTAL_GOALS' | 'BTTS';
 export type OddsOutcome = 'HOME' | 'DRAW' | 'AWAY' | 'OVER' | 'UNDER' | 'YES' | 'NO';
 export type OddsStatus = 'ACTIVE' | 'STALE' | 'SUSPENDED' | 'WITHDRAWN' | 'CLOSED';
@@ -50,6 +51,12 @@ export interface ReadOddsQuote extends NormalizedOddsQuote {
 export interface OddsReadSnapshot { quotes: ReadOddsQuote[]; kickoff: string; fixtureStatus: string; approvedNativeProviders?:readonly string[];
   /** Server-selected target pool; an explicit empty array must never expand to legacy BR cards. */
   eligibleBookmakers?:readonly {id:string;name:string;priority:number}[];
+  /**
+   * This jurisdiction's configured reference pool. Each entry becomes its own explicitly attributed
+   * row so market continuity never requires moving a price into a primary book's identity. Omitted or
+   * empty means no reference source is configured, which is the state of every GEO today.
+   */
+  fallbackBookmakers?:readonly {id:string;name:string;priority:number}[];
   insuranceEnabled?:boolean;
 }
 export interface OddsCell {
@@ -61,7 +68,12 @@ export interface OddsCell {
   sourceQuoteId: string | null;
   sourceObservedAt: string | null;
 }
-export interface OddsBookmakerRow { bookmaker: string; name: string; cells: OddsCell[]; action: string | null; }
+export interface OddsBookmakerRow { bookmaker: string; name: string; cells: OddsCell[]; action: string | null;
+  /** Absent means PRIMARY_VISIBLE, which is what every row was before reference rows existed. */
+  role?: PoolRole;
+  /** False on every reference row: a reference price is never a commercial destination. */
+  affiliateEligible?: boolean;
+}
 export interface OddsComparison {
   market: OddsMarket; line: number | null; rows: OddsBookmakerRow[];
   observedAt: string | null; providerUpdatedAt: string | null; expiresAt: string | null; closesAt?: string | null; eligiblePrices: number;

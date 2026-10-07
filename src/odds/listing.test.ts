@@ -19,14 +19,15 @@ const CO=[{id:'betsson',name:'Betsson',priority:10},{id:'bwin',name:'bwin',prior
 const snapshot=(quotes:ReadOddsQuote[]):OddsReadSnapshot=>({quotes,kickoff:'2026-09-12T19:00:00Z',fixtureStatus:'SCHEDULED',eligibleBookmakers:CO});
 
 describe('listing MATCH_WINNER read model',()=>{
-  it('reproduces a single-source 2.92/3.80/2.25 board as complete two-row union coverage',()=>{
+  it('reports a single-source 2.92/3.80/2.25 board as partial, with only that source priced',()=>{
     const attached=listingMatchWinnerOdds(snapshot([
       quote({decimalOdds:'2.92'}),quote({quoteId:'quote-draw',outcome:'DRAW',decimalOdds:'3.80'}),quote({quoteId:'quote-away',outcome:'AWAY',decimalOdds:'2.25'}),
     ]),now);
-    expect(attached.oddsState).toBe('complete');
-    expect(attached.odds[0].outcomes.map(outcome=>outcome.prices.map(price=>price.decimalOdds))).toEqual([[2.92,2.92],[3.8,3.8],[2.25,2.25]]);
-    // bwin priced it natively; Betsson borrows, and the borrowing is disclosed as PROXY.
-    expect(attached.odds[0].outcomes.every(outcome=>outcome.prices.map(price=>price.priceKind).join()==='PROXY,REAL')).toBe(true);
+    // One of the two Colombian books priced the market, so the board is honestly partial rather than
+    // completed by repeating that book's numbers under the other book's name.
+    expect(attached.oddsState).toBe('partial');
+    expect(attached.odds[0].outcomes.map(outcome=>outcome.prices.map(price=>price.decimalOdds))).toEqual([[2.92],[3.8],[2.25]]);
+    expect(attached.odds[0].outcomes.every(outcome=>outcome.prices.every(price=>price.priceKind==='REAL'))).toBe(true);
     expect(JSON.stringify(attached)).not.toMatch(/sourceBookmaker|sourceQuoteId|betano\.bet\.br/);
   });
   it('attaches current 1X2 from the same quoteState as the match page',()=>{
