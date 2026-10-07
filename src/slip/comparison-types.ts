@@ -1,5 +1,6 @@
 import type {SiteLocale} from '@/config/i18n';
 import type {CanonicalSelection,ResolvedSelection,SelectionState,SlipResolution} from './types';
+import type {PoolRole} from '@/odds/fallback-pool';
 
 export type ComparisonState='EMPTY_SLIP'|'ONE_SELECTION'|'MULTI_SELECTION_NO_BOOKMAKER'|'ONE_COMPLETE_BOOKMAKER'|'MULTIPLE_COMPLETE_BOOKMAKERS'|'PARTIAL_BOOKMAKER_COVERAGE'|'STALE_SELECTION'|'MATCH_STARTED'|'MISSING_SELECTION_PRICE'|'MIXED_VALIDITY';
 export type OutboundCapability='NONE'|'HOMEPAGE'|'SPORTSBOOK'|'MARKET_DEEPLINK'|'PREFILLED_SLIP';
@@ -10,6 +11,12 @@ export interface BookmakerConfig {
   bookmakerId:string;
   displayName:string;
   displayOrder?:number;
+  /**
+   * Absent means PRIMARY_VISIBLE. A FALLBACK_REFERENCE book may still price a complete slip and have
+   * it shown as its own separate option, but it never earns a CTA, and its legs are never merged with
+   * another book's to manufacture an accumulator.
+   */
+  role?:PoolRole;
   insuranceEnabled?:boolean;
   geoEligibility:{locale:SiteLocale;eligible:boolean};
   affiliateEligibility:{approved:boolean;destinationConfigured:boolean;destinationType?:'HOMEPAGE'|'SPORTSBOOK'};

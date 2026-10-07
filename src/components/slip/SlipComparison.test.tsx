@@ -13,8 +13,6 @@ const CARDS=PUBLIC_CARD_IDS.length;
 // The card under inspection is the second public one: it has no approved destination, so every
 // provenance branch below is observed on a card that must still render a complete price.
 const INSPECTED=PUBLIC_CARD_IDS[1];
-// With the inspected card's own quote gone, the cheapest surviving public card of the GEO wins.
-const LOWEST_ALTERNATE=PUBLIC_CARD_IDS.filter(id=>id!==INSPECTED)[0];
 
 describe('P5 compact comparison / internal provenance',()=>{
   it.each([['mx','MX$'],['co','COP$'],['pe','S/']] as const)('uses the trusted %s currency instead of English presentation currency',(locale,symbol)=>{
@@ -43,10 +41,21 @@ describe('P5 compact comparison / internal provenance',()=>{
       if(mode==='missing'){
         expect(inspected.complete).toBe(false);expect(html).not.toContain('class="slip-combined"');
         expect(value.bookmakers.every(b=>b.ctaState==='INCOMPLETE')).toBe(true);
+      }else if(mode==='alternate'){
+        // The inspected card lost its own price on every leg. It is therefore unavailable, and is never
+        // completed from the other public card: a combined price is a claim about one book's own market.
+        expect(inspected.priceClassification).toBe('INCOMPLETE');
+        expect(inspected.combinedDecimalOdds).toBeNull();
+        expect(inspected.ctaState).toBe('INCOMPLETE');
+        expect(inspected.selectionQuotes.every(q=>q.sourceBookmakerId===null||q.sourceBookmakerId===INSPECTED)).toBe(true);
+        // The other card priced everything itself, so its own total is still shown.
+        const other=value.bookmakers[0];
+        expect(other.priceClassification).toBe('REAL_COMPLETE');
+        expect(html).toContain(formatSlipOdds(other.combinedDecimalOdds!,locale));
+        expect(html).toContain(formatMoney(potentialReturn('10',other.combinedDecimalOdds!)!,'co'));
       }else{
-        const source=mode==='native'?INSPECTED:LOWEST_ALTERNATE;
-        expect(inspected.selectionQuotes.every(q=>q.sourceBookmakerId===source&&q.sourceQuoteId&&q.sourceObservedAt)).toBe(true);
-        expect(inspected.priceClassification).toBe(mode==='native'?'REAL_COMPLETE':'ESTIMATED_COMPLETE');
+        expect(inspected.selectionQuotes.every(q=>q.sourceBookmakerId===INSPECTED&&q.sourceQuoteId&&q.sourceObservedAt)).toBe(true);
+        expect(inspected.priceClassification).toBe('REAL_COMPLETE');
         for(const b of value.bookmakers){
           expect(html).toContain(formatSlipOdds(b.combinedDecimalOdds!,locale));
           expect(html).toContain(formatMoney(potentialReturn('10',b.combinedDecimalOdds!)!,'co'));

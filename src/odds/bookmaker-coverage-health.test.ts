@@ -43,10 +43,12 @@ describe('bookmaker real-first display and coverage health',()=>{
     expect(row(c,'bwin').cells.every(cell=>cell.decimalOdds===null&&cell.priceKind===null)).toBe(true);
   });
 
-  it('C: a peer may use disclosed alternate coverage when proxying is explicitly enabled',()=>{
+  it('C: a peer is still left blank when proxying is explicitly enabled',()=>{
+    // Enabling insurance cannot buy a cross-primary substitution: showing Betsson's 1.98 in bwin's row
+    // would assert that bwin is offering 1.98. Continuity belongs to an attributed reference row.
     const c=buildComparison(snap(mw('1.98','3.55','4.10','betsson'),true),'MATCH_WINNER',now);
     expect(row(c,'betsson').cells.every(cell=>cell.priceKind==='REAL')).toBe(true);
-    expect(row(c,'bwin').cells.every(cell=>cell.priceKind==='PROXY'&&cell.sourceBookmaker==='betsson')).toBe(true);
+    expect(row(c,'bwin').cells.every(cell=>cell.decimalOdds===null&&cell.priceKind===null&&cell.sourceBookmaker===null)).toBe(true);
   });
 
   it('D: identical real prices remain a valid coincidence and stay native for both',()=>{
@@ -78,20 +80,24 @@ describe('bookmaker real-first display and coverage health',()=>{
     expect(health.degraded).toBe(false);
   });
 
-  it('E3: borrowed coverage is counted as alternate, never as a retired preferred source',()=>{
-    const proxied=Array.from({length:4},()=>snap(mw('2.10','3.40','3.80','betsson'),true));
-    const health=summarizeFourSources(proxied,now);
+  it('E3: no coverage is ever borrowed, so every insurance counter stays at zero',()=>{
+    const unpriced=Array.from({length:4},()=>snap(mw('2.10','3.40','3.80','betsson'),true));
+    const health=summarizeFourSources(unpriced,now);
     const bwin=health.targets.find(t=>t.bookmaker==='bwin')!;
-    expect(bwin.proxy).toBeGreaterThan(0);
-    // Betano is retired, so no borrowed price can ever be attributed to the old preferred source.
+    expect(bwin.proxy).toBe(0);
+    expect(bwin.unavailable).toBeGreaterThan(0);
+    // Betano is retired and cross-primary substitution is gone, so neither counter can ever move.
     expect(health.targets.every(t=>t.BETANO_INSURANCE_USED===0)).toBe(true);
-    expect(bwin.ALTERNATE_INSURANCE_USED).toBe(bwin.proxy);
+    expect(health.targets.every(t=>t.ALTERNATE_INSURANCE_USED===0)).toBe(true);
+    expect(health.proxyPct).toBe(0);
   });
 
-  it('F: a restored real target quote immediately beats the prior proxy',()=>{
+  it('F: an unavailable slot becomes that book own quote on the next successful refresh',()=>{
+    // The automatic-recovery contract: nothing is fabricated while a book is unpriced, and when the
+    // scheduler later supplies its real quote it simply appears. No deploy, no manual action.
     const missing=snap(mw('2.10','3.40','3.80','betsson'),true);
-    const proxied=buildComparison(missing,'MATCH_WINNER',now);
-    expect(row(proxied,'bwin').cells[0]).toMatchObject({decimalOdds:'2.10',priceKind:'PROXY',sourceBookmaker:'betsson'});
+    const before=buildComparison(missing,'MATCH_WINNER',now);
+    expect(row(before,'bwin').cells[0]).toMatchObject({decimalOdds:null,priceKind:null,sourceBookmaker:null});
     const restored=buildComparison(snap([...missing.quotes,...mw('1.98','3.55','4.10','bwin')],true),'MATCH_WINNER',now);
     expect(row(restored,'bwin').cells[0]).toMatchObject({decimalOdds:'1.98',priceKind:'REAL',sourceBookmaker:'bwin'});
     expect(row(restored,'betsson').cells[0]).toMatchObject({decimalOdds:'2.10',priceKind:'REAL',sourceBookmaker:'betsson'});

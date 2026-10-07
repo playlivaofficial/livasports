@@ -5,15 +5,14 @@ import {multiplyDecimalOdds,potentialReturn} from './decimal';
 
 /**
  * Colombia's public-card slip matrix. Brazil's hidden insurance book (Betano) was retired with the
- * MX/CO/PE cutover, so there is no longer a non-public source to borrow from: every price a card can
- * show comes either from itself or from the other public card, and both are disclosed. Colombia is
- * used because it is the only jurisdiction with two books — Mexico and Peru are single-book, which
+ * MX/CO/PE cutover, and a public card never borrows from another public card, so every price a card
+ * shows is its own. A card that did not price every leg has no accumulator at all. Colombia is used
+ * because it is the only jurisdiction with two books — Mexico and Peru are single-book, which
  * `comparison.test.ts` covers.
  */
 const TARGET=PUBLIC_CARD_IDS[0],ALTERNATE=PUBLIC_CARD_IDS[1];
-// Ascending prices, so "lowest eligible" is the earliest surviving source in this order.
+// Distinct ascending prices, so each card's own total is unmistakably its own.
 const PRICE=Object.fromEntries(PUBLIC_CARD_IDS.map((bookmaker,i)=>[bookmaker,String(i+2)]));
-const bookmakerOf=(price:string)=>PUBLIC_CARD_IDS.find(b=>PRICE[b]===price)!;
 
 describe('public-card slip / native source matrix',()=>{
   it('uses exactly the jurisdiction line-up, with no retired or out-of-GEO book',()=>{
@@ -26,7 +25,7 @@ describe('public-card slip / native source matrix',()=>{
       const base=read.snapshot.quotes[0];
       read.snapshot.quotes=PUBLIC_CARD_IDS.map(bookmaker=>({...base,bookmaker,bookmakerName:bookmaker,quoteId:`${index}-${bookmaker}`,decimalOdds:PRICE[bookmaker]}));
       const branch=mode==='mixed'?(index%2===0?'real':'alternate'):mode;
-      // 'alternate' drops the target's own price, so its card must borrow from the other public card.
+      // 'alternate' drops the target's own price. Its card must then be unavailable, not borrowed.
       if(branch==='alternate')read.snapshot.quotes=read.snapshot.quotes.filter(q=>q.bookmaker!==TARGET);
       if(mode==='incomplete'&&index===count-1)read.snapshot.quotes=[];
     }
@@ -34,19 +33,37 @@ describe('public-card slip / native source matrix',()=>{
     const result=buildSlipComparison(f.selections,'co',f.data.fixtures,f.data.bookmakers,f.now);
     expect(result.bookmakers.map(b=>b.bookmakerId)).toEqual(PUBLIC_CARD_IDS);
     const target=result.bookmakers[0];
+    const alternate=result.bookmakers[1];
+    // Which legs the target lost: all of them under 'alternate', the odd ones under 'mixed'. With a
+    // single leg 'mixed' drops nothing, so it behaves exactly like 'real'.
+    const targetLostALeg=f.selections.some((_,i)=>mode==='alternate'||(mode==='mixed'&&i%2!==0));
     if(mode==='incomplete'){
       expect(result.bookmakers.every(b=>b.priceClassification==='INCOMPLETE'&&b.combinedDecimalOdds===null&&b.ctaState==='INCOMPLETE')).toBe(true);
-    }else{
-      const expected=f.selections.map((_,i)=>mode==='alternate'?PRICE[ALTERNATE]
-        :mode==='mixed'?[PRICE[TARGET],PRICE[ALTERNATE]][i%2]:PRICE[TARGET]);
-      expect(target.combinedDecimalOdds).toBe(multiplyDecimalOdds(expected));
-      expect(potentialReturn('10',target.combinedDecimalOdds!)).toBe(potentialReturn('10',multiplyDecimalOdds(expected)!));
-      expect(target.priceClassification).toBe(expected.every(p=>p===PRICE[TARGET])?'REAL_COMPLETE':'ESTIMATED_COMPLETE');
-      // Provenance is always disclosed per leg, so a borrowed price can never read as the card's own.
-      target.selectionQuotes.forEach((q,i)=>{expect(q.sourceBookmakerId).toBe(bookmakerOf(expected[i]));expect(q.sourceQuoteId).toBe(`${i}-${q.sourceBookmakerId}`);});
+    }else if(!targetLostALeg){
+      // Both cards priced every leg themselves, so both are real and complete.
+      expect(target.combinedDecimalOdds).toBe(multiplyDecimalOdds(f.selections.map(()=>PRICE[TARGET])));
+      expect(potentialReturn('10',target.combinedDecimalOdds!)).toBe(potentialReturn('10',multiplyDecimalOdds(f.selections.map(()=>PRICE[TARGET]))!));
+      expect(target.priceClassification).toBe('REAL_COMPLETE');
+      target.selectionQuotes.forEach((q,i)=>{expect(q.sourceBookmakerId).toBe(TARGET);expect(q.sourceQuoteId).toBe(`${i}-${TARGET}`);});
       expect(target.ctaState).toBe('ENABLED');
+      expect(alternate.priceClassification).toBe('REAL_COMPLETE');
       // bwin has no approved campaign — Entain access does not exist yet — so its CTA stays closed.
       expect(result.bookmakers.slice(1).every(b=>b.ctaState==='AFFILIATE_UNAVAILABLE')).toBe(true);
+      expect(guardSlipComparison(result,count,f.now+3600000).bookmakers.every(b=>b.combinedDecimalOdds===null)).toBe(true);
+    }else{
+      // 'alternate' removed the target's price on every leg, 'mixed' on half of them. Either way the
+      // target priced fewer than all legs, so it has no accumulator and no CTA — it is never completed
+      // from the other card's prices.
+      expect(target.priceClassification).toBe('INCOMPLETE');
+      expect(target.combinedDecimalOdds).toBeNull();
+      expect(target.ctaState).toBe('INCOMPLETE');
+      expect(target.proxySelectionCount).toBe(0);
+      // Every leg it did price is its own, and the alternate is unaffected and complete on its own.
+      for(const q of target.selectionQuotes.filter(q=>q.decimalOdds!==null))expect(q.sourceBookmakerId).toBe(TARGET);
+      expect(alternate.priceClassification).toBe('REAL_COMPLETE');
+      expect(alternate.combinedDecimalOdds).toBe(multiplyDecimalOdds(f.selections.map(()=>PRICE[ALTERNATE])));
+      alternate.selectionQuotes.forEach((q,i)=>{expect(q.sourceBookmakerId).toBe(ALTERNATE);expect(q.sourceQuoteId).toBe(`${i}-${ALTERNATE}`);});
+      expect(alternate.ctaState).toBe('AFFILIATE_UNAVAILABLE');
       expect(guardSlipComparison(result,count,f.now+3600000).bookmakers.every(b=>b.combinedDecimalOdds===null)).toBe(true);
     }
     expect(JSON.stringify([...f.data.fixtures.values()])).toBe(before);

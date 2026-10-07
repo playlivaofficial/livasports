@@ -83,7 +83,9 @@ function summarize(config:BookmakerConfig,quotes:SelectionQuote[]):BookmakerSlip
   const proxySelectionCount=quotes.filter(q=>q.state==='CURRENT'&&q.decimalOdds!==null&&q.priceKind==='PROXY').length;
   const combined=available===quotes.length?multiplyDecimalOdds(quotes.map(q=>q.decimalOdds!)):null;
   const complete=quotes.length>0&&available===quotes.length&&combined!==null;
-  const affiliate=config.affiliateEligibility.approved&&config.affiliateEligibility.destinationConfigured;
+  // A reference source is never a commercial destination, whatever its campaign row happens to say,
+  // so its complete slip is shown as an attributed reference option with no outbound capability.
+  const affiliate=config.role!=='FALLBACK_REFERENCE'&&config.affiliateEligibility.approved&&config.affiliateEligibility.destinationConfigured;
   return {...config,priceClassification:complete?(proxySelectionCount?'ESTIMATED_COMPLETE':'REAL_COMPLETE'):'INCOMPLETE',requiredSelectionCount:quotes.length,availableSelectionCount:available,realSelectionCount,proxySelectionCount,
     missingSelections:quotes.filter(q=>q.state==='UNAVAILABLE'&&q.reason!=='INVALID_QUOTE'),
     invalidSelections:quotes.filter(q=>q.state!=='CURRENT'&&(q.state!=='UNAVAILABLE'||q.reason==='INVALID_QUOTE')),
@@ -92,7 +94,9 @@ function summarize(config:BookmakerConfig,quotes:SelectionQuote[]):BookmakerSlip
 }
 function finish(locale:SiteLocale,count:number,bookmakers:BookmakerSlip[],generatedAt=new Date().toISOString()):SlipComparison {
   const complete=bookmakers.filter(b=>b.complete);
-  const realComplete=complete.filter(b=>!b.estimated);
+  // Only a commercial primary competes for "best": a reference book's complete slip is shown for
+  // continuity and cannot be taken here, so crowning it would read as a recommendation.
+  const realComplete=complete.filter(b=>!b.estimated&&b.role!=='FALLBACK_REFERENCE');
   if(realComplete.length>=1){const highest=realComplete.reduce((a,b)=>compareDecimal(a.combinedDecimalOdds!,b.combinedDecimalOdds!)>=0?a:b).combinedDecimalOdds!;
     const winners=realComplete.filter(b=>compareDecimal(b.combinedDecimalOdds!,highest)===0);
     for(const b of winners){b.best=true;b.tiedBest=winners.length>1;}

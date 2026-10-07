@@ -28,7 +28,15 @@ export function quoteState(quote:ReadOddsQuote,snapshot:OddsReadSnapshot,now:num
   return 'ACTIVE';
 }
 export function buildComparison(snapshot:OddsReadSnapshot,market:OddsMarket,now=Date.now(),actions:Record<string,string>={}):OddsComparison {
-  const targets=snapshot.eligibleBookmakers?.map(b=>({bookmaker:b.id,name:b.name}))??UNION_BOOKMAKERS;
+  const primary=snapshot.eligibleBookmakers?.map(b=>({bookmaker:b.id,name:b.name}))??UNION_BOOKMAKERS;
+  // A configured reference source is a target in its own right, never a stand-in identity for a
+  // primary book. It is only admitted when the server declared it for this jurisdiction, and a book
+  // that is already a primary here is never duplicated as a reference.
+  const primaryPool=new Set(primary.map(b=>b.bookmaker));
+  const reference=[...(snapshot.fallbackBookmakers??[])].sort((a,b)=>a.priority-b.priority)
+    .filter(b=>!primaryPool.has(b.id)).map(b=>({bookmaker:b.id,name:b.name}));
+  const referencePool=new Set(reference.map(b=>b.bookmaker));
+  const targets=[...primary,...reference];
   const pool=new Set(targets.map(b=>b.bookmaker));
   const relevant=snapshot.quotes.filter(q=>q.geoEligible&&q.market===market&&(market==='TOTAL_GOALS'?q.line===2.5:q.line===null));
   const result:OddsComparison={market,line:market==='TOTAL_GOALS'?2.5:null,rows:[],observedAt:null,providerUpdatedAt:null,expiresAt:null,eligiblePrices:0};
@@ -67,11 +75,17 @@ export function buildComparison(snapshot:OddsReadSnapshot,market:OddsMarket,now=
       return {...cell,decimalOdds:source.decimalOdds,state:'ACTIVE' as const,expiresAt:source.expiresAt,priceKind:'PROXY' as const,
         sourceBookmaker:source.sourceBookmaker,sourceBookmakerName:source.sourceBookmakerName,sourceQuoteId:source.sourceQuoteId,sourceObservedAt:source.sourceObservedAt};
     });
-    return {...row,cells,action:cells.some(cell=>cell.decimalOdds)?actions[row.bookmaker]??null:null};
+    // A reference row shows its own price under its own name and never receives an action, whatever
+    // the caller passed: continuity is informational, and only a primary book can be clicked through.
+    if(referencePool.has(row.bookmaker))return {...row,cells,action:null,role:'FALLBACK_REFERENCE' as const,affiliateEligible:false};
+    return {...row,cells,action:cells.some(cell=>cell.decimalOdds)?actions[row.bookmaker]??null:null,role:'PRIMARY_VISIBLE' as const,affiliateEligible:true};
   });
   for(const outcome of SELECTIONS[market]){
     const eligible=result.rows.flatMap(r=>r.cells.filter(c=>c.outcome===outcome&&c.decimalOdds!==null));
-    const real=eligible.filter(cell=>cell.priceKind==='REAL');
+    // "Best price" is a claim a visitor can act on, so only commercial primary rows compete for it. A
+    // reference price is shown for continuity and is never marked best, even when it is numerically
+    // higher — the visitor cannot take it here, and crowning it would read as a recommendation.
+    const real=result.rows.filter(r=>r.role!=='FALLBACK_REFERENCE').flatMap(r=>r.cells.filter(c=>c.outcome===outcome&&c.decimalOdds!==null&&c.priceKind==='REAL'));
     if(new Set(real.map(cell=>cell.sourceQuoteId).filter(Boolean)).size>=2){const best=Math.max(...real.map(c=>Number(c.decimalOdds)));real.forEach(c=>{c.best=Number(c.decimalOdds)===best;});}
     result.eligiblePrices+=eligible.length;
   }

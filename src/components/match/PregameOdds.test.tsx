@@ -21,17 +21,23 @@ describe('restrained commercial odds rendering',()=>{
     const html=renderToStaticMarkup(<PregameOdds initial={[{...view,rows:view.rows.map(r=>({...r,action:null}))}]} context={{fixtureId:'test-only',competitionId:'test',locale:'br'}}/>);
     expect(html).not.toContain('/go/');expect(html).not.toContain('Podemos receber');expect(html).toContain('18+');
   });
-  it('renders both Match Center rows with the same approximate mark from one current source',()=>{
+  it('renders only the bookmaker that priced the match, and never borrows for the other row',()=>{
     const now=Date.parse('2026-10-01T18:00:00Z');
     const source:ReadOddsQuote={quoteId:'quote-bwin',fixtureId:'fixture',providerFixtureId:'provider',bookmaker:'bwin',bookmakerId:'book',bookmakerName:'bwin',market:'MATCH_WINNER',outcome:'HOME',line:null,decimalOdds:'2.92',status:'ACTIVE',scope:'FULL_TIME_REGULATION',phase:'PREGAME',providerUpdatedAt:new Date(now).toISOString(),observedAt:new Date(now).toISOString(),persistedAt:new Date(now).toISOString(),lastSuccessfulRefreshAt:new Date(now).toISOString(),providerKickoff:'2026-10-01T19:00:00Z',sourceDomain:'sports.bwin.com',geoEligible:true};
     const quotes=[source,{...source,quoteId:'quote-draw',outcome:'DRAW' as const,decimalOdds:'3.80'},{...source,quoteId:'quote-away',outcome:'AWAY' as const,decimalOdds:'2.25'}];
-    // Colombia: bwin priced the match, so Betsson's card borrows and the borrowing is disclosed.
+    // Colombia: bwin priced the match and Betsson did not, so Betsson's row stays empty.
     const union=buildComparison({quotes,kickoff:source.providerKickoff,fixtureStatus:'SCHEDULED',eligibleBookmakers:[{id:'betsson',name:'Betsson',priority:10},{id:'bwin',name:'bwin',priority:20}],insuranceEnabled:true},'MATCH_WINNER',now);
     const html=renderToStaticMarkup(<PregameOdds initial={[union]} fixturePublicId="aaaaaaaaaaaaaaaa" context={{fixtureId:'fixture',competitionId:'test',locale:'br'}}/>);
-    expect(html.match(/<tr/g)?.length).toBe(3);expect(html.match(/odds-approx-mark/g)?.length).toBe(6);
-    expect(union.rows.find(r=>r.bookmaker==='betsson')!.cells.every(c=>c.priceKind==='PROXY'&&c.sourceBookmaker==='bwin')).toBe(true);
-    expect(union.rows.find(r=>r.bookmaker==='bwin')!.cells.every(c=>c.priceKind==='REAL')).toBe(true);
-    expect(html).toContain('data-target-bookmaker="betsson"');expect(html).not.toMatch(/Estimated|Estimado|Fonte estimada|Betano|bookmaker-source-label|data-source/);
+    // Both rows still render — the Betsson card keeps its identity and logo — but only bwin's three
+    // prices are marked, because only bwin published any.
+    expect(html.match(/<tr/g)?.length).toBe(3);expect(html.match(/odds-approx-mark/g)?.length).toBe(3);
+    expect(union.rows.find(r=>r.bookmaker==='betsson')!.cells.every(c=>c.decimalOdds===null&&c.priceKind===null&&c.sourceBookmaker===null)).toBe(true);
+    expect(union.rows.find(r=>r.bookmaker==='bwin')!.cells.every(c=>c.priceKind==='REAL'&&c.sourceBookmaker==='bwin')).toBe(true);
+    // Only bwin has a price button; Betsson's row carries its identity with no price to attribute.
+    expect(html).toContain('data-target-bookmaker="bwin"');
+    expect(html).not.toContain('data-target-bookmaker="betsson"');
+    expect(html).toMatch(/Betsson/);
+    expect(html).not.toMatch(/Estimated|Estimado|Fonte estimada|Betano|bookmaker-source-label|data-source/);
     expect(html).toContain('data-outcome-label="1"');
   });
 });

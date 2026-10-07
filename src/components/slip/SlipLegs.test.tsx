@@ -43,12 +43,15 @@ describe('My Slip selected-leg list',()=>{
     expect(html.match(/class="slip-item"/g)?.length).toBe(1);
     expect(html).toContain('<span>Full-time result</span><strong>Draw</strong>');expect(html).not.toContain('<strong>Atlético Nacional</strong>');
   });
-  it('keeps proxy attribution internal without a closed-market lie',()=>{
+  it('shows a missing leg without claiming the market closed, and borrows nothing',()=>{
     const f=comparisonFixture();f.data.fixtures.get(f.selections[1].fixturePublicId)!.snapshot.quotes.pop();
     const selections=saved(f);
     const comparison=buildSlipComparison(f.selections,'br',f.data.fixtures,f.data.bookmakers,f.now);
     const html=renderToStaticMarkup(<SlipLegs uiLocale="en" selections={selections} resolvedByKey={resolved(f,selections)} comparison={comparison} checking={false} resolvedAt={new Date(f.now).toISOString()} now={f.now} onRemove={()=>{}}/>);
-    expect(comparison.bookmakers[1].selectionQuotes.some(q=>q.priceKind==='PROXY')).toBe(true);
+    // No leg is ever filled from another book, so no quote is a proxy and the affected card is simply
+    // incomplete. The leg list still must not claim the market closed.
+    expect(comparison.bookmakers.every(b=>b.selectionQuotes.every(q=>q.priceKind!=='PROXY'))).toBe(true);
+    expect(comparison.bookmakers.some(b=>!b.complete)).toBe(true);
     expect(html).not.toMatch(/based on|Estimated|data-source|slip-leg-books|Market closed/);
   });
 });
