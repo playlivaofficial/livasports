@@ -30,7 +30,7 @@ describe('owner commercial contrast',()=>{
 
 describe('pasting a generated creative',()=>{
   // Synthetic token only; the real channel tag exists solely in server-side campaign configuration.
-  const url='https://partners.1xbet.pe/I?tag=SyntheticTag_000001&site=6175483&ad=178222';
+  const url='https://1xaff.pe/I?tag=SyntheticTag_000001&site=6175483&ad=178222';
   it('accepts a whole iframe snippet and sends only its source URL',()=>{
     const snippet=`<iframe scrolling='no' frameBorder='0' width='100%' height='50' src="${url}"></iframe>`;
     expect(embedSource(snippet)).toBe(url);

@@ -20,7 +20,7 @@ const embed=(host:string,media:string,campaign='1')=>'https://c.bannerflow.net/a
 const rawEmbed=(host:string,media:string,campaign='1')=>'https://c.bannerflow.net/a/'+'a'.repeat(24)+
   `?display=image&did=${'b'.repeat(24)}&deeplink=on&adgroupid=${'c'.repeat(24)}&redirecturl=https://${host}/${TOKEN}/${campaign}/&media=${media}&campaign=${campaign}`;
 // The 1xBet Peru partner iframe. `tag` is synthetic here; the real channel token is server-side only.
-const iframe=(media:string,site='6175483')=>'https://partners.1xbet.pe/I?'+new URLSearchParams({tag:'SyntheticTag_000001',site,ad:media});
+const iframe=(media:string,site='6175483')=>'https://1xaff.pe/I?'+new URLSearchParams({tag:'SyntheticTag_000001',site,ad:media});
 
 /**
  * The owner's final commercial layout. Mexico and Colombia are single-operator. Peru is split so that
@@ -79,7 +79,7 @@ describe('MX/CO/PE banner activation',()=>{
     // A Bannerflow embed must redirect through its own jurisdiction's tracking host. A partner iframe
     // has no redirect of ours at all: it must be the approved 1xBet Peru origin and media id.
     expect(rows.every(r=>g.delivery==='ONE_XBET_IFRAME'
-      ?new URL(r.source).origin==='https://partners.1xbet.pe'&&new URL(r.source).searchParams.get('ad')==='178222'
+      ?new URL(r.source).origin==='https://1xaff.pe'&&new URL(r.source).searchParams.get('ad')==='178222'
       :new URL(new URL(r.source).searchParams.get('redirecturl')!).hostname===g.tracking)).toBe(true);
     // The server-owned tracking host is admitted for this jurisdiction only, and only when one exists.
     expect(f.row.destination_domains).toEqual([...g.domains,...(g.tracking?[g.tracking]:[])]);

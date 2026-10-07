@@ -51,7 +51,7 @@ export function validCreative(c:Creative,context:CommercialContext,now:number,ca
     // A publisher embed must satisfy its own delivery contract, which is what keeps an operator that
     // has neither a tracking host nor an approved partner iframe — bwin Colombia — from serving one.
     // A Bannerflow embed additionally needs the operator/GEO tracking host; the 1xBet Peru iframe is
-    // bound to 1xBet in Peru, to partners.1xbet.pe/I, to our verified site id and to an approved
+    // bound to 1xBet in Peru, to 1xaff.pe/I, to our verified site id and to an approved
     // media id by safeOneXBetIframe, so it needs no redirect host of ours.
     (isPublisherEmbed(c.delivery)?!!operator&&(c.delivery!=='BETSSON_EMBED'||!!embedTrackingHost(operator,c.locale))&&c.imageUrl===null&&embedDimensions(c.placement,c.width,c.height,c.delivery)&&!!campaignId&&!!safePublisherEmbed(c.delivery,c.embedSourceUrl,campaignId,operator,c.locale):
       (!c.delivery||c.delivery==='IMAGE')&&!c.embedSourceUrl&&typeof c.imageUrl==='string'&&/^\/sponsors\/[a-zA-Z0-9/_-]+\.(png|webp|jpg|jpeg|avif)$/.test(c.imageUrl))&&c.imageAlt.trim().length>0&&c.imageAlt.length<=300&&
