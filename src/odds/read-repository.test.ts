@@ -13,7 +13,8 @@ describe('DB-only odds navigation',()=>{
     expect(query.mock.calls[0][0]).toContain("abs(extract(epoch from ((fm.metadata->>'canonicalKickoff')::timestamptz - f.kickoff))) <= 600");
     expect(query.mock.calls[0][0]).toContain('o.source_mapping_verified AND');
     expect(query.mock.calls[0][0]).toContain('FROM odds_geo_current');
-    expect(query.mock.calls[0][0]).toContain("geo=$2 AND $2 IN ('MX','CO','PE')");
+    expect(query.mock.calls[0][0]).toContain("$2 IN ('MX','CO','PE') AND (geo=$2 OR");
+    expect(query.mock.calls[0][0]).toContain('period_end>now() AND verified_at IS NOT NULL');
     expect(query.mock.calls[0][0]).toContain('opm.provider_bookmaker_id=o.provider_bookmaker_id');
     expect(query.mock.calls[0][0]).toContain("g.verification_state IN ('VERIFIED','VERIFIED_'||co.iso2)");
     expect(query.mock.calls[0][0]).toContain("g.legal_status='VERIFIED'");
@@ -45,6 +46,20 @@ describe('DB-only odds navigation',()=>{
     expect(result.bookmakers).toEqual([]);expect(result.destinations).toEqual({});
   });
   const current={...row,canonical_fixture_id:fixtureId,public_id:publicId,observed_at:new Date(now),provider_updated_at:new Date(now),last_successful_refresh_at:new Date(now)};
+  it('hydrates source-verified references separately and never emits a foreign affiliate destination',async()=>{
+    const source={...current,id:'quote',provider_fixture_id:'event',provider_slug:'bwin',display_name:'bwin',provider_bookmaker_id:'bwin',source_provider:'ODDSPAPI',source_domain:'sports.bwin.com',source_domains:['sports.bwin.com'],destination:'https://sports.bwin.com/'};
+    const query=vi.fn().mockResolvedValue({rows:[source]});
+    const snapshot=await readOddsSnapshot({query},fixtureId,'MX');
+    expect(snapshot.referenceQuotes).toHaveLength(1);
+    expect(snapshot.referenceQuotes![0]).toMatchObject({quoteId:'quote',fixtureId,sourceGeo:'CO',targetGeo:'MX',bookmaker:'bwin'});
+    expect(snapshot.quotes[0].geoEligible).toBe(false);expect(snapshot.destinations).toEqual({});expect(snapshot.eligibleBookmakers).toEqual([]);
+    expect(buildComparison(snapshot,'MATCH_WINNER',now).references?.[0].quoteId).toBe('quote');
+    for(const override of [{mapping_verified:false},{display_eligible:false},{source_domain:'unverified.invalid'},{provider_bookmaker_id:'wrong'},{source_provider:'UNVERIFIED'}]){
+      query.mockResolvedValue({rows:[{...source,...override}]});
+      expect((await readOddsSnapshot({query},fixtureId,'MX')).referenceQuotes).toEqual([]);
+    }
+    for(const geo of [null,'BR'] as const){query.mockResolvedValue({rows:[source]});expect((await readOddsSnapshot({query},fixtureId,geo)).referenceQuotes).toEqual([]);}
+  });
   const betsson={...current,bookmaker_id:'s',provider_slug:'betsson',display_name:'Betsson',source_domain:'betsson.co',source_domains:['betsson.co'],destination_domains:['betsson.co'],decimal_odds:'2.20',
     destination:'https://betsson.co/',active_campaigns:[{type:'SPORTSBOOK',placements:['match_odds_table'],domains:['betsson.co']}]};
 

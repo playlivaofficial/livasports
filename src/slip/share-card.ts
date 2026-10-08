@@ -67,7 +67,10 @@ export function slipSharePayload(args:{
         competition:fixture?.competition??'',
         market:text.markets[s.market],
         outcome:selectionLabel(s,args.locale,fixture),
-        odds:view?.price?`≈${formatCombinedOdds(view.price.decimalOdds,args.locale)}`:slipCopy[args.locale].states.UNAVAILABLE,
+        // An exported image cannot refresh or retain expandable provenance. Do not
+        // export a reference number stripped of its source/time/expiry details.
+        odds:view?.price?.priceKind==='INDICATIVE'?(args.locale==='en'?'Indicative — see LivaSports':args.locale==='br'?'Indicativa — ver LivaSports':'Orientativa — ver LivaSports'):
+          view?.price?`≈${formatCombinedOdds(view.price.decimalOdds,args.locale)}`:slipCopy[args.locale].states.UNAVAILABLE,
       };
     }),
     bookmakers:(args.comparison?.bookmakers??[]).map(b=>({

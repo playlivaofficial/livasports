@@ -7,7 +7,7 @@ import {SELECTIONS,type OddsReadSnapshot} from './types';
 import type {CommercialGeo} from './commercial-geo';
 import {isVisibleBookmaker} from './registry';
 
-export function listingMatchWinnerOdds(snapshot:OddsReadSnapshot,now=Date.now()):Pick<FixtureView,'odds'|'oddsState'> {
+export function listingMatchWinnerOdds(snapshot:OddsReadSnapshot,now=Date.now()):Pick<FixtureView,'odds'|'oddsState'|'referenceOdds'> {
   const comparison=buildComparison(snapshot,'MATCH_WINNER',now);
   const outcomes:MarketOddsView['outcomes']=SELECTIONS.MATCH_WINNER.map(outcome=>({
     outcome:outcome as OutcomeCode,
@@ -28,7 +28,7 @@ export function listingMatchWinnerOdds(snapshot:OddsReadSnapshot,now=Date.now())
   const stale=snapshot.quotes.some(q=>q.geoEligible&&q.market==='MATCH_WINNER'&&quoteState(q,snapshot,now)==='STALE');
   const complete=comparison.rows.length>0&&comparison.rows.every(row=>row.cells.every(cell=>cell.state==='ACTIVE'&&cell.decimalOdds!==null));
   const oddsState=complete?'complete':activeBooks.size>0?'partial':stale?'stale':'none';
-  return {odds,oddsState};
+  return {odds,oddsState,...(comparison.references?.length?{referenceOdds:comparison.references}:{})};
 }
 
 export async function attachListingOdds(db:QueryExecutor,page:M2PageData,now=Date.now(),geo:CommercialGeo|null=null):Promise<M2PageData> {

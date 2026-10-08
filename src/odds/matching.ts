@@ -16,6 +16,23 @@ const aliases: Record<string, Record<string,string>> = {
     'ac goianiense go':'atletico go',
   },
   'liga-mx': { tigres:'tigres uanl', 'san luis':'atletico san luis', 'tijuana de caliente':'tijuana', 'club tijuana de caliente':'tijuana' },
+  // P0 2026-10-08: saved OddsPapi events checked against canonical competition,
+  // both participant roles and exact UTC kickoff. No fuzzy/global suffix matching.
+  'liga-expansion-mx': {
+    'alebrijes de oaxaca fc':'alebrijes de oaxaca','cf correcaminos uat':'correcaminos uat',
+    'club atletico la paz':'ca la paz','tepatitlan fc':'tepatitlan de morelos','atletico morelia':'morelia',
+    'piratas veracruz':'piratas','leones negros udeg':'universidad guadalajara',
+    'alacranes de durango':'durango','cd mineros de zacatecas':'mineros de zacatecas','cancun fc':'cancun',
+  },
+  'colombia-primera-a': {
+    'cd tolima':'deportes tolima','fortaleza fc':'fortaleza ceif','deportivo pereira fc sa':'deportivo pereira',
+    'cd junior fc':'junior fc','aguilas doradas rionegro':'rionegro aguilas',
+  },
+  'colombia-primera-b': {
+    'atletico fc cali':'atletico','real cartagena fc':'real cartagena','boyaca patriotas':'patriotas boyaca',
+  },
+  'ligue-2': {'grenoble foot':'grenoble foot 38','nancy lorraine':'nancy','stade lavallois mfc':'laval',
+    'sochaux montbeliard':'sochaux','clermont foot 63':'clermont'},
   'peru-liga-1': {
     // Reviewed against the 2026-10-08 saved feed and unique canonical events: same teams, roles and UTC kickoff.
     // Liga1's 2026 club register confirms the full names; Moquegua is the former UCV Moquegua club.
@@ -117,6 +134,7 @@ const aliases: Record<string, Record<string,string>> = {
     'slavia prague':'slavia praha',
   },
   'argentina-primera-division': {
+    'ca sarmiento junin':'sarmiento',
     // Reviewed against the saved provider fixture and the unique same-role, same-kickoff canonical event.
     'racing club avellaneda':'racing club',
     'deportivo riestra afbc':'deportivo riestra',

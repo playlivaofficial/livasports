@@ -13,6 +13,8 @@ import {BOOKMAKER_REGISTRY,isVisibleBookmaker} from '@/odds/registry';
 import {isSpanishLocale} from '@/config/geo';
 import {BookmakerLogo} from '@/components/odds/BookmakerLogo';
 import {matchPath} from '@/match-center/routes';
+import {ReferenceOdds} from '@/components/odds/ReferenceOdds';
+import {UnpricedSelections} from '@/components/odds/UnpricedSelections';
 
 const MATCH_WINNER_CELLS = [
   { outcome: OutcomeCode.HOME, label: '1' },
@@ -68,7 +70,7 @@ export function OddsComparison({ locale, fixture, emptyLabel, commercialLocale }
     : fixture.oddsState === 'unavailable' ? labels.oddsUnavailable
       : emptyLabel ?? (locale==='br'?'Odds indisponíveis':isSpanishLocale(locale)?'Cuotas no disponibles':'Odds unavailable');
   if (!books.length) {
-    return <div className="odds-slot"><span className="odds-empty" title={unavailableLabel} aria-label={unavailableLabel}>—</span></div>;
+    return <div className="odds-slot">{fixture.referenceOdds?.length?<ReferenceOdds quotes={fixture.referenceOdds} fixturePublicId={fixture.publicId} locale={commercialLocale} uiLocale={locale}/>:<><span className="odds-empty" title={unavailableLabel} aria-label={unavailableLabel}>—</span>{fixture.status==='SCHEDULED'?<UnpricedSelections fixturePublicId={fixture.publicId} kickoff={fixture.kickoff} locale={commercialLocale} uiLocale={locale}/>:null}</>}</div>;
   }
   const currentPrice = (price: ListingPrice | null) => !!price?.expiresAt && (clock === null || clock < Date.parse(price.expiresAt));
   const summary = books.map(book => `${book.label} ${book.cells.map(cell => currentPrice(cell.price) ? cell.price!.decimalOdds.toFixed(2) : '—').join(' / ')}`).join(' · ');
@@ -104,5 +106,6 @@ export function OddsComparison({ locale, fixture, emptyLabel, commercialLocale }
         </div>
       ))}
     </div>
+    {fixture.referenceOdds?.length?<ReferenceOdds quotes={fixture.referenceOdds} fixturePublicId={fixture.publicId} locale={commercialLocale} uiLocale={locale}/>:null}
   </div>;
 }

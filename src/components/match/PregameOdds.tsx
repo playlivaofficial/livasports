@@ -14,6 +14,8 @@ import type {BookmakerId} from '@/odds/registry';
 import {withSpanishLocales} from '@/localization/spanish';
 import {geoForLocale,geoProfile,isSpanishLocale,type GeoLocale} from '@/config/geo';
 import {isSiteLocale,type SiteLocale} from '@/config/i18n';
+import {ReferenceOdds} from '@/components/odds/ReferenceOdds';
+import {UnpricedSelections} from '@/components/odds/UnpricedSelections';
 
 const copy=withSpanishLocales({
   br:{title:'Compare as odds',pregame:'Pré-jogo · 90 minutos',markets:{MATCH_WINNER:'Resultado final',TOTAL_GOALS:'Gols · 2,5',BTTS:'Ambas marcam'},
@@ -89,6 +91,8 @@ export function PregameOdds({initial,context,fixturePublicId,uiLocale}:{initial:
             <span className={`pregame-price${best?' is-best':''}${!current?' is-unavailable':''}`} title={best?text.best:!current?unavailable:undefined}>{current?<ApproximatePrice value={priceLabel} label={approximateLabel}/>:priceLabel}{best?<span className="sr-only"> {text.best}</span>:null}</span>}</td>;})}
           <td>{row.action&&row.cells.some(cellCurrent)&&fixturePublicId?<AffiliateLink compact className="match-affiliate-cta" uiLocale={presentation} onAvailability={onAvailability} context={{locale:commercialLocale,placement:'match_odds_table',bookmaker:row.bookmaker as 'betsson'|'betano.bet.br',fixturePublicId,market}}>{commercialCopy[presentation].ctaAt(bookmakerShortName(row.bookmaker,row.name))} <span aria-hidden="true">↗</span></AffiliateLink>:<span className="odds-no-action">—</span>}</td></tr>)}</tbody></table>:null}
       {!available?<p className="pregame-empty" role="status">{unavailable}</p>:available===1?<p className="odds-note">{text.single}</p>:null}
+      {selected?.references?.length?<ReferenceOdds quotes={selected.references} fixturePublicId={fixturePublicId} locale={resolvedCommercialLocale} uiLocale={presentation}/>:null}
+      {!available&&!selected?.references?.length?<UnpricedSelections fixturePublicId={fixturePublicId} kickoff={selected?.closesAt} market={market} locale={resolvedCommercialLocale} uiLocale={presentation}/>:null}
       <p className="odds-note">{slipText.oddsMayChange}</p>
     </div>
     {Object.values(commercial).some(Boolean)?<p className="affiliate-disclosure">{commercialCopy[presentation].destination} {commercialCopy[presentation].disclosure}</p>:null}

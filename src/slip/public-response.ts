@@ -4,6 +4,7 @@ import type {ResolvedSelection,SlipResolution} from './types';
 function publicSelection(value:ResolvedSelection):ResolvedSelection {
   if(!value.price)return value;
   const price={...value.price};
+  if(price.priceKind==='INDICATIVE')return {...value,price};
   delete price.sourceBookmaker;delete price.sourceQuoteId;delete price.sourceObservedAt;
   return {...value,price};
 }
