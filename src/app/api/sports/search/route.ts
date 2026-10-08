@@ -1,3 +1,4 @@
+import {requestEffectiveGeo} from '@/odds/commercial-geo';
 import {databaseUrl,PostgresDatabaseClient} from '@/database/client';
 import {isInterfaceLocale} from '@/localization/interface';
 import {sportsQuery} from '@/sports/policy';
@@ -15,7 +16,7 @@ export async function GET(request:Request):Promise<Response> {
   if(!connection)return Response.json({error:'SEARCH_TEMPORARILY_UNAVAILABLE',providerRequests:0},{status:503,headers:{'Cache-Control':'no-store'}});
   const db=new PostgresDatabaseClient(connection);
   try{
-    const suggestions=await new SportsRepository(db).search(query,locale);
+    const suggestions=await new SportsRepository(db).search(query,locale,requestEffectiveGeo(request.headers));
     if(suggestions.length>SEARCH_SUGGESTION_LIMIT)return Response.json({error:'SEARCH_TEMPORARILY_UNAVAILABLE',providerRequests:0},{status:503,headers:{'Cache-Control':'no-store'}});
     return Response.json({suggestions,providerRequests:0},{headers:{'Cache-Control':'no-store'}});
   }catch{

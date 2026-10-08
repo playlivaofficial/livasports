@@ -9,7 +9,7 @@ import {localDateKey} from '@/delivery/time';
 import {competitionName,numericStatistic,resolveDefaultSeason,sportsPageSize} from './policy';
 import {rankSportsSearch} from './search-rank';
 import {targetBySlug,APPROVED_COMPETITION_SLUGS,isAcquisitionCompetition} from '@/config/footballCompetitions';
-import {competitionDemand,geoForLocale,isSpanishLocale} from '@/config/geo';
+import {competitionDemand,geoForLocale,isSpanishLocale,type Geo} from '@/config/geo';
 import {deliveryWindow} from '@/delivery/time';
 import {countryCodeFromName} from '@/profiles/localization';
 import type {CompetitionHub,CompetitionNavItem,PendingSportsFixture,SportsFixture,SportsSearchResult,SportsStanding,SportsTeam} from './types';
@@ -42,7 +42,7 @@ export class SportsRepository {
     }
     return result;
   }
-  async boardNav(locale:InterfaceLocale,timeZone=interfaceDictionary(locale).timeZone):Promise<CompetitionNavItem[]>{
+  async boardNav(locale:InterfaceLocale,timeZone=interfaceDictionary(locale).timeZone,geo:Geo=geoForLocale(locale)):Promise<CompetitionNavItem[]>{
     const now=new Date();
     const window=deliveryWindow(locale==='en'?'br':locale,'football',now,timeZone);
     const rows=(await this.db.query<Row>(`SELECT c.slug,c.canonical_name,c.display_name_pt_br,c.display_name_es_mx,c.competition_group,c.region,
@@ -51,9 +51,9 @@ export class SportsRepository {
       LEFT JOIN fixtures f ON f.competition_id=c.id AND f.kickoff>=$1 AND f.kickoff<$2
       LEFT JOIN growth_geo_priorities p ON p.fixture_id=f.id AND p.geo=$3 AND p.active AND p.priority_rank<=5
         AND f.status='SCHEDULED' AND f.kickoff>now() AND f.kickoff<=now()+interval '7 days'
-      WHERE c.enabled AND c.slug=ANY($4::text[]) GROUP BY c.id,co.iso2,co.name ORDER BY c.slug`,[window.from,window.to,geoForLocale(locale),APPROVED_COMPETITION_SLUGS])).rows;
+      WHERE c.enabled AND c.slug=ANY($4::text[]) GROUP BY c.id,co.iso2,co.name ORDER BY c.slug`,[window.from,window.to,geo,APPROVED_COMPETITION_SLUGS])).rows;
     return rows.filter(row=>isAcquisitionCompetition(String(row.slug))).map(row=>{const slug=String(row.slug),target=targetBySlug(slug),canonical=string(row.canonical_name)??target?.canonicalName??slug;return {slug,name:(locale==='br'?string(row.display_name_pt_br):isSpanishLocale(locale)?string(row.display_name_es_mx):null)??competitionName(locale,slug)??canonical,
-      priority:row.growth_rank!==null&&row.growth_rank!==undefined?-100+Number(row.growth_rank):100-competitionDemand(geoForLocale(locale),slug),
+      priority:row.growth_rank!==null&&row.growth_rank!==undefined?-100+Number(row.growth_rank):100-competitionDemand(geo,slug),
       group:['BRAZIL','AMERICAS','EUROPE'].includes(String(row.competition_group))?String(row.competition_group):'OTHER',count:Number(row.n),
       countryCode:string(row.country_code),countryName:string(row.country_name),region:string(row.region)??target?.region??'OTHER'};}).sort((a,b)=>a.priority-b.priority||a.slug.localeCompare(b.slug));
   }
@@ -116,10 +116,9 @@ export class SportsRepository {
     base.scorers.forEach((r,i,rows)=>{r.rank=i&&rows[i-1].goals===r.goals?rows[i-1].rank:i+1;});
     base.teams=teamRows.rows.map(r=>team(r));base.standingsFreshness=await readStandingsFreshness(this.db,season.id);return base;
   }
-  async search(query:string,locale:InterfaceLocale):Promise<SportsSearchResult[]>{
+  async search(query:string,locale:InterfaceLocale,geo:Geo=geoForLocale(locale)):Promise<SportsSearchResult[]>{
     if(query.length<1)return [];
     const literal=query.replace(/[\\%_]/g,'\\$&'),pattern='%'+literal+'%';
-    const geo=geoForLocale(locale);
     // Apply shared demand before the bounded candidate queries, not only after LIMIT.
     // Historical entities retain their direct URLs; this is the active discovery pool.
     const acquisitionSlugs=APPROVED_COMPETITION_SLUGS.filter(isAcquisitionCompetition)

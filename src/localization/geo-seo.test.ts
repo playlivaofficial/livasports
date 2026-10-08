@@ -31,7 +31,7 @@ describe('canonical MX / CO / PE locale contract',()=>{
     }
   });
   it('country evidence is not fabricated from a locale preference',()=>{
-    expect(defaultLanguage('co','MX')).toBe('co');expect(defaultLanguage(null,'US')).toBe('en');
+    expect(defaultLanguage('co','MX')).toBe('mx');expect(defaultLanguage(null,'US')).toBe('en');
     for(const locale of interfaceLocales)expect(localeOfPage('https://livasports.com'+interfaceRoutes[locale].home)).toBe(languageTags[locale]);
     expect(localeOfPage('https://livasports.com/es-co/partido/a')).toBe('other');
   });

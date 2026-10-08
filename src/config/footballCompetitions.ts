@@ -1,7 +1,7 @@
 import { CompetitionType, TeamType } from '@/domain/enums';
 import {competitionDemand,CORE_GEOS,type CoreGeo} from './geo';
 
-export type ProductGeo = 'BR' | CoreGeo;
+export type ProductGeo = 'BR' | 'ROW' | CoreGeo;
 export type CompetitionRegion = 'EUROPE' | 'SOUTH_AMERICA' | 'NORTH_AMERICA' | 'MIDDLE_EAST' | 'GLOBAL';
 export type CompetitionGroup = 'BRAZIL' | 'EUROPE' | 'AMERICAS' | 'INTERNATIONAL' | 'OTHER';
 export type SeasonStrategy = 'STANDARD' | 'SPLIT' | 'EDITION' | 'CYCLE';

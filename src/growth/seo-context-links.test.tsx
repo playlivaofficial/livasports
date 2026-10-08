@@ -22,8 +22,8 @@ describe('GEO contextual crawl links',()=>{
     expect(query.mock.calls.at(-1)?.[1]).toEqual(['HOME','CO']);
   });
   it('does not promote BR or neutral historic pages',async()=>{
-    query.mockClear();expect(await GrowthProminence({locale:'en',surface:{kind:'HOME'}})).toBeNull();
-    expect(await GrowthProminence({locale:'br',surface:{kind:'HOME'}})).toBeNull();expect(query).not.toHaveBeenCalled();
+    query.mockClear();expect(renderToStaticMarkup(await GrowthProminence({locale:'en',surface:{kind:'HOME'}}))).toBe('');
+    expect(renderToStaticMarkup(await GrowthProminence({locale:'br',surface:{kind:'HOME'}}))).toBe('');expect(query).not.toHaveBeenCalled();
   });
   it.each(['mx','co','pe'] as const)('%s populated priorities are request-independent and hydrate private time separately',async locale=>{
     const kickoff='2026-10-04T00:41:00.000Z';
@@ -41,6 +41,6 @@ describe('GEO contextual crawl links',()=>{
   });
   it('drops a wrong-GEO canonical URL even if a malformed record is returned',async()=>{
     query.mockResolvedValue({rows:[{canonical_url:'https://livasports.com/co/partido/a'}]});
-    expect(await GrowthProminence({locale:'mx',surface:{kind:'HOME'}})).toBeNull();
+    expect(renderToStaticMarkup(await GrowthProminence({locale:'mx',surface:{kind:'HOME'}}))).toBe('');
   });
 });

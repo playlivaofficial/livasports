@@ -27,6 +27,6 @@ export function groupFixtureViews(fixtures: readonly FixtureView[], competitions
     group.fixtures.push(fixture);
     groups.set(key, group);
   }
-  return [...groups.values()].sort((left, right) => left.priority - right.priority || left.competition.localeCompare(right.competition))
+  return [...groups.values()].sort((left, right) => left.priority - right.priority || left.slug.localeCompare(right.slug))
     .map(group => ({ ...group, fixtures: [...group.fixtures].sort((left, right) => left.kickoff.localeCompare(right.kickoff) || left.id.localeCompare(right.id)) }));
 }

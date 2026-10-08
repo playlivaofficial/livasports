@@ -26,7 +26,9 @@ vi.mock('react',async importOriginal=>({
 type Preference=ComponentProps<typeof TimePreferenceProvider>;
 function presentation(){
   hooks.cursor=0;
-  return (PublicPresentation({children:null}).props.children as ReactElement<Preference>).props;
+  let element=PublicPresentation({children:null}) as ReactElement<{children:ReactElement}>;
+  while(element.type!==TimePreferenceProvider)element=element.props.children as ReactElement<{children:ReactElement}>;
+  return element.props as unknown as Preference;
 }
 async function privateRead(body:unknown){
   hooks.state=[];hooks.effects=[];
@@ -39,7 +41,7 @@ async function privateRead(body:unknown){
 }
 const kickoff='2026-10-11T15:30:00Z',options={hour:'2-digit',minute:'2-digit',hourCycle:'h23'} as const;
 function expectBoardAndGrowthAgree(locale:InterfaceLocale,preference:Preference,expected:string){
-  const board=new Intl.DateTimeFormat(languageTags[locale],{...options,timeZone:resolveTimeZone(locale,preference.manual,preference.device)}).format(new Date(kickoff));
+  const board=new Intl.DateTimeFormat(languageTags[locale],{...options,timeZone:preference.manual||preference.device?resolveTimeZone(locale,preference.manual,preference.device):preference.defaultTimeZone??resolveTimeZone(locale,null,null)}).format(new Date(kickoff));
   const growth=renderToStaticMarkup(<TimePreferenceProvider {...preference}><LocalizedTimeText locale={locale} value={kickoff} options={options}/></TimePreferenceProvider>);
   expect(board).toBe(expected);expect(growth).toBe(board);
 }
@@ -54,7 +56,7 @@ describe('public Growth and request-rendered board timezone consistency',()=>{
   it('does not masquerade an unsaved browser zone as a persisted device preference',async()=>{
     const preference=await privateRead({manual:null,device:null});
     expect(preference).toMatchObject({manual:null,device:null,ready:true});
-    expectBoardAndGrowthAgree('co',preference,'10:30');
+    expectBoardAndGrowthAgree('co',preference,'15:30');
     expect(shouldDetectDeviceTimeZone(preference.ready!,preference.manual,preference.device,'Asia/Tbilisi')).toBe(true);
   });
   it('uses the same saved device zone after the existing private cookie/reload flow',async()=>{

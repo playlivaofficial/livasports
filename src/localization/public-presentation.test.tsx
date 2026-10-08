@@ -29,13 +29,13 @@ describe('private presentation endpoint',()=>{
     expect(response.status).toBe(200);expect(response.headers.get('cache-control')).toBe('private, no-store');
     expect(response.headers.get('vary')).toBe('Cookie');expect(response.headers.get('x-robots-tag')).toBe('noindex, nofollow');
     expect(response.headers.has('set-cookie')).toBe(false);expect(response.headers.has('access-control-allow-origin')).toBe(false);
-    expect(await response.json()).toEqual({manual:null,device:null,commercialLocale:null,owner:{authorized:false,preview:false,previewGeo:null}});
+    expect(await response.json()).toEqual({manual:null,device:null,productGeo:'ROW',commercialLocale:null,owner:{authorized:false,preview:false,previewGeo:null}});
   });
   it('returns only validated preferences and signed GEO, never session IDs or secrets',async()=>{
     const session={...newOwnerSession(),preview:true,previewGeo:'CO' as const};const token=signOwnerSession(session);
     const response=GET(request(`${ownerCookie}=${token}; livasports_time_zone=Asia%2FTokyo; livasports_device_time_zone=America%2FMexico_City`));
     const body=await response.text();
-    expect(JSON.parse(body)).toEqual({manual:'Asia/Tokyo',device:'America/Mexico_City',commercialLocale:'co',owner:{authorized:true,preview:true,previewGeo:'CO'}});
+    expect(JSON.parse(body)).toEqual({manual:'Asia/Tokyo',device:'America/Mexico_City',productGeo:'CO',commercialLocale:'co',owner:{authorized:true,preview:true,previewGeo:'CO'}});
     expect(body).not.toContain(session.id);expect(body).not.toContain(token);expect(body).not.toContain('expiresAt');expect(body).not.toContain(process.env.OWNER_QA_SESSION_SECRET!);
   });
   it('fails closed for forged headers, signatures, expired sessions, and duplicated owner cookies',async()=>{
@@ -49,7 +49,7 @@ describe('private presentation endpoint',()=>{
   });
   it('does not trust invalid timezone cookies or silently turn a device preference into GEO authority',async()=>{
     const response=GET(request('livasports_time_zone=not-a-zone; livasports_device_time_zone=%2F%2Fevil.test',{'x-vercel-ip-country':'PE'}));
-    const body=await response.json();expect(body.manual).toBeNull();expect(body.device).toBeNull();expect(body.commercialLocale).toBeNull();expect(Object.keys(body).sort()).toEqual(['commercialLocale','device','manual','owner']);
+    const body=await response.json();expect(body.manual).toBeNull();expect(body.device).toBeNull();expect(body.commercialLocale).toBeNull();expect(Object.keys(body).sort()).toEqual(['commercialLocale','device','manual','owner','productGeo']);
   });
   it('denies previously signed sessions after owner access is unconfigured',async()=>{
     const token=signOwnerSession({...newOwnerSession(),preview:true});vi.stubEnv('OWNER_QA_SESSION_SECRET','');

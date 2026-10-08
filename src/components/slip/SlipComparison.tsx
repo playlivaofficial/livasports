@@ -16,7 +16,7 @@ function missingQuotes(book:BookmakerSlip){
   return book.selectionQuotes.filter(q=>q.decimalOdds===null);
 }
 
-export function SlipComparison({locale,selections,value,checking,uiLocale,stake,slipId}:{locale:SiteLocale;selections:SavedSelection[];value:Comparison|null;checking:boolean;uiLocale?:SlipUiLocale;stake:string;slipId?:string}){
+export function SlipComparison({locale,selections,value,checking,uiLocale,stake,slipId,currencyLocale=locale}:{locale:SiteLocale;selections:SavedSelection[];value:Comparison|null;checking:boolean;uiLocale?:SlipUiLocale;currencyLocale?:SlipUiLocale;stake:string;slipId?:string}){
   const copyLocale:SlipUiLocale=uiLocale??locale;const text=comparisonCopy[copyLocale];const section=useRef<HTMLElement>(null);
   const approximateLabel=copyLocale==='br'?'preço aproximado':copyLocale==='en'?'approximate price':'cuota aproximada';
   const eventSignature=JSON.stringify({locale,selections:selections.map(s=>canonicalSelection(s)),bookmakers:value?.bookmakers??null});
@@ -44,7 +44,7 @@ export function SlipComparison({locale,selections,value,checking,uiLocale,stake,
       {!value.bookmakers.length?<p className="slip-comparison-note">{text.noBookmaker}</p>:value.bookmakers.map(b=>{
         const combined=b.complete&&b.combinedDecimalOdds?formatSlipOdds(b.combinedDecimalOdds,copyLocale):null;
         const estimated=combined&&b.combinedDecimalOdds?potentialReturn(stake,b.combinedDecimalOdds):null;
-        const estimatedLabel=estimated?formatMoney(estimated,locale):null;
+        const estimatedLabel=estimated?formatMoney(estimated,currencyLocale):null;
         const stakeOk=parseStake(stake)!==null;
         const missing=missingQuotes(b);
         const bookName=bookmakerShortName(b.bookmakerId,b.displayName);
