@@ -49,20 +49,20 @@ export function OddsComparison({locale,fixture,emptyLabel,commercialLocale}:{loc
     {books.length?<div className="listing-odds-books">
       {books.map(book=>{
         const priced=book.cells.some(c=>current(c.price));
-        return <div className="listing-odds-book" key={book.id} data-primary-bookmaker={book.id}>
+        return <div className={`listing-odds-book${priced?'':' is-unavailable'}`} key={book.id} data-primary-bookmaker={book.id}>
           <BookmakerLogo bookmaker={book.id} uiLocale={locale} sources={book.cells.flatMap(c=>c.price&&current(c.price)?[c.price]:[])}
             context={priced&&fixture.publicId&&commercialLocale?{locale:commercialLocale,placement:'match_odds_table',bookmaker:book.id,fixturePublicId:fixture.publicId,market:'MATCH_WINNER',pagePath:matchPath(commercialLocale,fixture.publicId,fixture.homeTeam,fixture.awayTeam)}:undefined}/>
           {priced?<div className="listing-odds">{book.cells.map(cell=>{
             const intent=selectable?canonicalSelection({fixturePublicId:fixture.publicId,market:'MATCH_WINNER',outcome:cell.outcome,line:null,scope:SLIP_SCOPE}):null;
             const pressed=!!intent&&saved.slip.selections.some(s=>selectionKey(s)===selectionKey(intent));
             const valid=current(cell.price),priceLabel=cell.price?.decimalOdds.toFixed(2);
-            const price=valid?(cell.price?.priceKind==='PROXY'?<ApproximatePrice className="listing-odds-price" value={priceLabel!} label={text.oddsMayChange}/>:<strong className="listing-odds-price" data-price-kind="REAL">{priceLabel}</strong>):<span className="listing-odds-unavailable">{unavailable}</span>;
+            const price=valid?(cell.price?.priceKind==='PROXY'?<ApproximatePrice className="listing-odds-price" value={priceLabel!} label={text.oddsMayChange}/>:<strong className="listing-odds-price" data-price-kind="REAL">{priceLabel}</strong>):<span className="listing-odds-unavailable" aria-label={unavailable} title={unavailable}>—</span>;
             return intent&&cell.price&&valid?<button type="button" key={cell.outcome} className="listing-odds-cell listing-odds-select" aria-pressed={pressed} disabled={!saved.ready} data-target-bookmaker={book.id}
               aria-label={`${pressed?text.selected:text.add}: ${book.label}, ${selectionLabel(intent,locale,{publicId:fixture.publicId!,home:fixture.homeTeam,away:fixture.awayTeam,competition:fixture.competition,kickoff:fixture.kickoff,status:fixture.status})}, ${priceLabel}`}
               onClick={event=>{event.preventDefault(); event.stopPropagation();addSlipSelection(intent,commercialLocale!,cell.price!.expiresAt!,book.id,{targetBookmaker:book.id,priceKind:cell.price!.priceKind});}}>
               {pressed?<span className="listing-odds-check" aria-hidden="true">✓</span>:null}<span className="listing-odds-label">{cell.label}</span>{price}
             </button>:<div key={cell.outcome} className={`listing-odds-cell${valid?'':' is-muted'}`}><span className="listing-odds-label">{cell.label}</span>{price}</div>;
-          })}</div>:<span className="listing-book-unavailable" title={emptyLabel}>{unavailable}</span>}
+          })}</div>:<span className="listing-book-unavailable" aria-label={unavailable} title={emptyLabel??unavailable}>—</span>}
         </div>;
       })}
     </div>:<span className="odds-empty" aria-label={unavailable}>{unavailable}</span>}

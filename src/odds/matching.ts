@@ -27,6 +27,10 @@ const aliases: Record<string, Record<string,string>> = {
   'colombia-primera-a': {
     'cd tolima':'deportes tolima','fortaleza fc':'fortaleza ceif','deportivo pereira fc sa':'deportivo pereira',
     'cd junior fc':'junior fc','aguilas doradas rionegro':'rionegro aguilas',
+    // DIMAYOR confirms the Valledupar move (2024-01-24) and current club name
+    // (2026-01-16). Saved event id1002707072335194 has the same opponent/roles
+    // and exact 2026-10-09T23:00Z kickoff as the legacy canonical club identity.
+    'alianza fc valledupar':'alianza petrolera',
   },
   'colombia-primera-b': {
     'atletico fc cali':'atletico','real cartagena fc':'real cartagena','boyaca patriotas':'patriotas boyaca',
