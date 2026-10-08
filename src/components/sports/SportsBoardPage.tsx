@@ -31,8 +31,9 @@ import {notFound} from 'next/navigation';
 import {JsonLd} from '@/seo/json-ld';
 import {competitionHubSchema,siteSchema} from '@/seo/structured-data';
 import {HOME_WINDOW_DAYS,weekHomeSections,type HomePeriod} from './home-density';
-import {GrowthProminence} from '@/growth/GrowthProminence';
 import {SeoPriorityLinks} from '@/seo-autopilot/public';
+
+const growthFeatured:Record<InterfaceLocale,string>={br:'Destaque',mx:'Destacado',co:'Destacado',pe:'Destacado',en:'Featured'};
 
 const copy=withSpanishLocales({
   br:{all:'Todos',live:'Ao vivo',upcoming:'Próximos',results:'Resultados',today:'Hoje',calendar:'Data dos jogos',go:'Ver',previous:'Dia anterior',next:'Dia seguinte',period:'Próximos 7 dias',competitions:'Competições',allCompetitions:'Todas as competições',empty:'Nenhum jogo neste filtro.',other:'Ver próximos jogos',odds:'Odds 1 X 2',pending:'Aguardando placar',fresh:'Últimos placares salvos',delayed:'Atualizações atrasadas',unavailable:'Atualizações indisponíveis',matches:'jogos',intro:'Placares, próximos jogos e comparação de odds — monte seu bilhete em um só lugar.'},
@@ -94,7 +95,6 @@ export async function SportsBoardPage({locale,page,searchParams}:{locale:Interfa
       <div className="sports-layout">
         <aside className="context-rail"><CompetitionNav locale={locale} title={text.competitions} allHref={href({competition:null})} allLabel={text.allCompetitions} activeSlug={requestedCompetition??competition} items={navItems}/></aside>
         <div className="fixture-content">
-          <GrowthProminence locale={locale} productGeo={productGeo} surface={requestedCompetition?{kind:'COMPETITION',slug:requestedCompetition}:page==='home'?{kind:'HOME'}:{kind:'DAILY'}}/>
           <SeoPriorityLinks locale={locale} surface={requestedCompetition?{kind:'COMPETITION',slug:requestedCompetition}:page==='home'?{kind:'HOME'}:{kind:'DAILY'}}/>
           {hub?<CompetitionPanel hub={hub} locale={locale} tab={tab}/>:requestedCompetition&&page==='football'?<p className="sports-empty" role="status">{sportsCopy[locale].unavailable}</p>:null}
           {showListing?<>
@@ -120,7 +120,9 @@ export async function SportsBoardPage({locale,page,searchParams}:{locale:Interfa
               return <article key={f.id} className={`fixture-row${live?' is-live':''}${showOdds?' has-odds':' has-no-odds'}`} aria-label={`${f.homeTeam} – ${f.awayTeam}`} data-kickoff={f.kickoff} data-status={f.status}>
                 <Link className="fixture-main-link" href={f.publicId?matchPath(locale,f.publicId,f.homeTeam,f.awayTeam):href({competition:section.slug})}>
                   <div className="fixture-timing"><time dateTime={f.kickoff}><span className="kickoff-time">{new Intl.DateTimeFormat(dictionary.locale,{hour:'2-digit',minute:'2-digit',timeZone}).format(new Date(f.kickoff))}</span>{!activeDate?<span className="kickoff-date">{new Intl.DateTimeFormat(dictionary.locale,{day:'2-digit',month:'2-digit',timeZone}).format(new Date(f.kickoff))}</span>:null}</time>
-                    {(f.status!=='SCHEDULED'||pending)?<span className={`status-badge ${live?'is-live':''}`}>{pending?text.pending:dictionary.statuses[f.status]}</span>:null}</div>
+                    {(f.status!=='SCHEDULED'||pending)?<span className={`status-badge ${live?'is-live':''}`}>{pending?text.pending:dictionary.statuses[f.status]}</span>:null}
+                    {/* The GEO's Growth Top 5 is marked inside the real listing rather than repeated in a separate block. */}
+                    {f.growthRank!==undefined&&f.status==='SCHEDULED'?<span className="growth-featured-badge" data-growth-rank={f.growthRank}>{growthFeatured[locale]}</span>:null}</div>
                   <div className="team-stack"><TeamIdentity name={f.homeTeam} imageUrl={f.homeTeamImageUrl}><RedCardCount locale={locale} count={redCards[f.id]?.home}/></TeamIdentity><TeamIdentity name={f.awayTeam} imageUrl={f.awayTeamImageUrl}><RedCardCount locale={locale} count={redCards[f.id]?.away}/></TeamIdentity></div><ScoreDisplay fixture={f}/>
                 </Link>
                 {f.publicId?<FavoriteButton locale={locale} kind="fixture" id={f.publicId} className="favorite-toggle-row"/>:null}

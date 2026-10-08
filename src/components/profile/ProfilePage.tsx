@@ -20,7 +20,7 @@ import { SponsoredSlot } from '@/components/commercial/SponsoredSlot';
 import { PlayerAvatar } from './PlayerAvatar';
 import { CountryMarkIcon } from '@/components/sports/CountryMarkIcon';
 import { FavoriteButton } from '@/favorites/FavoriteButton';
-import {GrowthProminence} from '@/growth/GrowthProminence';
+
 import {SeoPriorityLinks} from '@/seo-autopilot/public';
 
 const copy = withSpanishLocales({
@@ -123,7 +123,7 @@ export function TeamProfilePage({ locale, profile,history }: { locale: SiteLocal
   const recentForm=profile.recent.slice(0,5); const primaryStanding=profile.standings.data[0];
   return <div lang={dictionary.locale} className="app-shell profile-shell"><SiteHeader locale={locale} activePage="football" localeHrefs={alternate} contentId="profile-content"/>
     <main id="profile-content" className="profile-container"><Link className="profile-back" href={localeRoutes[locale].football}>← {text.back}</Link>
-      <TeamHeader locale={locale} profile={profile}/><GrowthProminence locale={locale} surface={{kind:'TEAM',teamId:profile.id}}/><SeoPriorityLinks locale={locale} surface={{kind:'TEAM',teamId:profile.id}}/><SponsoredSlot context={{locale,pagePath:teamPath(locale,profile.publicId,profile.name),placement:'team_top_leaderboard'}}/><SponsoredSlot context={{locale,pagePath:teamPath(locale,profile.publicId,profile.name),placement:'profile_mobile_inline'}}/><Nav locale={locale}/>
+      <TeamHeader locale={locale} profile={profile}/><SeoPriorityLinks locale={locale} surface={{kind:'TEAM',teamId:profile.id}}/><SponsoredSlot context={{locale,pagePath:teamPath(locale,profile.publicId,profile.name),placement:'team_top_leaderboard'}}/><SponsoredSlot context={{locale,pagePath:teamPath(locale,profile.publicId,profile.name),placement:'profile_mobile_inline'}}/><Nav locale={locale}/>
       <div className="profile-layout"><div className="profile-main">
         <section id="overview" className="profile-panel"><h2>{text.overview}</h2><div className="profile-overview-grid"><article><h3>{text.next}</h3>{profile.upcoming[0]?<MatchRow locale={locale} row={profile.upcoming[0]} teamId={profile.id}/>:<p>{text.noData}</p>}</article>
           <article><h3>{text.competitions}</h3><div className="competition-chips">{visibleContexts.map(item=><Link key={item.seasonId} href={competitionPath(locale,item.competitionSlug,{season:item.seasonId})}>{item.competition}<small>{item.season}</small></Link>)}</div></article>

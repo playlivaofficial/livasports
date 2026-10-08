@@ -1,46 +1,71 @@
 import {describe,it,expect,vi} from 'vitest';
-import {renderToStaticMarkup} from 'react-dom/server';
-import {load} from 'cheerio';
-import {geoForLocale,geoProfile} from '@/config/geo';
-import {TimePreferenceProvider} from '@/localization/TimeZoneSelector';
+import {readFileSync,readdirSync,statSync,existsSync} from 'node:fs';
+import {join} from 'node:path';
 vi.mock('server-only',()=>({}));
-const {query,close,requestTimeZone}=vi.hoisted(()=>({query:vi.fn(),close:vi.fn(),requestTimeZone:vi.fn(()=>{throw Error('Private timezone access breaks public ISR');})}));
+const {query,close}=vi.hoisted(()=>({query:vi.fn(),close:vi.fn()}));
 vi.mock('@/database/client',()=>({databaseUrl:()=> 'test-only',PostgresDatabaseClient:class {query=query;close=close;}}));
-vi.mock('@/localization/time-zone-server',()=>({requestTimeZone}));
-vi.mock('@/sports/SportsLink',()=>({default:({children,...props}:React.ComponentProps<'a'>)=><a {...props}>{children}</a>}));
-import {GrowthProminence} from './GrowthProminence';
+import {readPriorityLinks} from './prominence-read';
+import {PostgresFootballRepository} from '@/repositories/postgres-football.repository';
+import type {QueryExecutor} from '@/database/client';
 
-describe('GEO contextual crawl links',()=>{
-  it('keeps shared ranking order and adds canonical sibling links, not nested anchors',async()=>{
-    query.mockResolvedValue({rows:[{fixture_id:'f',priority_rank:1,priority_score:80,canonical_url:'https://livasports.com/co/partido/sao-paulo-x-santos-0123456789abcdef',context_localized:'Context',competition:'Brasileirão Série A',competition_slug:'brasileirao-serie-a',kickoff:'2026-10-01T20:00:00Z',home:'São Paulo',away:'Santos',home_public_id:'1111111111111111',away_public_id:'2222222222222222',brazil_relevant:true}]});
-    const $=load(renderToStaticMarkup(await GrowthProminence({locale:'co',surface:{kind:'HOME'}})));
-    expect($('.growth-context-links a').length).toBe(3);
-    expect($('.growth-context-links a').first().attr('href')).toBe('/co/futbol?competition=brasileirao-serie-a');
-    expect($('.growth-context-links a').eq(1).attr('href')).toBe('/co/equipo/sao-paulo-1111111111111111');
-    expect($('a a').length).toBe(0);expect(query.mock.calls.at(-1)?.[0]).toContain('ORDER BY p.priority_rank LIMIT 5');
-    expect(query.mock.calls.at(-1)?.[0]).toContain("f.status='SCHEDULED'");expect(query.mock.calls.at(-1)?.[0]).toContain('f.kickoff>now()');
-    expect(query.mock.calls.at(-1)?.[1]).toEqual(['HOME','CO']);
+const row=(over:Record<string,unknown>={})=>({fixture_id:'f',priority_rank:1,priority_score:80,canonical_url:'https://livasports.com/co/partido/sao-paulo-x-santos-0123456789abcdef',
+  context_localized:'Context',competition:'Brasileirão Série A',competition_slug:'brasileirao-serie-a',kickoff:'2026-10-01T20:00:00Z',home:'São Paulo',away:'Santos',
+  home_public_id:'1111111111111111',away_public_id:'2222222222222222',...over});
+
+/**
+ * The Growth Engine still selects an independent Top 5 per GEO. What was retired is only its separate
+ * public "Matches to follow" box; those fixtures are now marked inside the real fixture listing.
+ */
+describe('GEO Growth Top 5 read',()=>{
+  it('reads the GEO\'s own active Top 5, scheduled and upcoming, in rank order',async()=>{
+    query.mockResolvedValue({rows:[row()]});
+    const rows=await readPriorityLinks({kind:'HOME'},'CO');
+    expect(rows).toHaveLength(1);expect(rows[0]).toMatchObject({rank:1,home:'São Paulo',competitionSlug:'brasileirao-serie-a'});
+    const [sql,values]=query.mock.calls.at(-1)!;
+    expect(sql).toContain('ORDER BY p.priority_rank LIMIT 5');expect(sql).toContain("f.status='SCHEDULED'");expect(sql).toContain('f.kickoff>now()');
+    expect(values).toEqual(['HOME','CO']);
   });
-  it('does not promote BR or neutral historic pages',async()=>{
-    query.mockClear();expect(renderToStaticMarkup(await GrowthProminence({locale:'en',surface:{kind:'HOME'}}))).toBe('');
-    expect(renderToStaticMarkup(await GrowthProminence({locale:'br',surface:{kind:'HOME'}}))).toBe('');expect(query).not.toHaveBeenCalled();
+  it('drops a canonical URL that belongs to another GEO',async()=>{
+    query.mockResolvedValue({rows:[row({canonical_url:'https://livasports.com/co/partido/a'})]});
+    expect(await readPriorityLinks({kind:'HOME'},'MX')).toEqual([]);
   });
-  it.each(['mx','co','pe'] as const)('%s populated priorities are request-independent and hydrate private time separately',async locale=>{
-    const kickoff='2026-10-04T00:41:00.000Z';
-    query.mockResolvedValue({rows:[{fixture_id:'f',priority_rank:1,priority_score:80,canonical_url:`https://livasports.com/${locale}/partido/qa-local-x-qa-visitante-0123456789abcdef`,context_localized:'Context',competition:'QA Liga',competition_slug:'colombia-primera-a',kickoff,home:'QA Local',away:'QA Visitante',home_public_id:'1111111111111111',away_public_id:'2222222222222222'}]});
-    const element=await GrowthProminence({locale,surface:{kind:'HOME'}}),profile=geoProfile(geoForLocale(locale));
-    const shell=renderToStaticMarkup(element),$=load(shell);
-    expect(requestTimeZone).not.toHaveBeenCalled();
-    expect($('time').attr('datetime')).toBe(kickoff);
-    expect($('time').text()).toBe(new Intl.DateTimeFormat(profile.languageTag,{timeZone:profile.timeZone,weekday:'short',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}).format(new Date(kickoff)));
-    const hydrated=load(renderToStaticMarkup(<TimePreferenceProvider manual="Asia/Tbilisi" device={null}>{element}</TimePreferenceProvider>));
-    expect(hydrated('time').attr('datetime')).toBe(kickoff);
-    expect(hydrated('time').text()).toBe(new Intl.DateTimeFormat(profile.languageTag,{timeZone:'Asia/Tbilisi',weekday:'short',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}).format(new Date(kickoff)));
-    expect(hydrated('time').text()).toContain('04:41');
-    expect(renderToStaticMarkup(element)).toBe(shell);
+  it.each(['MX','CO','PE'] as const)('keeps %s isolated: the query is scoped to that GEO only',async geo=>{
+    query.mockResolvedValue({rows:[]});await readPriorityLinks({kind:'HOME'},geo);
+    expect(query.mock.calls.at(-1)![1]).toEqual(['HOME',geo]);
   });
-  it('drops a wrong-GEO canonical URL even if a malformed record is returned',async()=>{
-    query.mockResolvedValue({rows:[{canonical_url:'https://livasports.com/co/partido/a'}]});
-    expect(renderToStaticMarkup(await GrowthProminence({locale:'mx',surface:{kind:'HOME'}}))).toBe('');
+});
+
+describe('Growth Top 5 inside the real fixture listing',()=>{
+  it('attaches each Top 5 rank to its fixture and leads with its competition',async()=>{
+    const fixture=(id:string,slug:string)=>({id,public_id:'0123456789abcdef',sport_id:'s',competition_id:'c',season_id:null,home_team_id:'h',away_team_id:'a',
+      kickoff:'2026-10-10T20:00:00Z',status:'SCHEDULED',home_score:null,away_score:null,created_at:'2026-10-01',updated_at:'2026-10-01',provider_updated_at:null,
+      competition_name:slug,competition_slug:slug,competition_group:'EUROPE',competition_priority:50,home_team_name:'H',home_team_short_name:null,home_team_image_url:null,
+      away_team_name:'A',away_team_short_name:null,away_team_image_url:null});
+    const db={query:vi.fn(async(sql:string)=>sql.includes('growth_geo_priorities')
+      ?{rows:[{fixture_id:'ranked',priority_rank:2}]}
+      :{rows:[fixture('plain','premier-league'),fixture('ranked','la-liga')]})} as unknown as QueryExecutor;
+    const records=await new PostgresFootballRepository(db as never).listFixtures('CO',new Date('2026-10-08'),new Date('2026-10-15'));
+    const ranked=records.find(r=>r.fixture.id==='ranked')!,plain=records.find(r=>r.fixture.id==='plain')!;
+    expect(ranked.growthRank).toBe(2);expect(plain.growthRank).toBeUndefined();
+    expect(ranked.competitionPriority!).toBeLessThan(plain.competitionPriority!);
+  });
+});
+
+/** Regression guard: the retired public box must not come back on any GEO, language or surface. */
+const SRC=join(process.cwd(),'src');
+function sources(dir:string):string[]{return readdirSync(dir).flatMap(name=>{const p=join(dir,name);
+  return statSync(p).isDirectory()?sources(p):/\.(tsx?|css)$/.test(name)&&!/\.test\.tsx?$/.test(name)?[p]:[];});}
+describe('retired public "Matches to follow" box',()=>{
+  it('has no rendering component left',()=>{
+    expect(existsSync(join(SRC,'growth','GrowthProminence.tsx'))).toBe(false);
+    expect(existsSync(join(SRC,'growth','GrowthExperience.tsx'))).toBe(false);
+  });
+  it('is not rendered or imported by any public surface in any language',()=>{
+    const offenders=sources(SRC).filter(file=>!file.includes(join('src','owner'))).filter(file=>{
+      const text=readFileSync(file,'utf8');
+      return /GrowthProminence|GrowthExperience|GrowthCards|growth-prominence-item/.test(text)||
+        /Matches to follow|Partidos para seguir|Jogos para acompanhar/.test(text);
+    });
+    expect(offenders).toEqual([]);
   });
 });

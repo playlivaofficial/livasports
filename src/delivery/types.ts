@@ -21,6 +21,8 @@ export interface FixtureView {
   homeTeamShortName?: string | null; awayTeamShortName?: string | null; homeTeamImageUrl?: string | null; awayTeamImageUrl?: string | null;
   homeScore: number | null; awayScore: number | null; freshness: FreshnessState; odds: MarketOddsView[];
   oddsState: 'complete' | 'partial' | 'none' | 'stale' | 'unavailable';
+  /** 1–5 when this fixture is in the product GEO's active Growth Top 5. */
+  growthRank?: number;
 }
 export interface CompetitionView { competition: string; slug: string; group: string; priority: number; }
 export interface CompetitionSectionView extends CompetitionView { fixtures: FixtureView[]; }

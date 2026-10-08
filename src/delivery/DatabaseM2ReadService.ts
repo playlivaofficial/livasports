@@ -35,7 +35,7 @@ export class DatabaseM2ReadService {
           homeTeamShortName: row.homeTeamShortName, awayTeamShortName: row.awayTeamShortName,
           homeTeamImageUrl: row.homeTeamImageUrl, awayTeamImageUrl: row.awayTeamImageUrl,
           kickoff: fixture.kickoff.toISOString(), status: fixture.status, homeScore: fixture.homeScore, awayScore: fixture.awayScore,
-          freshness: 'fresh', odds: [], oddsState: 'none' }];
+          freshness: 'fresh', odds: [], oddsState: 'none', ...(row.growthRank!==undefined?{growthRank:row.growthRank}:{}) }];
       });
       const sportsData: ProviderState = views.length ? { state: 'available', freshness: 'fresh', reason: 'ok' } : noDataState();
       const sections = groupFixtureViews(views, competitionRows.map(row => ({ competition: (row.competitionSlug?competitionName(locale,row.competitionSlug):null)??row.competitionName,

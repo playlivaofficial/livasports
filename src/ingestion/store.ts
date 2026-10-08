@@ -104,6 +104,8 @@ export interface FixtureReadRecord {
   competitionSlug?: string; competitionGroup?: string; competitionPriority?: number;
   homeTeamShortName?: string | null; awayTeamShortName?: string | null;
   homeTeamImageUrl?: string | null; awayTeamImageUrl?: string | null;
+  /** 1–5 when this fixture is in the product GEO's active Growth Top 5. */
+  growthRank?: number;
 }
 
 export interface CompetitionReadRecord {
