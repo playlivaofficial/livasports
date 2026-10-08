@@ -7,6 +7,7 @@ import {addSlipSelection,useSlip} from '@/slip/client';
 import {canonicalSelection,selectionKey,SLIP_SCOPE} from '@/slip/types';
 import {slipCopy,selectionLabel} from '@/slip/localization';
 import {AffiliateLink,commercialCopy} from '@/components/commercial/AffiliateLink';
+import {bookmakerShortName} from '@/slip/comparison-copy';
 import {ApproximatePrice} from '@/components/odds/ApproximatePrice';
 import {BookmakerLogo} from '@/components/odds/BookmakerLogo';
 import type {BookmakerId} from '@/odds/registry';
@@ -86,7 +87,7 @@ export function PregameOdds({initial,context,fixturePublicId,uiLocale}:{initial:
             aria-label={`${pressed?slipText.selected:slipText.add}: ${slipText.markets[market]}, ${selectionLabel(intent,presentation)}, ${priceLabel}, ${approximateLabel}, ${row.name}`}
             onClick={()=>addSlipSelection(intent,commercialLocale,cell.expiresAt!,row.bookmaker,{targetBookmaker:cell.targetBookmaker,priceKind:cell.priceKind!})}>{pressed?<span className="slip-selected-indicator" aria-hidden="true">✓</span>:null}<ApproximatePrice value={priceLabel} label={approximateLabel}/>{best?<span className="sr-only"> {text.best}</span>:null}</button>:
             <span className={`pregame-price${best?' is-best':''}${!current?' is-unavailable':''}`} title={best?text.best:!current?unavailable:undefined}>{current?<ApproximatePrice value={priceLabel} label={approximateLabel}/>:priceLabel}{best?<span className="sr-only"> {text.best}</span>:null}</span>}</td>;})}
-          <td>{row.action&&row.cells.some(cellCurrent)&&fixturePublicId?<AffiliateLink compact className="match-affiliate-cta" uiLocale={presentation} onAvailability={onAvailability} context={{locale:commercialLocale,placement:'match_odds_table',bookmaker:row.bookmaker as 'betsson'|'betano.bet.br',fixturePublicId,market}}/>:<span className="odds-no-action">—</span>}</td></tr>)}</tbody></table>:null}
+          <td>{row.action&&row.cells.some(cellCurrent)&&fixturePublicId?<AffiliateLink compact className="match-affiliate-cta" uiLocale={presentation} onAvailability={onAvailability} context={{locale:commercialLocale,placement:'match_odds_table',bookmaker:row.bookmaker as 'betsson'|'betano.bet.br',fixturePublicId,market}}>{commercialCopy[presentation].ctaAt(bookmakerShortName(row.bookmaker,row.name))} <span aria-hidden="true">↗</span></AffiliateLink>:<span className="odds-no-action">—</span>}</td></tr>)}</tbody></table>:null}
       {!available?<p className="pregame-empty" role="status">{unavailable}</p>:available===1?<p className="odds-note">{text.single}</p>:null}
       <p className="odds-note">{slipText.oddsMayChange}</p>
     </div>

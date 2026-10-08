@@ -9,10 +9,13 @@ import {translatedPath} from '@/localization/interface';
 import {bookmakerConfig} from '@/odds/registry';
 import {revenueSurface} from '@/affiliate/attribution';
 
+// `ctaAt` names the operator the click goes to, which the slip comparison has always done. The odds
+// table uses it too, so a visitor on the highest-intent surface can see which sportsbook they are
+// about to open rather than a bare "view odds". The wording stays factual: no offer or bonus claim.
 const baseCommercialCopy={
-  br:{cta:'Ver odds',advertisement:'Publicidade',responsible:'18+. Aposte com responsabilidade.',disclosure:'Podemos receber uma comissão pelos links de parceiros. Isso não altera a ordem das odds.',destination:'Abre o site da casa. Confira suas seleções e as odds lá.'},
-  mx:{cta:'Ver cuotas',advertisement:'Publicidad',responsible:'18+. Apuesta con responsabilidad.',disclosure:'Podemos recibir una comisión por enlaces de socios. Esto no cambia el orden de las cuotas.',destination:'Abre el sitio de la casa. Revisa tus selecciones y las cuotas allí.'},
-  en:{cta:'View odds',advertisement:'Advertisement',responsible:'18+. Gamble responsibly.',disclosure:'We may receive a commission from partner links. That does not change the order of the odds.',destination:'Opens the bookmaker site. Check your selections and the odds there.'},
+  br:{cta:'Ver odds',ctaAt:(name:string)=>`Ver odds na ${name}`,advertisement:'Publicidade',responsible:'18+. Aposte com responsabilidade.',disclosure:'Podemos receber uma comissão pelos links de parceiros. Isso não altera a ordem das odds.',destination:'Abre o site da casa. Confira suas seleções e as odds lá.'},
+  mx:{cta:'Ver cuotas',ctaAt:(name:string)=>`Ver cuotas en ${name}`,advertisement:'Publicidad',responsible:'18+. Apuesta con responsabilidad.',disclosure:'Podemos recibir una comisión por enlaces de socios. Esto no cambia el orden de las cuotas.',destination:'Abre el sitio de la casa. Revisa tus selecciones y las cuotas allí.'},
+  en:{cta:'View odds',ctaAt:(name:string)=>`View odds at ${name}`,advertisement:'Advertisement',responsible:'18+. Gamble responsibly.',disclosure:'We may receive a commission from partner links. That does not change the order of the odds.',destination:'Opens the bookmaker site. Check your selections and the odds there.'},
 };
 export const commercialCopy={...baseCommercialCopy,co:baseCommercialCopy.mx,pe:baseCommercialCopy.mx};
 export type CommercialCopyLocale=keyof typeof commercialCopy;
