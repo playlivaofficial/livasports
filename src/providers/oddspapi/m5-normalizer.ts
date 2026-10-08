@@ -170,8 +170,14 @@ export function normalizeM5Snapshot(data:unknown,bookmaker:string,observedAt:str
         // Listed decimals on a collected, active market stay current. OddsPapi currently marks every
         // Betsson fixture bookmakerIsActive=false and suspended=true while still returning independent prices.
         // Legacy BR flag relaxation is not inherited by a newly mapped country's feed.
-        const strictNewFeed=!!operatorId||bookmakerConfig(result.bookmaker)?.providerFlagPolicy==='STRICT';
-        const suspended=market.marketActive!==true||(strictNewFeed&&(book.bookmakerIsActive!==true||book.suspended===true||price.active!==true));
+        // The verified Peru mapping requests this exact generic 1xBet feed. Passing its canonical
+        // operator ID must not discard the already audited bookmaker-flag exception. Unknown mapped
+        // feeds still stay strict, and 1xBet always requires an explicitly active individual price.
+        const verifiedOneXBet=bookmaker==='1xbet'&&result.bookmaker==='1xbet'&&
+          bookmakerConfig(bookmaker)?.providerFlagPolicy==='VERIFIED_LISTED_MARKET';
+        const strictNewFeed=(!!operatorId&&!verifiedOneXBet)||bookmakerConfig(result.bookmaker)?.providerFlagPolicy==='STRICT';
+        const suspended=market.marketActive!==true||(verifiedOneXBet&&price.active!==true)||
+          (strictNewFeed&&(book.bookmakerIsActive!==true||book.suspended===true||price.active!==true));
         const status:NormalizedOddsQuote['status']=fixture.status!=='PREGAME'||Date.parse(kickoff)<=Date.parse(observedAt)?'CLOSED':
           suspended?'SUSPENDED':stampInvalid?'STALE':'ACTIVE';
         if(stampInvalid)reject('MISSING_OR_FUTURE_TIMESTAMP');

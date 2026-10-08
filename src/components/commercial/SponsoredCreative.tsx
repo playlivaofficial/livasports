@@ -53,7 +53,7 @@ export function SponsoredCreative({offer,locale}:{offer:PublicOffer;locale:'br'|
   const [expired,setExpired]=useState(false),[failed,setFailed]=useState(false);
   useEffect(()=>{const timer=setTimeout(()=>setExpired(true),Math.max(1,Date.parse(offer.expiresAt)-Math.max(Date.now(),Date.parse(offer.resolvedAt))));return()=>clearTimeout(timer);},[offer]);
   const c=offer.creative;if(!c||expired||failed)return null;const text=commercialCopy[locale];
-  return <aside className={`commercial-sponsor sponsor-${offer.placement}`} aria-label={text.advertisement} data-placement={offer.placement}>
+  return <aside className={`commercial-sponsor sponsor-${offer.placement}`} aria-label={text.advertisement} data-placement={offer.placement} data-bookmaker={offer.bookmaker}>
     <span className="commercial-label">{text.advertisement}</span>
     {isPublisherEmbed(c.delivery)?<PublisherEmbed offer={offer} onFailure={()=>setFailed(true)}/>:c.imageUrl?<AffiliateAnchor offer={offer} locale={locale}>
       {/* eslint-disable-next-line @next/next/no-img-element */}

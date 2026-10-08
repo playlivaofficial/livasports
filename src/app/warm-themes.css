@@ -213,6 +213,12 @@
 .commercial-label { font-size: .54rem; letter-spacing: .09em; }
 .commercial-sponsor p { font-size: .58rem; line-height: 1.35; padding-block: .2rem; }
 :root .sponsor-home_top_banner { width: 970px; max-width: 100%; }
+/* Give Peru's approved 300x250 creative its native width, including the slot border. */
+@media(min-width:1200px) {
+  .sports-board .sports-layout:has(> .sponsor-home_right_rail[data-bookmaker="inkabet"]) { grid-template-columns: 178px minmax(0,1fr) 302px; }
+  .sponsor-match_right_rail[data-bookmaker="inkabet"] { width: 302px; max-width: 100%; }
+  .match-content-grid:has(.sponsor-match_right_rail[data-bookmaker="inkabet"]) { grid-template-columns: minmax(0,1fr) 302px; }
+}
 .owner-preview-bar { font-size: .65rem; }
 
 @media(min-width:768px) {

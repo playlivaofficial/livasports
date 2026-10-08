@@ -31,6 +31,7 @@ export const ROLE_PLACEMENTS:Readonly<Record<CreativeRole,readonly Placement[]>>
 interface InventoryCreative {mediaId:string;width:number;height:number}
 interface InventoryEntry {promotion:string;delivery:EmbedDelivery;roles:Readonly<Record<CreativeRole,readonly InventoryCreative[]>>}
 const PE_1XBET=ONE_XBET_PE_CREATIVES['178222'];
+const PE_1XBET_DESKTOP=ONE_XBET_PE_CREATIVES['178238'];
 
 /**
  * An empty role list means the jurisdiction deliberately gives that slot to another operator. Peru is
@@ -54,12 +55,11 @@ const INVENTORY:Readonly<Record<string,InventoryEntry>>={
     top:[],
     right:[{mediaId:'208596',width:300,height:250}],
     mobile:[]}},
-  // 1xBet Peru ships one approved creative, 320x50 (178222), as a partner iframe rather than a
-  // Bannerflow script. It serves both the desktop top banner — compact and centred at native size —
-  // and the mobile slot, which is a native 320x50 placement. 1xBet publishes no right-rail size for
-  // this promotion, so the Peru right rail stays with Inkabet.
+  // The official 800x200 (178238), verified in the authenticated media library on 2026-10-08, fills
+  // the desktop top. Keep 320x50 (178222) as the mobile creative and legacy desktop fallback during
+  // activation. The Peru right rail stays with Inkabet; no native creative is enlarged or distorted.
   '1xbet:pe':{promotion:'WELCOME BONUS_PERU_2025',delivery:'ONE_XBET_IFRAME',roles:{
-    top:[{mediaId:'178222',...PE_1XBET}],
+    top:[{mediaId:'178238',...PE_1XBET_DESKTOP},{mediaId:'178222',...PE_1XBET}],
     right:[],
     mobile:[{mediaId:'178222',...PE_1XBET}]}},
 };

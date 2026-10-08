@@ -18,6 +18,24 @@ const database=():DatabaseClient=>{
 afterEach(()=>vi.restoreAllMocks());
 
 describe('verified country feed transport and normalization',()=>{
+  it('preserves the audited exact 1xBet feed policy through the Peru adapter mapping',async()=>{
+    const book=offer('1xbet.com');book.bookmakerIsActive=false;
+    vi.spyOn(globalThis,'fetch').mockImplementation(async()=>Response.json([{...fixture,startTime:new Date(Date.now()+86400000).toISOString(),bookmakerOdds:{'1xbet':book}}]));
+    const adapter=new M5OddsPapiAdapter(database(),'test-only','test-job',2,false,Date.now()+140000,undefined,0);
+    adapter.setOperatorFeeds([{geo:'PE',operatorId:'1xbet',providerBookmakerId:'1xbet',sourceDomains:['1xbet.com']}]);
+    expect((await adapter.snapshot('1xbet',['325'])).quotes[0]).toMatchObject({bookmaker:'1xbet',status:'ACTIVE'});
+  });
+  it('keeps inactive 1xBet markets/prices, invalid timestamps and started fixtures unavailable',()=>{
+    const book=offer('1xbet.com');book.bookmakerIsActive=false;book.suspended=true;
+    const read=(raw=fixture)=>normalizeM5Snapshot([{...raw,bookmakerOdds:{'1xbet':book}}],'1xbet',observedAt,['325'],undefined,[],'1xbet').quotes[0];
+    expect(read().status).toBe('ACTIVE');
+    book.markets['101'].marketActive=false;expect(read().status).toBe('SUSPENDED');book.markets['101'].marketActive=true;
+    book.markets['101'].outcomes['101'].players['0'].active=false;expect(read().status).toBe('SUSPENDED');
+    book.markets['101'].outcomes['101'].players['0'].active=true;
+    book.markets['101'].outcomes['101'].players['0'].changedAt='';expect(read().status).toBe('STALE');
+    book.markets['101'].outcomes['101'].players['0'].changedAt=observedAt;
+    expect(read({...fixture,statusId:1}).status).toBe('CLOSED');
+  });
   it('requests only an exact verified feed ID and preserves its jurisdiction separately from canonical operator identity',async()=>{
     const request=vi.spyOn(globalThis,'fetch').mockImplementation(async()=>Response.json([{...fixture,bookmakerOdds:{'betsson.co':offer('betsson.co'),'betsson.pe':offer('betsson.pe',3.75)}}]));
     const adapter=new M5OddsPapiAdapter(database(),'test-only','test-job',2,false,Date.now()+140000,undefined,0);

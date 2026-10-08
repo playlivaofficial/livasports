@@ -16,6 +16,15 @@ const aliases: Record<string, Record<string,string>> = {
     'ac goianiense go':'atletico go',
   },
   'liga-mx': { tigres:'tigres uanl', 'san luis':'atletico san luis', 'tijuana de caliente':'tijuana', 'club tijuana de caliente':'tijuana' },
+  'peru-liga-1': {
+    // Reviewed against the 2026-10-08 saved feed and unique canonical events: same teams, roles and UTC kickoff.
+    // Liga1's 2026 club register confirms the full names; Moquegua is the former UCV Moquegua club.
+    'cd moquegua':'ucv moquegua',
+    'los chankas cyc':'los chankas',
+    'asociacion deportiva tarma':'adt',
+    'juan pablo ii college':'adc juan pablo ii',
+    'utc de cajamarca':'utc cajamarca',
+  },
   'premier-league': { nottingham:'nottingham forest', hull:'hull city', ipswich:'ipswich town', brighton:'brighton and hove albion', newcastle:'newcastle united' },
   'copa-libertadores': { 'estudiantes la plata':'estudiantes', 'ind del valle':'independiente del valle' },
   'la-liga': {
