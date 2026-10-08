@@ -19,7 +19,11 @@ export function useSlipResolution(selections:SavedSelection[],locale:SiteLocale)
   useEffect(()=>{
     let stopped=false;let busy=false;let lastAttempt=0;let active:AbortController|null=null;
     const input=JSON.parse(signature) as {locale:SiteLocale;selections:SavedSelection[]};
-    if(!input.selections.length)return;
+    if(!input.selections.length){
+      observations.clear();
+      queueMicrotask(()=>{if(!stopped){setData(null);setFailure(null);}});
+      return()=>{stopped=true;};
+    }
     const tick=()=>{if(!stopped&&document.visibilityState==='visible')setClock({wall:Date.now(),mono:performance.now()});};
     async function refresh(){
       if(stopped||busy||!input.selections.length||!navigator.onLine||document.visibilityState!=='visible'||Date.now()-lastAttempt<15000)return;
@@ -72,7 +76,7 @@ export function useSlipResolution(selections:SavedSelection[],locale:SiteLocale)
     }
   },[invalidSignature,locale]);
   const comparison=current?.body.comparison?guardSlipComparison(current.body.comparison,selections.length,now,online&&!failed):null;
-  return {resolved,comparison,failed,online,checking:!current&&!failed,resolvedAt:current?.body.resolvedAt??null,now};
+  return {resolved,comparison,failed,online,checking:selections.length>0&&!current&&!failed,resolvedAt:current?.body.resolvedAt??null,now};
 }
 
 export function resolvedByKey(values:ResolvedSelection[]){return new Map(values.map(v=>[selectionKey(v.selection),v]));}

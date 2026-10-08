@@ -122,7 +122,8 @@ export function selectIndicativeQuote(snapshot:OddsReadSnapshot,market:OddsMarke
       decimalOdds:q.decimalOdds,bookmaker:q.bookmaker,bookmakerName:q.bookmakerName,sourceGeo:q.sourceGeo,sourceDomain:q.sourceDomain!,
       quoteId:q.quoteId,observedAt:q.observedAt,providerUpdatedAt:q.providerUpdatedAt!,expiresAt:new Date(expires).toISOString(),affiliateEligible:false as const,executable:false as const}];
   });
-  return valid.sort((a,b)=>Date.parse(b.observedAt)-Date.parse(a.observedAt)||a.bookmaker.localeCompare(b.bookmaker)||a.quoteId.localeCompare(b.quoteId))[0]??null;
+  const target=snapshot.referenceQuotes?.[0]?.targetGeo;
+  return valid.sort((a,b)=>Number(b.sourceGeo===target)-Number(a.sourceGeo===target)||Date.parse(b.observedAt)-Date.parse(a.observedAt)||a.bookmaker.localeCompare(b.bookmaker)||a.quoteId.localeCompare(b.quoteId))[0]??null;
 }
 /** Only server-approved suppliers participate. Ambiguity inside one supplier is never guessed. */
 export function selectNativeQuote(matches:readonly ReadOddsQuote[],snapshot:OddsReadSnapshot,now:number){

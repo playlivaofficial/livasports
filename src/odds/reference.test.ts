@@ -42,6 +42,13 @@ describe('cross-GEO informational references',()=>{
  it('rejects duplicate ambiguous source quotes rather than cherry-picking',()=>{
   expect(buildComparison({...snapshot,referenceQuotes:[reference,{...reference,decimalOdds:'9.00'}]},'MATCH_WINNER',now).references??[]).toEqual([]);
  });
+ it('prefers same-GEO reference over a newer foreign quote, never by the largest price',()=>{
+  const local={...reference,targetGeo:'CO',bookmaker:'betsson',providerBookmakerId:'betsson',quoteId:'local',decimalOdds:'1.70'};
+  const foreign={...reference,targetGeo:'CO',sourceGeo:'PE',bookmaker:'1xbet',providerBookmakerId:'1xbet',quoteId:'foreign',decimalOdds:'2.90',observedAt:new Date(now+1000).toISOString()};
+  const value={...snapshot,referenceQuotes:[foreign,local]};
+  expect(selectIndicativeQuote(value,'MATCH_WINNER','HOME',null,now+1000)?.quoteId).toBe('local');
+  expect(selectIndicativeQuote({...value,referenceQuotes:[foreign,{...local,status:'SUSPENDED'}]},'MATCH_WINNER','HOME',null,now+1000)?.quoteId).toBe('foreign');
+ });
  it('restores REAL automatically, prioritizing a local price even when numerically lower',()=>{
   const before=resolveSelection(selection,read(),now);expect(before.coverage).toBe('INDICATIVE');
   const recovered={...snapshot,quotes:[{...quote,bookmaker:'betsson',bookmakerName:'Betsson',decimalOdds:'1.60'}]};

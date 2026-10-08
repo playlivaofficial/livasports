@@ -11,10 +11,10 @@ export function UnpricedSelections({fixturePublicId,kickoff,market='MATCH_WINNER
  useEffect(()=>{const tick=()=>setNow(Date.now());tick();const timer=setInterval(tick,1000);return()=>clearInterval(timer);},[]);
  if(!now||!locale||!kickoff||!Number.isFinite(Date.parse(kickoff))||Date.parse(kickoff)<=now)return null;
  const label=uiLocale==='en'?'Save without odds':uiLocale==='br'?'Salvar sem cotação':'Guardar sin cuota';
- return <div className="reference-odds"><small>{label}</small><div className="reference-odds-grid">{SELECTIONS[market].map(outcome=>{
+ return <details className="unpriced-selections"><summary>{label}</summary><div className="unpriced-selections-options">{SELECTIONS[market].map(outcome=>{
   const intent=canonicalSelection({fixturePublicId,scope:SLIP_SCOPE,market,outcome,line:market==='TOTAL_GOALS'?2.5:null});if(!intent)return null;
   const pressed=saved.slip.selections.some(s=>selectionKey(s)===selectionKey(intent));
-  return <div className="reference-odds-item" key={outcome}><button type="button" disabled={!saved.ready} aria-pressed={pressed} aria-label={`${label}: ${selectionLabel(intent,uiLocale)}`}
-   onClick={e=>{e.preventDefault();e.stopPropagation();addSlipSelection(intent,locale,kickoff);}}>{selectionLabel(intent,uiLocale)} {pressed?'✓':'+'}</button></div>;
- })}</div></div>;
+  return <button key={outcome} type="button" disabled={!saved.ready} aria-pressed={pressed} aria-label={`${label}: ${selectionLabel(intent,uiLocale)}`}
+   onClick={e=>{e.preventDefault();e.stopPropagation();addSlipSelection(intent,locale,kickoff);}}>{selectionLabel(intent,uiLocale)} {pressed?'✓':'+'}</button>;
+ })}</div></details>;
 }

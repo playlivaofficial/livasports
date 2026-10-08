@@ -8,6 +8,7 @@ export const REFERENCE_DISPLAY_POLICY = {
   evidence:'LivaSports owner confirms permission to publicly display attributed OddsPapi cross-GEO reference odds in MX, CO and PE; informational only.',
   targetGeos:['MX','CO','PE'] as readonly CoreGeo[],
   sources:[
+    {geo:'MX',bookmaker:'betsson',providerBookmakerId:'betsson'},
     {geo:'CO',bookmaker:'betsson',providerBookmakerId:'betsson'},
     {geo:'CO',bookmaker:'bwin',providerBookmakerId:'bwin'},
     {geo:'PE',bookmaker:'inkabet',providerBookmakerId:'inkabet'},
@@ -18,7 +19,7 @@ export function referenceDisplayAllowed(geo:unknown,policy=REFERENCE_DISPLAY_POL
   return policy.enabled&&policy.status==='OWNER_CONFIRMED'&&!!policy.evidence.trim()&&isCoreGeo(geo)&&policy.targetGeos.includes(geo);
 }
 export function referenceSourceAllowed(target:unknown,source:unknown,bookmaker:string,providerId:string){
-  return referenceDisplayAllowed(target)&&target!==source&&REFERENCE_DISPLAY_POLICY.sources.some(s=>s.geo===source&&s.bookmaker===bookmaker&&s.providerBookmakerId===providerId);
+  return referenceDisplayAllowed(target)&&REFERENCE_DISPLAY_POLICY.sources.some(s=>s.geo===source&&s.bookmaker===bookmaker&&s.providerBookmakerId===providerId);
 }
 /** Fixed reviewed identifiers only; never input from a request/cookie. */
 export function referenceSourceSql(){

@@ -58,7 +58,7 @@ export function mutateSlip(slip:StoredSlip,action:SlipAction):MutationResult {
   return {slip:withId({...base,selections}),result:conflict?'REPLACED':'ADDED'};
 }
 
-export interface SlipStorage {getItem(key:string):string|null;setItem(key:string,value:string):void;}
+export interface SlipStorage {getItem(key:string):string|null;setItem(key:string,value:string):void;removeItem?(key:string):void;}
 export function createSlipStore(getStorage:()=>SlipStorage){
   let volatile=false;
   let snapshot={slip:EMPTY_SLIP,notice:null as StorageNotice,ready:false};
@@ -74,9 +74,9 @@ export function createSlipStore(getStorage:()=>SlipStorage){
     reload();
     const next=mutateSlip(snapshot.slip,action);
     if(next.result==='REPLACE_REQUIRED'||next.result==='LIMIT'||next.result==='INVALID_STAKE')return next;
-    if(JSON.stringify(next.slip)===JSON.stringify(snapshot.slip))return next;
+    if(action.type!=='clear'&&JSON.stringify(next.slip)===JSON.stringify(snapshot.slip))return next;
     let notice:StorageNotice=null;
-    try{getStorage().setItem(STORAGE_KEY,JSON.stringify(next.slip));volatile=false;}catch{volatile=true;notice='STORAGE_UNAVAILABLE';}
+    try{const storage=getStorage();if(action.type==='clear'&&storage.removeItem)storage.removeItem(STORAGE_KEY);else storage.setItem(STORAGE_KEY,JSON.stringify(next.slip));volatile=false;}catch{volatile=true;notice='STORAGE_UNAVAILABLE';}
     snapshot={slip:next.slip,notice,ready:true};notify();return next;
   }
   return {reload,dispatch,getSnapshot:()=>snapshot,subscribe:(listener:()=>void)=>{listeners.add(listener);return()=>{listeners.delete(listener);};}};
