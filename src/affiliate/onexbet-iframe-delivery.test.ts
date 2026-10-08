@@ -58,7 +58,7 @@ describe('1xBet Peru partner-iframe contract',()=>{
     for(const site of ['6175484','617548','0','']) expect(safeOneXBetIframe(iframe({site}),'1xbet','pe')).toBeNull();
   });
   it('refuses a media id that is not an approved Peru creative',()=>{
-    // The 800x200 creative for the same promotion is deliberately not approved, and nor is anything else.
+    // Nearby media ids are not the verified 800x200 creative (178238).
     for(const ad of ['178223','999999','17822','','178222x']) expect(safeOneXBetIframe(iframe({ad}),'1xbet','pe')).toBeNull();
   });
   it('refuses a tag that is not a plausible channel token',()=>{
@@ -97,7 +97,7 @@ describe('deliveries never substitute for one another',()=>{
   });
 });
 
-describe('the compact Peru top banner is admitted without widening the leaderboard sizes',()=>{
+describe('Peru top formats are bound to their official native sizes',()=>{
   it('allows 320x50 in a top slot for the iframe delivery only',()=>{
     expect(embedDimensions('home_top_banner',320,50,'ONE_XBET_IFRAME')).toBe(true);
     expect(embedDimensions('match_top_banner',320,50,'ONE_XBET_IFRAME')).toBe(true);
@@ -105,8 +105,21 @@ describe('the compact Peru top banner is admitted without widening the leaderboa
     expect(embedDimensions('home_top_banner',320,50)).toBe(false);
   });
   it('does not let the iframe delivery claim a leaderboard size',()=>{
-    for(const [w,h] of [[970,90],[728,90],[320,100],[800,200]] as const)
+    for(const [w,h] of [[970,90],[728,90],[320,100],[800,201]] as const)
       expect(embedDimensions('home_top_banner',w,h,'ONE_XBET_IFRAME')).toBe(false);
+  });
+  it('admits the verified desktop creative only in top placements, with its own media id and dimensions',()=>{
+    const source=iframe({ad:'178238'});
+    expect(safeOneXBetIframe(source,'1xbet','pe')).toBe(source);
+    expect(inventoryCreative('1xbet','pe','top',source)).toEqual({mediaId:'178238',width:800,height:200,delivery:'ONE_XBET_IFRAME'});
+    expect(inventoryCreative('1xbet','pe','mobile',source)).toBeNull();
+    expect(inventoryCreative('1xbet','pe','right',source)).toBeNull();
+    for(const placement of ['home_top_banner','match_top_banner'] as const)
+      expect(ok(creative({placement,embedSourceUrl:source,width:800,height:200}))).toBe(true);
+    expect(ok(creative({placement:'mobile_inline',embedSourceUrl:source,width:800,height:200}))).toBe(false);
+    expect(ok(creative({embedSourceUrl:source,width:320,height:50}))).toBe(false);
+    expect(creativeFit(800,800)).toEqual({offset:0,scale:1});
+    expect(creativeFit(600,800)).toEqual({offset:0,scale:0.75});
   });
   it('leaves every existing size rule untouched',()=>{
     expect(embedDimensions('home_top_banner',970,90)).toBe(true);

@@ -1,0 +1,13 @@
+# Peru sponsor and odds repair — 2026-10-08
+
+The authenticated 1xBet Partners Peru Media record confirms **178238**, `WELCOME BONUS_PERU_2025_800x200`, Peruvian Spanish, 800×200. Its generated code names the existing LivaSports site 6175483. The private channel token is held only in server configuration. Desktop home/match top slots use that native creative; mobile keeps 178222 at 320×50. Inkabet retains its 300×250 right sponsor, with 302px desktop rail space including the border. Scaling is proportional and never enlarges an asset.
+
+Production's saved OddsPapi response observed at 2026-10-08T08:20:18.394Z lists nine Liga 1 fixtures. Before repair, four matched canonical fixtures: three had seven suspended 1xBet selections apiece despite explicitly active markets and individual prices; one had seven active selections. Five other listed fixtures failed exact team-name matching. These are normalization and mapping defects, not missing provider coverage.
+
+The adapter passed the verified operator ID into the normalizer, which accidentally made the audited generic 1xBet feed strict again. The fix retains the registry's verified bookmaker-flag exception for that exact feed while requiring an active market, active individual price, valid timestamp and pregame kickoff. Other mapped feeds remain strict.
+
+Five competition-scoped aliases were reviewed against unique saved/canonical events with equal UTC kickoff and unchanged home/away roles. No fuzzy matching, global suffix removal or kickoff tolerance expansion is introduced. Club names were cross-checked with [Liga1's 2026 register](https://liga1.pe/wp-content/uploads/2026/03/Reglamento-Liga1-Te-Apuesto-2026.pdf); the [Moquegua club history](https://en.wikipedia.org/wiki/Club_Deportivo_Moquegua) documents its former UCV Moquegua name.
+
+`scripts/repair-pe-1xbet-flags.ts` defaults to a dry run. Applying uses the existing worker lease, matcher and GEO persistence. Only uniquely evidenced suspended flags are reclassified. Original decimals, provider timestamps, observation times and cadence scale are retained. Public TTL/kickoff expiry still applies, and the recovery costs zero provider requests. Unlisted future fixtures, provider 404s, inactive markets/prices and expired observations remain unavailable; navigation does not refresh providers.
+
+`scripts/upgrade-pe-1xbet-desktop.ts` requires privately saved generated code, defaults to a dry run, and reconfigures through the standard campaign audit/version path. It preserves the destination, allowed placements, campaign dates and mobile creative. MX Betsson, CO Betsson+bwin, PE Inkabet+1xBet, BR suppression, DNT/GPC, consent, iframe sandbox/CSP and same-book slip calculation remain in force.

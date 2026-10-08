@@ -1,7 +1,7 @@
 import {parseResolutionRequest} from '@/slip/types';
 import {requestCommercialGeo} from '@/odds/commercial-geo';
 import {safeAffiliateDestination} from '@/odds/affiliate';
-import {embedDimensions,embedTrackingHost,safePublisherEmbed} from './embed-policy';
+import {embedDimensions,embedTrackingHost,safePublisherEmbed,oneXBetMediaId,ONE_XBET_PE_CREATIVES} from './embed-policy';
 import {isPublisherEmbed,placements,type Campaign,type CommercialContext,type Creative,type PageType,type TrafficClass} from './types';
 import {isVisibleBookmaker,bookmakerConfig} from '@/odds/registry';
 import type {SiteLocale} from '@/config/i18n';
@@ -46,7 +46,9 @@ export function campaignDestination(c:Campaign,context:CommercialContext,now:num
   return c.domains.includes(new URL(destination).hostname)?destination:null;
 }
 export function validCreative(c:Creative,context:CommercialContext,now:number,campaignId?:string,operator?:string){
+  const oneXBetSize=c.delivery==='ONE_XBET_IFRAME'?ONE_XBET_PE_CREATIVES[oneXBetMediaId(c.embedSourceUrl,operator??'',c.locale)??'']:null;
   return c.enabled&&c.approved&&c.placement===context.placement&&c.locale===context.locale&&
+    (c.delivery!=='ONE_XBET_IFRAME'||!!oneXBetSize&&c.width===oneXBetSize.width&&c.height===oneXBetSize.height)&&
     (!c.startsAt||Number.isFinite(Date.parse(c.startsAt))&&now>=Date.parse(c.startsAt))&&(!c.endsAt||Number.isFinite(Date.parse(c.endsAt))&&now<Date.parse(c.endsAt))&&
     // A publisher embed must satisfy its own delivery contract, which is what keeps an operator that
     // has neither a tracking host nor an approved partner iframe — bwin Colombia — from serving one.
