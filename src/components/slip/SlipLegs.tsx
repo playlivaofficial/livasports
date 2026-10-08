@@ -42,7 +42,10 @@ export function SlipLegs({uiLocale,selections,resolvedByKey,comparison,checking,
       else if(missing.length===1)status=text.unavailableAtBook(missing[0].name);
       else if(view)status=text.states[view.state];
       else status=checking?text.checking:text.states.UNAVAILABLE;
-      return <li className="slip-item" key={key} data-selection={key} data-state={view?.state??'PENDING'}>
+      const indicative=view?.price?.priceKind==='INDICATIVE';
+      const coverage=indicative?'INDICATIVE':price?'REAL':'UNAVAILABLE';
+      const coverageLabel=indicative?(uiLocale==='br'?'Cotação indicativa':uiLocale==='en'?'Indicative odds':'Cuota orientativa'):price?(uiLocale==='en'?'Real quote':uiLocale==='br'?'Cotação real':'Cuota real'):text.states.UNAVAILABLE;
+      return <li className="slip-item" key={key} data-selection={key} data-state={view?.state??'PENDING'} data-coverage={coverage}>
         <div className="slip-item-header">
           <div>
             {fixture?<p className="slip-fixture-meta"><span>{fixture.competition}</span>{kickoffLabel(fixture.kickoff,uiLocale)?<time dateTime={fixture.kickoff}>{kickoffLabel(fixture.kickoff,uiLocale)}</time>:null}</p>:null}
@@ -54,8 +57,10 @@ export function SlipLegs({uiLocale,selections,resolvedByKey,comparison,checking,
         </div>
         <p className="slip-market"><span>{text.markets[s.market]}</span><strong>{selectionLabel(s,uiLocale,fixture)}</strong></p>
         <div className="slip-pick">
-          {price?<strong className="slip-price"><ApproximatePrice value={price} label={approximateLabel}/></strong>:<span className="slip-no-price">{checking?text.checking:'—'}</span>}
+          {price?<strong className="slip-price">{indicative?<ApproximatePrice value={price} label={coverageLabel}/>:price}</strong>:<span className="slip-no-price">{checking?text.checking:'—'}</span>}
+          <small>{coverageLabel}</small>
         </div>
+        {indicative&&view?.price?.reference?<p className="slip-comparison-note">{view.price.reference.bookmakerName} · {view.price.reference.sourceGeo} · {new Date(view.price.reference.observedAt).toISOString().slice(11,16)} UTC<br/>{uiLocale==='en'?'Information only — not an executable bookmaker offer.':uiLocale==='br'?'Somente informação — não é uma oferta de aposta.':'Solo información — no es una oferta ejecutable.'}<br/><small>{view.price.reference.quoteId}</small></p>:null}
         {view?.state==='PRICE_CHANGED'&&view.previousDecimalOdds&&view.price&&formatSlipOdds(view.previousDecimalOdds,uiLocale)&&price?
           <p className="slip-reprice"><ApproximatePrice value={formatSlipOdds(view.previousDecimalOdds,uiLocale)!} label={approximateLabel}/> → <ApproximatePrice value={price} label={approximateLabel}/></p>:null}
         {view?.state!=='CURRENT'||missing.length?<div className={`slip-state${missing.length?' is-partial':''}`}>

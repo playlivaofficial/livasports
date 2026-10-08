@@ -263,3 +263,9 @@ button.listing-odds-select[aria-pressed=true]:hover { background:rgba(36,211,155
   .slip-bookmaker { padding:.8rem; }
   .slip-combined strong { font-size:1.3rem; }
 }
+.reference-odds{margin-block:10px;padding:10px;border:1px dashed var(--border,#46515d);border-radius:8px;font-size:12px;min-width:0;overflow-wrap:anywhere}
+.reference-odds>p{font-size:11px;margin:4px 0 8px;line-height:1.5}
+.reference-odds-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.reference-odds-item{display:flex;flex-direction:column;gap:5px;min-width:0}
+.reference-odds-item button{padding:8px 3px;min-height:40px;border:1px solid var(--border,#46515d);border-radius:6px;background:transparent;color:inherit;font-weight:700}
+.reference-odds-item details{font-size:10px;overflow-wrap:anywhere}

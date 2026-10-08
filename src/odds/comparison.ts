@@ -2,6 +2,8 @@ import { KICKOFF_TOLERANCE_MS, SELECTIONS, type OddsBookmakerRow, type OddsCompa
 import { freshnessTtlMs } from './scheduler-policy';
 import {BOOKMAKER_REGISTRY,isVisibleBookmaker} from './registry';
 import {resolveInsurance} from './insurance';
+import {referenceSourceAllowed} from './reference-policy';
+import type {IndicativeQuote} from './types';
 const UNION_BOOKMAKERS=BOOKMAKER_REGISTRY.map(b=>({bookmaker:b.canonicalId,name:b.displayName}));
 
 export function publicFeedCount(snapshot:OddsReadSnapshot):number {
@@ -42,7 +44,7 @@ export function buildComparison(snapshot:OddsReadSnapshot,market:OddsMarket,now=
   const result:OddsComparison={market,line:market==='TOTAL_GOALS'?2.5:null,rows:[],observedAt:null,providerUpdatedAt:null,expiresAt:null,eligiblePrices:0};
   const closeTimes=[snapshot.kickoff,...relevant.map(q=>q.providerKickoff)].map(Date.parse).filter(Number.isFinite);
   result.closesAt=closeTimes.length?new Date(Math.min(...closeTimes)).toISOString():null;
-  if(!relevant.some(q=>targets.some(book=>book.bookmaker===q.bookmaker)))return result;
+  if(!relevant.some(q=>targets.some(book=>book.bookmaker===q.bookmaker)))return withReferences(result,snapshot,now);
   const nativeRows:OddsBookmakerRow[]=targets.map(({bookmaker,name})=>{
     const prices=relevant.filter(q=>q.bookmaker===bookmaker);
     const selectedMarket=selectNativeMarketQuotes(prices,market,snapshot,now);
@@ -93,7 +95,34 @@ export function buildComparison(snapshot:OddsReadSnapshot,market:OddsMarket,now=
   const updated=relevant.map(q=>q.providerUpdatedAt).filter((s):s is string=>!!s&&Number.isFinite(Date.parse(s))).sort();
   const expires=result.rows.flatMap(r=>r.cells.filter(c=>c.decimalOdds!==null).map(c=>c.expiresAt!)).sort();
   result.observedAt=observed.at(-1)??null;result.providerUpdatedAt=updated.at(-1)??null;result.expiresAt=expires[0]??null;
-  return result;
+  return withReferences(result,snapshot,now);
+}
+function withReferences(result:OddsComparison,snapshot:OddsReadSnapshot,now:number):OddsComparison {
+  const references=SELECTIONS[result.market].flatMap(outcome=>{
+    if(result.rows.some(r=>r.role!=='FALLBACK_REFERENCE'&&r.cells.some(c=>c.outcome===outcome&&c.priceKind==='REAL'&&c.decimalOdds!==null)))return [];
+    const quote=selectIndicativeQuote(snapshot,result.market,outcome,result.line,now);return quote?[quote]:[];
+  });
+  return references.length?{...result,references}:result;
+}
+/** Actual source price, never an average/best-price recommendation or a local operator row. */
+export function selectIndicativeQuote(snapshot:OddsReadSnapshot,market:OddsMarket,outcome:OddsOutcome,line:number|null,now:number):IndicativeQuote|null {
+  if(!snapshot.fixtureId||snapshot.fixtureStatus!=='SCHEDULED')return null;
+  const candidates=(snapshot.referenceQuotes??[]).filter(q=>q.fixtureId===snapshot.fixtureId&&q.provider==='ODDSPAPI'&&q.geoEligible&&
+    referenceSourceAllowed(q.targetGeo,q.sourceGeo,q.bookmaker,q.providerBookmakerId)&&q.market===market&&q.outcome===outcome&&q.line===line&&
+    q.scope==='FULL_TIME_REGULATION'&&q.phase==='PREGAME'&&!!q.quoteId&&!!q.providerFixtureId&&!!q.sourceDomain&&quoteState(q,snapshot,now)==='ACTIVE'&&
+    Number.isFinite(Number(q.decimalOdds))&&Number(q.decimalOdds)>1&&Number(q.decimalOdds)<=1000);
+  const valid=candidates.flatMap(q=>{
+    // Ambiguous supplier duplicates are not resolved by choosing the most attractive price.
+    if(candidates.filter(c=>c.bookmaker===q.bookmaker&&c.sourceGeo===q.sourceGeo).length!==1)return [];
+    const unscaled=freshnessTtlMs((Date.parse(q.providerKickoff)-Date.parse(q.observedAt))/3600000,2);
+    const ttl=Math.min(quoteFreshnessTtlMs(q,snapshot,now),unscaled);
+    const expires=Math.min(Date.parse(q.observedAt)+ttl,Date.parse(q.lastSuccessfulRefreshAt)+ttl,Date.parse(q.providerKickoff),Date.parse(snapshot.kickoff));
+    if(!Number.isFinite(expires)||expires<=now)return [];
+    return [{kind:'INDICATIVE' as const,fixtureId:q.fixtureId,providerFixtureId:q.providerFixtureId,market,outcome,line,scope:q.scope,phase:q.phase,
+      decimalOdds:q.decimalOdds,bookmaker:q.bookmaker,bookmakerName:q.bookmakerName,sourceGeo:q.sourceGeo,sourceDomain:q.sourceDomain!,
+      quoteId:q.quoteId,observedAt:q.observedAt,providerUpdatedAt:q.providerUpdatedAt!,expiresAt:new Date(expires).toISOString(),affiliateEligible:false as const,executable:false as const}];
+  });
+  return valid.sort((a,b)=>Date.parse(b.observedAt)-Date.parse(a.observedAt)||a.bookmaker.localeCompare(b.bookmaker)||a.quoteId.localeCompare(b.quoteId))[0]??null;
 }
 /** Only server-approved suppliers participate. Ambiguity inside one supplier is never guessed. */
 export function selectNativeQuote(matches:readonly ReadOddsQuote[],snapshot:OddsReadSnapshot,now:number){

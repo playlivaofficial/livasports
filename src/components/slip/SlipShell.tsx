@@ -14,6 +14,7 @@ import {SlipComparison} from './SlipComparison';
 import {SlipLegs} from './SlipLegs';
 import {formatMoney,parseStake} from '@/slip/decimal';
 import {shareSlipImage,slipSharePayload} from '@/slip/share-card';
+import {indicativeCombined} from '@/slip/indicative';
 
 function TicketIcon(){return <svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 3h14v6a3 3 0 0 0 0 6v6l-3-2-4 2-4-2-3 2v-6a3 3 0 0 0 0-6V3Z" stroke="currentColor" strokeWidth="1.5"/><path d="M9 8h6M9 12h6M9 16h3" stroke="currentColor" strokeWidth="1.5"/></svg>;}
 
@@ -43,6 +44,7 @@ function SlipDrawer({locale,currencyLocale,uiLocale,selections,stake,slipId,pend
     feedback({result:result.result});onPending(null);closeRef.current?.focus();
   }
   const currentCount=resolved.filter(v=>v.price!==null).length;
+  const indicativeTotal=indicativeCombined(resolved,now);
   const browse=interfaceRoutes[uiLocale].football;
   return <aside className="slip-panel" ref={panel} role="dialog" aria-modal="false" aria-labelledby="slip-title" aria-describedby="slip-disclaimer" lang={uiLocale==='br'?'pt-BR':uiLocale==='en'?'en':`es-${uiLocale.toUpperCase()}`}>
     <header className="slip-heading"><div><TicketIcon/><h2 id="slip-title">{text.title}</h2><span className="slip-count">{selections.length}</span></div><button type="button" ref={closeRef} className="slip-icon-button" aria-label={text.close} onClick={onClose}>×</button></header>
@@ -60,6 +62,7 @@ function SlipDrawer({locale,currencyLocale,uiLocale,selections,stake,slipId,pend
           <small id="slip-stake-hint">{currencyLocale==='en'?formatMoney('10','en'):slipCopy[locale].stakeHint} · {text.oddsMayChange}</small></label>
         {!online||failed?<p className="slip-notice">{!online?text.offline:text.retry}</p>:null}
         <SlipComparison locale={locale} currencyLocale={currencyLocale} uiLocale={uiLocale} selections={selections} value={comparison} checking={checking} stake={stake} slipId={slipId}/>
+        {indicativeTotal?<section className="reference-odds" aria-label="Indicative combined price"><strong>≈ {Number(indicativeTotal).toFixed(2)}</strong><p>{uiLocale==='en'?'Indicative combined price · information only, not executable at any bookmaker.':uiLocale==='br'?'Cotação combinada indicativa · apenas informação, não executável em nenhuma casa.':'Cuota combinada orientativa · solo información, no ejecutable en ninguna casa.'}</p></section>:null}
         {/* Below the bookmaker cards: what the visitor actually picked, always visible, removable one by one. */}
         <section className="slip-selections" aria-labelledby="slip-selections-title">
           <h3 id="slip-selections-title">{text.yourSelections}<span className="slip-count">{selections.length}</span></h3>

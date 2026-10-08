@@ -12,8 +12,10 @@ export type SavedSelection = CanonicalSelection & {addedAt:string};
 export interface StoredSlip {version:typeof SLIP_SCHEMA_VERSION;slipId:string;stake:string;selections:SavedSelection[];}
 export type SelectionState = 'CURRENT'|'PRICE_CHANGED'|'STALE'|'UNAVAILABLE'|'SUSPENDED'|'CLOSED'|'MATCH_STARTED'|'MATCH_FINISHED';
 export interface ReferencePrice {decimalOdds:string;bookmaker:string;bookmakerName:string;best:boolean;expiresAt:string;
-  priceKind?:'REAL'|'PROXY';sourceBookmaker?:string;sourceQuoteId?:string;sourceObservedAt?:string;}
+  priceKind?:'REAL'|'PROXY'|'INDICATIVE';sourceBookmaker?:string;sourceQuoteId?:string;sourceObservedAt?:string;
+  reference?:import('@/odds/types').IndicativeQuote;}
 export interface ResolvedSelection {
+  coverage?:'REAL'|'INDICATIVE'|'UNAVAILABLE';
   selection:CanonicalSelection;
   fixture:{publicId:string;home:string;away:string;competition:string;kickoff:string;status:string}|null;
   state:SelectionState;

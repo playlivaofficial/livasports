@@ -5,6 +5,30 @@ const canonical:CanonicalOddsFixture={id:'canonical',sport:'FOOTBALL',competitio
 const raw:ProviderOddsFixture={providerId:'provider',sport:'FOOTBALL',competition:'brasileirao-serie-a',providerCompetitionId:'325',kickoff:canonical.kickoff,status:'PREGAME',homeProviderId:'10',awayProviderId:'20',homeNames:['Atletico Mineiro MG','Atletico Mineiro'],awayNames:['Fluminense FC RJ','Fluminense']};
 describe('safe odds fixture matching',()=>{
   it.each([
+    ['liga-expansion-mx','Alebrijes de Oaxaca','Correcaminos UAT','Alebrijes de Oaxaca FC','CF Correcaminos UAT'],
+    ['liga-expansion-mx','CA La Paz','Tepatitlán de Morelos','Club Atletico La Paz','Tepatitlan FC'],
+    ['liga-expansion-mx','Morelia','Piratas','Atletico Morelia','Piratas Veracruz'],
+    ['liga-expansion-mx','Universidad Guadalajara','Durango','Leones Negros UDEG','Alacranes de Durango'],
+    ['liga-expansion-mx','Mineros de Zacatecas','Cancún','CD Mineros de Zacatecas','Cancun FC'],
+    ['colombia-primera-a','Deportes Tolima','Fortaleza CEIF','CD Tolima','Fortaleza FC'],
+    ['colombia-primera-a','Deportivo Pereira','Junior FC','Deportivo Pereira FC SA','CD Junior FC'],
+    ['colombia-primera-a','Rionegro Águilas','Junior FC','Aguilas Doradas Rionegro','CD Junior FC'],
+    ['colombia-primera-b','Atlético','Real Cartagena','Atletico FC Cali','Real Cartagena FC'],
+    ['colombia-primera-b','Patriotas Boyacá','Real Cartagena','Boyaca Patriotas','Real Cartagena FC'],
+    ['ligue-2','Grenoble Foot 38','Nancy','Grenoble Foot','Nancy Lorraine'],
+    ['ligue-2','Laval','Sochaux','Stade Lavallois MFC','Sochaux Montbeliard'],
+    ['ligue-2','Clermont','Nancy','Clermont Foot 63','Nancy Lorraine'],
+    ['argentina-primera-division','Sarmiento','Racing Club','CA Sarmiento Junin','Racing Club Avellaneda'],
+  ])('recovers reviewed P0 names in %s, never time-only, reversed or cross-competition matches',(competition,home,away,providerHome,providerAway)=>{
+    const target={...canonical,competition,home,away};
+    const provider={...raw,competition,homeNames:[providerHome],awayNames:[providerAway]};
+    expect(matchOddsFixture(provider,[target],[]).fixture?.id).toBe(target.id);
+    expect(matchOddsFixture({...provider,kickoff:'2026-09-13T19:00:00Z'},[target],[]).state).toBe('TIME_MISMATCH');
+    expect(matchOddsFixture(provider,[target,{...target,id:'other'}],[]).state).toBe('AMBIGUOUS');
+    expect(matchOddsFixture({...provider,homeNames:provider.awayNames,awayNames:provider.homeNames},[target],[]).state).toBe('TEAM_MISMATCH');
+    expect(matchOddsFixture({...provider,competition:'unknown'},[{...target,competition:'unknown'}],[]).state).toBe('TEAM_MISMATCH');
+  });
+  it.each([
     ['UCV Moquegua','Cienciano','CD Moquegua','Cienciano'],
     ['Atlético Grau','Los Chankas','Atletico Grau','Los Chankas CYC'],
     ['ADT','FC Cajamarca','Asociacion Deportiva Tarma','FC Cajamarca'],

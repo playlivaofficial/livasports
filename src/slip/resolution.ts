@@ -4,7 +4,7 @@ import type {CanonicalSelection,ResolvedSelection} from './types';
 
 export interface SlipFixtureRead {fixture:NonNullable<ResolvedSelection['fixture']>;snapshot:OddsReadSnapshot;}
 export function resolveSelection(selection:CanonicalSelection,read:SlipFixtureRead|null,now=Date.now()):ResolvedSelection {
-  const result:ResolvedSelection={selection,fixture:read?.fixture??null,state:'UNAVAILABLE',reason:read?'NO_QUOTE':'MISSING_FIXTURE',price:null,closesAt:read?.fixture.kickoff??null};
+  const result:ResolvedSelection={selection,fixture:read?.fixture??null,coverage:'UNAVAILABLE',state:'UNAVAILABLE',reason:read?'NO_QUOTE':'MISSING_FIXTURE',price:null,closesAt:read?.fixture.kickoff??null};
   if(!read)return result;
   const {fixture,snapshot}=read;
   if(fixture.status==='FINISHED')return {...result,state:'MATCH_FINISHED',reason:null};
@@ -13,12 +13,16 @@ export function resolveSelection(selection:CanonicalSelection,read:SlipFixtureRe
   if(!Number.isFinite(Date.parse(fixture.kickoff)))return result;
   if(now>=Date.parse(fixture.kickoff))return {...result,state:'MATCH_STARTED',reason:null};
   const comparison=buildComparison(snapshot,selection.market,now);
-  const candidates=comparison.rows.flatMap(row=>row.cells.filter(c=>c.outcome===selection.outcome).map(cell=>({row,cell})));
+  const candidates=comparison.rows.filter(row=>row.role!=='FALLBACK_REFERENCE').flatMap(row=>row.cells.filter(c=>c.outcome===selection.outcome).map(cell=>({row,cell})));
   const active=candidates.filter(c=>c.cell.decimalOdds!==null&&c.cell.expiresAt!==null).sort((a,b)=>Number(b.cell.decimalOdds)-Number(a.cell.decimalOdds)||a.row.bookmaker.localeCompare(b.row.bookmaker));
   const first=active[0];
-  if(first)return {...result,state:'CURRENT',reason:null,closesAt:comparison.closesAt??fixture.kickoff,price:{
+  if(first)return {...result,coverage:'REAL',state:'CURRENT',reason:null,closesAt:comparison.closesAt??fixture.kickoff,price:{
     decimalOdds:first.cell.decimalOdds!,bookmaker:first.row.bookmaker,bookmakerName:first.row.name,best:first.cell.best&&active.length>=2,expiresAt:first.cell.expiresAt!,
     priceKind:first.cell.priceKind??undefined,sourceBookmaker:first.cell.sourceBookmaker??undefined,sourceQuoteId:first.cell.sourceQuoteId??undefined,sourceObservedAt:first.cell.sourceObservedAt??undefined}};
+  const reference=comparison.references?.find(q=>q.outcome===selection.outcome&&q.line===selection.line&&q.scope===selection.scope);
+  if(reference)return {...result,coverage:'INDICATIVE',state:'CURRENT',reason:null,price:{decimalOdds:reference.decimalOdds,bookmaker:reference.bookmaker,
+    bookmakerName:reference.bookmakerName,best:false,expiresAt:reference.expiresAt,priceKind:'INDICATIVE',sourceBookmaker:reference.bookmaker,
+    sourceQuoteId:reference.quoteId,sourceObservedAt:reference.observedAt,reference}};
   if(!comparison.rows.length)return {...result,reason:snapshot.quotes.length?'NO_VERIFIED_GEO':'NO_QUOTE'};
   const state=candidates.some(c=>c.cell.state==='STALE')?'STALE':candidates.some(c=>c.cell.state==='SUSPENDED')?'SUSPENDED':
     candidates.some(c=>c.cell.state==='CLOSED')?'CLOSED':'UNAVAILABLE';
@@ -27,6 +31,10 @@ export function resolveSelection(selection:CanonicalSelection,read:SlipFixtureRe
 
 // Render-time guard also protects already-open/offline tabs; it never extends a server expiry.
 export function guardResolved(value:ResolvedSelection,now:number,connected=true):ResolvedSelection {
+  const guarded=guardPrice(value,now,connected);
+  return {...guarded,coverage:guarded.price?(guarded.price.priceKind==='INDICATIVE'?'INDICATIVE':'REAL'):'UNAVAILABLE'};
+}
+function guardPrice(value:ResolvedSelection,now:number,connected=true):ResolvedSelection {
   if(value.state==='MATCH_FINISHED')return {...value,price:null};
   if(value.fixture?.status==='SCHEDULED'&&value.closesAt&&now>=Date.parse(value.closesAt))return {...value,state:'MATCH_STARTED',price:null};
   if(!['CURRENT','PRICE_CHANGED'].includes(value.state))return {...value,price:null};

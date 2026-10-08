@@ -4,6 +4,8 @@ import {OwnerHealthDashboard,OwnerHealthLogin} from '@/owner/HealthDashboard';
 import {databaseUrl,PostgresDatabaseClient} from '@/database/client';
 import {readReliabilityHealth} from '@/odds/reliability/read';
 import {StandingsHealth} from '@/sports/StandingsHealth';
+import {readReferenceCoverage} from '@/odds/reference-coverage';
+import {ReferenceCoverage} from '@/owner/ReferenceCoverage';
 import '../../owner-health.css';
 export const dynamic='force-dynamic';
 export const metadata={title:'Owner health',robots:{index:false,follow:false,nocache:true}};
@@ -16,8 +18,8 @@ export default async function OwnerHealthPage(){
   const health=await loadHealth(url);
   if(!health)return <main className="owner-health"><h1>Owner health</h1><p role="alert">Health could not be read. Try again shortly.</p></main>;
   const standingsDb=new PostgresDatabaseClient(url);
-  let standings;try{standings=await StandingsHealth({db:standingsDb});}finally{await standingsDb.close();}
-  return <><OwnerHealthDashboard health={health}/>{standings}</>;
+  let standings,coverage=null;try{standings=await StandingsHealth({db:standingsDb});coverage=await readReferenceCoverage(standingsDb).catch(()=>null);}finally{await standingsDb.close();}
+  return <><ReferenceCoverage value={coverage}/><OwnerHealthDashboard health={health}/>{standings}</>;
 }
 async function loadHealth(url:string){
   const db=new PostgresDatabaseClient(url);
