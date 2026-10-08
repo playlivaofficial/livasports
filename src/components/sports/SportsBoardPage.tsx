@@ -7,7 +7,7 @@ import {interfaceDictionary,interfaceRoutes,matchPath,type InterfaceLocale} from
 import {englishSportsData} from '@/localization/sports-copy';
 import {loadM3PageData} from '@/delivery/runtime';
 import {localDateKey,localDaysRange} from '@/delivery/time';
-import {commercialLocale,requestCommercialGeo} from '@/odds/commercial-geo';
+import {commercialLocale,requestCommercialGeo,requestEffectiveGeo} from '@/odds/commercial-geo';
 import {SponsoredSlot} from '@/components/commercial/SponsoredSlot';
 import {TeamIdentity,ScoreDisplay} from './FixtureCard';
 import {OddsComparison} from './OddsComparison';
@@ -15,7 +15,7 @@ import {SiteHeader} from './SiteHeader';
 import {boardDate,boardView,boardSort,hasPregameOddsLayout,matchesView,type BoardQuery,type BoardView} from './board-policy';
 import {CANONICAL_COMPETITION_TARGETS as FOOTBALL_COMPETITION_TARGETS} from '@/config/footballCompetitions';
 import {withSpanishLocales} from '@/localization/spanish';
-import {isSpanishLocale} from '@/config/geo';
+import {geoProfile,isSpanishLocale} from '@/config/geo';
 import {CompetitionPanel} from '@/sports/CompetitionPanel';
 import {SportsSearch} from '@/sports/Search';
 import {loadCompetition,loadCompetitionNav,loadSportsCalendar,loadRedCards} from '@/sports/runtime';
@@ -44,7 +44,8 @@ const copy=withSpanishLocales({
 export async function SportsBoardPage({locale,page,searchParams}:{locale:InterfaceLocale;page:PageKey;searchParams?:Promise<BoardQuery>}) {
   await connection();
   const now=new Date(),query=await searchParams??{},text=copy[locale],dictionary=interfaceDictionary(locale);
-  const timeZone=await requestTimeZone(locale);
+  const h=await headers(),productGeo=requestEffectiveGeo(h);
+  const timeZone=await requestTimeZone(geoProfile(productGeo).locale);
   const today=localDateKey(now,timeZone),calendarBounds=await loadSportsCalendar(locale,timeZone).catch(()=>({from:today,to:today})),date=boardDate(query.date,today,calendarBounds);
   const defaultHome=page==='home'&&query.view===undefined&&query.date===undefined&&query.competition===undefined;
   // An explicitly selected day shows everything of that day; only the competition shortcut on home defaults to upcoming.
@@ -57,7 +58,7 @@ export async function SportsBoardPage({locale,page,searchParams}:{locale:Interfa
   const hub=page==='football'&&requestedCompetition?await loadCompetition(requestedCompetition,locale,season,sportsPage(query.p)).catch(()=>null):null;
   const showListing=!hub;
   // Default home = next seven days (never an empty 'today' desert): the football window feeds it, trimmed to the local day start.
-  const raw=hub?null:await loadM3PageData(locale==='en'?'br':locale,defaultHome?'football':page,date,timeZone,requestedCompetition);
+  const raw=hub?null:await loadM3PageData(locale==='en'?'br':locale,defaultHome?'football':page,date,timeZone,requestedCompetition,productGeo);
   const data=raw?(locale==='en'?englishSportsData(raw):raw):null;
   const competition=typeof query.competition==='string'&&data?.sections.some(s=>s.slug===query.competition)?query.competition:undefined;
   const selectedCompetition=data?.sections.find(s=>s.slug===competition);
@@ -67,7 +68,7 @@ export async function SportsBoardPage({locale,page,searchParams}:{locale:Interfa
   const redCards=showListing?await loadRedCards(allFixtures.filter(f=>f.status!=='SCHEDULED').map(f=>f.id)).catch(()=>({} as Record<string,{home:number|null;away:number|null}>)):{};
   const sections:Array<NonNullable<typeof data>['sections'][number]&{homePeriod?:HomePeriod}>=defaultHome&&data?weekHomeSections(data.sections,homeWindow,+now):data?data.sections.filter(s=>!competition||s.slug===competition).map(s=>({...s,fixtures:s.fixtures.filter(f=>matchesView(f,view,now.getTime())).sort((a,b)=>boardSort(a,b,now.getTime()))})).filter(s=>s.fixtures.length):[];
   const periodLabels=locale==='br'?{live:'Ao vivo hoje',upcoming:'Próximos hoje',tomorrow:'Amanhã',results:'Resultados de hoje'}:isSpanishLocale(locale)?{live:'En vivo hoy',upcoming:'Próximos hoy',tomorrow:'Mañana',results:'Resultados de hoy'}:{live:'Live today',upcoming:'Upcoming today',tomorrow:'Tomorrow',results:'Results today'};
-  const navItems=await loadCompetitionNav(locale,timeZone).catch(()=>[]);
+  const navItems=await loadCompetitionNav(locale,timeZone,productGeo).catch(()=>[]);
   const freshness=data?.sportsData.freshness??'fresh';
   const href=(changes:{date?:string|null;view?:BoardView;competition?:string|null},path:string=base)=>{
     const params=new URLSearchParams();const d=changes.date===null?undefined:changes.date??date;
@@ -77,13 +78,13 @@ export async function SportsBoardPage({locale,page,searchParams}:{locale:Interfa
   };
   const shift=(day:string,n:number)=>new Date(Date.parse(day+'T12:00:00Z')+n*86400000).toISOString().slice(0,10);
   const activeDate=date??(page==='football'||defaultHome?undefined:today),calendarDate=date??today;
-  const commercial=commercialLocale(requestCommercialGeo(await headers()));
+  const commercial=commercialLocale(requestCommercialGeo(h));
   const sponsor=(placement:'home_top_banner'|'mobile_inline'|'home_right_rail')=>commercial?<SponsoredSlot copyLocale={locale} context={{locale:commercial,pagePath:interfaceRoutes[locale][page],placement}}/>:null;
   return <div lang={dictionary.locale} className={`app-shell sports-board ${locale==='en'?'english-sports':''}`}>
     {page==='home'?<JsonLd data={siteSchema(locale)}/>:hub?<JsonLd data={competitionHubSchema(locale,hub,tab)}/>:null}
     <SiteHeader locale={locale} activePage={page}/>
     <BoardRefresh live={allFixtures.some(f=>f.status==='LIVE'||f.status==='HALFTIME')}/>
-    <main id="fixtures-content" className="page-container" data-board-view={view} data-time-zone={timeZone}>
+    <main id="fixtures-content" className="page-container" data-product-geo={productGeo} data-board-view={view} data-time-zone={timeZone}>
       {sponsor('home_top_banner')}
       <header className="board-heading"><div><span className="board-eyebrow">{locale==='br'?'FUTEBOL':isSpanishLocale(locale)?'FÚTBOL':'FOOTBALL'}</span><h1>{hub?.name??selectedCompetition?.competition??(page==='home'&&date?(date===today?dictionary.pages.today.title:dictionary.pages.football.title):dictionary.pages[page].title)}</h1>{!hub&&!selectedCompetition?<p>{text.intro}</p>:null}</div>
         <span className={`freshness is-${freshness}`}><span className="freshness-dot"/>{freshness==='fresh'?text.fresh:freshness==='stale'?text.delayed:text.unavailable}</span>
@@ -93,7 +94,7 @@ export async function SportsBoardPage({locale,page,searchParams}:{locale:Interfa
       <div className="sports-layout">
         <aside className="context-rail"><CompetitionNav locale={locale} title={text.competitions} allHref={href({competition:null})} allLabel={text.allCompetitions} activeSlug={requestedCompetition??competition} items={navItems}/></aside>
         <div className="fixture-content">
-          <GrowthProminence locale={locale} surface={requestedCompetition?{kind:'COMPETITION',slug:requestedCompetition}:page==='home'?{kind:'HOME'}:{kind:'DAILY'}}/>
+          <GrowthProminence locale={locale} productGeo={productGeo} surface={requestedCompetition?{kind:'COMPETITION',slug:requestedCompetition}:page==='home'?{kind:'HOME'}:{kind:'DAILY'}}/>
           <SeoPriorityLinks locale={locale} surface={requestedCompetition?{kind:'COMPETITION',slug:requestedCompetition}:page==='home'?{kind:'HOME'}:{kind:'DAILY'}}/>
           {hub?<CompetitionPanel hub={hub} locale={locale} tab={tab}/>:requestedCompetition&&page==='football'?<p className="sports-empty" role="status">{sportsCopy[locale].unavailable}</p>:null}
           {showListing?<>

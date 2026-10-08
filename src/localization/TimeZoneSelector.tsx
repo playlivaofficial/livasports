@@ -3,15 +3,15 @@ import {createContext,useContext,useEffect,useSyncExternalStore,type ReactNode} 
 import {usePathname} from 'next/navigation';
 import type {InterfaceLocale} from './interface';
 import {resolveTimeZone,shouldDetectDeviceTimeZone,validTimeZone} from './time-zone';
-const TimePreference=createContext<{manual:string|null;device:string|null;ready:boolean}>({manual:null,device:null,ready:true});
+const TimePreference=createContext<{manual:string|null;device:string|null;ready:boolean;defaultTimeZone?:string}>({manual:null,device:null,ready:true});
 export function useTimePreference(){return useContext(TimePreference);}
-export function TimePreferenceProvider({manual,device,ready=true,children}:{manual:string|null;device:string|null;ready?:boolean;children:ReactNode}){return <TimePreference.Provider value={{manual,device,ready}}>{children}</TimePreference.Provider>;}
+export function TimePreferenceProvider({manual,device,ready=true,defaultTimeZone,children}:{manual:string|null;device:string|null;ready?:boolean;defaultTimeZone?:string;children:ReactNode}){return <TimePreference.Provider value={{manual,device,ready,defaultTimeZone}}>{children}</TimePreference.Provider>;}
 const subscribe=()=>()=>{};
 const deviceZone=()=>validTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone)??'UTC';
 const commonZones=['UTC','America/Sao_Paulo','America/Manaus','America/Rio_Branco','America/Noronha','America/Mexico_City','America/Bogota','America/Lima','America/Cancun','America/Tijuana','America/New_York','America/Los_Angeles','Europe/London','Europe/Madrid','Europe/Berlin','Asia/Tbilisi','Asia/Tokyo','Australia/Sydney'];
 const copy={br:{label:'Fuso horário',auto:'Usar horário do dispositivo',save:'Aplicar',device:'Neste dispositivo',note:'Altera apenas as datas e os horários dos jogos.'},mx:{label:'Zona horaria',auto:'Usar hora del dispositivo',save:'Aplicar',device:'En este dispositivo',note:'Solo cambia las fechas y horas de los partidos.'},en:{label:'Time zone',auto:'Use device time',save:'Apply',device:'This device',note:'Changes match dates and times only.'}};
 export function TimeZoneSelector({locale}:{locale:InterfaceLocale}){
-  const {manual,device,ready}=useContext(TimePreference),timeZone=resolveTimeZone(locale,manual,device);
+  const {manual,device,ready,defaultTimeZone}=useContext(TimePreference),timeZone=manual||device?resolveTimeZone(locale,manual,device):defaultTimeZone??resolveTimeZone(locale,null,null);
   const path=usePathname(),detected=useSyncExternalStore(subscribe,deviceZone,()=>''),t=copy[locale==='co'||locale==='pe'?'mx':locale];
   useEffect(()=>{
     if(!shouldDetectDeviceTimeZone(ready,manual,device,detected))return;

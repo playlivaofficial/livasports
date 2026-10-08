@@ -35,7 +35,7 @@ describe('interface language defaults and commercial isolation',()=>{
     expect(source).toContain("loadM3PageData(locale==='en'?'br':locale");
     expect(source).not.toContain("geoEligibility.locale");
     expect(source).toContain("sponsor('home_right_rail')");
-    expect(source).toContain('requestCommercialGeo(await headers())');
+    expect(source).toContain('requestCommercialGeo(h)');
   });
   it('keeps an English-home Betsson rail in the third sports-layout column',()=>{
     const css=readFileSync(new URL('../app/language.css',import.meta.url),'utf8');

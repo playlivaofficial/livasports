@@ -12,12 +12,12 @@ import {emitSlipEvent} from '@/slip/events';
 import {resolvedByKey,useSlipResolution} from '@/slip/use-resolution';
 import {SlipComparison} from './SlipComparison';
 import {SlipLegs} from './SlipLegs';
-import {parseStake} from '@/slip/decimal';
+import {formatMoney,parseStake} from '@/slip/decimal';
 import {shareSlipImage,slipSharePayload} from '@/slip/share-card';
 
 function TicketIcon(){return <svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 3h14v6a3 3 0 0 0 0 6v6l-3-2-4 2-4-2-3 2v-6a3 3 0 0 0 0-6V3Z" stroke="currentColor" strokeWidth="1.5"/><path d="M9 8h6M9 12h6M9 16h3" stroke="currentColor" strokeWidth="1.5"/></svg>;}
 
-function SlipDrawer({locale,uiLocale,selections,stake,slipId,pending,onPending,onClose,storageNotice,message}:{locale:SiteLocale;uiLocale:SlipUiLocale;selections:SavedSelection[];stake:string;slipId:string;pending:SlipFeedback|null;onPending:(v:SlipFeedback|null)=>void;onClose:()=>void;storageNotice:StorageNotice;message:string|null}){
+function SlipDrawer({locale,currencyLocale,uiLocale,selections,stake,slipId,pending,onPending,onClose,storageNotice,message}:{locale:SiteLocale;currencyLocale:SlipUiLocale;uiLocale:SlipUiLocale;selections:SavedSelection[];stake:string;slipId:string;pending:SlipFeedback|null;onPending:(v:SlipFeedback|null)=>void;onClose:()=>void;storageNotice:StorageNotice;message:string|null}){
   const text=slipCopy[uiLocale];const {resolved,comparison,failed,online,checking,resolvedAt,now}=useSlipResolution(selections,locale);
   const byKey=resolvedByKey(resolved);const [confirmClear,setConfirmClear]=useState(false);const [stakeDraft,setStakeDraft]=useState<string|null>(null);const [sharing,setSharing]=useState(false);
   const closeRef=useRef<HTMLButtonElement>(null);const panel=useRef<HTMLElement>(null);
@@ -57,9 +57,9 @@ function SlipDrawer({locale,uiLocale,selections,stake,slipId,pending,onPending,o
         <label className="slip-stake"><span>{text.stake}</span>
           <input inputMode="decimal" enterKeyHint="done" autoComplete="off" value={stakeValue} aria-invalid={parseStake(stakeValue)===null} aria-describedby="slip-stake-hint"
             onChange={event=>setStakeDraft(event.target.value)} onBlur={commitStake} onKeyDown={event=>{if(event.key==='Enter'){event.preventDefault();commitStake();}}}/>
-          <small id="slip-stake-hint">{slipCopy[locale].stakeHint} · {text.oddsMayChange}</small></label>
+          <small id="slip-stake-hint">{currencyLocale==='en'?formatMoney('10','en'):slipCopy[locale].stakeHint} · {text.oddsMayChange}</small></label>
         {!online||failed?<p className="slip-notice">{!online?text.offline:text.retry}</p>:null}
-        <SlipComparison locale={locale} uiLocale={uiLocale} selections={selections} value={comparison} checking={checking} stake={stake} slipId={slipId}/>
+        <SlipComparison locale={locale} currencyLocale={currencyLocale} uiLocale={uiLocale} selections={selections} value={comparison} checking={checking} stake={stake} slipId={slipId}/>
         {/* Below the bookmaker cards: what the visitor actually picked, always visible, removable one by one. */}
         <section className="slip-selections" aria-labelledby="slip-selections-title">
           <h3 id="slip-selections-title">{text.yourSelections}<span className="slip-count">{selections.length}</span></h3>
@@ -67,7 +67,7 @@ function SlipDrawer({locale,uiLocale,selections,stake,slipId,pending,onPending,o
         </section>
         <div className="slip-summary"><div><small>{text.scope}</small></div><button type="button" onClick={()=>selections.length>1?setConfirmClear(true):clear()}>{text.clear}</button></div>
         {resolvedAt?<p className="slip-verified">{currentCount}/{selections.length} {text.currentCount}</p>:null}
-        <button type="button" className="slip-share" disabled={sharing||!selections.length} onClick={async()=>{setSharing(true);await shareSlipImage(slipSharePayload({locale:uiLocale,currencyLocale:locale,slipId:slipId||'local',stake,generatedAt:resolvedAt??new Date().toISOString(),selections,resolved,comparison}));setSharing(false);}}>{text.share}</button>
+        <button type="button" className="slip-share" disabled={sharing||!selections.length} onClick={async()=>{setSharing(true);await shareSlipImage(slipSharePayload({locale:uiLocale,currencyLocale,slipId:slipId||'local',stake,generatedAt:resolvedAt??new Date().toISOString(),selections,resolved,comparison}));setSharing(false);}}>{text.share}</button>
         <p className="slip-comparison-note">{text.shareHint}</p>
       </>}
     </div>
@@ -76,7 +76,7 @@ function SlipDrawer({locale,uiLocale,selections,stake,slipId,pending,onPending,o
 }
 
 export function SlipShell({commercialLocale=null}:{commercialLocale?:SiteLocale|null}){
-  const pathname=usePathname();const segment=pathname?.split('/')[1];const locale:SiteLocale=commercialLocale??(segment==='br'||segment==='co'||segment==='pe'?segment:'mx');
+  const pathname=usePathname();const segment=pathname?.split('/')[1];const locale:SiteLocale=commercialLocale??'mx';const currencyLocale:SlipUiLocale=commercialLocale??'en';
   const uiLocale:SlipUiLocale=segment==='br'||segment==='mx'||segment==='co'||segment==='pe'?segment:'en';
   const outboundUnavailable=useSearchParams().get('slip')==='unavailable';
   const {slip,notice:storageNotice,ready}=useSlip();const text=slipCopy[uiLocale];
@@ -97,6 +97,6 @@ export function SlipShell({commercialLocale=null}:{commercialLocale?:SiteLocale|
       <button type="button" className="slip-trigger" ref={trigger} aria-expanded={open} aria-controls="guest-slip-drawer" disabled={!ready} onClick={()=>{if(open)close();else{setNotice(null);setOpen(true);emitSlipEvent('slip_open',locale,undefined,undefined,{legCount:slipStore.getSnapshot().slip.selections.length});}}}>
         <TicketIcon/><span className="slip-trigger-text"><span>{text.title}</span>{message&&!open?<small aria-hidden="true">{message}</small>:null}</span><span className="slip-count">{slip.selections.length}</span><span aria-hidden="true">{open?'⌄':'↑'}</span>
       </button></div>
-    <div id="guest-slip-drawer">{open?<SlipDrawer locale={locale} uiLocale={uiLocale} selections={slip.selections} stake={slip.stake} slipId={slip.slipId} pending={pending} onPending={setPending} onClose={close} storageNotice={storageNotice} message={message}/>:null}</div>
+    <div id="guest-slip-drawer">{open?<SlipDrawer locale={locale} currencyLocale={currencyLocale} uiLocale={uiLocale} selections={slip.selections} stake={slip.stake} slipId={slip.slipId} pending={pending} onPending={setPending} onClose={close} storageNotice={storageNotice} message={message}/>:null}</div>
   </div>;
 }

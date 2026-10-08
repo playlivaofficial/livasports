@@ -2,6 +2,7 @@ import type {NextRequest} from 'next/server';
 import {NextResponse} from 'next/server';
 import {CANONICAL_COMPETITION_TARGETS} from '@/config/footballCompetitions';
 import {defaultLanguage,languageCookie,languageTags,interfaceRoutes,pathLocale,type InterfaceLocale} from '@/localization/interface';
+import {requestCountry,requestEffectiveGeo} from '@/odds/commercial-geo';
 
 function competitionNotFound(locale:InterfaceLocale,head:boolean):Response {
   const text=locale==='en'?{title:'Competition not found',body:'This address does not match a covered competition.',back:'Back to football'}
@@ -13,7 +14,9 @@ function competitionNotFound(locale:InterfaceLocale,head:boolean):Response {
 
 export async function proxy(request:NextRequest):Promise<Response>{
   if(request.nextUrl.pathname==='/'){
-    const country=process.env.VERCEL==='1'?request.headers.get('x-vercel-ip-country'):null;
+    const geo=requestEffectiveGeo(request.headers);
+    // BR is commercially ROW but retains an appropriate Portuguese default.
+    const country=geo==='ROW'?requestCountry(request.headers):geo;
     const language=defaultLanguage(request.cookies.get(languageCookie)?.value,country);
     const response=NextResponse.redirect(new URL('/'+language,request.url),307);
     response.headers.set('cache-control','private, no-store');

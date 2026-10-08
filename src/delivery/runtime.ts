@@ -1,3 +1,4 @@
+import type {Geo} from '@/config/geo';
 import 'server-only';
 import { NextServerCache } from '@/cache/next-server-cache';
 import type { PageKey, SiteLocale } from '@/config/i18n';
@@ -26,8 +27,8 @@ function getRuntime(): M3RouteDataLoader | null {
   return runtime;
 }
 
-export function loadM3PageData(locale: SiteLocale, page: PageKey,selectedDate?:string,displayTimeZone?:string,competitionSlug?:string) {
-  return getRuntime()?.load(locale, page,selectedDate,displayTimeZone,competitionSlug) ?? Promise.resolve(emptyDatabasePage(locale, page));
+export function loadM3PageData(locale: SiteLocale, page: PageKey,selectedDate?:string,displayTimeZone?:string,competitionSlug?:string, productGeo?:Geo) {
+  return getRuntime()?.load(locale, page,selectedDate,displayTimeZone,competitionSlug,productGeo) ?? Promise.resolve(emptyDatabasePage(locale, page));
 }
 
 export const getBrazilHomeData = () => loadM3PageData('br', 'home');

@@ -8,15 +8,26 @@ import {helpKind,helpPath} from './help-routes';
 
 // Presentation preferences never replace the existing commercial jurisdiction.
 export type InterfaceLocale=SiteLocale|'en';
+export type PublicLanguage='es'|'pt'|'en';
+export const publicLanguages=['es','pt','en'] as const;
+export const publicLanguageNames={es:'Español',pt:'Português',en:'English'} as const;
+export function publicLanguage(locale:InterfaceLocale):PublicLanguage{return locale==='br'?'pt':locale==='en'?'en':'es';}
+/** Migrate legacy language cookies without treating their country as a GEO choice. */
+export function languagePreference(value:unknown):PublicLanguage|null{
+  return publicLanguages.includes(value as PublicLanguage)?value as PublicLanguage:isInterfaceLocale(value)?publicLanguage(value):null;
+}
 export const languageCookie='livasports_language';
 export const interfaceLocales=['br','mx','co','pe','en'] as const;
-export const languageNames={br:'Português',mx:'Español · México',co:'Español · Colombia',pe:'Español · Perú',en:'English'} as const;
+export const languageNames={br:'Português',mx:'Español',co:'Español',pe:'Español',en:'English'} as const;
 export const languageTags={br:'pt-BR',mx:'es-MX',co:'es-CO',pe:'es-PE',en:'en'} as const;
 export const interfaceRoutes={...localeRoutes,en:{home:'/en',football:'/en/football',live:'/en/live',today:'/en/matches/today'}} as const;
 export function isInterfaceLocale(value:unknown):value is InterfaceLocale{return interfaceLocales.includes(value as InterfaceLocale);}
 export function pathLocale(path:string):InterfaceLocale|null{const value=path.split('/')[1];return isInterfaceLocale(value)?value:null;}
 export function defaultLanguage(preference:unknown,country:unknown):InterfaceLocale{
-  if(isInterfaceLocale(preference))return preference;
+  const language=languagePreference(preference);
+  if(language==='pt')return 'br';
+  if(language==='en')return 'en';
+  if(language==='es')return country==='CO'?'co':country==='PE'?'pe':'mx';
   return country==='MX'?'mx':country==='CO'?'co':country==='PE'?'pe':country==='BR'?'br':'en';
 }
 export function matchPath(locale:InterfaceLocale,id:string,home:string,away:string){

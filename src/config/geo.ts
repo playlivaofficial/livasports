@@ -26,7 +26,7 @@ export const GEO_PROFILES: Readonly<Record<Geo, GeoProfile>> = {
   ROW: {geo:'ROW',locale:'en',languageTag:'en',currency:'USD',timeZone:'UTC',countryName:'International',commercialEnabled:false,competitionWeights:Object.freeze({})},
 };
 export function isCoreGeo(value: unknown): value is CoreGeo { return CORE_GEOS.includes(value as CoreGeo); }
-export function geoFromCountry(country: unknown): Geo { return isCoreGeo(country) ? country : country === 'BR' ? 'BR' : 'ROW'; }
+export function geoFromCountry(country: unknown): Geo { return isCoreGeo(country) ? country : 'ROW'; }
 export function geoForLocale(locale: string): Geo { return ({mx:'MX',co:'CO',pe:'PE',br:'BR'} as const)[locale as 'mx'|'co'|'pe'|'br'] ?? 'ROW'; }
 export function geoProfile(geo: Geo): GeoProfile { return GEO_PROFILES[geo]; }
 export function competitionDemand(geo: Geo, slug: string): number { return GEO_PROFILES[geo].competitionWeights[slug] ?? 10; }

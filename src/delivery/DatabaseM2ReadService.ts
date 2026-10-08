@@ -1,3 +1,5 @@
+import type {Geo} from '@/config/geo';
+import {competitionName} from '@/sports/policy';
 import { getDictionary, type PageKey, type SiteLocale } from '@/config/i18n';
 import type { FootballReadRepository } from '@/ingestion/store';
 import { deliveryWindow,localDayRange,zonedDateTimeToUtc } from './time';
@@ -10,7 +12,7 @@ const unavailable = (): ProviderState => ({ state: 'unavailable', freshness: 'un
 export class DatabaseM2ReadService {
   constructor(private readonly repository: FootballReadRepository, private readonly now: () => Date = () => new Date()) {}
 
-  async loadOrThrow(locale: SiteLocale, page: PageKey, selectedDate?:string, displayTimeZone?:string, competitionSlug?:string): Promise<M2PageData> {
+  async loadOrThrow(locale: SiteLocale, page: PageKey, selectedDate?:string, displayTimeZone?:string, competitionSlug?:string, productGeo?:Geo): Promise<M2PageData> {
     const dictionary = getDictionary(locale);
     const timeZone=displayTimeZone??dictionary.timeZone;
     const parts=selectedDate?.split('-').map(Number);
@@ -20,15 +22,15 @@ export class DatabaseM2ReadService {
     if(competitionSlug&&!selectedDate&&page==='football')window.to=new Date(now.getTime()+45*86400000);
       const statuses = page === 'live' ? ['LIVE', 'HALFTIME'] : [];
       const [competitionRows, rows] = await Promise.all([
-        this.repository.listCompetitions(dictionary.countryCode),
-        this.repository.listFixtures(dictionary.countryCode, window.from, window.to, statuses,competitionSlug),
+        this.repository.listCompetitions(productGeo??dictionary.countryCode),
+        this.repository.listFixtures(productGeo??dictionary.countryCode, window.from, window.to, statuses,competitionSlug),
       ]);
       const rowById = new Map(rows.map(row => [row.fixture.id, row]));
       const selected = stableSortFixtures(filterFixturesForPage(rows.map(row => row.fixture), selectedDate?'today':page, now, timeZone));
       const views: FixtureView[] = selected.flatMap(fixture => {
         const row = rowById.get(fixture.id);
         if (!row) return [];
-        return [{ id: fixture.id, publicId: row.publicId, competition: row.competitionName, homeTeam: row.homeTeamName, awayTeam: row.awayTeamName,
+        return [{ id: fixture.id, publicId: row.publicId, competition: (row.competitionSlug?competitionName(locale,row.competitionSlug):null)??row.competitionName, homeTeam: row.homeTeamName, awayTeam: row.awayTeamName,
           competitionSlug: row.competitionSlug, competitionGroup: row.competitionGroup, competitionPriority: row.competitionPriority,
           homeTeamShortName: row.homeTeamShortName, awayTeamShortName: row.awayTeamShortName,
           homeTeamImageUrl: row.homeTeamImageUrl, awayTeamImageUrl: row.awayTeamImageUrl,
@@ -36,7 +38,7 @@ export class DatabaseM2ReadService {
           freshness: 'fresh', odds: [], oddsState: 'none' }];
       });
       const sportsData: ProviderState = views.length ? { state: 'available', freshness: 'fresh', reason: 'ok' } : noDataState();
-      const sections = groupFixtureViews(views, competitionRows.map(row => ({ competition: row.competitionName,
+      const sections = groupFixtureViews(views, competitionRows.map(row => ({ competition: (row.competitionSlug?competitionName(locale,row.competitionSlug):null)??row.competitionName,
         slug: row.competitionSlug, group: row.competitionGroup, priority: row.competitionPriority })));
       return { ...base, sportsData, oddsData: noDataState(), competitions: sections.map(section => section.competition),
         sections, paidOddsRequests: 0 };

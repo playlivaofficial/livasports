@@ -1,3 +1,4 @@
+import {GrowthProminence} from '@/growth/GrowthProminence';
 import {resolveTimeZone} from '@/localization/time-zone';
 import {LocalizedTimeText} from '@/localization/LocalizedTime';
 import {MatchTimeZone} from '@/components/match/MatchTimeZone';
@@ -130,9 +131,10 @@ export async function EnglishMatchCenter({ locale, match, replay = false, commer
   const scheduled=displayStatus===FixtureStatus.SCHEDULED;
   const decayed=isFinishedMatchDecayed(match.header.status,match.header.kickoff);
   const brPath=brMatchPath('br',match.header.publicId,match.header.home.name,match.header.away.name);
-  const banners=commercialLocale==='br'&&!replay;
+  const banners=!replay;
   return <div lang={dictionary.locale} className="app-shell match-shell english-sports"><SiteHeader locale={locale} activePage="football" localeHrefs={alternate} contentId="match-content"/>
     <main id="match-content" className="match-container"><h1 className="sr-only">{match.header.home.name} × {match.header.away.name}</h1><Link href={localeRoutes[locale].football} className="match-back">← {text.back}</Link>
+      {banners?<SponsoredSlot copyLocale="en" context={{locale:'br',pagePath:brPath,placement:'match_top_banner'}}/>:null}
       {replay?<p className="replay-label">{text.replay}</p>:null}
 
       {!replay&&match.liveSnapshotStale?<p className="stale-live-label">{text.liveStale}</p>:null}
@@ -145,10 +147,11 @@ export async function EnglishMatchCenter({ locale, match, replay = false, commer
 
       <MatchSectionNav className="match-tabs" label="Match sections" items={[{href:'#summary',label:text.summary},{href:'#statistics',label:text.statistics},{href:'#lineups',label:text.lineups},
         ...(match.playerStatistics.data.length?[{href:'#player-statistics',label:text.playerPerformance}]:[]),{href:'#meetings',label:text.meetings},{href:'#standings',label:text.standings},{href:'#odds',label:'Odds'}]}/>
+      {banners?<GrowthProminence locale="en" surface={{kind:'MATCH',fixtureId:match.header.id}}/>:null}
       {banners?<SponsoredSlot copyLocale="en" context={{locale:'br',pagePath:brPath,placement:'mobile_inline'}}/>:null}
       <div className="match-content-grid"><div className="match-main-column"><Summary locale={locale} match={match}/><Statistics locale={locale} module={match.statistics}/><Lineups locale={locale} match={match}/><PlayerPerformances locale={locale} match={match} linkPlayers={!decayed}/><Form locale={locale} match={match}/><Standings locale={locale} match={match}/>
         {!replay?<PregameOdds uiLocale="en" fixturePublicId={match.header.publicId} initial={match.oddsComparisons??[]} context={{fixtureId:match.header.id,competitionId:match.header.competitionId,locale:commercialLocale}}/>:null}
-        <NextMatches locale="en" matches={match.nextMatches} timeZone={timeZone}/></div>
+        <NextMatches locale="en" matches={match.nextMatches} timeZone={timeZone}/>{banners?<SponsoredSlot copyLocale="en" context={{locale:'br',pagePath:brPath,placement:'match_inline'}}/>:null}</div>
         <aside className="match-context">{banners?<SponsoredSlot copyLocale="en" context={{locale:'br',pagePath:brPath,placement:'match_right_rail'}}/>:null}<section><h2>{text.summary}</h2><dl><div><dt>{text.season}</dt><dd>{match.header.season??'—'}</dd></div><div><dt>{text.stage}</dt><dd>{sportStage(locale,match.header.stage) ?? '—'}</dd></div><div><dt>{text.venue}</dt><dd>{match.header.venue??'—'}</dd></div></dl></section></aside></div>
       {!replay?<LiveRefreshBoundary publicId={match.header.publicId} locale="br" status={match.header.status} snapshotAt={match.snapshotAt} kickoff={match.header.kickoff} providerUpdatedAt={match.header.providerUpdatedAt}/>:null}
     </main></div>;

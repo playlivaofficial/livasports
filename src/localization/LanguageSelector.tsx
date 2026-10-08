@@ -1,6 +1,6 @@
 'use client';
 import {usePathname} from 'next/navigation';
-import {languageNames,languageTags,interfaceLocales,type InterfaceLocale} from './interface';
+import {languageNames,publicLanguages,publicLanguageNames,publicLanguage,type InterfaceLocale} from './interface';
 
 export function LanguageSelector({locale}:{locale:InterfaceLocale}){
   const pathname=usePathname();
@@ -14,7 +14,7 @@ export function LanguageSelector({locale}:{locale:InterfaceLocale}){
       const input=event.currentTarget.elements.namedItem('returnTo') as HTMLInputElement;
       input.value=window.location.pathname+window.location.search+window.location.hash;
     }}><input type="hidden" name="returnTo" value={pathname}/>
-      {interfaceLocales.map(value=><button key={value} name="locale" value={value} type="submit" lang={languageTags[value]} aria-current={value===locale?'true':undefined}>
-        {languageNames[value]}<span aria-hidden="true">{value===locale?'✓':''}</span></button>)}
+      {publicLanguages.map(value=><button key={value} name="locale" value={value} type="submit" lang={value} aria-current={value===publicLanguage(locale)?'true':undefined}>
+        {publicLanguageNames[value]}<span aria-hidden="true">{value===publicLanguage(locale)?'✓':''}</span></button>)}
     </form></details>;
 }
