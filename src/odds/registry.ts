@@ -10,11 +10,13 @@ const IDENTITIES = [
   // Colombia's second public book: an independent Entain feed ('bwin', cloneOf null, sports.bwin.com)
   // whose prices genuinely differ from Betsson's, so CO is a real comparison. Odds and slip
   // comparison are live while every CTA stays dark — no Entain affiliate access exists yet.
-  {canonicalId:'bwin',providerSlug:'bwin',displayName:'bwin',shortLabel:'bwin',countries:['CO'],displayRole:'VISIBLE_PRIMARY',displayOrder:2,insurancePriority:2,logoAsset:null},
-  // Peru's only public book. OddsPapi declares it cloneOf 'betsson' and it was observed mirroring
+  // Logo: the official header wordmark from bwin.co's own media CDN, rendered on bwin's black tile.
+  {canonicalId:'bwin',providerSlug:'bwin',displayName:'bwin',shortLabel:'bwin',countries:['CO'],displayRole:'VISIBLE_PRIMARY',displayOrder:2,insurancePriority:2,logoAsset:'/bookmakers/bwin.webp'},
+  // Peru's Betsson Group book. OddsPapi declares it cloneOf 'betsson' and it was observed mirroring
   // Betsson's 1/X/2 prices exactly on every Liga 1 fixture, so showing the two side by side would
-  // be a fake comparison. PE being Inkabet-only keeps them apart; a test asserts they never overlap.
-  {canonicalId:'inkabet',providerSlug:'inkabet',displayName:'Inkabet',shortLabel:'Inkabet',countries:['PE'],displayRole:'VISIBLE_PRIMARY',displayOrder:3,insurancePriority:3,logoAsset:null},
+  // be a fake comparison. Betsson has no Peru mapping, which keeps them apart; a test asserts it.
+  // Logo: the official mark published on Betsson Group Affiliates' brands page.
+  {canonicalId:'inkabet',providerSlug:'inkabet',displayName:'Inkabet',shortLabel:'Inkabet',countries:['PE'],displayRole:'VISIBLE_PRIMARY',displayOrder:3,insurancePriority:3,logoAsset:'/bookmakers/inkabet.webp'},
   // Peru's second public book, entitled in the live subscription and verified on 2026-10-06 against
   // Liga 1: 9 of 9 fixtures priced, with MATCH_WINNER, BTTS and TOTAL_GOALS present. OddsPapi
   // publishes one generic 1xBet feed (cloneOf null, 1xbet.com) and no .pe clone, so Peru prices off

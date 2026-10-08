@@ -2,9 +2,29 @@ import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
 import {Children,isValidElement,type ReactNode} from 'react';
 const f=vi.hoisted(()=>({fetch:vi.fn(),assign:vi.fn(),reload:vi.fn(),setState:vi.fn()}));
 vi.mock('react',async importOriginal=>({
-  ...await importOriginal<typeof import('react')>(),useState:(initial:unknown)=>[initial,f.setState],
+  ...await importOriginal<typeof import('react')>(),useState:(initial:unknown)=>[initial,f.setState],useEffect:()=>{},
 }));
-import {OwnerPreviewBar} from './PreviewControls';
+import {OwnerPreviewBar,geoForRoute,previewRouteMismatch} from './PreviewControls';
+
+describe('preview GEO and route stay in step',()=>{
+  it('reads the jurisdiction from the route prefix only',()=>{
+    expect(geoForRoute('/mx')).toBe('MX');
+    expect(geoForRoute('/co/partido/x-y-0000000000000001')).toBe('CO');
+    expect(geoForRoute('/pe/futbol')).toBe('PE');
+    for(const path of ['/','/br','/en/match/x','/owner/preview','/mxn','/peru'])expect(geoForRoute(path)).toBeNull();
+  });
+  it('flags a Peruvian route under a Colombian preview, the reported production state',()=>{
+    expect(previewRouteMismatch('/pe',true,'CO')).toBe('PE');
+    expect(previewRouteMismatch('/mx/futbol',true,'CO')).toBe('MX');
+  });
+  it('is silent when route and preview agree, without a preview, and off the core routes',()=>{
+    expect(previewRouteMismatch('/co/futbol',true,'CO')).toBeNull();
+    expect(previewRouteMismatch('/pe',false,null)).toBeNull();
+    expect(previewRouteMismatch('/pe',true,null)).toBeNull();
+    expect(previewRouteMismatch('/en',true,'CO')).toBeNull();
+    expect(previewRouteMismatch('/owner/commercial',true,'PE')).toBeNull();
+  });
+});
 
 type Change=(event:{target:{value:string}})=>Promise<void>;
 function changeHandler(node:ReactNode):Change|undefined{
