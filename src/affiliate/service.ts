@@ -10,6 +10,7 @@ import {signOffer} from './tokens';
 import {isPublisherEmbed,type Campaign,type CommercialContext,type Creative,type PageContext,type PublicOffer,type VerifiedOffer} from './types';
 import type {SiteLocale} from '@/config/i18n';
 import {commercialGeoFromLocale} from '@/odds/commercial-geo';
+import {bookmakerConfig} from '@/odds/registry';
 
 export interface OfferDependencies {
   campaigns(locale:SiteLocale):Promise<Campaign[]>;
@@ -29,14 +30,39 @@ export function offerDependencies(db:QueryExecutor):OfferDependencies{return {
     const prices=b?.cells.filter(c=>c.decimalOdds&&c.expiresAt)??[];return prices.length?Math.min(...prices.map(c=>Date.parse(c.expiresAt!))):null;
   },
 };}
+
+/** The single mobile sponsor slot. Desktop placements never share: any overlap there still fails closed. */
+export const ROTATING_PLACEMENTS:ReadonlySet<string>=new Set(['mobile_inline']);
+/** Minutes each operator holds the shared mobile slot, from AFFILIATE_MOBILE_ROTATION_MINUTES (1–1440, default 10). */
+export function mobileRotationMinutes(env:Readonly<Record<string,string|undefined>>=process.env){
+  const n=Number(env.AFFILIATE_MOBILE_ROTATION_MINUTES);return Number.isInteger(n)&&n>=1&&n<=1440?n:10;
+}
+/**
+ * Deterministic rotation for the shared mobile slot, e.g. Betsson and bwin in Colombia once both are
+ * genuinely active. Everyone in the same time window sees the same operator, ordered by the registry's
+ * display order, so attribution stays exact and nothing depends on commission. Two campaigns from one
+ * operator are ambiguous configuration rather than a rotation, and still fail closed.
+ */
+export function rotatingChoice<T extends {campaign:Campaign}>(placement:string,eligible:readonly T[],now:number,expectedCampaign?:string,minutes=mobileRotationMinutes()):T|null{
+  if(!ROTATING_PLACEMENTS.has(placement)||eligible.length<2)return null;
+  if(new Set(eligible.map(e=>e.campaign.bookmaker)).size!==eligible.length)return null;
+  // A signed offer is re-resolved when its frame or redirect is served: honour the operator it was issued
+  // for, so a window boundary in between can never swap the sponsor under an issued token.
+  if(expectedCampaign)return eligible.find(e=>e.campaign.id===expectedCampaign)??null;
+  const order=[...eligible].sort((a,b)=>(bookmakerConfig(a.campaign.bookmaker)?.displayOrder??999)-(bookmakerConfig(b.campaign.bookmaker)?.displayOrder??999)
+    ||a.campaign.bookmaker.localeCompare(b.campaign.bookmaker));
+  return order[Math.floor(now/(minutes*60000))%order.length];
+}
 export async function resolveOffer(context:CommercialContext,deps:OfferDependencies,now=Date.now(),expectedCampaign?:string,expectedVersion?:number):Promise<VerifiedOffer|null>{
   const candidates=(await deps.campaigns(context.locale)).filter(c=>campaignDestination(c,context,now));
   const eligible=candidates.flatMap<{campaign:Campaign;creative:Creative|null}>(c=>{
     if(!isSponsorPlacement(context.placement))return [{campaign:c,creative:null}];
     const creatives=c.creatives.filter(s=>validCreative(s,context,now,c.operatorCampaignId,c.bookmaker));return creatives.length===1?[{campaign:c,creative:creatives[0]}]:[];
   });
-  // Ambiguous commercial configuration fails closed; no commission-based choice.
-  if(eligible.length!==1)return null;const {campaign,creative}=eligible[0];if(expectedCampaign&&campaign.id!==expectedCampaign)return null;
+  // Ambiguous commercial configuration fails closed; no commission-based choice. The one exception is
+  // the single mobile slot, which different operators may share by deterministic rotation.
+  const chosen=eligible.length===1?eligible[0]:rotatingChoice(context.placement,eligible,now,expectedCampaign);
+  if(!chosen)return null;const {campaign,creative}=chosen;if(expectedCampaign&&campaign.id!==expectedCampaign)return null;
   if(expectedCampaign&&campaign.commercialVersion!==undefined&&campaign.commercialVersion!==expectedVersion)return null;
   const page=await deps.page(context);if(!page)return null;
   let expiresAt=Math.min(now+300000,Date.parse(campaign.endsAt),creative?.endsAt?Date.parse(creative.endsAt):Infinity);
