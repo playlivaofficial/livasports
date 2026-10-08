@@ -226,7 +226,8 @@ export class PostgresFootballRepository implements FootballIngestionStore, Footb
       homeTeamName: String(row.home_team_name), homeTeamShortName: row.home_team_short_name ? String(row.home_team_short_name) : null,
       homeTeamImageUrl: row.home_team_image_url ? String(row.home_team_image_url) : null,
       awayTeamName: String(row.away_team_name), awayTeamShortName: row.away_team_short_name ? String(row.away_team_short_name) : null,
-      awayTeamImageUrl: row.away_team_image_url ? String(row.away_team_image_url) : null }));
+      awayTeamImageUrl: row.away_team_image_url ? String(row.away_team_image_url) : null,
+      ...(ranks.has(String(row.id))?{growthRank:ranks.get(String(row.id))!}:{}) }));
   }
 
   private fixture(row: Record<string, unknown>): Fixture {

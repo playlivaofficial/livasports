@@ -1,4 +1,4 @@
-import {GrowthProminence} from '@/growth/GrowthProminence';
+
 import {primaryProfileStatistics} from '@/profiles/statistics';
 import {unlinkedTeamLabel} from '@/sports/unlinked-competition';
 import {LocalizedTimeText} from '@/localization/LocalizedTime';
@@ -94,7 +94,7 @@ export function EnglishTeamProfilePage({ locale, profile,history }: { locale: Si
   return <div lang={dictionary.locale} className="app-shell profile-shell english-sports"><SiteHeader locale={locale} activePage="football" localeHrefs={alternate} contentId="profile-content"/>
     <main id="profile-content" className="profile-container"><Link className="profile-back" href={localeRoutes[locale].football}>← {text.back}</Link>
       <TeamHeader locale={locale} profile={profile}/>
-      <GrowthProminence locale="en" surface={{kind:'TEAM',teamId:profile.id}}/><SponsoredSlot copyLocale="en" context={{locale:'br',pagePath:brTeamPath('br',profile.publicId,profile.name),placement:'team_top_leaderboard'}}/><SponsoredSlot copyLocale="en" context={{locale:'br',pagePath:brTeamPath('br',profile.publicId,profile.name),placement:'profile_mobile_inline'}}/>
+      <SponsoredSlot copyLocale="en" context={{locale:'br',pagePath:brTeamPath('br',profile.publicId,profile.name),placement:'team_top_leaderboard'}}/><SponsoredSlot copyLocale="en" context={{locale:'br',pagePath:brTeamPath('br',profile.publicId,profile.name),placement:'profile_mobile_inline'}}/>
       <Nav locale={locale}/>
       <div className="profile-layout"><div className="profile-main">
         <section id="overview" className="profile-panel"><h2>{text.overview}</h2><div className="profile-overview-grid"><article><h3>{text.next}</h3>{profile.upcoming[0]?<MatchRow locale={locale} row={profile.upcoming[0]} teamId={profile.id}/>:<p>{text.noData}</p>}</article>

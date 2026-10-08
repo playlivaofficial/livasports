@@ -15,7 +15,6 @@ import {previewRouteMismatch} from '@/owner/PreviewControls';
 import {SportsRepository} from '@/sports/repository';
 import type {QueryExecutor} from '@/database/client';
 import {CANONICAL_COMPETITION_TARGETS} from '@/config/footballCompetitions';
-import {GrowthCards} from '@/growth/GrowthExperience';
 import {VISIBLE_BOOKMAKERS} from '@/odds/registry';
 import {formatMoney} from '@/slip/decimal';
 import {SponsoredSlot} from '@/components/commercial/SponsoredSlot';
@@ -78,11 +77,10 @@ describe('public language × trusted GEO matrix',()=>{
     const response=await prominence(new Request(`https://livasports.com/api/growth/prominence?locale=${locale}&kind=HOME`,{headers:after}));
     expect(response.headers.get('cache-control')).toBe('private, no-store');
     const growth=await response.json();expect(growth.geo).toBe(geo);expect(growth.providerRequests).toBe(0);
-    const $=load(renderToStaticMarkup(<GrowthCards locale={locale} surface={{kind:'HOME'}} geo={geo} rows={growth.rows}/>));
-    expect($('.growth-prominence-item').length).toBe(isCoreGeo(geo)?5:0);
-    expect($('.growth-prominence-item .growth-context-links a').length).toBe(isCoreGeo(geo)?15:0);
-    expect($('a a').length).toBe(0);
-    if(isCoreGeo(geo)){expect(f.query.mock.calls[0][1]).toEqual(['HOME',geo]);expect($('.growth-fixture-link').first().attr('href')).toContain('/'+locale+'/');}
+    // The public Growth box is retired; the GEO's own Top 5 is still selected and served per jurisdiction.
+    expect(growth.rows.length).toBe(isCoreGeo(geo)?5:0);
+    if(isCoreGeo(geo)){expect(f.query.mock.calls[0][1]).toEqual(['HOME',geo]);
+      expect(growth.rows.every((r:{canonicalUrl:string})=>new URL(r.canonicalUrl).pathname.startsWith('/'+geo.toLowerCase()+'/'))).toBe(true);}
     else expect(f.query).not.toHaveBeenCalled();
 
     f.commercial=body.commercialLocale;
