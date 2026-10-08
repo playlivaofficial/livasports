@@ -4,6 +4,7 @@
 .bookmaker-logo-art { display:flex; align-items:center; justify-content:center; width:88px; height:28px; padding:4px 5px; border-radius:4px; overflow:hidden; background:#fff; color:#172a24; }
 .bookmaker-logo-art img { display:block; width:100%; height:auto; max-height:22px; object-fit:contain; }
 .bookmaker-logo-betsson { background:#ff6600; }
+.bookmaker-logo-bwin { background:#000; }
 .bookmaker-logo-sportingbet { background:#295c89; }
 .bookmaker-logo-link { display:inline-flex; align-items:center; min-height:44px; border-radius:5px; }
 .bookmaker-logo-link:focus-visible { outline:3px solid var(--color-accent); outline-offset:3px; }
