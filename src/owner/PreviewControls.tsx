@@ -36,13 +36,17 @@ export function PreviewControls({authorized,preview,previewGeo,configured,countr
       <p>Real connection: {country??'Unknown'} · <strong>{preview&&previewGeo?`${describe(previewGeo)} · QA_TEST`:'Real GEO'}</strong></p>
       <p>Preview traffic remains QA_TEST. Preview does not approve candidate operators or prove genuine local operator access.</p>
       <label>Experience <select disabled={busy} value={preview&&previewGeo?previewGeo:''} onChange={e=>void run({action:'preview',geo:e.target.value||null})}><option value="">Real GEO</option>{CORE_GEOS.map(geo=><option key={geo} value={geo}>{geoProfile(geo).countryName}</option>)}</select></label>
+      {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- Re-read the owner session and preview headers with a full document request. */}
       {CORE_GEOS.map(geo=><button type="button" key={geo} disabled={busy} onClick={()=>void open(geo)}>Preview {geoProfile(geo).countryName} →</button>)}<a href="/owner/commercial">Commercial Activation</a><a href="/owner/growth">Growth</a><a href="/owner/health">Odds health</a><a href="/owner/analytics">Analytics</a><button disabled={busy} onClick={()=>void run({action:'logout'})}>Sign out</button><p>This device stays signed in for 30 days. Keep your permanent access key private.</p>
     </>}{error?<p role="alert">{error}</p>:null}</main>;
 }
 
 const syncKey=(from:CoreGeo,to:CoreGeo)=>`ls-owner-preview-sync:${from}->${to}`;
 export function OwnerPreviewBar({preview,previewGeo}:{preview:boolean;previewGeo?:CoreGeo|null}){
-  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[mismatch,setMismatch]=useState<CoreGeo|null>(null);
+  const [busy,setBusy]=useState(false),[error,setError]=useState('');
+  // The bar mounts only after the client-side presentation read, never during server render, so the
+  // route can be derived directly rather than mirrored into state.
+  const mismatch=typeof window==='undefined'?null:previewRouteMismatch(window.location.pathname,preview,previewGeo);
   // A same-locale router refresh preserves the public root's private hydration
   // state. Reload the document after changing the signed cookie so the owner bar,
   // slip and offer controls all resolve the new jurisdiction together.
@@ -51,7 +55,6 @@ export function OwnerPreviewBar({preview,previewGeo}:{preview:boolean;previewGeo
     try{await action({action:'preview',geo:geo||null});if(geo)navigate(geo as CoreGeo);else window.location.reload();}
     catch{setError('Open owner controls to sign in again.');setBusy(false);}
   }
-  useEffect(()=>{setMismatch(previewRouteMismatch(window.location.pathname,preview,previewGeo));},[preview,previewGeo]);
   // The route the owner opened is the most recent intent, so the preview follows it. One attempt per
   // pair and session: if the cookie does not change, the loud warning below stays instead of a reload loop.
   useEffect(()=>{
@@ -60,8 +63,7 @@ export function OwnerPreviewBar({preview,previewGeo}:{preview:boolean;previewGeo
     const key=syncKey(previewGeo,mismatch);let attempted=false;
     try{attempted=sessionStorage.getItem(key)==='1';sessionStorage.setItem(key,'1');}catch{attempted=true;}
     if(attempted)return;
-    setBusy(true);
-    action({action:'preview',geo:mismatch}).then(()=>window.location.reload()).catch(()=>{setError('Could not switch the preview automatically.');setBusy(false);});
+    action({action:'preview',geo:mismatch}).then(()=>window.location.reload()).catch(()=>setError('Could not switch the preview automatically.'));
   },[mismatch,previewGeo]);
   return <aside className="owner-preview-bar" aria-label="Owner preview" data-preview-geo={preview?previewGeo??'':'REAL'} data-route-mismatch={mismatch??undefined}>
     <strong>{preview?'QA_TEST · GEO preview':'Owner · Real GEO'}</strong>
