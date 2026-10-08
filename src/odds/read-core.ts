@@ -9,6 +9,8 @@ import {commercialIso2,commercialLocale,type CommercialGeo} from './commercial-g
 import {isVisibleBookmaker} from './registry';
 import {APPROVED_NATIVE_SOURCE_IDS,NATIVE_SOURCE_REGISTRY} from './source-registry';
 import {referenceSourceAllowed,referenceSourceSql,referenceTargetSql} from './reference-policy';
+import {isCoreGeo} from '@/config/geo';
+import {primaryVisibleBookmakers} from './fallback-pool';
 
 export interface InternalOddsRead extends OddsReadSnapshot { destinations:Record<string,string>; }
 // Commercial comparisons read only their own GEO. Rights-approved foreign quotes
@@ -63,7 +65,7 @@ function oddsReadSql(selector:'id'|'publicIds'|'fixtureIds'|'healthIds'){
 function hydrateOddsSnapshot(rows:QueryResultRow[],fixtureId:string,geo:CommercialGeo|null):InternalOddsRead {
   const date=(value:unknown)=>value instanceof Date?value.toISOString():typeof value==='string'?value:'';
   const locale=commercialLocale(geo);
-  const snapshot:InternalOddsRead={fixtureId,kickoff:date(rows[0]?.kickoff),fixtureStatus:String(rows[0]?.fixture_status??'UNKNOWN'),quotes:[],referenceQuotes:[],destinations:{},approvedNativeProviders:APPROVED_NATIVE_SOURCE_IDS,eligibleBookmakers:[],insuranceEnabled:false};
+  const snapshot:InternalOddsRead={fixtureId,kickoff:date(rows[0]?.kickoff),fixtureStatus:String(rows[0]?.fixture_status??'UNKNOWN'),quotes:[],referenceQuotes:[],destinations:{},approvedNativeProviders:APPROVED_NATIVE_SOURCE_IDS,eligibleBookmakers:[],referenceGapBookmakers:geo&&isCoreGeo(geo)?primaryVisibleBookmakers(geo):[],insuranceEnabled:false};
   for(const row of rows){if(!row.bookmaker_id)continue;
     // Keep this defense even though SQL already filters the exact persisted GEO.
     const sourceEligible=!!geo&&row.source_geo===geo&&eligibleSource(row.provider_slug,geo,row.source_verification_state,row.source_domain,row.source_domains??[]);
@@ -128,7 +130,7 @@ export async function readPublicOddsFixtures(db:QueryExecutor,publicIds:readonly
     const internal=hydrateOddsSnapshot(rows,String(rows[0].canonical_fixture_id),geo);
     return [id,{fixture:{publicId:id,home:String(rows[0].home_name),away:String(rows[0].away_name),competition:String(rows[0].competition_name),kickoff:internal.kickoff,status:internal.fixtureStatus},
       // Destinations are intentionally excluded: M6 resolves intent, not commercial actions.
-      snapshot:{fixtureId:internal.fixtureId,referenceQuotes:internal.referenceQuotes,kickoff:internal.kickoff,fixtureStatus:internal.fixtureStatus,quotes:internal.quotes,approvedNativeProviders:internal.approvedNativeProviders,eligibleBookmakers:internal.eligibleBookmakers,insuranceEnabled:internal.insuranceEnabled}}];
+      snapshot:{fixtureId:internal.fixtureId,referenceQuotes:internal.referenceQuotes,referenceGapBookmakers:internal.referenceGapBookmakers,kickoff:internal.kickoff,fixtureStatus:internal.fixtureStatus,quotes:internal.quotes,approvedNativeProviders:internal.approvedNativeProviders,eligibleBookmakers:internal.eligibleBookmakers,insuranceEnabled:internal.insuranceEnabled}}];
   }));
 }
 

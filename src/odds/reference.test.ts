@@ -66,4 +66,26 @@ describe('cross-GEO informational references',()=>{
   const values=[resolveSelection(selection,local,now),resolveSelection(second,local,now),resolveSelection(third,read(),now)];
   expect(indicativeCombined(values,now)).not.toBeNull();expect(indicativeCombined(values,now+126*60000)).toBeNull();
  });
+ it('fills a separate reference per missing bookmaker/outcome while retaining genuine 1xBet prices',()=>{
+  const local={...reference,targetGeo:'PE',sourceGeo:'PE',bookmaker:'1xbet',bookmakerName:'1xBet',providerBookmakerId:'1xbet',sourceDomain:'1xbet.com',decimalOdds:'2.74'};
+  const value:OddsReadSnapshot={...snapshot,referenceGapBookmakers:['inkabet','1xbet'],eligibleBookmakers:[{id:'1xbet',name:'1xBet',priority:2}],quotes:[local],referenceQuotes:[local]};
+  const result=buildComparison(value,'MATCH_WINNER',now,{'1xbet':'/real','inkabet':'/not-an-offer'});
+  expect(result.rows.map(r=>r.bookmaker)).toEqual(['1xbet']);
+  expect(result.rows[0]).toMatchObject({action:'/real',cells:[{outcome:'HOME',decimalOdds:'2.74',priceKind:'REAL',best:false},{outcome:'DRAW',decimalOdds:null},{outcome:'AWAY',decimalOdds:null}]});
+  expect(result.references).toMatchObject([{outcome:'HOME',bookmaker:'1xbet',decimalOdds:'2.74',affiliateEligible:false,executable:false}]);
+  const recovered={...value,eligibleBookmakers:[...value.eligibleBookmakers!,{id:'inkabet',name:'Inkabet',priority:1}],quotes:[local,{...local,quoteId:'inkabet-real',bookmaker:'inkabet',bookmakerName:'Inkabet',decimalOdds:'2.50'}]};
+  expect(buildComparison(recovered,'MATCH_WINNER',now).references??[]).toEqual([]);
+ });
+ it('does not let a covered HOME outcome suppress DRAW or AWAY gaps, or expand an empty GEO pool',()=>{
+  const books=[{id:'betsson',name:'Betsson',priority:1},{id:'bwin',name:'bwin',priority:2}];
+  const native=[{...quote,bookmaker:'betsson'},quote];
+  const foreign={...reference,targetGeo:'CO',sourceGeo:'PE',providerBookmakerId:'1xbet',bookmaker:'1xbet'};
+  const value={...snapshot,eligibleBookmakers:books,referenceGapBookmakers:books.map(b=>b.id),quotes:native,referenceQuotes:[foreign,{...foreign,outcome:'DRAW' as const,quoteId:'draw'},{...foreign,outcome:'AWAY' as const,quoteId:'away'}]};
+  expect(buildComparison(value,'MATCH_WINNER',now).references?.map(q=>q.outcome)).toEqual(['DRAW','AWAY']);
+  expect(buildComparison({...value,referenceGapBookmakers:[]},'MATCH_WINNER',now).references).toBeUndefined();
+ });
+ it('does not relax reference expiry to fill a partial local gap',()=>{
+  const value={...snapshot,referenceGapBookmakers:['betsson','bwin'],quotes:[{...quote,bookmaker:'betsson'}],referenceQuotes:[{...reference,observedAt:new Date(now-126*60000).toISOString(),freshnessTtlMinutes:8000}]};
+  expect(buildComparison(value,'MATCH_WINNER',now).references??[]).toEqual([]);
+ });
 });

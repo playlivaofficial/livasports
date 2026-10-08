@@ -54,6 +54,8 @@ export interface OddsReadSnapshot { quotes: ReadOddsQuote[]; kickoff: string; fi
   referenceQuotes?:Array<ReadOddsQuote&{sourceGeo:string;providerBookmakerId:string;targetGeo:string}>;
   /** Server-selected target pool; an explicit empty array must never expand to legacy BR cards. */
   eligibleBookmakers?:readonly {id:string;name:string;priority:number}[];
+  /** Fixed GEO primary identities used to detect missing cells, not to authorize offers/CTAs. */
+  referenceGapBookmakers?:readonly string[];
   /**
    * This jurisdiction's configured reference pool. Each entry becomes its own explicitly attributed
    * row so market continuity never requires moving a price into a primary book's identity. Omitted or

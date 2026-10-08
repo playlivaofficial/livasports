@@ -13,6 +13,7 @@ describe('safe odds fixture matching',()=>{
     ['colombia-primera-a','Deportes Tolima','Fortaleza CEIF','CD Tolima','Fortaleza FC'],
     ['colombia-primera-a','Deportivo Pereira','Junior FC','Deportivo Pereira FC SA','CD Junior FC'],
     ['colombia-primera-a','Rionegro Águilas','Junior FC','Aguilas Doradas Rionegro','CD Junior FC'],
+    ['colombia-primera-a','Alianza Petrolera','Rionegro Águilas','Alianza FC Valledupar','Aguilas Doradas Rionegro'],
     ['colombia-primera-b','Atlético','Real Cartagena','Atletico FC Cali','Real Cartagena FC'],
     ['colombia-primera-b','Patriotas Boyacá','Real Cartagena','Boyaca Patriotas','Real Cartagena FC'],
     ['ligue-2','Grenoble Foot 38','Nancy','Grenoble Foot','Nancy Lorraine'],
