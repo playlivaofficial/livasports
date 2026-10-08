@@ -74,12 +74,14 @@ function hydrateOddsSnapshot(rows:QueryResultRow[],fixtureId:string,geo:Commerci
       sourceDomain:row.source_domain,providerKickoff:date(row.provider_kickoff),freshnessTtlMinutes:row.freshness_ttl_minutes==null?null:Number(row.freshness_ttl_minutes),geoEligible:Boolean(row.display_eligible&&sourceEligible&&row.mapping_verified)};
     const sourceProvider=String(row.source_provider??'ODDSPAPI');
     const providerPriority=NATIVE_SOURCE_REGISTRY.find(source=>source.id===sourceProvider)?.priority??Number.MAX_SAFE_INTEGER;
+    // Same-GEO informational candidates precede foreign references, but never
+    // bypass source/mapping verification or become executable bookmaker legs.
+    if(sourceProvider==='ODDSPAPI'&&row.display_eligible&&row.mapping_verified&&referenceSourceAllowed(geo,row.source_geo,quote.bookmaker,row.provider_bookmaker_id)&&
+      eligibleSource(quote.bookmaker,row.source_geo,row.source_verification_state,row.source_domain,row.source_domains??[]))
+      snapshot.referenceQuotes!.push({...quote,geoEligible:true,provider:sourceProvider,sourceGeo:row.source_geo,providerBookmakerId:row.provider_bookmaker_id,targetGeo:geo!});
     if(row.source_geo!==geo){
       // Rights do not imply local operator availability. Revalidate the SOURCE jurisdiction,
       // exact mapping and domain; never copy its destination or put it in the local pool.
-      if(sourceProvider==='ODDSPAPI'&&row.display_eligible&&row.mapping_verified&&referenceSourceAllowed(geo,row.source_geo,quote.bookmaker,row.provider_bookmaker_id)&&
-        eligibleSource(quote.bookmaker,row.source_geo,row.source_verification_state,row.source_domain,row.source_domains??[]))
-        snapshot.referenceQuotes!.push({...quote,geoEligible:true,provider:sourceProvider,sourceGeo:row.source_geo,providerBookmakerId:row.provider_bookmaker_id,targetGeo:geo!});
       // Preserve the existing fail-closed diagnostics for unexpected rows, without eligibility.
       snapshot.quotes.push({...quote,provider:sourceProvider,providerPriority,geoEligible:false});continue;
     }

@@ -20,7 +20,7 @@ function TicketIcon(){return <svg width="19" height="19" viewBox="0 0 24 24" fil
 
 function SlipDrawer({locale,currencyLocale,uiLocale,selections,stake,slipId,pending,onPending,onClose,storageNotice,message}:{locale:SiteLocale;currencyLocale:SlipUiLocale;uiLocale:SlipUiLocale;selections:SavedSelection[];stake:string;slipId:string;pending:SlipFeedback|null;onPending:(v:SlipFeedback|null)=>void;onClose:()=>void;storageNotice:StorageNotice;message:string|null}){
   const text=slipCopy[uiLocale];const {resolved,comparison,failed,online,checking,resolvedAt,now}=useSlipResolution(selections,locale);
-  const byKey=resolvedByKey(resolved);const [confirmClear,setConfirmClear]=useState(false);const [stakeDraft,setStakeDraft]=useState<string|null>(null);const [sharing,setSharing]=useState(false);
+  const byKey=resolvedByKey(resolved);const [stakeDraft,setStakeDraft]=useState<string|null>(null);const [sharing,setSharing]=useState(false);
   const closeRef=useRef<HTMLButtonElement>(null);const panel=useRef<HTMLElement>(null);
   const stakeValue=stakeDraft??stake;
   useEffect(()=>{closeRef.current?.focus();const escape=(event:KeyboardEvent)=>{if(event.key==='Escape'){event.preventDefault();onClose();}};
@@ -34,7 +34,7 @@ function SlipDrawer({locale,currencyLocale,uiLocale,selections,stake,slipId,pend
     if(result.result==='REMOVED')emitSlipEvent('slip_selection_remove',locale,s,undefined,{legCount:result.slip.selections.length});
     requestAnimationFrame(()=>{const buttons=panel.current?.querySelectorAll<HTMLButtonElement>('.slip-remove');(buttons?.[Math.min(index,(buttons?.length??1)-1)]??closeRef.current)?.focus();});
   }
-  function clear(){slipStore.dispatch({type:'clear'});setConfirmClear(false);onPending(null);emitSlipEvent('slip_clear',locale,undefined,undefined,{legCount:0});closeRef.current?.focus();}
+  function clear(){slipStore.dispatch({type:'clear'});setStakeDraft(null);onPending(null);feedback({result:'CLEARED'});emitSlipEvent('slip_clear',locale,undefined,undefined,{legCount:0});closeRef.current?.focus();}
   function commitStake(){const parsed=parseStake(stakeValue);if(!parsed){feedback({result:'INVALID_STAKE'});setStakeDraft(null);return;}setSlipStake(parsed);setStakeDraft(null);}
   function replace(){
     if(!pending?.selection||!pending.expiresAt||Date.now()>=Date.parse(pending.expiresAt)){feedback({result:'EXPIRED'});onPending(null);return;}
@@ -54,7 +54,6 @@ function SlipDrawer({locale,currencyLocale,uiLocale,selections,stake,slipId,pend
       {pending?.selection?<section className="slip-confirm" aria-label={text.replace}><strong>{text.replace}</strong><p>{text.replaceQuestion}</p>
         <p>{text.replaceWith}: <b>{text.markets[pending.selection.market]} · {selectionLabel(pending.selection,uiLocale,resolved.find(v=>v.selection.fixturePublicId===pending.selection?.fixturePublicId)?.fixture)}</b></p>
         <div><button type="button" onClick={replace}>{text.replace}</button><button type="button" onClick={()=>{onPending(null);closeRef.current?.focus();}}>{text.cancel}</button></div></section>:null}
-      {confirmClear?<section className="slip-confirm" aria-label={text.clear}><strong>{text.clearQuestion}</strong><div><button type="button" onClick={clear}>{text.confirmClear}</button><button type="button" onClick={()=>{setConfirmClear(false);closeRef.current?.focus();}}>{text.cancel}</button></div></section>:null}
       {!selections.length?<div className="slip-empty"><span className="slip-empty-icon"><TicketIcon/></span><h3>{text.emptyTitle}</h3><p>{text.empty}</p><Link href={browse} onClick={onClose}>{text.browse} →</Link></div>:<>
         <label className="slip-stake"><span>{text.stake}</span>
           <input inputMode="decimal" enterKeyHint="done" autoComplete="off" value={stakeValue} aria-invalid={parseStake(stakeValue)===null} aria-describedby="slip-stake-hint"
@@ -68,7 +67,7 @@ function SlipDrawer({locale,currencyLocale,uiLocale,selections,stake,slipId,pend
           <h3 id="slip-selections-title">{text.yourSelections}<span className="slip-count">{selections.length}</span></h3>
           <SlipLegs uiLocale={uiLocale} selections={selections} resolvedByKey={byKey} comparison={comparison} checking={checking} resolvedAt={resolvedAt} now={now} onRemove={remove} onNavigate={onClose}/>
         </section>
-        <div className="slip-summary"><div><small>{text.scope}</small></div><button type="button" onClick={()=>selections.length>1?setConfirmClear(true):clear()}>{text.clear}</button></div>
+        <div className="slip-summary"><div><small>{text.scope}</small></div><button type="button" onClick={clear}>{text.clear}</button></div>
         {resolvedAt?<p className="slip-verified">{currentCount}/{selections.length} {text.currentCount}</p>:null}
         <button type="button" className="slip-share" disabled={sharing||!selections.length} onClick={async()=>{setSharing(true);await shareSlipImage(slipSharePayload({locale:uiLocale,currencyLocale,slipId:slipId||'local',stake,generatedAt:resolvedAt??new Date().toISOString(),selections,resolved,comparison}));setSharing(false);}}>{text.share}</button>
         <p className="slip-comparison-note">{text.shareHint}</p>

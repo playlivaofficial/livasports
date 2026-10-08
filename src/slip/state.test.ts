@@ -64,6 +64,20 @@ describe('canonical guest intent',()=>{
 });
 describe('browser persistence adapter',()=>{
   function storage(){const values=new Map<string,string>();return {values,getItem:(k:string)=>values.get(k)??null,setItem:(k:string,v:string)=>{values.set(k,v);}};}
+  it.each([1,3,5,10])('clears all %i mixed-coverage intents, storage, other tabs and a new page without resurrection',count=>{
+    const disk={...storage(),removeItem:(key:string)=>{disk.values.delete(key);}};
+    const a=createSlipStore(()=>disk),b=createSlipStore(()=>disk);
+    // Coverage is deliberately not persisted: REAL / INDICATIVE / UNAVAILABLE
+    // resolve the same canonical intent, so clearing cannot leave one class behind.
+    for(let n=1;n<=count;n++)a.dispatch(add(n));
+    a.dispatch({type:'setStake',stake:'25'});b.reload();expect(b.getSnapshot().slip.selections).toHaveLength(count);
+    expect(a.dispatch({type:'clear'}).result).toBe('CLEARED');
+    expect(disk.getItem(STORAGE_KEY)).toBeNull();expect(a.getSnapshot().slip).toEqual(EMPTY_SLIP);
+    b.reload();a.reload();const reloaded=createSlipStore(()=>disk);reloaded.reload();
+    for(const store of [a,b,reloaded])expect(store.getSnapshot().slip).toEqual(EMPTY_SLIP);
+    // A stale tab edits stake only: reload before mutation must not revive its old selections.
+    b.dispatch({type:'setStake',stake:'20'});a.reload();expect(a.getSnapshot().slip.selections).toEqual([]);
+  });
   it('restores a new page and converges two tabs without storage write loops',()=>{
     const disk=storage();const write=vi.spyOn(disk,'setItem');const a=createSlipStore(()=>disk),b=createSlipStore(()=>disk);
     a.dispatch(add());b.reload();expect(b.getSnapshot().slip.selections).toHaveLength(1);

@@ -14,7 +14,7 @@ describe('restrained commercial odds rendering',()=>{
     for(const [locale,label] of [['br','Ver odds'],['mx','Ver cuotas'],['co','Ver cuotas'],['pe','Ver cuotas'],['en','View odds']] as const){
       const html=renderToStaticMarkup(<PregameOdds initial={[view]} fixturePublicId="aaaaaaaaaaaaaaaa" uiLocale={locale==='en'?'en':undefined} context={{fixtureId:'test-only',competitionId:'test',locale:locale==='en'?'br':locale}}/>);
       expect(html).toContain('rel="sponsored nofollow noopener noreferrer"');expect(html).toContain(label);expect(html).toContain('18+');
-      expect(html).toContain('odds-approx-mark');expect(view.rows[0].cells[0].priceKind).toBe('REAL');expect(html).not.toMatch(/Estimated|Estimado|data-source/);
+      expect(html).toContain('data-price-kind="REAL"');expect(html).not.toContain('odds-approx-mark');expect(view.rows[0].cells[0].priceKind).toBe('REAL');expect(html).not.toMatch(/Estimated|Estimado|data-source/);
     }
   });
   it('does not show a link or affiliate commission disclosure without an approved action',()=>{
@@ -30,7 +30,7 @@ describe('restrained commercial odds rendering',()=>{
     const html=renderToStaticMarkup(<PregameOdds initial={[union]} fixturePublicId="aaaaaaaaaaaaaaaa" context={{fixtureId:'fixture',competitionId:'test',locale:'br'}}/>);
     // Both rows still render — the Betsson card keeps its identity and logo — but only bwin's three
     // prices are marked, because only bwin published any.
-    expect(html.match(/<tr/g)?.length).toBe(3);expect(html.match(/odds-approx-mark/g)?.length).toBe(3);
+    expect(html.match(/<tr/g)?.length).toBe(3);expect(html.match(/data-price-kind="REAL"/g)?.length).toBe(3);
     expect(union.rows.find(r=>r.bookmaker==='betsson')!.cells.every(c=>c.decimalOdds===null&&c.priceKind===null&&c.sourceBookmaker===null)).toBe(true);
     expect(union.rows.find(r=>r.bookmaker==='bwin')!.cells.every(c=>c.priceKind==='REAL'&&c.sourceBookmaker==='bwin')).toBe(true);
     // Only bwin has a price button; Betsson's row carries its identity with no price to attribute.

@@ -34,13 +34,14 @@ describe('listing MATCH_WINNER cells', () => {
     expect(html).toContain('1.85');
     expect(html).toContain('3.20');
     expect(html).toContain('4.10');
-    expect(html.match(/odds-approx-mark/g)?.length).toBe(4);
+    expect(html.match(/data-price-kind="REAL"/g)?.length).toBe(4);
+    expect(html).not.toContain('odds-approx-mark');
     expect(html).not.toContain('data-price-kind="PROXY"');
   });
 
   it('hides stale prices and renders a freshness warning instead', () => {
     const html = renderToStaticMarkup(createElement(OddsComparison, { locale: 'mx', fixture: fixture('stale', 'stale') }));
-    expect(html).toContain('desactualizadas');
+    expect(html).toContain('Cuota no disponible');
     expect(html).not.toContain('1.90');
   });
 
@@ -53,8 +54,8 @@ describe('listing MATCH_WINNER cells', () => {
   it('renders explicit no-odds coverage', () => {
     const value = { ...fixture(), odds: [], oddsState: 'none' as const };
     const html = renderToStaticMarkup(createElement(OddsComparison, { locale: 'br', fixture: value }));
-    expect(html).toContain('aria-label="Odds indisponíveis"');
-    expect(html).toContain('>—</span>');
+    expect(html).toContain('aria-label="Cotação indisponível"');
+    expect(html).not.toContain('>—</span>');
     expect(html).not.toContain('Sem odds');
   });
 
@@ -69,7 +70,7 @@ describe('listing MATCH_WINNER cells', () => {
     expect(html).toContain('type="button"');
     expect(html).toContain('data-target-bookmaker="betsson"');
   });
-  it.each(['mx','co','pe'] as const)('renders the supplied %s candidate rows without BR targets or invented proxy cells',locale=>{
+  it.each(['mx','co','pe'] as const)('keeps the configured %s primary slots even if an unexpected candidate row is supplied',locale=>{
     const value=fixture();value.publicId='aaaaaaaaaaaaaaaa';
     value.odds=[{market:MarketCode.MATCH_WINNER,line:null,outcomes:[
       {outcome:OutcomeCode.HOME,prices:[{bookmaker:'Codere',targetBookmaker:'codere',priceKind:'REAL',decimalOdds:2.1,providerUpdatedAt:'2026-09-07T17:59:00Z',expiresAt:'2030-01-01T00:00:00Z',freshness:'fresh'}]},
@@ -81,10 +82,26 @@ describe('listing MATCH_WINNER cells', () => {
     expect(rows.map(row=>row.cells.filter(cell=>cell.price).length)).toEqual([1,1]);
     expect(rows.flatMap(row=>row.cells).every(cell=>!cell.price||cell.price.priceKind==='REAL')).toBe(true);
     const html=renderToStaticMarkup(createElement(OddsComparison,{locale,commercialLocale:locale,fixture:value}));
-    expect(html).toContain('data-bookmaker-logo="codere"');expect(html).toContain('data-bookmaker-logo="betano"');
-    expect(html).not.toContain('sportingbet');expect(html).not.toContain('betano.bet.br');expect(html).not.toContain('1xbet');
+    expect(html).not.toContain('data-bookmaker-logo="codere"');expect(html).not.toContain('data-bookmaker-logo="betano"');
+    expect(html).not.toContain('sportingbet');expect(html).not.toContain('betano.bet.br');
     expect(html).not.toContain('PROXY');expect(html).toContain('data-affiliate-enabled="false"');
     expect(html).not.toContain('href=');
+  });
+  it.each(['both','first','second','none'] as const)('holds Inkabet / 1xBet positions with %s coverage',coverage=>{
+    const value=fixture();value.odds=[{market:MarketCode.MATCH_WINNER,line:null,outcomes:[{outcome:OutcomeCode.HOME,prices:
+      ['inkabet','1xbet'].filter((_,i)=>coverage==='both'||coverage===(i===0?'first':'second')).reverse().map(id=>({bookmaker:id,targetBookmaker:id,decimalOdds:2.1,providerUpdatedAt:'2026-10-08T20:00:00Z',expiresAt:'2030-01-01T00:00:00Z',freshness:'fresh' as const}))}]}];
+    const rows=listingBookmakerRows(value,'pe');expect(rows.map(r=>r.id)).toEqual(['inkabet','1xbet']);
+    const html=renderToStaticMarkup(createElement(OddsComparison,{locale:'pe',commercialLocale:'pe',fixture:value}));
+    expect(html.indexOf('data-primary-bookmaker="inkabet"')).toBeLessThan(html.indexOf('data-primary-bookmaker="1xbet"'));
+    expect(html.match(/data-primary-bookmaker=/g)).toHaveLength(2);
+    if(coverage!=='both')expect(html).toContain('Cuota no disponible');
+  });
+  it('uses the trusted commercial GEO, not the presentation language, for the fixed pool',()=>{
+    expect(listingBookmakerRows({...fixture(),odds:[]},'mx').map(r=>r.id)).toEqual(['betsson']);
+    expect(listingBookmakerRows({...fixture(),odds:[]},'co').map(r=>r.id)).toEqual(['betsson','bwin']);
+    expect(listingBookmakerRows(fixture(),'br')).toEqual([]);
+    const html=renderToStaticMarkup(createElement(OddsComparison,{locale:'en',commercialLocale:'pe',fixture:fixture()}));
+    expect(html).toContain('data-primary-bookmaker="inkabet"');expect(html).not.toContain('data-primary-bookmaker="betsson"');
   });
   it.each(['br','en'] as const)('does not enable slip actions from %s UI alone without a trusted commercial locale',locale=>{
     const value=fixture();value.publicId='aaaaaaaaaaaaaaaa';
