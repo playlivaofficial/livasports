@@ -17,8 +17,8 @@ describe('M7 bounded read/cache path',()=>{
     const f=comparisonFixture();let now=f.now+freshnessTtlMs(1,2)-1000;
     const read=vi.fn(async(_ids,geo)=>geo==='BR'?f.data:{fixtures:f.data.fixtures,bookmakers:[],destinations:{}});
     const loader=new ComparisonLoader(read,()=>now);
-    expect((await loader.resolve(f.selections,'br','BR')).comparison.bookmakers[0].complete).toBe(true);
-    now+=1000;expect((await loader.resolve(f.selections,'br','BR')).comparison.bookmakers[0].complete).toBe(false);expect(read).toHaveBeenCalledTimes(2);
+    expect((await loader.resolve(f.selections,'br','BR')).comparison.bookmakers[0].complete).toBe(false);
+    now+=15000;expect((await loader.resolve(f.selections,'br','BR')).comparison.bookmakers[0].complete).toBe(false);expect(read).toHaveBeenCalledTimes(2);
     expect((await loader.resolve(f.selections,'mx','MX')).comparison.bookmakers).toEqual([]);expect(read).toHaveBeenCalledTimes(3);
     now+=15001;read.mockRejectedValue(new Error('DB_DOWN'));await expect(loader.resolve(f.selections,'br','BR')).rejects.toThrow('DB_DOWN');
   });
@@ -29,15 +29,15 @@ describe('M7 bounded read/cache path',()=>{
     expect(comparisonCacheKey(f.selections,'BR')).not.toBe(comparisonCacheKey(f.selections,'MX'));
     expect(comparisonCacheKey(f.selections,null)).toMatch(/^slip-comparison:v2:none:/);
   });
-  it('keeps global price comparison when commercial GEO is unknown and still withholds CTAs',async()=>{
+  it('suspends unbound selections when commercial GEO is unknown and withholds comparison/CTAs',async()=>{
     const f=comparisonFixture();f.data.destinations={};
     for(const b of f.data.bookmakers){b.affiliateEligibility={approved:false,destinationConfigured:false};}
     const loader=new ComparisonLoader(async()=>f.data,()=>f.now);
     const r=await loader.resolve(f.selections,'br',null);
     expect(r.providerRequests).toBe(0);
     expect(r.comparison.bookmakers.map(b=>[b.bookmakerId,b.complete,b.best,b.ctaState])).toEqual([
-      ['betsson',true,false,'AFFILIATE_UNAVAILABLE'],
-      ['bwin',true,true,'AFFILIATE_UNAVAILABLE'],
+      ['betsson',false,false,'INCOMPLETE'],
+      ['bwin',false,false,'INCOMPLETE'],
     ]);
   });
   it('rejects invalid server input before reads and resolves empty slips with zero queries',async()=>{

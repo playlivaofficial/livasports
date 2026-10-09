@@ -15,6 +15,11 @@ const CARDS=PUBLIC_CARD_IDS.length;
 const INSPECTED=PUBLIC_CARD_IDS[1];
 
 describe('P5 compact comparison / internal provenance',()=>{
+  it('does not label a complete genuine native comparison as an approximate quote',()=>{
+    const f=comparisonFixture(1),value=buildSlipComparison(f.selections,'co',f.data.fixtures,f.data.bookmakers,f.now);
+    const html=renderToStaticMarkup(<SlipComparison locale="co" uiLocale="en" stake="10" selections={f.selections.map(s=>({...s,addedAt:new Date(f.now).toISOString()}))} checking={false} value={value}/>);
+    expect(value.bookmakers.some(b=>b.complete&&!b.estimated)).toBe(true);expect(html).not.toContain('class="approximate-price');
+  });
   it.each([['mx','MX$'],['co','COP$'],['pe','S/']] as const)('uses the trusted %s currency instead of English presentation currency',(locale,symbol)=>{
     const f=comparisonFixture(),value=buildSlipComparison(f.selections,locale,f.data.fixtures,f.data.bookmakers,f.now);
     const html=renderToStaticMarkup(<SlipComparison locale={locale} uiLocale="en" stake="10" selections={f.selections.map(s=>({...s,addedAt:new Date(f.now).toISOString()}))} checking={false} value={value}/>);

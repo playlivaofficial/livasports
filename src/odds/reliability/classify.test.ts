@@ -13,6 +13,18 @@ const input=(over:Partial<ReliabilityInput>={}):ReliabilityInput=>({competition:
   feeds:[feed('betano.bet.br'),feed('betsson')],baseline:null,catalogState:'MAPPED',quoteAges:{p50Minutes:20,p95Minutes:50,oldestMinutes:60,currentQuotes:63,staleQuotes:0,expiredQuotes:0},...over});
 
 describe('P3 health classification (§28)',()=>{
+  it('uses persisted paced deadlines without weakening expired-quote or mapping failure evidence',()=>{
+    const paced=[feed('betsson',{lastSuccessAt:at(-10),dueAt:at(2),staleAfter:at(2.1)})];
+    const healthy=classifyCompetition(input({lastSuccessAt:at(-10),feeds:paced}),now);
+    expect(healthy.issues.some(i=>i.classification==='REFRESH_NOT_EXECUTED')).toBe(false);
+    expect(healthy.nextRefreshDueAt).toBe(at(2));
+    const late=classifyCompetition(input({lastSuccessAt:at(-10),feeds:[{...paced[0],staleAfter:at(-0.1)}]}),now);
+    expect(late.issues.some(i=>i.classification==='REFRESH_NOT_EXECUTED')).toBe(true);
+    const expired=classifyCompetition(input({lastSuccessAt:at(-10),feeds:paced,windows:windows({'24h':{fixtures:1,staleOnly:1,neither:1},'7d':{fixtures:1,staleOnly:1,neither:1}})}),now);
+    expect(expired.health).toBe('CRITICAL');expect(expired.issues.some(i=>i.classification==='REFRESH_NOT_EXECUTED')).toBe(true);
+    const unmapped=classifyCompetition(input({lastSuccessAt:at(-10),feeds:[{...paced[0],lastOutcome:'MAPPING_EMPTY'}],windows:windows({'24h':{fixtures:1,neither:1},'7d':{fixtures:1,neither:1}})}),now);
+    expect(unmapped.issues.some(i=>i.classification==='MAPPING_FAILED')).toBe(true);
+  });
   it('keeps a failed data plane degraded, but names a proven mapping failure instead of implying no execution',()=>{
     const h=classifyCompetition(input({lastSuccessAt:at(-10),nearestKickoff:at(40),windows:windows({'3d':{fixtures:3,neither:3},'7d':{fixtures:3,neither:3}}),
       feeds:[feed('1xbet',{lastOutcome:'MAPPING_EMPTY'})]}),now);

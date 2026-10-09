@@ -92,7 +92,7 @@ export async function readReliabilityHealth(db:QueryExecutor,now=new Date(),opti
     const id=String(t.tournament_id);const list=feedsByTournament.get(id)??[];
     const snap=snapshots.rows.find(s=>s.bookmaker===t.bookmaker&&String(s.tournament_id)===id);
     const req=requests.rows.find(r=>r.bookmaker===t.bookmaker&&String(r.tournament_id)===id);
-    list.push({bookmaker:String(t.bookmaker),lastOutcome:typeof t.last_outcome==='string'?t.last_outcome:null,lastSuccessAt:iso(t.last_success_at),lastAttemptAt:iso(t.last_attempt_at),retryAfter:iso(t.retry_after),
+    list.push({bookmaker:String(t.bookmaker),lastOutcome:typeof t.last_outcome==='string'?t.last_outcome:null,lastSuccessAt:iso(t.last_success_at),lastAttemptAt:iso(t.last_attempt_at),retryAfter:iso(t.retry_after),dueAt:iso(t.due_at),staleAfter:iso(t.stale_after),
       consecutiveFailures:Number(t.consecutive_failures??0),lastError:t.last_error?String(t.last_error):null,
       snapshot:snap?{observedAt:iso(snap.observed_at)!,returnedFixtures:Number(snap.fixtures),quotes:Number(snap.quotes),nearTermFixtures:Number(snap.near_fixtures),nearTermQuotes:Number(snap.near_quotes)}:null,
       request:req?{startedAt:iso(req.started_at)!,outcome:String(req.outcome),httpStatus:req.http_status===null?null:Number(req.http_status)}:null});

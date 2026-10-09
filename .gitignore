@@ -87,3 +87,4 @@ output/seo-autopilot/
 output/p0-odds-*-private.*
 output/p0-odds-*.log
 output/p0-odds-browser-*
+output/strict-*-private.*

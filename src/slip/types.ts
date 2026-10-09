@@ -8,7 +8,21 @@ export type CanonicalSelection = {fixturePublicId:string;scope:typeof SLIP_SCOPE
   {market:'TOTAL_GOALS';outcome:'OVER'|'UNDER';line:2.5} |
   {market:'BTTS';outcome:'YES'|'NO';line:null}
 );
-export type SavedSelection = CanonicalSelection & {addedAt:string};
+export type BoundSelection = CanonicalSelection & {receipt?:string};
+export type SavedSelection = BoundSelection & {addedAt:string};
+/** Untrusted display hint only. Authentication always happens server-side against the HMAC and DB. */
+export function receiptDisplay(value:BoundSelection):{book:string;price:string;expires:number;observed:string}|null {
+  if(!value.receipt)return null;
+  try{const parsed=JSON.parse(atob(value.receipt.split('.')[0].replace(/-/g,'+').replace(/_/g,'/')));
+    if(Array.isArray(parsed)&&parsed.length!==9)return null;
+    const v=Array.isArray(parsed)?{book:parsed[3],price:parsed[6],observed:parsed[7],expires:parsed[8]}:parsed;
+    return typeof v.book==='string'&&typeof v.price==='string'&&typeof v.observed==='string'&&Number.isFinite(v.expires)?{book:v.book,price:v.price,expires:v.expires,observed:v.observed}:null;
+  }catch{return null;}
+}
+export function wireSelection(value:CanonicalSelection):BoundSelection {
+  const receipt=(value as BoundSelection).receipt;
+  return {...canonicalSelection(value)!,...(typeof receipt==='string'?{receipt}:{})};
+}
 export interface StoredSlip {version:typeof SLIP_SCHEMA_VERSION;slipId:string;stake:string;selections:SavedSelection[];}
 export type SelectionState = 'CURRENT'|'PRICE_CHANGED'|'STALE'|'UNAVAILABLE'|'SUSPENDED'|'CLOSED'|'MATCH_STARTED'|'MATCH_FINISHED';
 export interface ReferencePrice {decimalOdds:string;bookmaker:string;bookmakerName:string;best:boolean;expiresAt:string;
@@ -21,6 +35,8 @@ export interface ResolvedSelection {
   state:SelectionState;
   reason:'NO_VERIFIED_GEO'|'MISSING_FIXTURE'|'NO_QUOTE'|null;
   price:ReferencePrice|null;
+  /** Informational proposal only; the user must explicitly accept through /api/slip/select. */
+  alternative?:ReferencePrice;
   previousDecimalOdds?:string;
   closesAt:string|null;
 }
@@ -62,13 +78,19 @@ export function canonicalSelection(value:unknown,strict=false):CanonicalSelectio
   return null;
 }
 
-export function parseResolutionRequest(value:unknown):{locale:SiteLocale;selections:CanonicalSelection[]}|null {
+export function parseResolutionRequest(value:unknown):{locale:SiteLocale;selections:BoundSelection[]}|null {
   if(!value||typeof value!=='object'||Array.isArray(value))return null;
   const v=value as Record<string,unknown>;
   if(Object.keys(v).some(k=>!['locale','selections'].includes(k))||!['br','mx','co','pe'].includes(String(v.locale))||!Array.isArray(v.selections)||v.selections.length>SLIP_LIMIT)return null;
-  const selections=v.selections.map(s=>canonicalSelection(s,true));
+  const selections=v.selections.map((s:unknown)=>{
+    if(!s||typeof s!=='object'||Array.isArray(s))return null;
+    const {receipt,...intent}=s as Record<string,unknown>;
+    const canonical=canonicalSelection(intent,true);
+    if(!canonical||receipt!==undefined&&(typeof receipt!=='string'||receipt.length>1600||! /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]{43}$/.test(receipt)))return null;
+    return {...canonical,...(typeof receipt==='string'?{receipt}:{})};
+  });
   if(selections.some(s=>s===null))return null;
-  const valid=selections as CanonicalSelection[];
+  const valid=selections as BoundSelection[];
   if(new Set(valid.map(selectionKey)).size!==valid.length||new Set(valid.map(marketKey)).size!==valid.length)return null;
   return {locale:v.locale as SiteLocale,selections:valid};
 }

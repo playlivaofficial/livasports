@@ -1,7 +1,8 @@
 import type {FullSlipResolution,SelectionQuote} from './comparison-types';
-import type {ResolvedSelection,SlipResolution} from './types';
+import {canonicalSelection,type ResolvedSelection,type SlipResolution} from './types';
 
 function publicSelection(value:ResolvedSelection):ResolvedSelection {
+  value={...value,selection:canonicalSelection(value.selection)!};
   if(!value.price)return value;
   const price={...value.price};
   if(price.priceKind==='INDICATIVE')return {...value,price};
@@ -10,7 +11,7 @@ function publicSelection(value:ResolvedSelection):ResolvedSelection {
 }
 
 function publicQuote(value:SelectionQuote):SelectionQuote {
-  const quote={...value} as Partial<SelectionQuote>;
+  const quote={...value,selection:canonicalSelection(value.selection)!} as Partial<SelectionQuote>;
   delete quote.sourceBookmakerId;delete quote.sourceBookmakerName;delete quote.sourceQuoteId;delete quote.sourceObservedAt;
   return quote as SelectionQuote;
 }

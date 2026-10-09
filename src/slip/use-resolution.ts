@@ -2,16 +2,16 @@
 import {useEffect,useState} from 'react';
 import type {SiteLocale} from '@/config/i18n';
 import {guardResolved,markPriceChange} from './resolution';
-import {canonicalSelection,selectionKey,type SavedSelection,type SlipResolution,type ResolvedSelection} from './types';
+import {canonicalSelection,wireSelection,selectionKey,type SavedSelection,type SlipResolution,type ResolvedSelection} from './types';
 import {emitSlipEvent} from './events';
 import type {FullSlipResolution} from './comparison-types';
-import {guardSlipComparison} from './comparison';
+import {guardSlipComparison,enforceSelectionLocks} from './comparison';
 import {validComparisonResponse} from './comparison-response';
 
-// Session memory only: prices are never part of localStorage or canonical identity.
+// Session-only observations; the accepted quote lives in its server-signed receipt, not canonical identity.
 const observations=new Map<string,{price:string;from?:string;changed:boolean;valid:boolean}>();
 export function useSlipResolution(selections:SavedSelection[],locale:SiteLocale){
-  const signature=JSON.stringify({locale,selections:selections.map(s=>canonicalSelection(s))});
+  const signature=JSON.stringify({locale,selections:selections.map(wireSelection)});
   const [data,setData]=useState<{signature:string;body:SlipResolution&Partial<Pick<FullSlipResolution,'comparison'>>;received:number}|null>(null);
   const [failure,setFailure]=useState<string|null>(null);
   const [online,setOnline]=useState(true);
@@ -37,7 +37,7 @@ export function useSlipResolution(selections:SavedSelection[],locale:SiteLocale)
         if(body.comparison&&!validComparisonResponse(body.comparison,input.locale,input.selections))throw new Error('INVALID_COMPARISON');
         if(stopped)return;
         body.selections=body.selections.map(value=>{
-          const key=`${input.locale}:${selectionKey(value.selection)}`;const previous=observations.get(key);
+          const key=`${input.locale}:${selectionKey(value.selection)}:${input.selections.find(s=>selectionKey(s)===selectionKey(value.selection))?.receipt??'unbound'}`;const previous=observations.get(key);
           let next=markPriceChange(value,previous?.price);
           if(next.price){const price=next.price.decimalOdds;if(previous?.changed)next={...next,state:'PRICE_CHANGED',previousDecimalOdds:previous.from??previous.price};
             observations.set(key,{price,from:next.previousDecimalOdds??previous?.from??previous?.price,changed:next.state==='PRICE_CHANGED',valid:true});
@@ -71,11 +71,11 @@ export function useSlipResolution(selections:SavedSelection[],locale:SiteLocale)
   const resolved=current?.body.selections.map(v=>guardResolved(v,now,online&&!failed))??[];
   const invalidSignature=JSON.stringify(resolved.filter(v=>!v.price).map(v=>v.selection));
   useEffect(()=>{
-    for(const selection of JSON.parse(invalidSignature) as SavedSelection[]){const key=`${locale}:${selectionKey(selection)}`;const previous=observations.get(key);
+    for(const selection of JSON.parse(invalidSignature) as SavedSelection[]){const key=`${locale}:${selectionKey(selection)}:${selections.find(s=>selectionKey(s)===selectionKey(selection))?.receipt??'unbound'}`;const previous=observations.get(key);
       if(previous?.valid){observations.set(key,{...previous,valid:false});emitSlipEvent('slip_state_invalidated',locale,selection);}
     }
-  },[invalidSignature,locale]);
-  const comparison=current?.body.comparison?guardSlipComparison(current.body.comparison,selections.length,now,online&&!failed):null;
+  },[invalidSignature,locale,selections]);
+  const comparison=current?.body.comparison?enforceSelectionLocks(guardSlipComparison(current.body.comparison,selections.length,now,online&&!failed),resolved):null;
   return {resolved,comparison,failed,online,checking:selections.length>0&&!current&&!failed,resolvedAt:current?.body.resolvedAt??null,now};
 }
 

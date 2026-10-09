@@ -2,7 +2,7 @@
 import {useEffect,useRef} from 'react';
 import type {SiteLocale} from '@/config/i18n';
 import type {BookmakerSlip,SlipComparison as Comparison} from '@/slip/comparison-types';
-import {canonicalSelection,validSlipId,type SavedSelection} from '@/slip/types';
+import {canonicalSelection,wireSelection,validSlipId,type SavedSelection} from '@/slip/types';
 import {bookmakerShortName,comparisonCopy} from '@/slip/comparison-copy';
 import type {SlipUiLocale} from '@/slip/localization';
 import {formatMoney,formatSlipOdds,parseStake,potentialReturn} from '@/slip/decimal';
@@ -50,13 +50,13 @@ export function SlipComparison({locale,selections,value,checking,uiLocale,stake,
         const bookName=bookmakerShortName(b.bookmakerId,b.displayName);
         return <article className="slip-bookmaker" key={b.bookmakerId} aria-labelledby={`slip-bookmaker-${b.bookmakerId}`}
           data-bookmaker={b.bookmakerId} data-complete={b.complete} data-cta={b.ctaState}>
-          <header><h4 id={`slip-bookmaker-${b.bookmakerId}`}><BookmakerLogo bookmaker={b.bookmakerId} uiLocale={copyLocale} sources={b.selectionQuotes.map(q=>({priceKind:q.priceKind??null}))} context={{locale,placement:'slip_bookmaker_comparison',bookmaker:b.bookmakerId as BookmakerId,selections:selections.map(s=>canonicalSelection(s)!),...(validSlipId(slipId)?{slipId}:{})}}/></h4><span aria-label={`${text.available}: ${b.availableSelectionCount}/${b.requiredSelectionCount}`}>{b.availableSelectionCount}/{b.requiredSelectionCount}</span></header>
+          <header><h4 id={`slip-bookmaker-${b.bookmakerId}`}><BookmakerLogo bookmaker={b.bookmakerId} uiLocale={copyLocale} sources={b.selectionQuotes.map(q=>({priceKind:q.priceKind??null}))} context={b.complete?{locale,placement:'slip_bookmaker_comparison',bookmaker:b.bookmakerId as BookmakerId,selections:selections.map(wireSelection),...(validSlipId(slipId)?{slipId}:{})}:undefined}/></h4><span aria-label={`${text.available}: ${b.availableSelectionCount}/${b.requiredSelectionCount}`}>{b.availableSelectionCount}/{b.requiredSelectionCount}</span></header>
           {!b.complete?<p className="slip-coverage-state">{text.partial}</p>:null}
           {b.complete&&combined?<div className="slip-combined-block">
-            <p className="slip-combined"><span>{text.combined}</span><strong><ApproximatePrice value={combined} label={approximateLabel}/></strong></p>
+            <p className="slip-combined"><span>{text.combined}</span><strong>{b.estimated?<ApproximatePrice value={combined} label={approximateLabel}/>:combined}</strong></p>
             {estimatedLabel?<p className="slip-return"><span>{text.potentialReturn}</span><strong>{estimatedLabel}</strong></p>:b.complete&&stakeOk?<p className="slip-comparison-note">{text.unavailable}</p>:null}
           </div>:b.complete?<p className="slip-comparison-note">{text.unavailable}</p>:missing.length?null:<p className="slip-comparison-note">{text.unavailable}</p>}
-          {b.ctaState==='ENABLED'?<AffiliateLink compact className="slip-bookmaker-cta" uiLocale={copyLocale} context={{locale,placement:'slip_bookmaker_comparison',bookmaker:b.bookmakerId as BookmakerId,selections:selections.map(s=>canonicalSelection(s)! ),...(validSlipId(slipId)?{slipId}:{})}}>{text.ctaAt(bookName)} <span aria-hidden="true">↗</span></AffiliateLink>:b.complete?<p className="slip-comparison-note">{text.gated}</p>:null}
+          {b.ctaState==='ENABLED'?<AffiliateLink compact className="slip-bookmaker-cta" uiLocale={copyLocale} context={{locale,placement:'slip_bookmaker_comparison',bookmaker:b.bookmakerId as BookmakerId,selections:selections.map(wireSelection),...(validSlipId(slipId)?{slipId}:{})}}>{text.ctaAt(bookName)} <span aria-hidden="true">↗</span></AffiliateLink>:b.complete?<p className="slip-comparison-note">{text.gated}</p>:null}
         </article>;
       })}
       <p className="slip-comparison-note">{text.destination} {text.disclosure} {text.oddsMayChange}</p>

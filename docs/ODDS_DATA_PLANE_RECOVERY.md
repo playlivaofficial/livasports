@@ -1,5 +1,21 @@
 # Odds data-plane recovery (P0, 2026-10-01)
 
+## Strict selection locking addendum — 2026-10-09
+
+The sections below describe the historical October 1 deployment. The current authoritative baseline is `a282e36a036eac6e4c71df8181bdc6237920f287`; its verified commercial jurisdictions are MX, CO and PE. Do not restore retired BR feed/affiliate behavior from historical documentation.
+
+- All enabled, legally/technically verified local provider rows are evaluated before an outcome is unavailable. Currently MX has Betsson; CO has Betsson/bwin; PE has Inkabet/1xBet. Foreign reference quotes remain attributed information, never executable selections. No provider is called during navigation or selection.
+- `/api/slip/select` is the only runtime admission path. Same-origin, bounded, rate-limited requests supply canonical intent, selected bookmaker and expected price. A fresh DB read must find an ACTIVE, genuinely REAL, mapped, unexpired local quote on a scheduled future fixture. Missing signing configuration fails closed.
+- The admission receipt uses domain-separated HMAC with the existing server-only affiliate signing key. It binds canonical fixture/market/outcome/line/scope, GEO, bookmaker, provider, underlying quote ID, accepted price, observation and frozen expiry. No owner authentication secret is reused. The receipt contains no secret key.
+- Comparisons, resolution and both affiliate redirect boundaries revalidate that exact binding against persisted truth. Bound reads bypass the short navigation cache. Reprice, withdrawal, suspension, expiry, kickoff, missing mapping or GEO mismatch suspend the leg; comparison totals and dependent CTAs become unavailable. Other fixtures remain selectable.
+- A fresh alternative is only a proposal. Explicit confirmation invokes admission again; never silently substitutes book, outcome or price, and never extends an old receipt's expiry. Existing legacy slip data is preserved but requires explicit fresh-price acceptance.
+- Async admission deduplicates per-market clicks and uses per-market revisions plus clear/remove compare-and-swap protection. Late responses cannot resurrect cleared/removed/replaced selections. Exact expiry is checked after the DB read and on the client before persistence.
+- Unpriced selection controls are removed. Native REAL comparison totals are not marked approximate; informational references remain visibly non-executable. Temporary QA diagnostics are not shipped.
+
+Reviewed saved-response aliases fix Al Ahli Saudi, Cúcuta Deportivo FC and Internacional FC de Palmira only in their exact competition. Both roles, competition and UTC kickoff must still agree uniquely. The latter canonical fixture is POSTPONED and remains non-selectable despite provider prices. No kickoff tolerance, freshness lifetime, quota/cadence, provider plan, owner auth or affiliate eligibility is weakened.
+
+Owner refresh health now uses persisted paced due/stale-after deadlines rather than a second unscaled refresh allowance. Expired quotes, failed mappings, provider errors and genuine overdue deadlines remain unhealthy. Saved response replay preserves original observation timestamps; its second persistence pass must write zero additional history/current rows.
+
 ## Contract
 
 An HTTP 200 or completed cron is not proof of usable native odds. Control-plane execution and public native data health are separate. Public books are Betsson, Sportingbet BR and 1xBet; Betano is hidden insurance and never satisfies a public-native SLO. Ordinary navigation remains DB/cache-only, with zero provider calls.

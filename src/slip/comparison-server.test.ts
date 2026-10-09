@@ -21,15 +21,15 @@ describe('M7 request/security boundary',()=>{
   it('rejects cross-origin, oversized and query payloads and sanitizes failures',async()=>{
     const resolve=vi.fn().mockRejectedValue(new Error('private-database-credential'));
     expect((await compareSlipRequest(request(undefined,undefined,'https://evil.invalid'),{resolve})).status).toBe(403);
-    expect((await compareSlipRequest(request(' '.repeat(4097)),{resolve})).status).toBe(413);
+    expect((await compareSlipRequest(request(' '.repeat(24001)),{resolve})).status).toBe(413);
     expect((await compareSlipRequest(request(undefined,'https://livasports.com/api/slip/compare?url=evil'),{resolve})).status).toBe(400);
     expect(resolve).not.toHaveBeenCalled();const r=await compareSlipRequest(request(),{resolve});expect(r.status).toBe(503);expect(await r.text()).not.toContain('private-database');
   });
   it('re-reads every exact selection for the approved destination, never relying on cached totals',async()=>{
     const f=comparisonFixture(3,Date.now());const read=vi.fn().mockResolvedValue(f.data),fetch=vi.spyOn(globalThis,'fetch');
-    expect(await currentSlipDestination('betsson',f.selections,'br',read,'BR')).toBe(f.data.destinations.betsson);
+    expect(await currentSlipDestination('betsson',f.selections,'br',read,'BR')).toBeNull();
     expect(await currentSlipDestination('betano.bet.br',f.selections,'br',read,'BR')).toBeNull();
-    expect(await currentSlipDestination('betsson',f.selections,'mx',read,'BR')).toBe(f.data.destinations.betsson);
+    expect(await currentSlipDestination('betsson',f.selections,'mx',read,'BR')).toBeNull();
     // Suspending Betsson's own leg withdraws the Betsson slip destination: the slip is only offered
     // when Betsson itself priced every selection.
     f.data.fixtures.get(f.selections[1].fixturePublicId)!.snapshot.quotes[0].status='SUSPENDED';

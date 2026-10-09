@@ -1,7 +1,8 @@
 import type {SiteLocale} from '@/config/i18n';
 import type {SlipComparisonRead} from '@/odds/read-repository';
-import {buildSlipComparison} from './comparison';
-import {resolveSelection} from './resolution';
+import {buildSlipComparison,enforceSelectionLocks} from './comparison';
+import {resolveLockedSelection} from './selection-lock';
+import {verifySelection} from './selection-receipt';
 import {parseResolutionRequest,selectionKey,type CanonicalSelection} from './types';
 import type {FullSlipResolution} from './comparison-types';
 import type {CommercialGeo} from '@/odds/commercial-geo';
@@ -17,6 +18,11 @@ export class ComparisonLoader {
   async resolve(selections:CanonicalSelection[],locale:SiteLocale,geo:CommercialGeo|null=null):Promise<FullSlipResolution>{
     if(!parseResolutionRequest({selections,locale}))throw new Error('INVALID_SLIP');
     if(!selections.length)return this.result(selections,locale,{fixtures:new Map(),bookmakers:[],destinations:{}});
+    // Price admission/removal is authoritative: never reuse a cached missing/withdrawn quote.
+    if(selections.some(s=>'receipt' in s)){
+      const read=await this.readMany([...new Set(selections.map(s=>s.fixturePublicId))].sort(),geo);
+      return this.result(selections,locale,read,geo);
+    }
     const started=performance.now(),key=comparisonCacheKey(selections,geo),entry=this.entries.get(key);
     let read:SlipComparisonRead,cache:'HIT'|'MISS'|'DEDUP';
     if(entry&&entry.until>this.now()){read=entry.read;cache='HIT';}else{
@@ -33,12 +39,13 @@ export class ComparisonLoader {
       }finally{this.pending.delete(key);}
     }
     this.metric({cache,count:selections.length,locale,durationMs:Math.round((performance.now()-started)*10)/10,providerRequests:0});
-    return this.result(selections,locale,read);
+    return this.result(selections,locale,read,geo);
   }
-  private result(selections:CanonicalSelection[],locale:SiteLocale,read:SlipComparisonRead):FullSlipResolution {
+  private result(selections:CanonicalSelection[],locale:SiteLocale,read:SlipComparisonRead,geo:CommercialGeo|null=null):FullSlipResolution {
     const now=this.now();
+    const resolved=selections.map(s=>resolveLockedSelection(s,read.fixtures.get(s.fixturePublicId)??null,verifySelection(s,geo),geo,now));
     return {locale,resolvedAt:new Date(now).toISOString(),providerRequests:0,
-      selections:selections.map(s=>resolveSelection(s,read.fixtures.get(s.fixturePublicId)??null,now)),
-      comparison:buildSlipComparison(selections,locale,read.fixtures,read.bookmakers,now)};
+      selections:resolved,
+      comparison:enforceSelectionLocks(buildSlipComparison(selections,locale,read.fixtures,read.bookmakers,now),resolved)};
   }
 }

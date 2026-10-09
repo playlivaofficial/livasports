@@ -9,6 +9,8 @@ import {ComparisonLoader} from './comparison-loader';
 import {buildSlipComparison} from './comparison';
 import {isVisibleBookmaker} from '@/odds/registry';
 import {publicSlipResolution} from './public-response';
+import {resolveLockedSelection} from './selection-lock';
+import {verifySelection} from './selection-receipt';
 
 const headers={'Cache-Control':'private, no-store','X-Robots-Tag':'noindex','Referrer-Policy':'no-referrer'};
 let db:PostgresDatabaseClient|null=null;
@@ -21,7 +23,7 @@ async function input(request:Request){
   const url=new URL(request.url),origin=request.headers.get('origin');
   if(origin&&origin!==url.origin)return {error:403} as const;
   if(url.search||request.headers.get('content-type')?.split(';')[0].trim().toLowerCase()!=='application/json')return {error:400} as const;
-  try{const value=parseResolutionRequest(await boundedJson(request));return value?{value}:{error:400} as const;}
+  try{const value=parseResolutionRequest(await boundedJson(request,24000));return value?{value}:{error:400} as const;}
   catch(error){return {error:error instanceof Error&&error.message==='BODY_TOO_LARGE'?413:400} as const;}
 }
 export async function compareSlipRequest(request:Request,service:Pick<ComparisonLoader,'resolve'>=loader):Promise<Response>{
@@ -42,6 +44,7 @@ export async function currentSlipDestination(bookmaker:string,selections:Canonic
   reader:(ids:readonly string[],geo:CommercialGeo|null)=>Promise<SlipComparisonRead>=read,geo:CommercialGeo|null=null):Promise<string|null>{
   if(!isVisibleBookmaker(bookmaker)||!selections.length||!parseResolutionRequest({selections,locale}))return null;
   const data=await reader([...new Set(selections.map(s=>s.fixturePublicId))],geo);
+  if(selections.some(s=>!resolveLockedSelection(s,data.fixtures.get(s.fixturePublicId)??null,verifySelection(s,geo),geo,Date.now()).price))return null;
   const result=buildSlipComparison(selections,locale,data.fixtures,data.bookmakers).bookmakers.find(b=>b.bookmakerId===bookmaker);
   return result?.complete&&result.ctaState==='ENABLED'?data.destinations[bookmaker]??null:null;
 }

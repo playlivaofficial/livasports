@@ -20,21 +20,15 @@ function fixture(freshness: 'fresh' | 'stale' = 'fresh', oddsState: FixtureView[
 }
 
 describe('listing MATCH_WINNER cells', () => {
-  it('renders compact 1 / X / 2 from current MATCH_WINNER prices', () => {
+  it('keeps bookmaker identities but fails closed until the client freshness clock is established', () => {
     const html = renderToStaticMarkup(createElement(OddsComparison, { locale: 'br', fixture: fixture() }));
     expect(html).toContain('listing-odds');
     expect(html).toContain('bookmaker-logo');
     expect(html).toContain('bwin');
     expect(html).not.toContain('Betano');
     expect(html).toContain('Betsson');
-    expect(html).toContain('>1<');
-    expect(html).toContain('>X<');
-    expect(html).toContain('>2<');
-    expect(html).toContain('1.90');
-    expect(html).toContain('1.85');
-    expect(html).toContain('3.20');
-    expect(html).toContain('4.10');
-    expect(html.match(/data-price-kind="REAL"/g)?.length).toBe(4);
+    expect(html).not.toContain('1.90');
+    expect(html).not.toContain('data-price-kind="REAL"');
     expect(html).not.toContain('odds-approx-mark');
     expect(html).not.toContain('data-price-kind="PROXY"');
   });
@@ -47,7 +41,7 @@ describe('listing MATCH_WINNER cells', () => {
 
   it('renders English labels without changing the 1X2 prices', () => {
     const html = renderToStaticMarkup(createElement(OddsComparison, { locale: 'en', fixture: fixture() }));
-    expect(html).toContain('1.90');
+    expect(html).not.toContain('1.90');
     expect(html).toContain('Pregame odds');
   });
 
@@ -59,16 +53,14 @@ describe('listing MATCH_WINNER cells', () => {
     expect(html).not.toContain('Sem odds');
   });
 
-  it('turns fresh MATCH_WINNER cells into selectable buttons with a pressed state', () => {
+  it('does not enable selection before hydration has verified current time', () => {
     const value = fixture();
     value.publicId = 'aaaaaaaaaaaaaaaa';
     for (const outcome of value.odds[0].outcomes) for (const price of outcome.prices) price.expiresAt = '2030-01-01T12:00:00.000Z';
     const html = renderToStaticMarkup(createElement(OddsComparison, { locale: 'co', commercialLocale:'co', fixture: value }));
-    expect(html).toContain('listing-odds-select');
-    expect(html).toContain('aria-pressed="false"');
-    expect(html).toContain('Agregar al boleto');
-    expect(html).toContain('type="button"');
-    expect(html).toContain('data-target-bookmaker="betsson"');
+    expect(html).not.toContain('listing-odds-select');
+    expect(html).not.toContain('aria-pressed="false"');
+    expect(html).not.toContain('data-target-bookmaker="betsson"');
   });
   it.each(['mx','co','pe'] as const)('keeps the configured %s primary slots even if an unexpected candidate row is supplied',locale=>{
     const value=fixture();value.publicId='aaaaaaaaaaaaaaaa';
