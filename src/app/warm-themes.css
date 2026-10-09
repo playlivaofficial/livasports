@@ -292,6 +292,11 @@
   .slip-bookmaker { padding: .7rem; }
   :root .match-actions .match-share { color: transparent; font-size: 0; }
 }
+/* Keep Spanish labels and three-digit fixture counts distinct on narrow phones. */
+@media (max-width:360px) {
+  .sports-board .board-filters a { flex-direction:column; justify-content:center; gap:1px; padding-inline:3px; }
+  .sports-board .board-filters .filter-live::before { display:none; }
+}
 
 /* Authenticated names plus the locale control must not compress the brand into adjacent controls. */
 @media(max-width:620px) {

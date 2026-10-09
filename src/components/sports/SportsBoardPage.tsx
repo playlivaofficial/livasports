@@ -29,7 +29,7 @@ import {CountryMarkIcon} from './CountryMarkIcon';
 import {FavoriteButton} from '@/favorites/FavoriteButton';
 import {notFound} from 'next/navigation';
 import {JsonLd} from '@/seo/json-ld';
-import {competitionHubSchema,siteSchema} from '@/seo/structured-data';
+import {competitionHubSchema,siteSchema,footballBoardSchema} from '@/seo/structured-data';
 import {HOME_WINDOW_DAYS,weekHomeSections,type HomePeriod} from './home-density';
 import {SeoPriorityLinks} from '@/seo-autopilot/public';
 
@@ -82,7 +82,7 @@ export async function SportsBoardPage({locale,page,searchParams}:{locale:Interfa
   const commercial=commercialLocale(requestCommercialGeo(h));
   const sponsor=(placement:'home_top_banner'|'mobile_inline'|'home_right_rail')=>commercial?<SponsoredSlot copyLocale={locale} context={{locale:commercial,pagePath:interfaceRoutes[locale][page],placement}}/>:null;
   return <div lang={dictionary.locale} className={`app-shell sports-board ${locale==='en'?'english-sports':''}`}>
-    {page==='home'?<JsonLd data={siteSchema(locale)}/>:hub?<JsonLd data={competitionHubSchema(locale,hub,tab)}/>:null}
+    <JsonLd data={hub?competitionHubSchema(locale,hub,tab):[...(page==='home'?siteSchema(locale):[]),...footballBoardSchema(locale,page)]}/>
     <SiteHeader locale={locale} activePage={page}/>
     <BoardRefresh live={allFixtures.some(f=>f.status==='LIVE'||f.status==='HALFTIME')}/>
     <main id="fixtures-content" className="page-container" data-product-geo={productGeo} data-board-view={view} data-time-zone={timeZone}>

@@ -1,4 +1,5 @@
 import type {SeoSearchReport} from '@/seo/report';
+import {GeoSearchBaselines} from './GeoSearchBaselines';
 
 const int=(value:number)=>Math.round(value).toLocaleString('en-GB');
 const pct1=(value:number)=>`${Math.round(value*1000)/10}%`;
@@ -44,6 +45,7 @@ export function SeoSearchPerformance({search}:{search:SeoSearchReport}){
     </div>
 
     <p className="owner-health-note">Country is Google’s searcher-country dimension; locale intent is the canonical URL path. These are separate measurements, never substitutes. Brazil remains historical reporting only.</p>
+    <GeoSearchBaselines baselines={search.geoBaselines??[]}/>
     <h3>Top queries · 7d</h3>
     <table className="owner-health-table"><thead><tr><th>Query</th><th>Clicks</th><th>Impr.</th><th>CTR</th><th>Pos</th></tr></thead>
       <tbody>{search.topQueries.map(row=><tr key={row.key}><th>{row.key}</th><td>{int(row.clicks)}</td><td>{int(row.impressions)}</td>

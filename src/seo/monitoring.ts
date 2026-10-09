@@ -35,7 +35,7 @@ export const SEO_THRESHOLDS={
   submittedDrop:0.20,
   /** Any single family moving more than this is reported even when the total looks stable. */
   familyDrift:0.35,
-  /** Locale counts should stay within this fraction of each other; the three locales mirror each other. */
+  /** Investigate regional inventory skew beyond this fraction; publication/retention can explain differences. */
   localeSkew:0.05,
   /** Sampled problem rate above this is a technical regression, not noise. */
   problemRate:0.02,
@@ -80,7 +80,7 @@ export function deriveSeoAlerts(current:SeoSnapshot,previous:SeoSnapshot|null,th
       reason:`${Math.round(rate*1000)/10}% of sampled URLs had a technical problem`,
       current:`${current.problems.length}/${current.sampled}`,baseline:`<= ${thresholds.problemRate*100}%`});
   }
-  // The three locales mirror each other by construction; a skew means one locale stopped being emitted.
+  // A skew can indicate a missing locale, but publication/retention differences need investigation too.
   const localeCounts=Object.values(current.locales);
   if(localeCounts.length>1){
     const max=Math.max(...localeCounts),min=Math.min(...localeCounts);

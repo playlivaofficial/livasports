@@ -710,5 +710,10 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .growth-prominence-links .growth-context-links a { display:inline-flex; align-items:center; min-height:26px; color:var(--color-text-secondary); font-size:.65rem; overflow-wrap:anywhere; }
 .match-query-intro { margin:0 0 1rem; color:var(--color-text-secondary); font-size:.8rem; line-height:1.6; overflow-wrap:anywhere; }
 .match-query-intro a { display:inline-flex; align-items:center; min-height:44px; color:var(--color-accent); font-weight:700; }
+.seo-priority-links { display:flex; flex-wrap:wrap; gap:0 .85rem; margin:0 0 .4rem; }
+.seo-priority-links a { display:inline-flex; align-items:center; min-height:44px; max-width:100%; color:var(--color-accent); font-size:.7rem; font-weight:650; text-decoration:underline; text-underline-offset:3px; overflow-wrap:anywhere; }
+.geo-search-baseline { min-width:0; margin:1rem 0; }
+.geo-search-baseline .owner-health-cards { grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr)); }
+.geo-search-baseline li { overflow-wrap:anywhere; font-size:.8rem; margin:.45rem 0; }
 
 @media (max-width: 980px) { .growth-prominence-links { grid-template-columns:1fr; } }

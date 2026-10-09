@@ -59,7 +59,7 @@ export function SeoDashboard({report,search,experiments=null,opportunities=null,
         <tbody>{families.map(([family,count])=><tr key={family}><th>{family}</th><td>{count.toLocaleString('en-GB')}</td>
           <td>{delta(count,previous?.families?.[family as keyof typeof previous.families])}</td></tr>)}</tbody></table>
       <p className="owner-health-note">Locales: {Object.entries(latest.locales).map(([l,n])=>`${l} ${n.toLocaleString('en-GB')}`).join(' · ')}.
-        The three locales mirror each other by construction; a skew above {pctText(thresholds.localeSkew)} raises LOCALE_SKEW.</p>
+        Regional inventories can differ because of publication and retention gates. A skew above {pctText(thresholds.localeSkew)} raises LOCALE_SKEW for investigation, not proof of an indexing failure.</p>
     </section>:null}
 
     {latest?.problems.length?<section aria-labelledby="seo-problems">

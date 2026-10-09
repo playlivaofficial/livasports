@@ -76,7 +76,7 @@ export const noindexNofollowRobots={index:false,follow:false} as const;
 export function alternateCluster(paths:Record<InterfaceLocale,string>){
   return languageAlternates(paths.br,paths.mx,paths.en,paths.co,paths.pe);
 }
-/** Canonical + reciprocal hreflang for one entity across the three locales. */
+/** Canonical + reciprocal hreflang for one entity across all supported regional/language routes. */
 export function localizedAlternates(locale:InterfaceLocale,paths:Record<InterfaceLocale,string>):NonNullable<Metadata['alternates']>{
   return {canonical:paths[locale],languages:alternateCluster(paths)};
 }

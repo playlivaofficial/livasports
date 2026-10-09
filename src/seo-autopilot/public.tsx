@@ -48,10 +48,11 @@ export async function SeoPriorityLinks({locale,surface}:{locale:string;surface:S
       AND p.locale=$1 AND c.enabled AND f.status='SCHEDULED' AND f.kickoff>now() AND f.kickoff<now()+interval '7 days' AND ${condition}
     ORDER BY p.score DESC,f.kickoff LIMIT 3`,values))?.rows??[];}catch{return null;}
   if(!rows.length)return null;
-  return <section className="growth-prominence" data-seo-autopilot="priority-links"><h2>Partidos en foco</h2>
-    <div className="growth-prominence-links">{rows.map(r=><Link key={String(r.url)} href={new URL(String(r.url)).pathname}>
-      <span>{String(r.competition)}</span><strong>{String(r.home)} x {String(r.away)}</strong>
-    </Link>)}</div></section>;
+  return <nav className="seo-priority-links" aria-label="Partidos destacados" data-seo-autopilot="priority-links">
+    {rows.map(r=><Link key={String(r.url)} href={new URL(String(r.url)).pathname} title={String(r.competition)}>
+      {String(r.home)} x {String(r.away)}
+    </Link>)}
+  </nav>;
 }
 
 /** Reciprocal alternates may never point to an aged, noindex locale of the same fixture. */
