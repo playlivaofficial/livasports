@@ -1,5 +1,7 @@
 import type {SiteLocale} from '@/config/i18n';
-import {resolveSelection,type SlipFixtureRead} from './resolution';
+import type {SlipFixtureRead} from './resolution';
+import {resolveLockedSelection} from './selection-lock';
+import {verifySelection} from './selection-receipt';
 import {parseResolutionRequest,type CanonicalSelection,type SlipResolution} from './types';
 import type {CommercialGeo} from '@/odds/commercial-geo';
 
@@ -10,7 +12,7 @@ export class SlipLoader {
     if(!parseResolutionRequest({selections,locale}))throw new Error('INVALID_SLIP');
     const values=new Map<string,SlipFixtureRead|null>();const missing:string[]=[];
     for(const s of selections){const cached=this.entries.get(`${geo??'none'}:${s.fixturePublicId}`);
-      if(cached&&cached.until>this.now())values.set(s.fixturePublicId,cached.value);else if(!missing.includes(s.fixturePublicId))missing.push(s.fixturePublicId);
+      if(!('receipt' in s)&&cached&&cached.until>this.now())values.set(s.fixturePublicId,cached.value);else if(!missing.includes(s.fixturePublicId))missing.push(s.fixturePublicId);
     }
     if(missing.length){
       const read=await this.readMany(missing,geo);
@@ -19,6 +21,6 @@ export class SlipLoader {
         if(this.entries.size>256)this.entries.delete(this.entries.keys().next().value!);
       }
     }
-    const now=this.now();return {locale,resolvedAt:new Date(now).toISOString(),providerRequests:0,selections:selections.map(s=>resolveSelection(s,values.get(s.fixturePublicId)??null,now))};
+    const now=this.now();return {locale,resolvedAt:new Date(now).toISOString(),providerRequests:0,selections:selections.map(s=>resolveLockedSelection(s,values.get(s.fixturePublicId)??null,verifySelection(s,geo),geo,now))};
   }
 }

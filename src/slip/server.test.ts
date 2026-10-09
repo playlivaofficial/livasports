@@ -14,7 +14,7 @@ describe('slip API boundary',()=>{
     const resolve=vi.fn();expect((await resolveSlipRequest(request(body),{resolve})).status).toBe(400);expect(resolve).not.toHaveBeenCalled();
   });
   it('caps streamed body bytes and rejects other origins',async()=>{
-    const resolve=vi.fn();expect((await resolveSlipRequest(request(' '.repeat(4097)),{resolve})).status).toBe(413);
+    const resolve=vi.fn();expect((await resolveSlipRequest(request(' '.repeat(24001)),{resolve})).status).toBe(413);
     expect((await resolveSlipRequest(request(undefined,'https://other.invalid'),{resolve})).status).toBe(403);expect(resolve).not.toHaveBeenCalled();
   });
   it('returns sanitized errors with zero-provider accounting',async()=>{

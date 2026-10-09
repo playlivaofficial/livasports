@@ -4,7 +4,7 @@ import Link from 'next/link';
 import {usePathname,useSearchParams} from 'next/navigation';
 import type {SiteLocale} from '@/config/i18n';
 import {interfaceRoutes} from '@/localization/interface';
-import {FEEDBACK_EVENT,feedback,setSlipStake,slipStore,useSlip,type SlipFeedback} from '@/slip/client';
+import {FEEDBACK_EVENT,feedback,addSlipSelection,setSlipStake,slipStore,useSlip,type SlipFeedback} from '@/slip/client';
 import {STORAGE_KEY,type StorageNotice} from '@/slip/state';
 import {selectionKey,type SavedSelection} from '@/slip/types';
 import {selectionLabel,slipCopy,type SlipUiLocale} from '@/slip/localization';
@@ -38,10 +38,7 @@ function SlipDrawer({locale,currencyLocale,uiLocale,selections,stake,slipId,pend
   function commitStake(){const parsed=parseStake(stakeValue);if(!parsed){feedback({result:'INVALID_STAKE'});setStakeDraft(null);return;}setSlipStake(parsed);setStakeDraft(null);}
   function replace(){
     if(!pending?.selection||!pending.expiresAt||Date.now()>=Date.parse(pending.expiresAt)){feedback({result:'EXPIRED'});onPending(null);return;}
-    const result=slipStore.dispatch({type:'replace',selection:pending.selection,expectedKey:pending.expectedKey??'',addedAt:new Date().toISOString()});
-    if(result.result==='REPLACE_REQUIRED'){const previous=result.slip.selections.find(s=>s.fixturePublicId===pending.selection!.fixturePublicId&&s.market===pending.selection!.market);onPending({...pending,expectedKey:previous?selectionKey(previous):undefined});return;}
-    if(result.result==='REPLACED'||result.result==='ADDED')emitSlipEvent('slip_selection_replace',locale,pending.selection,pending.bookmaker,{legCount:result.slip.selections.length,priceKind:pending.priceContext?.priceKind});
-    feedback({result:result.result});onPending(null);closeRef.current?.focus();
+    void addSlipSelection(pending.selection,locale,pending.expiresAt,pending.bookmaker,pending.priceContext);onPending(null);closeRef.current?.focus();
   }
   const currentCount=resolved.filter(v=>v.price!==null).length;
   const indicativeTotal=indicativeCombined(resolved,now);
@@ -65,7 +62,7 @@ function SlipDrawer({locale,currencyLocale,uiLocale,selections,stake,slipId,pend
         {/* Below the bookmaker cards: what the visitor actually picked, always visible, removable one by one. */}
         <section className="slip-selections" aria-labelledby="slip-selections-title">
           <h3 id="slip-selections-title">{text.yourSelections}<span className="slip-count">{selections.length}</span></h3>
-          <SlipLegs uiLocale={uiLocale} selections={selections} resolvedByKey={byKey} comparison={comparison} checking={checking} resolvedAt={resolvedAt} now={now} onRemove={remove} onNavigate={onClose}/>
+          <SlipLegs uiLocale={uiLocale} selections={selections} resolvedByKey={byKey} comparison={comparison} checking={checking} resolvedAt={resolvedAt} now={now} onRemove={remove} onNavigate={onClose} onConfirm={(selection,price)=>void addSlipSelection(selection,locale,price.expiresAt,price.bookmaker,{targetBookmaker:price.bookmaker,priceKind:'REAL',decimalOdds:price.decimalOdds},selection)}/>
         </section>
         <div className="slip-summary"><div><small>{text.scope}</small></div><button type="button" onClick={clear}>{text.clear}</button></div>
         {resolvedAt?<p className="slip-verified">{currentCount}/{selections.length} {text.currentCount}</p>:null}

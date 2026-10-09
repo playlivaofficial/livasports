@@ -32,7 +32,8 @@ export function resolveSelection(selection:CanonicalSelection,read:SlipFixtureRe
 // Render-time guard also protects already-open/offline tabs; it never extends a server expiry.
 export function guardResolved(value:ResolvedSelection,now:number,connected=true):ResolvedSelection {
   const guarded=guardPrice(value,now,connected);
-  return {...guarded,coverage:guarded.price?(guarded.price.priceKind==='INDICATIVE'?'INDICATIVE':'REAL'):'UNAVAILABLE'};
+  const alternative=connected&&guarded.alternative&&Date.parse(guarded.alternative.expiresAt)>now&&(!guarded.closesAt||Date.parse(guarded.closesAt)>now)?guarded.alternative:undefined;
+  return {...guarded,alternative,coverage:guarded.price?(guarded.price.priceKind==='INDICATIVE'?'INDICATIVE':'REAL'):'UNAVAILABLE'};
 }
 function guardPrice(value:ResolvedSelection,now:number,connected=true):ResolvedSelection {
   if(value.state==='MATCH_FINISHED')return {...value,price:null};

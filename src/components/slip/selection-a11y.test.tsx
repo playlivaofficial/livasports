@@ -5,9 +5,9 @@ import type {OddsComparison} from '@/odds/types';
 const view:OddsComparison={market:'MATCH_WINNER',line:null,eligiblePrices:1,expiresAt:'2030-01-01T12:15:00Z',observedAt:'2030-01-01T12:00:00Z',providerUpdatedAt:'2030-01-01T12:00:00Z',closesAt:'2030-01-01T13:00:00Z',
   rows:[{bookmaker:'betano.bet.br',name:'Betano BR',action:null,cells:[{outcome:'HOME',decimalOdds:'2.5',state:'ACTIVE',best:false,expiresAt:'2030-01-01T12:15:00Z',priceKind:'REAL',targetBookmaker:'betano.bet.br',sourceBookmaker:'betano.bet.br',sourceBookmakerName:'Betano BR',sourceQuoteId:'quote-1',sourceObservedAt:'2030-01-01T12:00:00Z'}]}]};
 describe('semantic odds selection',()=>{
-  it.each([['br','Adicionar ao bilhete'],['mx','Agregar al boleto'],['co','Agregar al boleto'],['pe','Agregar al boleto'],['en','Add to slip']] as const)('has native localized selection buttons in %s', (locale,label)=>{
+  it.each(['br','mx','co','pe','en'] as const)('does not unlock prices before the hydration-time clock check in %s', locale=>{
     const html=renderToStaticMarkup(<PregameOdds fixturePublicId="1111111111111111" uiLocale={locale} initial={[view]} context={{fixtureId:'test',competitionId:'test',locale:locale==='en'?'co':locale}}/>);
-    expect(html).toContain('type="button" class="pregame-price slip-odds-button"');expect(html).toContain('aria-pressed="false"');expect(html).toContain(label);
+    expect(html).not.toContain('slip-odds-button');expect(html).not.toContain('Guardar sin cuota');
     expect(html).not.toContain('/go/');expect(html).not.toContain('Place bet');
   });
   it.each(['STALE','SUSPENDED','CLOSED'] as const)('does not create selectable %s prices',state=>{

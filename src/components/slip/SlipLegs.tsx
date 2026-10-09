@@ -5,7 +5,8 @@ import type {SlipComparison as Comparison} from '@/slip/comparison-types';
 import {bookmakerShortName,missingLegReason} from '@/slip/comparison-copy';
 import {formatSlipOdds} from '@/slip/decimal';
 import {selectionLabel,slipCopy,type SlipUiLocale} from '@/slip/localization';
-import {selectionKey,type ResolvedSelection,type SavedSelection} from '@/slip/types';
+import {selectionKey,receiptDisplay,type ResolvedSelection,type SavedSelection,type ReferencePrice} from '@/slip/types';
+import {bookmakerConfig} from '@/odds/registry';
 import {ApproximatePrice} from '@/components/odds/ApproximatePrice';
 
 function fixtureTitle(fixture:ResolvedSelection['fixture'],fallback:string){
@@ -19,10 +20,10 @@ function kickoffLabel(kickoff:string,uiLocale:SlipUiLocale){
   return new Intl.DateTimeFormat(intlLocale[uiLocale],{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}).format(date);
 }
 
-export function SlipLegs({uiLocale,selections,resolvedByKey,comparison,checking,onRemove,onNavigate}:{
+export function SlipLegs({uiLocale,selections,resolvedByKey,comparison,checking,onRemove,onNavigate,onConfirm}:{
   uiLocale:SlipUiLocale;selections:SavedSelection[];
   resolvedByKey:Map<string,ResolvedSelection>;comparison:Comparison|null;checking:boolean;
-  resolvedAt:string|null;now:number;onRemove:(selection:SavedSelection,index:number)=>void;onNavigate?:()=>void;
+  resolvedAt:string|null;now:number;onRemove:(selection:SavedSelection,index:number)=>void;onNavigate?:()=>void;onConfirm?:(selection:SavedSelection,price:ReferencePrice)=>void;
 }){
   const text=slipCopy[uiLocale];
   const approximateLabel=uiLocale==='br'?'preço aproximado':uiLocale==='en'?'approximate price':'cuota aproximada';
@@ -30,6 +31,7 @@ export function SlipLegs({uiLocale,selections,resolvedByKey,comparison,checking,
   return <ol className="slip-list" aria-label={`${selections.length} ${selections.length===1?text.selection:text.selections}`}>
     {selections.map((s,index)=>{
       const key=selectionKey(s);const view=resolvedByKey.get(key);const fixture=view?.fixture;
+      const accepted=receiptDisplay(s);
       const title=fixtureTitle(fixture??null,checking?text.checking:text.missing);
       const price=view?.price?formatSlipOdds(view.price.decimalOdds,uiLocale):null;
       const quotes=books.map(b=>{
@@ -60,6 +62,11 @@ export function SlipLegs({uiLocale,selections,resolvedByKey,comparison,checking,
           {price?<strong className="slip-price">{indicative?<ApproximatePrice value={price} label={coverageLabel}/>:price}</strong>:<span className="slip-no-price">{checking?text.checking:'—'}</span>}
           <small>{coverageLabel}</small>
         </div>
+        {view?.price?<small>{view.price.bookmakerName}</small>:null}
+        {!checking&&!view?.price&&accepted?<small>{uiLocale==='en'?'Suspended selection':uiLocale==='br'?'Seleção suspensa':'Selección suspendida'} · {bookmakerConfig(accepted.book)?.displayName??accepted.book} · {accepted.price}</small>:null}
+        {!view?.price&&view?.alternative&&onConfirm?<button type="button" className="slip-share" onClick={()=>onConfirm(s,view.alternative!)}>
+          {uiLocale==='en'?'Confirm current odds':uiLocale==='br'?'Confirmar cotação atual':'Confirmar cuota actual'} · {view.alternative.bookmakerName} · {formatSlipOdds(view.alternative.decimalOdds,uiLocale)}
+        </button>:null}
         {indicative&&view?.price?.reference?<p className="slip-comparison-note">{view.price.reference.bookmakerName} · {view.price.reference.sourceGeo} · {new Date(view.price.reference.observedAt).toISOString().slice(11,16)} UTC<br/>{uiLocale==='en'?'Information only — not an executable bookmaker offer.':uiLocale==='br'?'Somente informação — não é uma oferta de aposta.':'Solo información — no es una oferta ejecutable.'}<br/><small>{view.price.reference.quoteId}</small></p>:null}
         {view?.state==='PRICE_CHANGED'&&view.previousDecimalOdds&&view.price&&formatSlipOdds(view.previousDecimalOdds,uiLocale)&&price?
           <p className="slip-reprice"><ApproximatePrice value={formatSlipOdds(view.previousDecimalOdds,uiLocale)!} label={approximateLabel}/> → <ApproximatePrice value={price} label={approximateLabel}/></p>:null}

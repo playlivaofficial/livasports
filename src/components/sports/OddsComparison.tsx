@@ -15,7 +15,6 @@ import {BookmakerLogo} from '@/components/odds/BookmakerLogo';
 import {ApproximatePrice} from '@/components/odds/ApproximatePrice';
 import {matchPath} from '@/match-center/routes';
 import {ReferenceOdds} from '@/components/odds/ReferenceOdds';
-import {UnpricedSelections} from '@/components/odds/UnpricedSelections';
 
 const CELLS=[{outcome:OutcomeCode.HOME,label:'1'},{outcome:OutcomeCode.DRAW,label:'X'},{outcome:OutcomeCode.AWAY,label:'2'}] as const;
 type ListingPrice={decimalOdds:number;expiresAt?:string;observedAt:string;priceKind:'REAL'|'PROXY';targetBookmaker:string};
@@ -41,9 +40,8 @@ export function OddsComparison({locale,fixture,emptyLabel,commercialLocale}:{loc
   // Existing stored quotes only. No provider polling is added for references.
   useEffect(()=>{const tick=()=>setClock(Date.now());tick();const timer=window.setInterval(tick,1000);return()=>window.clearInterval(timer);},[]);
   const text=slipCopy[locale],unavailable=unavailableOddsLabel(locale);
-  const current=(price:ListingPrice|null)=>!!price?.expiresAt&&(clock===null||clock<Date.parse(price.expiresAt));
+  const current=(price:ListingPrice|null)=>!!price?.expiresAt&&price.priceKind==='REAL'&&Number.isFinite(price.decimalOdds)&&price.decimalOdds>1&&price.decimalOdds<=1000&&clock!==null&&clock<Date.parse(price.expiresAt)&&clock<Date.parse(fixture.kickoff);
   const references=currentReferences(fixture.referenceOdds,clock??Number.POSITIVE_INFINITY);
-  const hasReal=books.some(b=>b.cells.some(c=>current(c.price)));
   const selectable=!!commercialLocale&&fixture.status==='SCHEDULED'&&/^[0-9a-f]{16}$/.test(fixture.publicId??'');
   return <div className="odds-slot" data-primary-count={books.length} aria-label={`${locale==='en'?'Pregame odds':locale==='br'?'Odds pré-jogo':'Cuotas prepartido'}. ${text.oddsMayChange}`}>
     {books.length?<div className="listing-odds-books">
@@ -59,7 +57,7 @@ export function OddsComparison({locale,fixture,emptyLabel,commercialLocale}:{loc
             const price=valid?(cell.price?.priceKind==='PROXY'?<ApproximatePrice className="listing-odds-price" value={priceLabel!} label={text.oddsMayChange}/>:<strong className="listing-odds-price" data-price-kind="REAL">{priceLabel}</strong>):<span className="listing-odds-unavailable" aria-label={unavailable} title={unavailable}>—</span>;
             return intent&&cell.price&&valid?<button type="button" key={cell.outcome} className="listing-odds-cell listing-odds-select" aria-pressed={pressed} disabled={!saved.ready} data-target-bookmaker={book.id}
               aria-label={`${pressed?text.selected:text.add}: ${book.label}, ${selectionLabel(intent,locale,{publicId:fixture.publicId!,home:fixture.homeTeam,away:fixture.awayTeam,competition:fixture.competition,kickoff:fixture.kickoff,status:fixture.status})}, ${priceLabel}`}
-              onClick={event=>{event.preventDefault(); event.stopPropagation();addSlipSelection(intent,commercialLocale!,cell.price!.expiresAt!,book.id,{targetBookmaker:book.id,priceKind:cell.price!.priceKind});}}>
+              onClick={event=>{event.preventDefault(); event.stopPropagation();void addSlipSelection(intent,commercialLocale!,cell.price!.expiresAt!,book.id,{targetBookmaker:book.id,priceKind:cell.price!.priceKind,decimalOdds:String(cell.price!.decimalOdds)});}}>
               {pressed?<span className="listing-odds-check" aria-hidden="true">✓</span>:null}<span className="listing-odds-label">{cell.label}</span>{price}
             </button>:<div key={cell.outcome} className={`listing-odds-cell${valid?'':' is-muted'}`}><span className="listing-odds-label">{cell.label}</span>{price}</div>;
           })}</div>:<span className="listing-book-unavailable" aria-label={unavailable} title={emptyLabel??unavailable}>—</span>}
@@ -67,6 +65,5 @@ export function OddsComparison({locale,fixture,emptyLabel,commercialLocale}:{loc
       })}
     </div>:<span className="odds-empty" aria-label={unavailable}>{unavailable}</span>}
     {references.length?<ReferenceOdds quotes={references} fixturePublicId={fixture.publicId} locale={commercialLocale} uiLocale={locale}/>:null}
-    {!hasReal&&!references.length&&fixture.status==='SCHEDULED'?<UnpricedSelections fixturePublicId={fixture.publicId} kickoff={fixture.kickoff} locale={commercialLocale} uiLocale={locale}/>:null}
   </div>;
 }

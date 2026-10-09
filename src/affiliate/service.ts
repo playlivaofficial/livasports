@@ -11,6 +11,8 @@ import {isPublisherEmbed,type Campaign,type CommercialContext,type Creative,type
 import type {SiteLocale} from '@/config/i18n';
 import {commercialGeoFromLocale} from '@/odds/commercial-geo';
 import {bookmakerConfig} from '@/odds/registry';
+import {resolveLockedSelection} from '@/slip/selection-lock';
+import {verifySelection} from '@/slip/selection-receipt';
 
 export interface OfferDependencies {
   campaigns(locale:SiteLocale):Promise<Campaign[]>;
@@ -22,6 +24,8 @@ export function offerDependencies(db:QueryExecutor):OfferDependencies{return {
   pricing:async(context,bookmaker,now)=>{
     if(isSlipPlacement(context.placement)){
       const selections=context.selections!,data=await readSlipComparison(db,[...new Set(selections.map(s=>s.fixturePublicId))],commercialGeoFromLocale(context.locale));
+      const geo=commercialGeoFromLocale(context.locale);
+      if(selections.some(s=>!resolveLockedSelection(s,data.fixtures.get(s.fixturePublicId)??null,verifySelection(s,geo),geo,now).price))return null;
       const b=buildSlipComparison(selections,context.locale,data.fixtures,data.bookmakers,now).bookmakers.find(b=>b.bookmakerId===bookmaker);
       return b?.complete?Math.min(...b.selectionQuotes.map(q=>Date.parse(q.expiresAt!))):null;
     }

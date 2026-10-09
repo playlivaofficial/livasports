@@ -1,5 +1,23 @@
 # P0 odds reliability — incident and release evidence
 
+## Current strict-selection candidate — 2026-10-09
+
+Status: implementation and local verification completed/in progress; production release and acceptance are NOT yet claimed. Baseline `a282e36a036eac6e4c71df8181bdc6237920f287`, branch `codex/strict-odds-selection-lock`. Original unrelated dirty workspace is preserved. Historical October 1 figures below are not the current MX/CO/PE account scope.
+
+Implemented frontend/server strict REAL-price admission, signed canonical quote binding, refresh/reprice/expiry suspension, explicit alternative confirmation, independent per-fixture locking, async clear/remove/replace protection, direct API and affiliate rechecks. Removed unpriced/foreign-reference admission; retained informational provenance, existing GEO/owner/session/affiliate rules, quota/cadence and DB/cache navigation. No migration required; existing latest migration is `068_pe_1xbet_affiliate_host.sql`.
+
+Read-only audit at 08:17 UTC: acquisition matrix 32 competitions × 3 GEOs, 277 seven-day fixtures per GEO; native availability MX 134/277, CO 179/277, PE 185/277. These are timestamped baseline observations, not universal odds guarantees. Entitled local sources: MX Betsson; CO Betsson/bwin; PE Inkabet/1xBet. No available secondary feed was invented or bought. All direct/ordinary navigation provider requests remain zero.
+
+Missing-odds evidence: saved Betsson/Inkabet Aldosivi–Sarmiento prices are explicitly SUSPENDED; bwin/1xBet prices are ACTIVE. CO therefore offers bwin, PE can offer 1xBet, MX must lock this fixture. Galatasaray's last saved odds are six days old and not current. Al Fateh–Al Ahli and Boyacá Chicó–Cúcuta had verified participant-name mapping gaps; scoped aliases repair these. Envigado–Internacional Palmira also matches deterministically but canonical status is POSTPONED, so it remains locked.
+
+Three-event saved-response rehearsal, eight feed/event payloads, executed twice in a transaction and rolled back: first pass 77 GEO current/history writes, repeat pass 0 current/history writes, provider requests 0. Original provider observations were preserved (2026-10-08 13:50–21:05 UTC). No canonical fixture IDs, scores or kickoff times were changed. Provider-side suspensions/absences and genuinely ambiguous Conference League identities remain explicit limitations, not reasons to fabricate prices.
+
+Health correction: persisted approved budget-paced deadlines now drive refresh-overdue reporting; no cadence/TTL/quota change. Explicit expired-quote and mapping-error regressions remain unhealthy. Budget baseline: 5000 monthly cap, 325 used, UTC-day 6/179, rolling 24h 60, routine headroom 83; expected 77/day versus routine forecast target 134, 57% reserve. These baseline counts include existing automatic activity; this task has consumed 0 provider calls so far.
+
+Local browser: genuine bwin 2.50 admission retained exact bookmaker; suspended Betsson outcomes had no controls. Hydrated comparison remained incomplete for Betsson and complete for bwin with no unauthorized CTA. Mobile 375/390/430px overflow 0 and odds targets 44px. Remaining responsive/production acceptance evidence will be recorded after the final gates and normal PR release.
+
+Release gates: final full suite 2682 tests (2665 Vitest + 17 Node) PASS; typecheck/lint/secret scan/production build PASS. Desktop/tablet 768/1024/1440px and mobile 375/390/430px have no horizontal overflow. Invalidated local test receipt suspended the exact original bookmaker/price, blocked comparison, and recovered only after explicit fresh-quote confirmation. Only the local test leg was removed afterward. CI/preview/merge/deployment/production QA remain pending and must pass before completion.
+
 Baseline: `647ae06a7fc5c4102a09dee7dca9ad6a33021b7b`, 2026-10-01 08:37:07 UTC. Implementation released through PR #35 as `1b15ce68503d1b3e05e5834213f2c33f8bd8a401`; production READY at 09:23:59 UTC. Systemic guardrails are operational. Native coverage remains DEGRADED for the explicitly documented provider/mapping gaps; this is not a claim of permanent recovery.
 
 ## A–B. Why cron success concealed degraded data

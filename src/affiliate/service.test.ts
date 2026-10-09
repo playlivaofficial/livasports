@@ -1,21 +1,26 @@
-import {it,expect,vi,beforeEach} from 'vitest';
+import {it,expect,vi,beforeEach,afterEach} from 'vitest';
 vi.mock('server-only',()=>({}));
 vi.mock('@/odds/read-repository',()=>({readSlipComparison:vi.fn(),readPublicOddsFixtures:vi.fn()}));
 import {readSlipComparison,readPublicOddsFixtures} from '@/odds/read-repository';
 import {comparisonFixture} from '@/slip/comparison-fixtures.test-support';
+import {signSelection} from '@/slip/selection-receipt';
+import {selectionKey} from '@/slip/types';
 import {offerDependencies,resolveOffer} from './service';
 import {campaign,context,dependencies} from './fixtures.test-support';
 const db={query:vi.fn()};
 beforeEach(()=>vi.clearAllMocks());
+afterEach(()=>vi.unstubAllEnvs());
 it.each(['complete','incomplete','stale','suspended','kickoff','finished','mx'])('M8 reuses actual M7 eligibility: %s',async state=>{
   const now=Date.now(),f=comparisonFixture(3,now);const first=f.data.fixtures.values().next().value!;
+  const key='test-only-affiliate-selection-signing-secret-long-enough';vi.stubEnv('AFFILIATE_SIGNING_SECRET',key);
+  const bound=f.selections.map(s=>{const q=f.data.fixtures.get(s.fixturePublicId)!.snapshot.quotes[0];return {...s,receipt:signSelection({v:1,key:selectionKey(s),geo:'CO',book:'betsson',quote:q.quoteId,provider:'ODDSPAPI',price:q.decimalOdds,observed:q.observedAt,expires:now+60000},key)};});
   if(state==='incomplete')first.snapshot.quotes=first.snapshot.quotes.filter(q=>q.bookmaker!=='betsson');
   if(state==='stale'||state==='suspended')first.snapshot.quotes.forEach(q=>{q.status=state==='stale'?'STALE':'SUSPENDED';});
   if(state==='kickoff'){first.snapshot.kickoff=new Date(now-1).toISOString();first.fixture.kickoff=first.snapshot.kickoff;}
   if(state==='finished'){first.snapshot.fixtureStatus='FINISHED';first.fixture.status='FINISHED';}
   if(state==='mx')f.data.bookmakers=[];
   vi.mocked(readSlipComparison).mockResolvedValue(f.data);
-  const result=await offerDependencies(db).pricing({...context(),selections:f.selections},'betsson',now);
+  const result=await offerDependencies(db).pricing({...context(),locale:'co',pagePath:'/co',selections:bound},'betsson',now);
   // 'incomplete' removes Betsson's own quote for one leg, so the Betsson slip CTA is withdrawn: the
   // gap is never covered from bwin, so there is no complete Betsson price to click through on.
   expect(result!==null).toBe(state==='complete');expect(readSlipComparison).toHaveBeenCalledTimes(1);expect(db.query).not.toHaveBeenCalled();

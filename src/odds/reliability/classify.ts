@@ -7,6 +7,8 @@ export interface FeedEvidence {
   bookmaker:string;
   lastOutcome?:string|null;
   lastSuccessAt:string|null;lastAttemptAt:string|null;retryAfter:string|null;consecutiveFailures:number;lastError:string|null;
+  /** Persisted budget-paced deadline; health must not impose a second, unscaled cadence. */
+  dueAt?:string|null;staleAfter?:string|null;
   /** Latest applied snapshot for this feed: what the provider actually returned. */
   snapshot:{observedAt:string;returnedFixtures:number;quotes:number;nearTermFixtures:number;nearTermQuotes:number}|null;
   /** Latest ledger request touching this feed. */
@@ -52,9 +54,13 @@ export function classifyCompetition(input:ReliabilityInput,now=new Date()):Compe
   const nearestHours=hours(input.nearestKickoff,now);const tier=urgencyTier(nearestHours);
   const age=minutesSince(input.lastSuccessAt,now);
   const feeds=input.feeds;
+  const deadlines=feeds.map(f=>f.staleAfter).filter((v):v is string=>!!v&&Number.isFinite(Date.parse(v)));
+  const paced=feeds.length>0&&deadlines.length===feeds.length;
+  const refreshOverdue=paced?deadlines.some(v=>Date.parse(v)<now.getTime()):age===null||age>OVERDUE_MINUTES_BY_TIER[tier??3];
+  const deadlineEvidence=paced?`Persisted budget-paced refresh deadline missed (${deadlines.sort()[0]})`:age===null?'Target never refreshed successfully':`Last successful refresh ${age} min ago exceeds the tier allowance`;
   const mappingFailure=feeds.find(f=>f.lastOutcome==='MAPPING_EMPTY'||f.lastOutcome==='PARSER_EMPTY');
   const base={competition:input.competition,tournamentId:input.tournamentId,tier,nearestKickoff:input.nearestKickoff,lastSuccessAt:input.lastSuccessAt,lastRefreshAgeMinutes:age,
-    quoteAges:input.quoteAges,catalogState:input.catalogState,nextRefreshDueAt:null as string|null};
+    quoteAges:input.quoteAges,catalogState:input.catalogState,nextRefreshDueAt:feeds.map(f=>f.dueAt).filter((v):v is string=>!!v&&Number.isFinite(Date.parse(v))).sort()[0]??null};
   const providerState=():CompetitionHealth['providerState']=>{
     if(!feeds.length)return 'NONE';
     const err=feedErrorClass(feeds);if(err)return 'ERROR';
@@ -94,7 +100,7 @@ export function classifyCompetition(input:ReliabilityInput,now=new Date()):Compe
     else if(win.closedOnly===win.fixtures&&win.fixtures>0)issues.push({classification:'PROVIDER_NOT_OFFERED',severity:'WARNING',evidence:'Provider explicitly closed every market for these fixtures',affectedFixtures:win.fixtures});
     else if(feeds.length&&feeds.every(f=>classifyErrorCode(f.lastError)==='PROVIDER_NOT_OFFERED'&&f.consecutiveFailures>0))issues.push({classification:'PROVIDER_NOT_OFFERED',severity:'WARNING',evidence:'Provider reports FIXTURE_NOT_FOUND for every bookmaker feed',affectedFixtures:win.fixtures});
     else if(providerReturnedNothingNearTerm(feeds,now,overdue))issues.push({classification:'PROVIDER_NOT_OFFERED',severity:'WARNING',evidence:'Recent successful refresh listed no near-term prices for this tournament',affectedFixtures:win.fixtures});
-    else if(age===null||age>overdue)issues.push({classification:'REFRESH_NOT_EXECUTED',severity,evidence:age===null?'Target never refreshed successfully':`Last successful refresh ${age} min ago exceeds the ${overdue} min tier allowance`,affectedFixtures:win.fixtures});
+    else if(refreshOverdue)issues.push({classification:'REFRESH_NOT_EXECUTED',severity,evidence:deadlineEvidence,affectedFixtures:win.fixtures});
     else issues.push({classification:'UNKNOWN',severity,evidence:'Refresh succeeded recently but the stored evidence cannot separate a provider gap from an internal one',affectedFixtures:win.fixtures});
   }
 
@@ -131,8 +137,8 @@ export function classifyCompetition(input:ReliabilityInput,now=new Date()):Compe
   const err=feedErrorClass(feeds);
   if(err&&!issues.some(i=>i.classification===err.classification)&&feeds.some(f=>f.bookmaker===err.bookmaker&&f.consecutiveFailures>=3))
     issues.push({classification:err.classification,severity:CLASSIFICATION_SEVERITY[err.classification]==='CRITICAL'?'CRITICAL':'WARNING',bookmaker:err.bookmaker,evidence:`${err.bookmaker} failed ${feeds.find(f=>f.bookmaker===err.bookmaker)!.consecutiveFailures} consecutive refreshes (${err.error})`,affectedFixtures:seven.fixtures});
-  if(tier!==null&&age!==null&&age>OVERDUE_MINUTES_BY_TIER[tier]&&!issues.some(i=>i.classification==='REFRESH_NOT_EXECUTED'))
-    issues.push({classification:mappingFailure?'MAPPING_FAILED':'REFRESH_NOT_EXECUTED',severity:'WARNING',evidence:`Last successful refresh ${age} min ago exceeds the tier ${tier} allowance of ${OVERDUE_MINUTES_BY_TIER[tier]} min${mappingFailure?`; verified blocking outcome ${mappingFailure.lastOutcome} on ${mappingFailure.bookmaker}`:''}`,affectedFixtures:w['24h'].fixtures||w['3d'].fixtures});
+  if(tier!==null&&age!==null&&refreshOverdue&&!issues.some(i=>i.classification==='REFRESH_NOT_EXECUTED'))
+    issues.push({classification:mappingFailure?'MAPPING_FAILED':'REFRESH_NOT_EXECUTED',severity:'WARNING',evidence:`${deadlineEvidence}${mappingFailure?`; verified blocking outcome ${mappingFailure.lastOutcome} on ${mappingFailure.bookmaker}`:''}`,affectedFixtures:w['24h'].fixtures||w['3d'].fixtures});
 
   // Health roll-up: internal CRITICAL beats everything; insufficient evidence stays UNKNOWN; provider-only absence is UPSTREAM_UNAVAILABLE.
   const internalCritical=issues.some(i=>i.severity==='CRITICAL'&&i.classification!=='PROVIDER_NOT_OFFERED'&&i.classification!=='UNKNOWN');

@@ -26,7 +26,7 @@ export async function resolveSlipRequest(request:Request,service:Pick<SlipLoader
   if(origin&&origin!==url.origin)return response({error:'INVALID_ORIGIN',providerRequests:0},403);
   if(url.search||!request.headers.get('content-type')?.startsWith('application/json'))return response({error:'INVALID_REQUEST',providerRequests:0},400);
   let input;
-  try{input=parseResolutionRequest(await boundedJson(request));}catch(error){return response({error:'INVALID_BODY',providerRequests:0},error instanceof Error&&error.message==='BODY_TOO_LARGE'?413:400);}
+  try{input=parseResolutionRequest(await boundedJson(request,24000));}catch(error){return response({error:'INVALID_BODY',providerRequests:0},error instanceof Error&&error.message==='BODY_TOO_LARGE'?413:400);}
   if(!input)return response({error:'INVALID_SLIP',providerRequests:0},400);
   try{const result=await service.resolve(input.selections,input.locale,requestCommercialGeo(request.headers));
     console.info(`[LivaSports M6] ${JSON.stringify({event:'slip-resolve',count:input.selections.length,locale:input.locale,providerRequests:0})}`);

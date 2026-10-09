@@ -1,7 +1,7 @@
 import {quoteFreshnessTtlMs,quoteState} from '@/odds/comparison';
 import type {SiteLocale} from '@/config/i18n';
 import type {SlipFixtureRead} from './resolution';
-import type {CanonicalSelection} from './types';
+import {selectionKey,type CanonicalSelection,type ResolvedSelection} from './types';
 import type {BookmakerAvailabilityState,BookmakerConfig,BookmakerSlip,ComparisonDiagnostic,SelectionQuote,SlipComparison,ComparisonState} from './comparison-types';
 import {compareDecimal,multiplyDecimalOdds,validDecimalOdds} from './decimal';
 import {BOOKMAKER_REGISTRY,isVisibleBookmaker,bookmakerConfig} from '@/odds/registry';
@@ -143,4 +143,10 @@ export function guardSlipComparison(value:SlipComparison,count:number,now:number
     if(q.decimalOdds&&!validDecimalOdds(q.decimalOdds))return withDiagnostic({...q,state:'UNAVAILABLE',decimalOdds:null,reason:'INVALID_QUOTE'});
     return withDiagnostic(q);
   }))),value.generatedAt??new Date(now).toISOString());
+}
+/** An invalid selected identity invalidates that leg at every comparison destination, not other fixtures. */
+export function enforceSelectionLocks(value:SlipComparison,resolved:ResolvedSelection[]):SlipComparison {
+  const invalid=new Set(resolved.filter(s=>s.state!=='CURRENT'||!s.price).map(s=>selectionKey(s.selection)));
+  return finish(value.locale,resolved.length,value.bookmakers.map(b=>summarize(b,b.selectionQuotes.map(q=>invalid.has(selectionKey(q.selection))?
+    {...q,state:'SUSPENDED',reason:'INVALID_QUOTE',diagnosticCode:'INVALID_QUOTE',decimalOdds:null,expiresAt:null,priceKind:null}:q))),value.generatedAt);
 }

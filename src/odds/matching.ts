@@ -31,9 +31,19 @@ const aliases: Record<string, Record<string,string>> = {
     // (2026-01-16). Saved event id1002707072335194 has the same opponent/roles
     // and exact 2026-10-09T23:00Z kickoff as the legacy canonical club identity.
     'alianza fc valledupar':'alianza petrolera',
+    // P0 2026-10-09 saved event id1002707072335196: both roles and UTC kickoff
+    // agree uniquely with Boyacá Chicó–Cúcuta Deportivo. Scoped, never global suffix removal.
+    'cucuta deportivo fc':'cucuta deportivo','cucuta':'cucuta deportivo',
   },
   'colombia-primera-b': {
     'atletico fc cali':'atletico','real cartagena fc':'real cartagena','boyaca patriotas':'patriotas boyaca',
+    // Same-role Envigado–Internacional Palmira event id1000123874458760 at 2026-10-11T20:00Z.
+    'internacional fc de palmira':'internacional palmira',
+  },
+  'saudi-pro-league': {
+    // Saved event id1000095573215752, Al Fateh–Al Ahli, exact 2026-10-09T14:55Z.
+    // The country qualifier distinguishes this club from similarly named clubs elsewhere.
+    'al ahli saudi fc':'al ahli','al ahli saudi':'al ahli',
   },
   'ligue-2': {'grenoble foot':'grenoble foot 38','nancy lorraine':'nancy','stade lavallois mfc':'laval',
     'sochaux montbeliard':'sochaux','clermont foot 63':'clermont'},

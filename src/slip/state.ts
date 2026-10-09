@@ -1,4 +1,4 @@
-import {canonicalSelection,createSlipId,marketKey,selectionKey,SLIP_LIMIT,SLIP_SCHEMA_VERSION,SLIP_SCOPE,validSlipId,type CanonicalSelection,type SavedSelection,type StoredSlip} from './types';
+import {canonicalSelection,wireSelection,createSlipId,marketKey,selectionKey,SLIP_LIMIT,SLIP_SCHEMA_VERSION,SLIP_SCOPE,validSlipId,type BoundSelection,type SavedSelection,type StoredSlip} from './types';
 import {DEFAULT_STAKE,parseStake} from './decimal';
 
 export const STORAGE_KEY='livasports:guest-slip';
@@ -10,7 +10,7 @@ function withId(slip:StoredSlip):StoredSlip {
 export function restoreSlip(raw:string|null):{slip:StoredSlip;notice:StorageNotice} {
   if(raw===null)return {slip:EMPTY_SLIP,notice:null};
   try {
-    if(raw.length>12000)throw new Error('oversize');
+    if(raw.length>24000)throw new Error('oversize');
     const v=JSON.parse(raw);
     if(!v||typeof v!=='object'||Array.isArray(v))throw new Error('shape');
     if(v.version!==0&&v.version!==1&&v.version!==SLIP_SCHEMA_VERSION)return {slip:EMPTY_SLIP,notice:'UNSUPPORTED_VERSION'};
@@ -20,7 +20,8 @@ export function restoreSlip(raw:string|null):{slip:StoredSlip;notice:StorageNoti
       const canonical=canonicalSelection(v.version===0&&item?.scope===undefined?{...item,scope:SLIP_SCOPE}:item);
       if(!canonical||typeof item.addedAt!=='string'||!Number.isFinite(Date.parse(item.addedAt))||item.addedAt.length>40||
         selections.some(s=>marketKey(s)===marketKey(canonical))||selections.length===SLIP_LIMIT)continue;
-      selections.push({...canonical,addedAt:new Date(item.addedAt).toISOString()});
+      const receipt=typeof item.receipt==='string'&&item.receipt.length<=1600&&/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]{43}$/.test(item.receipt)?item.receipt:undefined;
+      selections.push({...canonical,...(receipt?{receipt}:{}),addedAt:new Date(item.addedAt).toISOString()});
     }
     const stake=typeof v.stake==='string'?parseStake(v.stake):DEFAULT_STAKE;
     const slipId=validSlipId(v.slipId)?v.slipId:'';
@@ -29,7 +30,7 @@ export function restoreSlip(raw:string|null):{slip:StoredSlip;notice:StorageNoti
   }catch{return {slip:EMPTY_SLIP,notice:'RECOVERED'};}
 }
 
-export type SlipAction={type:'add';selection:CanonicalSelection;addedAt:string}|{type:'replace';selection:CanonicalSelection;addedAt:string;expectedKey:string}|
+export type SlipAction={type:'add';selection:BoundSelection;addedAt:string}|{type:'replace';selection:BoundSelection;addedAt:string;expectedKey:string}|{type:'confirm';selection:BoundSelection;addedAt:string;expectedReceipt?:string}|
   {type:'remove';key:string}|{type:'clear'}|{type:'setStake';stake:string};
 export type MutationResult={slip:StoredSlip;result:'ADDED'|'REPLACED'|'REMOVED'|'CLEARED'|'UNCHANGED'|'REPLACE_REQUIRED'|'LIMIT'|'INVALID_STAKE'};
 export function mutateSlip(slip:StoredSlip,action:SlipAction):MutationResult {
@@ -45,6 +46,10 @@ export function mutateSlip(slip:StoredSlip,action:SlipAction):MutationResult {
     return {slip:{...base,selections,slipId:selections.length?base.slipId:''},result:selections.length===base.selections.length?'UNCHANGED':'REMOVED'};
   }
   const exact=base.selections.find(s=>selectionKey(s)===selectionKey(action.selection));
+  if(action.type==='confirm'){
+    if(!exact||exact.receipt!==action.expectedReceipt||!action.selection.receipt)return {slip:base,result:'UNCHANGED'};
+    return {slip:{...base,selections:base.selections.map(s=>s===exact?{...wireSelection(action.selection),addedAt:s.addedAt}:s)},result:'REPLACED'};
+  }
   if(exact){
     if(action.type==='replace')return {slip:base,result:'UNCHANGED'};
     const selections=base.selections.filter(s=>selectionKey(s)!==selectionKey(action.selection));
@@ -63,11 +68,18 @@ export function createSlipStore(getStorage:()=>SlipStorage){
   let volatile=false;
   let snapshot={slip:EMPTY_SLIP,notice:null as StorageNotice,ready:false};
   const listeners=new Set<()=>void>();
+  let clearRevision=0;const revisions=new Map<string,number>();
+  function revise(previous:StoredSlip,next:StoredSlip){
+    for(const key of new Set([...previous.selections,...next.selections].map(marketKey))){
+      if(JSON.stringify(previous.selections.find(s=>marketKey(s)===key))!==JSON.stringify(next.selections.find(s=>marketKey(s)===key)))revisions.set(key,(revisions.get(key)??0)+1);
+    }
+    if(previous.selections.length&&!next.selections.length)clearRevision++;
+  }
   function notify(){for(const listener of listeners)listener();}
   function reload(){
     if(volatile&&snapshot.ready)return;
     try{const restored=restoreSlip(getStorage().getItem(STORAGE_KEY));
-      if(JSON.stringify(snapshot.slip)!==JSON.stringify(restored.slip)||snapshot.notice!==restored.notice||!snapshot.ready){snapshot={...restored,ready:true};notify();}
+      if(JSON.stringify(snapshot.slip)!==JSON.stringify(restored.slip)||snapshot.notice!==restored.notice||!snapshot.ready){revise(snapshot.slip,restored.slip);snapshot={...restored,ready:true};notify();}
     }catch{volatile=true;snapshot={...snapshot,ready:true,notice:'STORAGE_UNAVAILABLE'};notify();}
   }
   function dispatch(action:SlipAction):MutationResult {
@@ -77,7 +89,8 @@ export function createSlipStore(getStorage:()=>SlipStorage){
     if(action.type!=='clear'&&JSON.stringify(next.slip)===JSON.stringify(snapshot.slip))return next;
     let notice:StorageNotice=null;
     try{const storage=getStorage();if(action.type==='clear'&&storage.removeItem)storage.removeItem(STORAGE_KEY);else storage.setItem(STORAGE_KEY,JSON.stringify(next.slip));volatile=false;}catch{volatile=true;notice='STORAGE_UNAVAILABLE';}
+    revise(snapshot.slip,next.slip);if(action.type==='clear')clearRevision++;
     snapshot={slip:next.slip,notice,ready:true};notify();return next;
   }
-  return {reload,dispatch,getSnapshot:()=>snapshot,subscribe:(listener:()=>void)=>{listeners.add(listener);return()=>{listeners.delete(listener);};}};
+  return {reload,dispatch,getRevision:(key:string)=>`${clearRevision}:${revisions.get(key)??0}`,getSnapshot:()=>snapshot,subscribe:(listener:()=>void)=>{listeners.add(listener);return()=>{listeners.delete(listener);};}};
 }
