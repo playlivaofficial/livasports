@@ -22,13 +22,11 @@ function snapshot(row:typeof evidence.fixtures[number]):OddsReadSnapshot {
   quotes:references.filter(q=>q.sourceGeo===row.geo),referenceQuotes:references,insuranceEnabled:false};
 }
 describe('reported Production missing-odds fixtures, 2026-10-08',()=>{
- it.each(['FC Barcelona','Real Madrid'])('%s: keeps real 1xBet and exposes separate fresh bwin references for missing Inkabet',home=>{
+ it.each(['FC Barcelona','Real Madrid'])('%s: keeps real 1xBet and suppresses redundant foreign references for covered outcomes',home=>{
   const row=evidence.fixtures.find(r=>r.fixture.home===home)!,s=snapshot(row),result=publicOddsComparisons([buildComparison(s,'MATCH_WINNER',now)])[0];
-  expect(result.references).toHaveLength(3);
-  expect(result.references?.every(q=>q.bookmaker==='bwin'&&q.sourceGeo==='CO'&&!q.affiliateEligible&&!q.executable)).toBe(true);
+  expect(result.references??[]).toEqual([]);
   expect(result.rows.find(r=>r.bookmaker==='inkabet')?.cells.every(c=>c.decimalOdds===null)).toBe(true);
   expect(result.rows.find(r=>r.bookmaker==='1xbet')?.cells.every(c=>c.priceKind==='REAL'&&!c.best)).toBe(true);
-  expect(result.references?.map(q=>Number(q.decimalOdds))).toEqual(home==='FC Barcelona'?[1.09,11.5,23]:[1.36,5.75,7]);
  });
  it.each(['Málaga','Querétaro','Juárez'])('%s: does not resurrect suspended or reference-expired quotes',home=>{
   const row=evidence.fixtures.find(r=>r.fixture.home===home)!,s=snapshot(row);
