@@ -98,14 +98,14 @@ export function buildComparison(snapshot:OddsReadSnapshot,market:OddsMarket,now=
   return withReferences(result,snapshot,now);
 }
 function withReferences(result:OddsComparison,snapshot:OddsReadSnapshot,now:number):OddsComparison {
-  // Availability belongs to a bookmaker + outcome, not to the fixture. One real
-  // 1xBet cell cannot conceal Inkabet's gap. The reference stays outside both rows.
+  // A reference fills an outcome gap, never a missing operator's offer. Any
+  // eligible local REAL price for this exact outcome suppresses the reference.
   const primary=snapshot.referenceGapBookmakers??snapshot.eligibleBookmakers?.map(b=>b.id)??
     result.rows.filter(r=>r.role!=='FALLBACK_REFERENCE').map(r=>r.bookmaker);
   const references=SELECTIONS[result.market].flatMap(outcome=>{
     const covered=(bookmaker:string)=>result.rows.some(r=>r.bookmaker===bookmaker&&r.role!=='FALLBACK_REFERENCE'&&
       r.cells.some(c=>c.outcome===outcome&&c.priceKind==='REAL'&&c.decimalOdds!==null));
-    if(primary.length&&primary.every(covered))return [];
+    if(primary.some(covered))return [];
     if(snapshot.referenceGapBookmakers?.length===0)return [];
     const quote=selectIndicativeQuote(snapshot,result.market,outcome,result.line,now);return quote?[quote]:[];
   });

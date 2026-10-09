@@ -10,7 +10,7 @@ import {selectionLabel,slipCopy} from '@/slip/localization';
 import {BOOKMAKER_REGISTRY,bookmakerConfig,isVisibleBookmaker} from '@/odds/registry';
 import {geoForLocale,isCoreGeo} from '@/config/geo';
 import {primaryVisibleBookmakers} from '@/odds/fallback-pool';
-import {currentReferences,unavailableOddsLabel} from '@/odds/display';
+import {referencesForGaps,unavailableOddsLabel} from '@/odds/display';
 import {BookmakerLogo} from '@/components/odds/BookmakerLogo';
 import {ApproximatePrice} from '@/components/odds/ApproximatePrice';
 import {matchPath} from '@/match-center/routes';
@@ -41,29 +41,30 @@ export function OddsComparison({locale,fixture,emptyLabel,commercialLocale}:{loc
   useEffect(()=>{const tick=()=>setClock(Date.now());tick();const timer=window.setInterval(tick,1000);return()=>window.clearInterval(timer);},[]);
   const text=slipCopy[locale],unavailable=unavailableOddsLabel(locale);
   const current=(price:ListingPrice|null)=>!!price?.expiresAt&&price.priceKind==='REAL'&&Number.isFinite(price.decimalOdds)&&price.decimalOdds>1&&price.decimalOdds<=1000&&clock!==null&&clock<Date.parse(price.expiresAt)&&clock<Date.parse(fixture.kickoff);
-  const references=currentReferences(fixture.referenceOdds,clock??Number.POSITIVE_INFINITY);
+  const references=fixture.status==='SCHEDULED'&&clock!==null&&clock<Date.parse(fixture.kickoff)?referencesForGaps(fixture.referenceOdds,clock,'MATCH_WINNER',null,
+    books.flatMap(book=>book.cells.filter(c=>current(c.price)).map(c=>c.outcome))):[];
   const selectable=!!commercialLocale&&fixture.status==='SCHEDULED'&&/^[0-9a-f]{16}$/.test(fixture.publicId??'');
   return <div className="odds-slot" data-primary-count={books.length} aria-label={`${locale==='en'?'Pregame odds':locale==='br'?'Odds pré-jogo':'Cuotas prepartido'}. ${text.oddsMayChange}`}>
     {books.length?<div className="listing-odds-books">
-      {books.map(book=>{
+      {books.map((book,bookIndex)=>{
         const priced=book.cells.some(c=>current(c.price));
         return <div className={`listing-odds-book${priced?'':' is-unavailable'}`} key={book.id} data-primary-bookmaker={book.id}>
           <BookmakerLogo bookmaker={book.id} uiLocale={locale} sources={book.cells.flatMap(c=>c.price&&current(c.price)?[c.price]:[])}
             context={priced&&fixture.publicId&&commercialLocale?{locale:commercialLocale,placement:'match_odds_table',bookmaker:book.id,fixturePublicId:fixture.publicId,market:'MATCH_WINNER',pagePath:matchPath(commercialLocale,fixture.publicId,fixture.homeTeam,fixture.awayTeam)}:undefined}/>
-          {priced?<div className="listing-odds">{book.cells.map(cell=>{
+          <div className="listing-odds">{book.cells.map(cell=>{
             const intent=selectable?canonicalSelection({fixturePublicId:fixture.publicId,market:'MATCH_WINNER',outcome:cell.outcome,line:null,scope:SLIP_SCOPE}):null;
             const pressed=!!intent&&saved.slip.selections.some(s=>selectionKey(s)===selectionKey(intent));
             const valid=current(cell.price),priceLabel=cell.price?.decimalOdds.toFixed(2);
-            const price=valid?(cell.price?.priceKind==='PROXY'?<ApproximatePrice className="listing-odds-price" value={priceLabel!} label={text.oddsMayChange}/>:<strong className="listing-odds-price" data-price-kind="REAL">{priceLabel}</strong>):<span className="listing-odds-unavailable" aria-label={unavailable} title={unavailable}>—</span>;
+            const reference=bookIndex===0?references.find(q=>q.outcome===cell.outcome):undefined;
+            const price=valid?(cell.price?.priceKind==='PROXY'?<ApproximatePrice className="listing-odds-price" value={priceLabel!} label={text.oddsMayChange}/>:<strong className="listing-odds-price" data-price-kind="REAL">{priceLabel}</strong>):reference?<ReferenceOdds quote={reference} uiLocale={locale}/>:<span className="listing-odds-unavailable" aria-label={unavailable} title={emptyLabel??unavailable}>—</span>;
             return intent&&cell.price&&valid?<button type="button" key={cell.outcome} className="listing-odds-cell listing-odds-select" aria-pressed={pressed} disabled={!saved.ready} data-target-bookmaker={book.id}
               aria-label={`${pressed?text.selected:text.add}: ${book.label}, ${selectionLabel(intent,locale,{publicId:fixture.publicId!,home:fixture.homeTeam,away:fixture.awayTeam,competition:fixture.competition,kickoff:fixture.kickoff,status:fixture.status})}, ${priceLabel}`}
               onClick={event=>{event.preventDefault(); event.stopPropagation();void addSlipSelection(intent,commercialLocale!,cell.price!.expiresAt!,book.id,{targetBookmaker:book.id,priceKind:cell.price!.priceKind,decimalOdds:String(cell.price!.decimalOdds)});}}>
               {pressed?<span className="listing-odds-check" aria-hidden="true">✓</span>:null}<span className="listing-odds-label">{cell.label}</span>{price}
-            </button>:<div key={cell.outcome} className={`listing-odds-cell${valid?'':' is-muted'}`}><span className="listing-odds-label">{cell.label}</span>{price}</div>;
-          })}</div>:<span className="listing-book-unavailable" aria-label={unavailable} title={emptyLabel??unavailable}>—</span>}
+            </button>:<div key={cell.outcome} className={`listing-odds-cell${reference?' is-reference':valid?'':' is-muted'}`}><span className="listing-odds-label">{cell.label}</span>{price}</div>;
+          })}</div>
         </div>;
       })}
     </div>:<span className="odds-empty" aria-label={unavailable}>{unavailable}</span>}
-    {references.length?<ReferenceOdds quotes={references} fixturePublicId={fixture.publicId} locale={commercialLocale} uiLocale={locale}/>:null}
   </div>;
 }

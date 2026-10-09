@@ -1,8 +1,8 @@
-/* P5: compact identities, three desktop groups, readable stacked mobile mini-groups. */
+/* Stable GEO operator columns; references fill only uncovered outcome cells. */
 @media(max-width:320px) { body { min-width:0; } }
-.bookmaker-logo { display:inline-flex; flex-direction:column; align-items:center; min-width:0; max-width:100%; }
-.bookmaker-logo-art { display:flex; align-items:center; justify-content:center; width:88px; height:28px; padding:4px 5px; border-radius:4px; overflow:hidden; background:#fff; color:#172a24; }
-.bookmaker-logo-art img { display:block; width:100%; height:auto; max-height:22px; object-fit:contain; }
+.bookmaker-logo { display:inline-flex; flex-direction:column; align-items:center; justify-content:center; width:80px; height:44px; flex-shrink:0; }
+.bookmaker-logo-art { display:flex; align-items:center; justify-content:center; width:80px; height:26px; padding:4px 5px; border-radius:4px; overflow:hidden; background:#fff; color:#172a24; }
+.bookmaker-logo-art img { display:block; width:100%; height:100%; object-fit:contain; }
 .bookmaker-logo-betsson { background:#ff6600; }
 .bookmaker-logo-bwin { background:#000; }
 .bookmaker-logo-sportingbet { background:#295c89; }
@@ -12,8 +12,11 @@
 .odds-slot[data-primary-count='1'] .listing-odds-books { grid-template-columns:minmax(0,1fr); }
 .listing-book-unavailable { display:grid; align-content:center; min-height:20px; font-size:13px; color:var(--color-text-muted); text-align:center; }
 .listing-odds-unavailable { font-size:9px; line-height:1.2; text-align:center; overflow-wrap:anywhere; }
-.odds-slot .reference-odds { margin-block:6px 0; padding:7px; border-color:var(--color-border-strong); background:var(--color-surface-raised); }
-.reference-source { font-size:10px; font-weight:700; color:var(--color-text-muted); }
+.odds-reference-cell { display:grid; align-content:center; justify-items:center; gap:2px; min-width:0; color:var(--color-text-muted); font-weight:500; }
+.odds-reference-price { display:inline-flex; gap:2px; font-family:var(--font-numeric); font-size:.85rem; line-height:1.1; font-variant-numeric:tabular-nums; }
+.odds-reference-cell small { font-size:8px; line-height:1.125; overflow-wrap:anywhere; }
+.listing-odds-cell.is-reference { border-style:dotted; background:transparent; gap:2px; }
+.listing-odds-cell.is-reference .listing-odds-label { font-size:9px; }
 .unpriced-selections { font-size:11px; margin-block:4px 0; color:var(--color-text-muted); }
 .unpriced-selections summary { cursor:pointer; min-height:30px; display:flex; align-items:center; gap:4px; }
 .unpriced-selections summary::before { content:'▸'; }
@@ -21,37 +24,41 @@
 .unpriced-selections-options { display:flex; flex-wrap:wrap; gap:6px; }
 .unpriced-selections-options button { flex:1; min-width:44px; min-height:44px; border:1px solid var(--color-border-strong); border-radius:5px; background:var(--color-surface-raised); color:var(--color-text); }
 .unpriced-selections-options button[aria-pressed='true'] { border-color:var(--color-accent); background:var(--color-accent-soft); }
-.sports-board .listing-odds-book { align-content:center; }
-.sports-board .listing-odds-book .bookmaker-logo { min-height:44px; height:auto; }
+.odds-slot .listing-odds-book { grid-template-columns:minmax(0,1fr); grid-template-rows:44px 52px; align-content:center; justify-items:center; gap:0; }
+.sports-board .listing-odds-book .bookmaker-logo { min-height:44px; height:44px; }
 .sports-board .listing-odds-book .bookmaker-logo-link { min-height:44px; }
-.sports-board .listing-odds-book.is-unavailable { grid-template-columns:minmax(0,1fr) auto; gap:6px; }
-.sports-board .listing-odds-book.is-unavailable .bookmaker-logo { min-height:28px; }
-.sports-board .listing-odds-book.is-unavailable .bookmaker-logo-art { width:68px; height:24px; }
+.odds-slot .listing-odds { height:52px; gap:3px; }
+.odds-slot .listing-odds-cell { height:52px; min-width:44px; padding:3px 2px; }
+.sports-match-odds .listing-odds { margin:0; max-width:none; }
+.sports-match-odds { min-width:0; padding:0 8px 6px; }
+@media(min-width:768px) {
+  .sports-match-list>div:has(> .sports-match-odds .odds-slot) { display:grid; grid-template-columns:minmax(220px,1fr) 310px; align-items:center; border-bottom:1px solid var(--color-border); }
+  .sports-match-list>div:has(> .sports-match-odds .odds-slot)>.sports-round { grid-column:1/-1; }
+  .sports-match-list>div:has(> .sports-match-odds .odds-slot) .sports-match-row { border-bottom:0; }
+  .sports-match-odds { padding:0 8px; }
+}
 @media(min-width:1100px) {
   /* Two fixed primary slots: six readable selection targets, with no phantom third book. */
   .sports-board .fixture-row:not(.has-no-odds) { grid-template-columns:minmax(200px,1fr) minmax(300px,1fr); }
   .sports-board .board-odds-heading { width:300px; }
 }
 @media(min-width:768px) {
-  /* Put the divider in the existing gap: keep all nine 44px targets intact. */
+  /* Preserve each operator's independent selection targets. */
   .sports-board .listing-odds-book { position:relative; }
-  .sports-board .listing-odds-book + .listing-odds-book::before { content:''; position:absolute; left:-5px; top:6px; bottom:4px; width:1px; background:var(--color-border-strong); }
 }
 @media(max-width:1099px) {
-  /* The desktop reserved rail starts at 1100px; a tablet drawer must not squeeze nine odds targets. */
+  /* A tablet drawer must not squeeze the six GEO-specific odds targets. */
   body[data-slip-open=true] .site-content-wrapper { margin-right:0; }
   .sports-board .fixture-row:not(.has-no-odds) { grid-template-columns:minmax(0,1fr); }
   .sports-board .fixture-row .odds-slot { grid-column:1/-1; grid-row:2; }
 }
 @media(max-width:767px) {
-  .odds-slot .listing-odds-books { grid-template-columns:minmax(0,1fr); gap:4px; }
-  .odds-slot .listing-odds-book { grid-template-columns:80px minmax(0,1fr); align-items:center; gap:8px; }
-  .sports-board .listing-odds-book .bookmaker-logo { min-height:44px; height:auto; }
+  .odds-slot .listing-odds-books { grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+  .odds-slot .listing-odds-book { grid-template-columns:minmax(0,1fr); align-items:center; gap:0; }
+  .sports-board .listing-odds-book .bookmaker-logo { min-height:44px; height:44px; }
   .sports-board .listing-odds-book .bookmaker-logo-link { min-height:44px; }
-  .sports-board .bookmaker-logo-art { width:80px; }
   .sports-board .listing-odds-cell { min-height:44px; }
   .sports-board .listing-odds-price { font-size:.88rem; }
-  .pregame-table .bookmaker-logo-art { width:68px; }
 }
 @media(max-width:430px) {
   .pregame-table thead { display:none; }
@@ -98,6 +105,8 @@
 .slip-bookmaker-cta { margin-top:6px; }
 .board-period-label { margin:0; padding:8px 12px; font-size:.8rem; color:var(--text-secondary); border-bottom:1px solid var(--border); }
 @media(max-width:360px) {
-  .sports-board .listing-odds-book { grid-template-columns:72px minmax(0,1fr); gap:6px; }
-  .sports-board .bookmaker-logo-art { width:72px; }
+  .sports-board .page-container { padding-inline:4px; }
+  .sports-board .fixture-row { padding-inline:4px; }
+  .sports-match-odds { padding-inline:2px; }
+  .odds-slot .listing-odds-books { gap:4px; }
 }

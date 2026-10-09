@@ -66,15 +66,34 @@ describe('cross-GEO informational references',()=>{
   const values=[resolveSelection(selection,local,now),resolveSelection(second,local,now),resolveSelection(third,read(),now)];
   expect(indicativeCombined(values,now)).not.toBeNull();expect(indicativeCombined(values,now+126*60000)).toBeNull();
  });
- it('fills a separate reference per missing bookmaker/outcome while retaining genuine 1xBet prices',()=>{
+ it('suppresses a reference whenever any local operator covers the exact outcome',()=>{
   const local={...reference,targetGeo:'PE',sourceGeo:'PE',bookmaker:'1xbet',bookmakerName:'1xBet',providerBookmakerId:'1xbet',sourceDomain:'1xbet.com',decimalOdds:'2.74'};
   const value:OddsReadSnapshot={...snapshot,referenceGapBookmakers:['inkabet','1xbet'],eligibleBookmakers:[{id:'1xbet',name:'1xBet',priority:2}],quotes:[local],referenceQuotes:[local]};
   const result=buildComparison(value,'MATCH_WINNER',now,{'1xbet':'/real','inkabet':'/not-an-offer'});
   expect(result.rows.map(r=>r.bookmaker)).toEqual(['1xbet']);
   expect(result.rows[0]).toMatchObject({action:'/real',cells:[{outcome:'HOME',decimalOdds:'2.74',priceKind:'REAL',best:false},{outcome:'DRAW',decimalOdds:null},{outcome:'AWAY',decimalOdds:null}]});
-  expect(result.references).toMatchObject([{outcome:'HOME',bookmaker:'1xbet',decimalOdds:'2.74',affiliateEligible:false,executable:false}]);
+  expect(result.references??[]).toEqual([]);
   const recovered={...value,eligibleBookmakers:[...value.eligibleBookmakers!,{id:'inkabet',name:'Inkabet',priority:1}],quotes:[local,{...local,quoteId:'inkabet-real',bookmaker:'inkabet',bookmakerName:'Inkabet',decimalOdds:'2.50'}]};
   expect(buildComparison(recovered,'MATCH_WINNER',now).references??[]).toEqual([]);
+ });
+ it.each([
+  {fixture:'CO Chelsea–Bournemouth',geo:'CO',book:'bwin',other:'betsson',prices:['1.66','4.20','4.60']},
+  {fixture:'PE Hull City–Everton',geo:'PE',book:'1xbet',other:'inkabet',prices:['3.82','3.62','2.10']},
+  {fixture:'PE Crystal Palace–Nottingham Forest',geo:'PE',book:'1xbet',other:'inkabet',prices:['2.00','3.40','3.60']},
+  {fixture:'PE Liverpool–Manchester City',geo:'PE',book:'1xbet',other:'inkabet',prices:['2.40','3.60','2.80']},
+ ])('does not duplicate covered outcomes in $fixture',({geo,book,other,prices})=>{
+  const outcomes=['HOME','DRAW','AWAY'] as const;
+  const native=outcomes.map((outcome,index)=>({...quote,quoteId:`native-${outcome}`,outcome,bookmaker:book,decimalOdds:prices[index]}));
+  const refs=outcomes.map(outcome=>({...reference,targetGeo:geo,quoteId:`reference-${outcome}`,outcome}));
+  const result=buildComparison({...snapshot,eligibleBookmakers:[{id:other,name:other,priority:1},{id:book,name:book,priority:2}],referenceGapBookmakers:[other,book],quotes:native,referenceQuotes:refs},'MATCH_WINNER',now);
+  expect(result.references??[]).toEqual([]);
+  expect(result.rows.find(r=>r.bookmaker===book)?.cells.map(c=>c.decimalOdds)).toEqual(prices);
+  expect(result.rows.find(r=>r.bookmaker===other)?.cells.every(c=>c.decimalOdds===null)).toBe(true);
+ });
+ it('keeps only uncovered DRAW/AWAY references when just one operator prices HOME',()=>{
+  const refs=(['HOME','DRAW','AWAY'] as const).map(outcome=>({...reference,quoteId:outcome,outcome}));
+  const result=buildComparison({...snapshot,referenceGapBookmakers:['betsson','bwin'],quotes:[{...quote,bookmaker:'betsson'}],referenceQuotes:refs},'MATCH_WINNER',now);
+  expect(result.references?.map(q=>q.outcome)).toEqual(['DRAW','AWAY']);
  });
  it('does not let a covered HOME outcome suppress DRAW or AWAY gaps, or expand an empty GEO pool',()=>{
   const books=[{id:'betsson',name:'Betsson',priority:1},{id:'bwin',name:'bwin',priority:2}];
