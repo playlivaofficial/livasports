@@ -1,8 +1,8 @@
 # P0 odds reliability — incident and release evidence
 
-## Current strict-selection candidate — 2026-10-09
+## Current strict-selection release — 2026-10-09
 
-Status: implementation and local verification completed/in progress; production release and acceptance are NOT yet claimed. Baseline `a282e36a036eac6e4c71df8181bdc6237920f287`, branch `codex/strict-odds-selection-lock`. Original unrelated dirty workspace is preserved. Historical October 1 figures below are not the current MX/CO/PE account scope.
+Status: strict-selection implementation RELEASED and production acceptance PASS; native coverage remains PARTIAL and overall data health CRITICAL, not universally repaired. Baseline `a282e36a036eac6e4c71df8181bdc6237920f287`, feature `7d49aa0f96590de6fd326da252b99be9b2d62f5f`, PR #54, implementation main `6bd2053178722acad61dcd2251255b144748f1c0`. Existing Vercel deployment `dpl_G93QyJDVUiCA7DEjk5C95hDeiY3B` READY/Current at 10:05:41 UTC; apex `/api/internal/health` returned that exact release commit. Original unrelated dirty workspace is preserved. Historical October 1 sections below are archival, not the current account/operator/product scope.
 
 Implemented frontend/server strict REAL-price admission, signed canonical quote binding, refresh/reprice/expiry suspension, explicit alternative confirmation, independent per-fixture locking, async clear/remove/replace protection, direct API and affiliate rechecks. Removed unpriced/foreign-reference admission; retained informational provenance, existing GEO/owner/session/affiliate rules, quota/cadence and DB/cache navigation. No migration required; existing latest migration is `068_pe_1xbet_affiliate_host.sql`.
 
@@ -14,9 +14,40 @@ Three-event saved-response rehearsal, eight feed/event payloads, executed twice 
 
 Health correction: persisted approved budget-paced deadlines now drive refresh-overdue reporting; no cadence/TTL/quota change. Explicit expired-quote and mapping-error regressions remain unhealthy. Budget baseline: 5000 monthly cap, 325 used, UTC-day 6/179, rolling 24h 60, routine headroom 83; expected 77/day versus routine forecast target 134, 57% reserve. These baseline counts include existing automatic activity; this task has consumed 0 provider calls so far.
 
-Local browser: genuine bwin 2.50 admission retained exact bookmaker; suspended Betsson outcomes had no controls. Hydrated comparison remained incomplete for Betsson and complete for bwin with no unauthorized CTA. Mobile 375/390/430px overflow 0 and odds targets 44px. Remaining responsive/production acceptance evidence will be recorded after the final gates and normal PR release.
+Local browser: genuine bwin 2.50 admission retained exact bookmaker; suspended Betsson outcomes had no controls. Hydrated comparison remained incomplete for Betsson and complete for bwin with no unauthorized CTA. Mobile 375/390/430px overflow 0 and odds targets 44px.
 
-Release gates: final full suite 2682 tests (2665 Vitest + 17 Node) PASS; typecheck/lint/secret scan/production build PASS. Desktop/tablet 768/1024/1440px and mobile 375/390/430px have no horizontal overflow. Invalidated local test receipt suspended the exact original bookmaker/price, blocked comparison, and recovered only after explicit fresh-quote confirmation. Only the local test leg was removed afterward. CI/preview/merge/deployment/production QA remain pending and must pass before completion.
+Release gates: final full suite 2682 tests (2665 Vitest + 17 Node) PASS; typecheck/lint/secret scan/production build PASS. Frozen install, hosted PR/main CI and Vercel preview PASS; PR #54 merged through guarded normal workflow, no force push. Desktop/tablet 768/1024/1440px and mobile 375/390/430px have no horizontal overflow. Invalidated local test receipt suspended the exact original bookmaker/price, blocked comparison, and recovered only after explicit fresh-quote confirmation. Only the local test leg was removed afterward. No migration or production credential/configuration change was needed.
+
+### Production acceptance and automatic recovery
+
+- Mexico: Aldosivi–Sarmiento has no eligible fresh local native offer; all three market tabs expose no add controls and the former unpriced path is absent. Other fixtures stay selectable: Málaga–Espanyol and recovered Boyacá Chicó–Cúcuta have genuine Betsson outcomes. No foreign informational reference becomes executable.
+- Colombia: suspended Betsson does not hide genuine bwin Aldosivi odds. A controlled HOME leg was accepted at exact bwin 2.50 with its signed canonical quote binding. Switching QA GEO to Peru suspended this exact leg and proposed, but did not automatically accept, 1xBet. Dependent complete comparison/affiliate actions remained blocked.
+- Peru: explicit fresh confirmation accepted the proposed exact 1xBet price 2.573 (display 2.57). Inkabet remained suspended. Match Center TOTAL_GOALS 2.5 (2.52/1.52) and BTTS (2.02/1.71) were real 1xBet quotes, not synthetic replacements. Only this task's temporary leg was removed; the original Atlético de Madrid–Osasuna leg and stake were preserved.
+- Real production mapping recovery: Al Fateh–Al Ahli now offers Betsson HOME 5.20 in MX/CO and Inkabet 5.20 / 1xBet 6.19 in PE. Boyacá Chicó–Cúcuta offers Betsson 2.22 in MX/CO and Inkabet 2.22 / 1xBet 2.19 in PE. Original observations remain October 8 13:50 and 21:05 UTC; replay did not manufacture freshness. Envigado–Internacional Palmira remains POSTPONED and non-selectable in all three GEOs.
+- Four automatic cycles after READY (10:10, 10:15, 10:20, 10:25 UTC) performed respectively 3/3/2/0 saved-snapshot repair actions; these are snapshot counts, not fixture counts. All used zero provider requests. Final control SUCCEEDED / data CRITICAL / overall PARTIAL is reported honestly. No active worker lease remained; next budget-eligible provider refresh was 11:05:17.694 UTC, not manually forced.
+- Direct production API checks: zero/null prices HTTP400; cross-origin admission HTTP403; unbound or forged-receipt comparison returns suspended/null-priced legs and no complete comparison. Each response reports providerRequests=0. Ordinary public navigation remains DB/cache-only.
+- HTTPS/apex and MX/CO/PE/BR/EN public routes plus both sitemaps HTTP200; www HTTP308 to apex. Existing Match Center scores, lineups, H2H and standings rendered unchanged. Light/dark rendering and light-mode reload persistence verified; page overflow 0 at 375/390/430/768/1024/1440, odds controls 44px.
+- Production/client secret scan: 16 documents/client assets, zero leaks or prohibited tracked env files. No LivaSports app console errors observed. Existing third-party 1xaff iframe checker attempts to read cookies are blocked by its sandbox; this warning is not masked and the sandbox was not weakened.
+
+### Timestamped post-release coverage — 10:25–10:27 UTC
+
+These are all 277 upcoming seven-day fixtures in the current 32-competition acquisition registry, measured separately per GEO. The latest valid main enables 41 sports competitions, not the old historical 34/BR launch registry.
+
+| GEO | Before native fixtures | After native fixtures | Complete 1X2 | Complete OU2.5 | Complete BTTS | No current native odds |
+|---|---:|---:|---:|---:|---:|---:|
+| MX |134|136|135|136|136|141|
+| CO |179|181|181|180|181|96|
+| PE |185|187|187|180|179|90|
+
+DB integrity: 41 enabled competitions, 43,695 fixtures, 2,453 teams, 47,861 provider mappings, 11,448 legacy current-odds rows. Duplicate fixture public IDs, competition slugs, external provider mappings and canonical GEO quote identities: 0. Orphan GEO odds and active worker leases: 0. Latest migration remains `068_pe_1xbet_affiliate_host.sql`. Nine provider mappings were added by normal saved-data recovery; no fixture ID, kickoff or score was rewritten.
+
+Idempotency: pre-release narrow saved-response rehearsal wrote 77 current/history rows on its first pass and zero on the repeat; the complete transaction was rolled back. An additional post-release rehearsal lost its database connection and is NOT counted as another PASS; no transaction was committed. A read-only 10:32:29 UTC audit confirmed unchanged competition/fixture/team/mapping/current-odds counts, no duplicates and zero active worker leases. Actual automatic recovery reached zero replayed repairs by 10:25. Failure/expiry/reprice/late-response branches were exercised in tests and local browser QA; no provider outage or production clock mutation was injected. Production observation is a bounded check, not proof of permanent uptime.
+
+Request accounting: this task's provider calls 0; observed automatic post-release cycles 0. Monthly cap 5000, accounted usage 325 (317 local + 8 reconciled external), routine remaining 4325; UTC-day 6, rolling24h 59, daily paced cap 179, normal stop143, controlled stop161, routine headroom84, utilization33%, projected EOD14. Historical unmetered calls13 remain visible. Existing normal forecast77/day and quota/cadence model unchanged; no paid service or entitlement change.
+
+Remaining availability limitations: MX Peru Liga1 retains a CRITICAL expired-quote observation alongside the latest Betsson VALID_EMPTY result; it is not hidden by the paced deadline correction. MX LaLiga2 has UNKNOWN near-term availability despite a successful wider-window refresh. Copa Colombia returns verified feed404s in all three GEOs with bounded scheduled rechecks; source suspensions, absent fixtures and ambiguous Conference League participants remain quarantined. Current health: HEALTHY34, DEGRADED30, CRITICAL1, UNKNOWN1, UPSTREAM_UNAVAILABLE3, IDLE27. A valid signed selection is usable only until its original expiry/kickoff and while its exact quote remains fresh/active, same GEO/book/market/outcome/identity/price; otherwise it suspends and blocks price-dependent actions pending explicit acceptance of a currently valid alternative. Missing local prices are never invented.
+
+### Archived October 1 incident and release evidence
 
 Baseline: `647ae06a7fc5c4102a09dee7dca9ad6a33021b7b`, 2026-10-01 08:37:07 UTC. Implementation released through PR #35 as `1b15ce68503d1b3e05e5834213f2c33f8bd8a401`; production READY at 09:23:59 UTC. Systemic guardrails are operational. Native coverage remains DEGRADED for the explicitly documented provider/mapping gaps; this is not a claim of permanent recovery.
 
