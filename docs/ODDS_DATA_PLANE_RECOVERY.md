@@ -16,6 +16,8 @@ Reviewed saved-response aliases fix Al Ahli Saudi, Cúcuta Deportivo FC and Inte
 
 Owner refresh health now uses persisted paced due/stale-after deadlines rather than a second unscaled refresh allowance. Expired quotes, failed mappings, provider errors and genuine overdue deadlines remain unhealthy. Saved response replay preserves original observation timestamps; its second persistence pass must write zero additional history/current rows.
 
+Final acceptance exposed a worker-admission contention hazard: the advisory lock could block a scheduler request until the 180-second hosting deadline. Admission now uses `pg_try_advisory_xact_lock`; a busy/unconfirmed lock immediately raises the existing `ODDS_WORKER_ALREADY_RUNNING` result without changing job records or spending provider requests. Normal stale-lease expiry and duplicate-job checks remain inside the acquired transaction. The existing scheduler boundary returns 409 for overlap and the GitHub fallback ticker already treats it as healthy deduplication. No quota/cadence or price-expiry rule changes. Do not hold the production worker lock for a long QA rehearsal; use mocked contention tests and short, explicitly rolled-back checks instead.
+
 ## Contract
 
 An HTTP 200 or completed cron is not proof of usable native odds. Control-plane execution and public native data health are separate. Public books are Betsson, Sportingbet BR and 1xBet; Betano is hidden insurance and never satisfies a public-native SLO. Ordinary navigation remains DB/cache-only, with zero provider calls.

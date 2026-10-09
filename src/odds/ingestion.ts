@@ -41,7 +41,9 @@ export async function canonicalFixtures(db:QueryExecutor):Promise<CanonicalOddsF
 }
 export async function startOddsJob(db:DatabaseClient):Promise<string> {
   return db.transaction(async tx=>{
-    await tx.query("SELECT pg_advisory_xact_lock(hashtext('livasports-m5-odds-worker'))");
+    // Never wait behind another writer/rehearsal until the serverless invocation times out.
+    const lock=await tx.query("SELECT pg_try_advisory_xact_lock(hashtext('livasports-m5-odds-worker')) AS locked");
+    if(lock.rows[0]?.locked!==true)throw new Error('ODDS_WORKER_ALREADY_RUNNING');
     await tx.query("UPDATE odds_sync_jobs SET status='INTERRUPTED',completed_at=now(),error_code='LEASE_EXPIRED' WHERE status='RUNNING' AND lease_expires_at<=now()");
     if((await tx.query("SELECT id FROM odds_sync_jobs WHERE status='RUNNING'")).rowCount)throw new Error('ODDS_WORKER_ALREADY_RUNNING');
     const id=randomUUID();await tx.query("INSERT INTO odds_sync_jobs(id,status,lease_expires_at) VALUES($1,'RUNNING',now()+interval '3 minutes')",[id]);return id;

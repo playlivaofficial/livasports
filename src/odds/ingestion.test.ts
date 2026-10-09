@@ -12,10 +12,27 @@ describe('odds ingestion integrity and recovery',()=>{
   });
   it('does not create a duplicate worker while an unexpired job exists',async()=>{
     const query=vi.fn().mockResolvedValue({rows:[],rowCount:0});
-    query.mockResolvedValueOnce({rows:[],rowCount:1}).mockResolvedValueOnce({rows:[],rowCount:0}).mockResolvedValueOnce({rows:[{id:'active'}],rowCount:1});
+    query.mockResolvedValueOnce({rows:[{locked:true}],rowCount:1}).mockResolvedValueOnce({rows:[],rowCount:0}).mockResolvedValueOnce({rows:[{id:'active'}],rowCount:1});
     const db={transaction:(work:(tx:QueryExecutor)=>Promise<unknown>)=>work({query}),query,close:vi.fn()} as DatabaseClient;
     await expect(startOddsJob(db)).rejects.toThrow('ODDS_WORKER_ALREADY_RUNNING');
     expect(query.mock.calls.some(([sql])=>sql.includes('INSERT INTO odds_sync_jobs'))).toBe(false);
+  });
+  it.each([false,undefined])('fails closed immediately when the worker lock is unavailable (%s)',async locked=>{
+    const query=vi.fn().mockResolvedValue({rows:[{locked}],rowCount:1});
+    const db={transaction:(work:(tx:QueryExecutor)=>Promise<unknown>)=>work({query}),query,close:vi.fn()} as DatabaseClient;
+    await expect(startOddsJob(db)).rejects.toThrow('ODDS_WORKER_ALREADY_RUNNING');
+    expect(query).toHaveBeenCalledTimes(1);
+    expect(query.mock.calls[0][0]).toContain('pg_try_advisory_xact_lock');
+    expect(query.mock.calls.some(([sql])=>sql.includes('UPDATE')||sql.includes('INSERT'))).toBe(false);
+  });
+  it('starts exactly one job after acquiring the lock and expiring stale leases',async()=>{
+    const query=vi.fn().mockResolvedValue({rows:[],rowCount:0}).mockResolvedValueOnce({rows:[{locked:true}],rowCount:1});
+    const db={transaction:(work:(tx:QueryExecutor)=>Promise<unknown>)=>work({query}),query,close:vi.fn()} as DatabaseClient;
+    const id=await startOddsJob(db);
+    expect(id).toMatch(/^[a-f0-9-]{36}$/);
+    expect(query.mock.calls[1][0]).toContain("status='INTERRUPTED'");
+    expect(query.mock.calls[2][0]).toContain("status='RUNNING'");
+    expect(query.mock.calls.filter(([sql])=>sql.includes('INSERT INTO odds_sync_jobs'))).toHaveLength(1);
   });
   it('preserves a replayable snapshot before a failed quote transaction and rejects lost leases',async()=>{
     const query=vi.fn().mockResolvedValue({rows:[],rowCount:1});
