@@ -1,4 +1,5 @@
 import {interfaceDictionary,interfaceRoutes,languageTags,type InterfaceLocale} from '@/localization/interface';
+import type {PageKey} from '@/config/i18n';
 import {competitionPath,type CompetitionTab} from '@/sports/policy';
 import {sportsCopy} from '@/sports/copy';
 import type {CompetitionHub} from '@/sports/types';
@@ -14,6 +15,17 @@ export function siteSchema(locale:InterfaceLocale){
   return [
     {'@context':'https://schema.org','@type':'Organization','@id':organizationId,name:'LivaSports',url:`${siteOrigin}/`,logo:`${siteOrigin}/icon.svg`},
     {'@context':'https://schema.org','@type':'WebSite','@id':`${home}#website`,name:'LivaSports',url:home,inLanguage:languageTags[locale],description:d.pages.home.description,publisher:{'@id':organizationId}},
+  ];
+}
+/** A board describes its visible page, not an invented event, offer or promise of live coverage. */
+export function footballBoardSchema(locale:InterfaceLocale,page:PageKey){
+  const d=interfaceDictionary(locale),url=absoluteUrl(interfaceRoutes[locale][page]);
+  const items=[{'@type':'ListItem',position:1,name:'LivaSports',item:absoluteUrl(interfaceRoutes[locale].home)}];
+  if(page!=='home')items.push({'@type':'ListItem',position:2,name:d.pages[page].title,item:url});
+  return [
+    {'@context':'https://schema.org','@type':'CollectionPage',url,name:d.pages[page].title,description:d.pages[page].description,inLanguage:languageTags[locale]},
+    // A root page has no trail; Google's breadcrumb eligibility requires two items.
+    ...(items.length>1?[{'@context':'https://schema.org','@type':'BreadcrumbList',itemListElement:items}]:[]),
   ];
 }
 export function competitionHubSchema(locale:InterfaceLocale,hub:CompetitionHub,tab:CompetitionTab){

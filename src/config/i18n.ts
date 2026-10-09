@@ -64,9 +64,9 @@ const baseDictionaries: Record<'br'|'mx', LocaleDictionary> = {
     locale: 'es-MX', countryCode: 'MX', countryName: 'México', timeZone: 'America/Mexico_City',
     navigation: { home: 'Inicio', football: 'Fútbol', live: 'En vivo', today: 'Partidos de hoy' },
     pages: {
-      home: { title: 'Fútbol: próximos 7 días', description: 'Partidos de los próximos 7 días, marcadores, cuotas y contexto en México.' },
-      football: { title: 'Partidos de fútbol', description: 'Calendario organizado por torneo, en un solo lugar.' },
-      live: { title: 'Fútbol en vivo', description: 'Partidos en curso y marcadores actualizados.' },
+      home: { title: 'Fútbol: próximos 7 días en México', description: 'Partidos de Liga MX y torneos internacionales: horarios, resultados y cuotas disponibles para consultar en México.' },
+      football: { title: 'Partidos de fútbol en México', description: 'Consulta Liga MX, Liga de Expansión MX y torneos internacionales: calendario, resultados y clasificación con datos registrados.' },
+      live: { title: 'Fútbol en vivo en México', description: 'Consulta los partidos en curso de Liga MX y torneos internacionales. Mostramos los últimos marcadores disponibles y su estado.' },
       today: { title: 'Partidos de hoy', description: 'Calendario del día en horario de Ciudad de México.' },
     },
     labels: {
@@ -106,9 +106,13 @@ const spanish=baseDictionaries.mx;
 const dictionaries:Record<SiteLocale,LocaleDictionary>={...baseDictionaries,
   co:{...spanish,locale:'es-CO',countryCode:'CO',countryName:'Colombia',timeZone:'America/Bogota',labels:{...spanish.labels,coverageUnavailableDescription:'La cobertura de esta competición aún no está disponible. No mostramos partidos sin confirmar.'},pages:{...spanish.pages,
     home:{title:'Fútbol: próximos 7 días en Colombia',description:'Partidos, resultados y cuotas con prioridad para el fútbol colombiano y los grandes torneos internacionales.'},
+    football:{title:'Partidos de fútbol en Colombia',description:'Consulta Liga BetPlay, Copa Colombia, Libertadores y torneos internacionales: horarios, resultados y clasificación con datos registrados.'},
+    live:{title:'Fútbol en vivo en Colombia',description:'Consulta los partidos en curso de Liga BetPlay y torneos internacionales. Mostramos los últimos marcadores disponibles y su estado.'},
     today:{title:'Partidos de hoy en Colombia',description:'Consulta los partidos de hoy en horario de Colombia.'}}},
   pe:{...spanish,locale:'es-PE',countryCode:'PE',countryName:'Perú',timeZone:'America/Lima',labels:{...spanish.labels,coverageUnavailableDescription:'La cobertura de esta competición aún no está disponible. No mostramos partidos sin confirmar.'},pages:{...spanish.pages,
     home:{title:'Fútbol: próximos 7 días en Perú',description:'Partidos, resultados y cuotas con prioridad para el fútbol peruano y los grandes torneos internacionales.'},
+    football:{title:'Partidos de fútbol en Perú',description:'Consulta Liga 1 de Perú, Libertadores, Sudamericana y torneos internacionales: horarios, resultados y clasificación con datos registrados.'},
+    live:{title:'Fútbol en vivo en Perú',description:'Consulta los partidos en curso de Liga 1 y torneos internacionales. Mostramos los últimos marcadores disponibles y su estado.'},
     today:{title:'Partidos de hoy en Perú',description:'Consulta los partidos de hoy en horario de Perú.'}}},
 };
 export function getDictionary(locale: SiteLocale): LocaleDictionary { return dictionaries[locale]; }

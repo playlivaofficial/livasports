@@ -6,6 +6,7 @@ import {gscProperty,gscStatus,type GscStatus} from './gsc';
 import {aggregate,byLocale,BRAZIL_COUNTRY,CORE_GSC_COUNTRIES,compare,countryTotals,ctrOpportunities,growthPages,
   losingVisibility,nearPageOne,SEARCH_THRESHOLDS,topBy,type CtrOpportunity,type Movement,type SearchRow,type Totals} from './intelligence';
 import {gscWindows,type GscWindow} from './gsc-ingest';
+import {readGeoSearchBaselines,type GeoSearchBaseline} from './geo-baseline';
 
 export interface SeoReport {
   generatedAt:string;
@@ -52,6 +53,7 @@ export async function readSeoReport(db:QueryExecutor,now=new Date()):Promise<Seo
 
 
 export interface SeoSearchReport {
+  geoBaselines?:GeoSearchBaseline[];
   property:string;
   windows:{current7:GscWindow;previous7:GscWindow;current28:GscWindow;previous28:GscWindow;latestComplete:string};
   totals7:Totals;previous7:Totals;totals28:Totals;previous28:Totals;
@@ -92,7 +94,8 @@ export async function readSeoSearchReport(db:QueryExecutor,now=new Date()):Promi
   const sitemaps=(await db.query(`SELECT DISTINCT ON (path) path,submitted,indexed,errors,warnings,last_downloaded
     FROM seo_sitemap_status WHERE property=$1 ORDER BY path,captured_day DESC`,[property])).rows;
 
-  return {property,
+  const geoBaselines=await readGeoSearchBaselines(db,property,now).catch(()=>[]);
+  return {property,geoBaselines,
     windows:{current7:w.current7,previous7:w.previous7,current28:w.current28,previous28:w.previous28,latestComplete:w.latestComplete},
     totals7:aggregate(t7),previous7:aggregate(p7),totals28:aggregate(t28),previous28:aggregate(p28),
     topQueries:topBy(queries7,'impressions',10),topPages:topBy(pages7,'impressions',10),
