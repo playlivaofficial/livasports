@@ -1,6 +1,6 @@
 import 'server-only';
 import {randomBytes} from 'node:crypto';
-import {ONE_XBET_IFRAME_ORIGIN} from './embed-policy';
+import {ENTAIN_IFRAME_ORIGIN,ONE_XBET_IFRAME_ORIGIN} from './embed-policy';
 import type {Creative} from './types';
 const html=(s:string)=>s.replaceAll('&','&amp;').replaceAll('"','&quot;').replaceAll('<','&lt;').replaceAll('>','&gt;');
 const js=(s:string)=>JSON.stringify(s).replaceAll('<','\\u003c');
@@ -9,9 +9,10 @@ const lang=(c:Creative)=>c.locale==='br'?'pt-BR':'es';
 const label=(c:Creative)=>c.locale==='br'?'Publicidade':'Publicidad';
 
 /**
- * The 1xBet Peru partner creative is already an iframe served by the operator, so it is nested inside
- * the same sandboxed publisher document rather than executed as a script. The only CSP relaxation is
- * `frame-src https://1xaff.pe`: there is no `unsafe-eval`, no script origin, no connect, img
+ * The 1xBet Peru and bwin Colombia partner creatives are already iframes served by the operator's
+ * affiliate platform, so each is nested inside the same sandboxed publisher document rather than
+ * executed as a script. The only CSP relaxation is `frame-src` for that delivery's own origin
+ * (https://1xaff.pe or https://mediaserver.entainpartners.com, never both): there is no `unsafe-eval`, no script origin, no connect, img
  * or font origin, and every other restriction of the Betsson document is preserved or tightened.
  *
  * The nested frame is cross-origin, so its content cannot be inspected and a click inside it cannot be
@@ -19,12 +20,13 @@ const label=(c:Creative)=>c.locale==='br'?'Publicidade':'Publicidad';
  * `affiliate_embed_click`: the operator's iframe owns its click-through and reports it against the
  * server-side channel tag. Impressions are still measured in the parent page, which is first-party.
  */
-function oneXBetDocument(c:Creative,parentOrigin:string,bridgeKey:string){
+const PARTNER_FRAMES={ONE_XBET_IFRAME:{origin:ONE_XBET_IFRAME_ORIGIN,brand:'1xBet'},ENTAIN_IFRAME:{origin:ENTAIN_IFRAME_ORIGIN,brand:'bwin'}} as const;
+function partnerIframeDocument(c:Creative,parentOrigin:string,bridgeKey:string,frame:typeof PARTNER_FRAMES[keyof typeof PARTNER_FRAMES]){
   const nonce=randomBytes(24).toString('base64');
-  const policy=["default-src 'none'",`script-src 'nonce-${nonce}'`,`frame-src ${ONE_XBET_IFRAME_ORIGIN}`,"style-src 'unsafe-inline'","img-src 'none'","connect-src 'none'","object-src 'none'","base-uri 'none'","form-action 'none'","frame-ancestors 'self'","sandbox allow-scripts allow-popups allow-popups-to-escape-sandbox"].join('; ');
+  const policy=["default-src 'none'",`script-src 'nonce-${nonce}'`,`frame-src ${frame.origin}`,"style-src 'unsafe-inline'","img-src 'none'","connect-src 'none'","object-src 'none'","base-uri 'none'","form-action 'none'","frame-ancestors 'self'","sandbox allow-scripts allow-popups allow-popups-to-escape-sandbox"].join('; ');
   // Native size only. The approved creative is never stretched: the parent slot centres it and only
   // ever scales it down, so its aspect ratio is preserved at every breakpoint.
-  const body=`<!doctype html><html lang="${lang(c)}"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><title>${label(c)} · 1xBet</title><style>html,body{margin:0;padding:0;width:${c.width}px;height:${c.height}px;overflow:hidden;background:transparent}iframe{display:block;width:${c.width}px;height:${c.height}px;border:0;background:transparent}</style></head><body><iframe id="creative" title="${html(c.imageAlt)}" width="${c.width}" height="${c.height}" scrolling="no" frameborder="0" referrerpolicy="no-referrer" sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox" src="${html(c.embedSourceUrl!)}"></iframe><script nonce="${nonce}">
+  const body=`<!doctype html><html lang="${lang(c)}"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><title>${label(c)} · ${frame.brand}</title><style>html,body{margin:0;padding:0;width:${c.width}px;height:${c.height}px;overflow:hidden;background:transparent}iframe{display:block;width:${c.width}px;height:${c.height}px;border:0;background:transparent}</style></head><body><iframe id="creative" title="${html(c.imageAlt)}" width="${c.width}" height="${c.height}" scrolling="no" frameborder="0" referrerpolicy="no-referrer" sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox" src="${html(c.embedSourceUrl!)}"></iframe><script nonce="${nonce}">
 (()=>{const key=${js(bridgeKey)},origin=${js(parentOrigin)},frame=document.getElementById('creative');let ready=false;
  const send=kind=>parent.postMessage({type:'livasports:creative',key,kind},origin);
  const fail=()=>{if(!ready)send('failed');};
@@ -39,7 +41,7 @@ function oneXBetDocument(c:Creative,parentOrigin:string,bridgeKey:string){
 }
 
 export function embedDocument(c:Creative,parentOrigin:string,bridgeKey:string){
-  if(c.delivery==='ONE_XBET_IFRAME')return oneXBetDocument(c,parentOrigin,bridgeKey);
+  if(c.delivery==='ONE_XBET_IFRAME'||c.delivery==='ENTAIN_IFRAME')return partnerIframeDocument(c,parentOrigin,bridgeKey,PARTNER_FRAMES[c.delivery]);
   const nonce=randomBytes(24).toString('base64');
   // Official Bannerflow image-mode compiles AdScript with eval/new Function.
   // unsafe-eval stays inside this credentialless, non-same-origin sandbox only.

@@ -8,8 +8,8 @@ const IDENTITIES = [
   // feed. BR stays listed so historical Brazilian quotes keep resolving; BR promotion is retired.
   {canonicalId:'betsson',providerSlug:'betsson',displayName:'Betsson',shortLabel:'Betsson',countries:['BR','MX','CO'],displayRole:'VISIBLE_PRIMARY',displayOrder:1,insurancePriority:1,logoAsset:'/bookmakers/betsson.webp'},
   // Colombia's second public book: an independent Entain feed ('bwin', cloneOf null, sports.bwin.com)
-  // whose prices genuinely differ from Betsson's, so CO is a real comparison. Odds and slip
-  // comparison are live while every CTA stays dark — no Entain affiliate access exists yet.
+  // whose prices genuinely differ from Betsson's, so CO is a real comparison. Its CTAs and banners
+  // run through the Entain Partners "LivaSports CO" campaign created on 2026-10-12.
   // Logo: the official header wordmark from bwin.co's own media CDN, rendered on bwin's black tile.
   {canonicalId:'bwin',providerSlug:'bwin',displayName:'bwin',shortLabel:'bwin',countries:['CO'],displayRole:'VISIBLE_PRIMARY',displayOrder:2,insurancePriority:2,logoAsset:'/bookmakers/bwin.webp'},
   // Peru's Betsson Group book. OddsPapi declares it cloneOf 'betsson' and it was observed mirroring
@@ -23,6 +23,14 @@ const IDENTITIES = [
   // it — the same shape already accepted for the generic Betsson feed in MX/CO. Because cloneOf is
   // null it is NOT a Betsson mirror the way Inkabet is, so Inkabet vs 1xBet is a genuine comparison.
   {canonicalId:'1xbet',providerSlug:'1xbet',displayName:'1xBet',shortLabel:'1xBet',countries:['PE'],displayRole:'VISIBLE_PRIMARY',displayOrder:4,insurancePriority:4,logoAsset:'/bookmakers/1xbet.webp'},
+  // Mexico's second public book, entitled in the live subscription (pregame only, no live odds, no
+  // player props) and verified on 2026-10-12 against Liga MX: 9 of 9 fixtures priced, bookmaker
+  // active on all 9, MATCH_WINNER/BTTS/TOTAL_GOALS present. OddsPapi declares it cloneOf 'lottoland'
+  // and reports www.lottoland.com as its source, but none of its 24 1X2 prices equalled Betsson's on
+  // the same fixtures, so Betsson vs Winpot is a genuine comparison, unlike Inkabet. The canonical id
+  // is the provider id, as for every other live book, so the entitlement gate sees the same slug.
+  // Logo: the official mark published in the Affiliates World (Winpot) media gallery.
+  {canonicalId:'winpot.mx',providerSlug:'winpot.mx',displayName:'Winpot',shortLabel:'Winpot',countries:['MX'],displayRole:'VISIBLE_PRIMARY',displayOrder:5,insurancePriority:5,logoAsset:'/bookmakers/winpot.webp'},
   // Dropped from the OddsPapi subscription on 2026-10-02 by the MX/CO/PE cutover, so they can no
   // longer be priced at all — exactly the position betboo was already in. The identities stay so
   // historical odds rows, analytics events and audit exports still normalize, but a RETIRED book is

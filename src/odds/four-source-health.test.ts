@@ -15,7 +15,7 @@ const source=(h:ReturnType<typeof summarizeFourSources>,id:string)=>h.sources.fi
 
 describe('per-jurisdiction source eligibility', ()=>{
   it('derives each jurisdiction line-up from the registry',()=>{
-    expect(MX).toEqual(['betsson']);
+    expect(MX).toEqual(['betsson','winpot.mx']);
     expect(CO).toEqual(['betsson','bwin']);
     expect(PE).toEqual(['inkabet','1xbet']);
   });
@@ -31,22 +31,29 @@ describe('jurisdiction health is evaluated in isolation',()=>{
   });
 
   it('does not penalise bwin for zero Mexico or Peru coverage',()=>{
-    for(const [eligible,priced] of [[MX,['betsson']],[PE,['inkabet','1xbet']]] as const){
+    for(const [eligible,priced] of [[MX,['betsson','winpot.mx']],[PE,['inkabet','1xbet']]] as const){
       const health=summarizeFourSources(many(10,()=>priced.map(book=>quote(book)),eligible),now,eligible);
       expect(health.degraded).toBe(false);
       expect(source(health,'bwin').eligibleFixtures).toBe(0);
     }
   });
 
-  it('evaluates Mexico against Betsson alone',()=>{
-    const healthy=summarizeFourSources(many(10,()=>[quote('betsson')],MX),now,MX);
+  it('evaluates Mexico against Betsson and Winpot, and Winpot alone failing degrades Mexico',()=>{
+    const healthy=summarizeFourSources(many(10,()=>[quote('betsson'),quote('winpot.mx')],MX),now,MX);
     expect(source(healthy,'betsson').eligibleFixtures).toBe(10);
-    expect(source(healthy,'betsson').currentFixtures).toBe(10);
+    expect(source(healthy,'winpot.mx').currentFixtures).toBe(10);
     expect(healthy.degraded).toBe(false);
-    // A single-book jurisdiction is still measured against its own expected fixtures.
+    const winpotDown=summarizeFourSources(many(10,()=>[quote('betsson')],MX),now,MX);
+    expect(source(winpotDown,'winpot.mx').eligibleFixtures).toBe(10);
+    expect(winpotDown.degraded).toBe(true);
     const collapsed=summarizeFourSources(many(10,()=>[],MX),now,MX);
     expect(source(collapsed,'betsson').eligibleFixtures).toBe(10);
     expect(collapsed.degraded).toBe(true);
+  });
+  it('does not penalise Winpot for zero Colombia coverage',()=>{
+    const co=summarizeFourSources(many(10,()=>[quote('betsson'),quote('bwin')],CO),now,CO);
+    expect(co.degraded).toBe(false);
+    expect(source(co,'winpot.mx').eligibleFixtures).toBe(0);
   });
 
   it('evaluates Peru against both of its books',()=>{
@@ -81,7 +88,7 @@ describe('merged owner view does not let jurisdictions contaminate each other',(
   const healthyCo={geo:'CO' as const,summary:summarizeFourSources(many(10,()=>[quote('betsson'),quote('bwin')],CO),now,CO)};
   const healthyPe={geo:'PE' as const,summary:summarizeFourSources(many(10,()=>[quote('inkabet'),quote('1xbet')],PE),now,PE)};
   const brokenMx={geo:'MX' as const,summary:summarizeFourSources(many(10,()=>[],MX),now,MX)};
-  const healthyMx={geo:'MX' as const,summary:summarizeFourSources(many(10,()=>[quote('betsson')],MX),now,MX)};
+  const healthyMx={geo:'MX' as const,summary:summarizeFourSources(many(10,()=>[quote('betsson'),quote('winpot.mx')],MX),now,MX)};
 
   it('reports healthy when every jurisdiction is healthy',()=>{
     const merged=mergeSourceHealth([healthyMx,healthyCo,healthyPe],10);

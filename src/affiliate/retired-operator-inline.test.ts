@@ -1,4 +1,6 @@
 import {describe,it,expect,vi} from 'vitest';
+import {readdirSync,statSync} from 'node:fs';
+import {join} from 'node:path';
 vi.mock('server-only',()=>({}));
 import {validCreative,campaignDestination,isSponsorPlacement} from './policy';
 import {resolveOffer} from './service';
@@ -71,9 +73,14 @@ describe('creative safety rules for live banner slots',()=>{
     expect(validCreative(liveCreative(),liveContext,now,'LIVE_CAMPAIGN')).toBe(true);
   });
 
-  it('rejects animated, remote and embed sources, so library GIFs can never be wired in',()=>{
-    expect(validCreative(liveCreative({imageUrl:'/sponsors/betsson/banner.gif'}),liveContext,now)).toBe(false);
+  it('rejects remote and embed sources, and keeps every self-hosted creative light',()=>{
+    // A self-hosted official GIF is served as-is, like Winpot's 214 KB 300x250. What made the Betsson
+    // library animations unusable was weight (4-7 MB each), so the guard is on the files themselves.
+    expect(validCreative(liveCreative({imageUrl:'/sponsors/winpot/banner.gif'}),liveContext,now)).toBe(true);
+    for(const file of readdirSync('public/sponsors',{recursive:true}).map(String).filter(f=>/\.(gif|png|webp|jpe?g|avif)$/.test(f)))
+      expect(statSync(join('public/sponsors',file)).size,file).toBeLessThanOrEqual(300*1024);
     expect(validCreative(liveCreative({imageUrl:'https://partners.betsson.mx/x.jpg'}),liveContext,now)).toBe(false);
+    expect(validCreative(liveCreative({imageUrl:'/sponsors/../x.gif'}),liveContext,now)).toBe(false);
     expect(validCreative(liveCreative({embedSourceUrl:'https://c.bannerflow.net/a/'+'a'.repeat(24)}),liveContext,now)).toBe(false);
   });
 

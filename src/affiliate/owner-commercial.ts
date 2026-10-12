@@ -9,7 +9,7 @@ import {ownerHeaders} from '@/owner/server';
 import {boundedJson} from '@/slip/server';
 import {configureCampaignInTransaction} from './configuration';
 import type {SiteLocale} from '@/config/i18n';
-import {embedTrackingHost} from './embed-policy';
+import {affiliateTrackingHost,trackingDestinationShapeValid} from './embed-policy';
 import {CREATIVE_ROLES,ROLE_PLACEMENTS,creativeAlt,inventoryCreative,type CreativeRole} from './creative-inventory';
 import type {Placement} from './types';
 
@@ -44,6 +44,7 @@ export async function readCommercialOperators(db:QueryExecutor):Promise<Commerci
     affiliateUrl:r.destination_url,campaignId:r.operator_campaign_id,subId:r.sub_id,validUntil:date(r.valid_until),offer:r.offer_metadata??{}}));
 }
 /** A platform-generated publisher embed for one role. The server expands the role to its placements. */
+/** `embedSourceUrl` is the generated embed URL, or the media id for a self-hosted IMAGE creative. */
 export interface ActivationCreative {role:CreativeRole;embedSourceUrl:string}
 export interface ActivationInput {action:'activate'|'suspend';geo:CoreGeo;operator:string;version:number;affiliateUrl?:string;campaignId?:string;subId?:string;validFrom?:string;validUntil?:string;approvalReference?:string;confirmedApproval?:boolean;offer?:{title?:string;terms?:string};creatives?:ActivationCreative[];}
 export function parseActivation(value:unknown):ActivationInput|null{
@@ -73,7 +74,8 @@ export function activationCreatives(operator:string,locale:SiteLocale,creatives:
     if(!item)throw Error('CREATIVE_NOT_IN_INVENTORY');
     return ROLE_PLACEMENTS[role].map(placement=>({
       id:`${operator.replace(/[^a-z0-9]/g,'')}-${locale}-${placement}-${item.mediaId}`,placement,imageAlt:creativeAlt(operator),
-      width:item.width,height:item.height,approvalReference,delivery:item.delivery,embedSourceUrl}));
+      width:item.width,height:item.height,approvalReference,delivery:item.delivery,
+      ...(item.delivery==='IMAGE'?{imageUrl:item.imageUrl!}:{embedSourceUrl})}));
   });
 }
 export async function activateOperator(db:DatabaseClient,input:ActivationInput,actorId:string){
@@ -99,11 +101,12 @@ export async function activateOperator(db:DatabaseClient,input:ActivationInput,a
     if(row.legal_status!=='VERIFIED'||!row.legal_verified_at||typeof row.legal_reference!=='string'||!row.legal_reference.trim()||!row.mapped||!row.sportsbook_enabled||!row.odds_enabled||!row.comparison_enabled||!row.verified_at||!verifiedGeo(row.verification_state,value.geo)||!row.source_domains?.length)throw Error('TECHNICAL_OR_LEGAL_VERIFICATION_REQUIRED');
     const locale=value.geo.toLowerCase() as SiteLocale;
     // The jurisdiction's tracking host comes from server code, never from the request, so admitting
-    // it here widens nothing an owner could choose. Operators without one, like bwin, gain nothing.
-    const trackingHost=embedTrackingHost(value.operator,locale);
+    // it here widens nothing an owner could choose. Operators without one gain nothing, and a
+    // non-Bannerflow tracking host also pins the exact link shape its panel generates.
+    const trackingHost=affiliateTrackingHost(value.operator,locale);
     const domains=[...new Set([...(row.destination_domains??[]),...(trackingHost?[trackingHost]:[])])];
     const destination=safeAffiliateDestination(value.operator,locale,value.affiliateUrl,domains);
-    if(!destination)throw Error('DESTINATION_NOT_ALLOWLISTED');
+    if(!destination||!trackingDestinationShapeValid(value.operator,locale,destination))throw Error('DESTINATION_NOT_ALLOWLISTED');
     const creatives=activationCreatives(value.operator,locale,value.creatives??[],value.approvalReference!);
     const bannerPlacements=[...new Set(creatives.map(c=>c.placement))] as Placement[];
     const url=new URL(destination);

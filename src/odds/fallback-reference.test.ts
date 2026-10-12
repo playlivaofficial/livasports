@@ -30,7 +30,7 @@ describe('the configured reference pool',()=>{
     expect(FALLBACK_REFERENCE_BOOKMAKER_IDS).toEqual([]);
   });
   it('derives each primary line-up from the registry, matching the owner line-up',()=>{
-    expect(primaryVisibleBookmakers('MX')).toEqual(['betsson']);
+    expect(primaryVisibleBookmakers('MX')).toEqual(['betsson','winpot.mx']);
     expect(primaryVisibleBookmakers('CO')).toEqual(['betsson','bwin']);
     expect(primaryVisibleBookmakers('PE')).toEqual(['inkabet','1xbet']);
     // The pool only ever draws on identities we actually request from the provider.

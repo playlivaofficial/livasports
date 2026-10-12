@@ -21,19 +21,30 @@ const rawEmbed=(host:string,media:string,campaign='1')=>'https://c.bannerflow.ne
   `?display=image&did=${'b'.repeat(24)}&deeplink=on&adgroupid=${'c'.repeat(24)}&redirecturl=https://${host}/${TOKEN}/${campaign}/&media=${media}&campaign=${campaign}`;
 // The 1xBet Peru partner iframe. `tag` is synthetic here; the real channel token is server-side only.
 const iframe=(media:string,site='6175483')=>'https://1xaff.pe/I?'+new URLSearchParams({tag:'SyntheticTag_000001',site,ad:media});
+// The Entain Partners zone iframe exactly as the panel generates it. Zone ids are public placement ids.
+const zone=(id:string)=>`https://mediaserver.entainpartners.com/renderBanner.do?zoneId=${id}&t=f&v=1&securedDomain=y`;
+// Affiliates World (MyAffiliates) tracking link shape; the path token is synthetic.
+const WINPOT_TRACKER='https://record.affiliatesworld.com/_SyntheticWinpotToken0000/1/';
 
 /**
- * The owner's final commercial layout. Mexico and Colombia are single-operator. Peru is split so that
- * no two campaigns ever claim one sponsor placement, which resolveOffer would fail closed on: 1xBet
- * takes the desktop top banner and the mobile slot, Inkabet the desktop right rail.
+ * The owner's final commercial layout. Every jurisdiction is split so that no two campaigns ever claim
+ * one desktop sponsor placement, which resolveOffer would fail closed on. Mexico: Betsson top + mobile,
+ * Winpot the right rail and nothing on mobile. Colombia: Betsson top + mobile, bwin right rail + mobile
+ * (the one mobile slot rotates). Peru: 1xBet top + mobile, Inkabet the right rail.
  */
 const GEOS=[
   {geo:'MX',locale:'mx',operator:'betsson',tracking:HOST.mx,destination:`https://${HOST.mx}/${TOKEN}/1/`,delivery:'BETSSON_EMBED',
-    roles:{top:'207553',right:'207557',mobile:'207552'},top:[970,90],
-    placements:['home_right_rail','home_top_banner','match_right_rail','match_top_banner','mobile_inline'],domains:['betsson.mx','www.betsson.mx']},
+    roles:{top:'207553',mobile:'207552'},top:[970,90],
+    placements:['home_top_banner','match_top_banner','mobile_inline'],domains:['betsson.mx','www.betsson.mx']},
+  {geo:'MX',locale:'mx',operator:'winpot.mx',tracking:'record.affiliatesworld.com',destination:WINPOT_TRACKER,delivery:'IMAGE',
+    roles:{right:'21'},top:null,
+    placements:['home_right_rail','match_right_rail'],domains:['winpot.mx','www.winpot.mx','sport.winpot.mx']},
   {geo:'CO',locale:'co',operator:'betsson',tracking:HOST.co,destination:`https://${HOST.co}/${TOKEN}/1/`,delivery:'BETSSON_EMBED',
-    roles:{top:'209366',right:'207980',mobile:'207978'},top:[728,90],
-    placements:['home_right_rail','home_top_banner','match_right_rail','match_top_banner','mobile_inline'],domains:['betsson.co']},
+    roles:{top:'209366',mobile:'207978'},top:[728,90],
+    placements:['home_top_banner','match_top_banner','mobile_inline'],domains:['betsson.co']},
+  {geo:'CO',locale:'co',operator:'bwin',tracking:'mediaserver.entainpartners.com',destination:'https://mediaserver.entainpartners.com/renderBanner.do?zoneId=2247632',delivery:'ENTAIN_IFRAME',
+    roles:{right:'2247630',mobile:'2247631'},top:null,
+    placements:['home_right_rail','match_right_rail','mobile_inline'],domains:['sports.bwin.co','www.bwin.co','bwin.co']},
   {geo:'PE',locale:'pe',operator:'inkabet',tracking:HOST.pe,destination:`https://${HOST.pe}/${TOKEN}/1/`,delivery:'BETSSON_EMBED',
     roles:{right:'208596'},top:null,
     placements:['home_right_rail','match_right_rail'],domains:['inkabet.pe']},
@@ -43,7 +54,7 @@ const GEOS=[
 ] as const;
 type G=typeof GEOS[number];
 const roleEntries=(g:G)=>Object.entries(g.roles) as Array<['top'|'right'|'mobile',string]>;
-const sourceFor=(g:G,media:string,campaign='1')=>g.delivery==='ONE_XBET_IFRAME'?iframe(media):embed(g.tracking!,media,campaign);
+const sourceFor=(g:G,media:string,campaign='1')=>g.delivery==='ONE_XBET_IFRAME'?iframe(media):g.delivery==='ENTAIN_IFRAME'?zone(media):g.delivery==='IMAGE'?media:embed(g.tracking!,media,campaign);
 
 const input=(g:G,overrides:Partial<ActivationInput>={}):ActivationInput=>({action:'activate',geo:g.geo,operator:g.operator,version:0,
   affiliateUrl:g.destination,campaignId:'1',validFrom:'2026-01-01T00:00:00Z',validUntil:'2099-01-01T00:00:00Z',
@@ -67,7 +78,7 @@ function database(g:G){
   return {db:{query,transaction,close:async()=>{}} as unknown as DatabaseClient,row,writes};
 }
 const creativeRows=(writes:Array<{sql:string;params:unknown[]}>)=>writes.filter(w=>w.sql.startsWith('INSERT INTO profile_sponsor_campaigns'))
-  .map(w=>({id:w.params[0],placement:w.params[4],delivery:w.params[13],source:String(w.params[14]??''),width:w.params[9],height:w.params[10]}));
+  .map(w=>({id:w.params[0],placement:w.params[4],delivery:w.params[13],source:String(w.params[14]??''),image:w.params[6],width:w.params[9],height:w.params[10]}));
 
 describe('MX/CO/PE banner activation',()=>{
   it.each(GEOS)('activates $operator in $geo with only the banners that jurisdiction grants it',async g=>{
@@ -80,16 +91,24 @@ describe('MX/CO/PE banner activation',()=>{
     // has no redirect of ours at all: it must be the approved 1xBet Peru origin and media id.
     expect(rows.every(r=>g.delivery==='ONE_XBET_IFRAME'
       ?new URL(r.source).origin==='https://1xaff.pe'&&new URL(r.source).searchParams.get('ad')==='178222'
+      :g.delivery==='ENTAIN_IFRAME'?new URL(r.source).origin==='https://mediaserver.entainpartners.com'
+      // A self-hosted image carries no third-party URL at all, only our own approved asset path.
+      :g.delivery==='IMAGE'?r.source===''&&r.image==='/sponsors/winpot/mx-sport-300x250.gif'
       :new URL(new URL(r.source).searchParams.get('redirecturl')!).hostname===g.tracking)).toBe(true);
     // The server-owned tracking host is admitted for this jurisdiction only, and only when one exists.
     expect(f.row.destination_domains).toEqual([...g.domains,...(g.tracking?[g.tracking]:[])]);
   });
 
-  it('never gives two Peru campaigns the same sponsor placement',()=>{
-    const pe=GEOS.filter(g=>g.geo==='PE');
-    expect(pe.map(g=>g.operator)).toEqual(['inkabet','1xbet']);
-    const all=pe.flatMap(g=>[...g.placements]);
-    expect(new Set(all).size).toBe(all.length);
+  it.each([['MX',['betsson','winpot.mx']],['CO',['betsson','bwin']],['PE',['inkabet','1xbet']]] as const)('never gives two %s campaigns the same desktop placement',(geo,operators)=>{
+    const split=GEOS.filter(g=>g.geo===geo);
+    expect(split.map(g=>g.operator)).toEqual([...operators]);
+    const desktop=split.flatMap(g=>g.placements.filter(p=>p!=='mobile_inline'));
+    expect(new Set(desktop).size).toBe(desktop.length);
+  });
+  it('keeps Mexico mobile Betsson-only, while Colombia rotates Betsson and bwin',()=>{
+    const mobile=(geo:string)=>GEOS.filter(g=>g.geo===geo&&(g.placements as readonly string[]).includes('mobile_inline')).map(g=>g.operator);
+    expect(mobile('MX')).toEqual(['betsson']);
+    expect(mobile('CO')).toEqual(['betsson','bwin']);
   });
 
   it('serves each jurisdiction its approved top size, and never stretches the compact Peru creative',async()=>{
@@ -150,8 +169,10 @@ describe('MX/CO/PE banner activation',()=>{
   const galleryTag=(bf:string,adgroup:string,host:string,media:string)=>
     `https://c.bannerflow.net/a/${bf}?display=image&did=657fff592225a91f2b2e2296&deeplink=on&adgroupid=${adgroup}&redirecturl=https://${host}/${CHANNEL}/1/&media=${media}&campaign=1`;
 
+  // The Betsson MX/CO 300x250 tags are still genuine, but the right rail now belongs to Winpot/bwin.
+  const RETIRED_RIGHT=new Set(['207557','207980']);
   it.each(GALLERY)('resolves the real generated %s %s %s tag to media %s',(operator,locale,role,media,width,height,bf,adgroup,host)=>{
-    expect(inventoryCreative(operator,locale,role,galleryTag(bf,adgroup,host,media))).toEqual({mediaId:media,width,height,delivery:'BETSSON_EMBED'});
+    expect(inventoryCreative(operator,locale,role,galleryTag(bf,adgroup,host,media))).toEqual(RETIRED_RIGHT.has(media)?null:{mediaId:media,width,height,delivery:'BETSSON_EMBED'});
   });
 
   it('still refuses a real tag pointed at another jurisdiction or offered in the wrong role',()=>{
@@ -164,9 +185,14 @@ describe('MX/CO/PE banner activation',()=>{
 
   it('refuses a creative offered in the wrong role',()=>{
     const mx=GEOS[0];
-    expect(inventoryCreative('betsson','mx','top',embed(HOST.mx,mx.roles.right))).toBeNull();
+    expect(inventoryCreative('betsson','mx','top',embed(HOST.mx,'207557'))).toBeNull();
     expect(inventoryCreative('betsson','mx','mobile',embed(HOST.mx,mx.roles.top))).toBeNull();
-    expect(inventoryCreative('betsson','mx','right',embed(HOST.mx,mx.roles.right))).toMatchObject({width:300,height:250});
+    expect(inventoryCreative('betsson','mx','right',embed(HOST.mx,'207557'))).toBeNull();
+    expect(inventoryCreative('betsson','mx','mobile',embed(HOST.mx,mx.roles.mobile))).toMatchObject({width:320,height:50});
+    // Winpot has a right rail only: its image can fill neither the top nor the mobile slot.
+    expect(inventoryCreative('winpot.mx','mx','right','21')).toMatchObject({width:300,height:250,delivery:'IMAGE'});
+    expect(inventoryCreative('winpot.mx','mx','mobile','21')).toBeNull();
+    expect(inventoryCreative('winpot.mx','mx','top','21')).toBeNull();
   });
 
   it('accepts the gallery tag in its raw unencoded form, exactly as generated',()=>{
@@ -185,14 +211,29 @@ describe('MX/CO/PE banner activation',()=>{
   });
 
   it('refuses a creative whose campaign does not match the activated campaign',async()=>{
-    const pe=GEOS[2];const f=database(pe);
+    const pe=GEOS.find(g=>g.operator==='inkabet')!;const f=database(pe);
     await expect(activateOperator(f.db,input(pe,{creatives:[{role:'right',embedSourceUrl:embed(HOST.pe,pe.roles.right,'2')}]}),'owner')).rejects.toThrow();
     expect(creativeRows(f.writes)).toEqual([]);
   });
 
-  it('keeps bwin Colombia odds-only: no inventory, no tracking host, no banner',async()=>{
-    expect(creativePromotion('bwin','co')).toBeNull();
+  it('gives bwin Colombia only its generated Entain zones, never a Betsson tag or the top slot',async()=>{
+    expect(creativePromotion('bwin','co')).toContain('BWIN COLUMBIA SPORTS WELCOME BONUS');
     expect(()=>activationCreatives('bwin','co',[{role:'top',embedSourceUrl:embed(HOST.co,'209366')}],'ref')).toThrow('CREATIVE_NOT_IN_INVENTORY');
+    expect(()=>activationCreatives('bwin','co',[{role:'top',embedSourceUrl:zone('2247630')}],'ref')).toThrow('CREATIVE_NOT_IN_INVENTORY');
+    // The text-link tracker zone is a destination, never a banner.
+    expect(()=>activationCreatives('bwin','co',[{role:'right',embedSourceUrl:zone('2247632')}],'ref')).toThrow('CREATIVE_NOT_IN_INVENTORY');
+  });
+  it('pins each non-Bannerflow tracker to the exact link its panel generates',async()=>{
+    const bwin=GEOS.find(g=>g.operator==='bwin')!,winpot=GEOS.find(g=>g.operator==='winpot.mx')!;
+    for(const [g,bad] of [[bwin,'https://mediaserver.entainpartners.com/renderBanner.do?zoneId=9999999'],[bwin,'https://mediaserver.entainpartners.com/trackAffiliateClick.do?zoneId=2247632'],
+      [winpot,'https://record.affiliatesworld.com/_SyntheticWinpotToken0000/1/?x=1'],[winpot,'https://record.affiliatesworld.com/admin/']] as const){
+      const f=database(g);
+      await expect(activateOperator(f.db,input(g,{affiliateUrl:bad}),'owner')).rejects.toThrow('DESTINATION_NOT_ALLOWLISTED');
+      expect(creativeRows(f.writes)).toEqual([]);
+    }
+    // Neither tracking host is admissible for any other operator or jurisdiction.
+    const betsson=GEOS[0];const f=database(betsson);
+    await expect(activateOperator(f.db,input(betsson,{affiliateUrl:WINPOT_TRACKER}),'owner')).rejects.toThrow('DESTINATION_NOT_ALLOWLISTED');
   });
 
   it('never lets Betsson serve Peru or Inkabet serve Mexico or Colombia',()=>{

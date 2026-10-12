@@ -15,8 +15,8 @@ const norm=(f:unknown)=>normalizeM5Snapshot([f],'1xbet',at,['406'],PE_CATALOG);
 const read=(changedAt:string)=>norm(fixtureWith(changedAt)).quotes[0];
 
 describe('Peru 1xBet activation', () => {
-  it('requests exactly the four entitled feeds and no retired Brazilian one', () => {
-    expect([...ACTIVE_BOOKMAKER_IDS].sort()).toEqual(['1xbet','betsson','bwin','inkabet']);
+  it('requests exactly the five entitled feeds and no retired Brazilian one', () => {
+    expect([...ACTIVE_BOOKMAKER_IDS].sort()).toEqual(['1xbet','betsson','bwin','inkabet','winpot.mx']);
     for (const retired of ['sportingbet.bet.br','betano.bet.br','betboo.bet.br']) {
       expect(isRetiredBookmaker(retired)).toBe(true);
       expect(ACTIVE_BOOKMAKER_IDS).not.toContain(retired);

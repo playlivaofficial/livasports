@@ -1,8 +1,8 @@
 import {parseResolutionRequest} from '@/slip/types';
 import {requestCommercialGeo} from '@/odds/commercial-geo';
 import {safeAffiliateDestination} from '@/odds/affiliate';
-import {embedDimensions,embedTrackingHost,safePublisherEmbed,oneXBetMediaId,ONE_XBET_PE_CREATIVES} from './embed-policy';
-import {isPublisherEmbed,placements,type Campaign,type CommercialContext,type Creative,type PageType,type TrafficClass} from './types';
+import {embedDimensions,embedTrackingHost,safePublisherEmbed,partnerIframeSize} from './embed-policy';
+import {isPartnerIframe,isPublisherEmbed,placements,type Campaign,type CommercialContext,type Creative,type PageType,type TrafficClass} from './types';
 import {isVisibleBookmaker,bookmakerConfig} from '@/odds/registry';
 import type {SiteLocale} from '@/config/i18n';
 
@@ -46,17 +46,17 @@ export function campaignDestination(c:Campaign,context:CommercialContext,now:num
   return c.domains.includes(new URL(destination).hostname)?destination:null;
 }
 export function validCreative(c:Creative,context:CommercialContext,now:number,campaignId?:string,operator?:string){
-  const oneXBetSize=c.delivery==='ONE_XBET_IFRAME'?ONE_XBET_PE_CREATIVES[oneXBetMediaId(c.embedSourceUrl,operator??'',c.locale)??'']:null;
+  const partnerSize=isPartnerIframe(c.delivery)?partnerIframeSize(c.delivery,c.embedSourceUrl,operator??'',c.locale):null;
   return c.enabled&&c.approved&&c.placement===context.placement&&c.locale===context.locale&&
-    (c.delivery!=='ONE_XBET_IFRAME'||!!oneXBetSize&&c.width===oneXBetSize.width&&c.height===oneXBetSize.height)&&
+    (!isPartnerIframe(c.delivery)||!!partnerSize&&c.width===partnerSize.width&&c.height===partnerSize.height)&&
     (!c.startsAt||Number.isFinite(Date.parse(c.startsAt))&&now>=Date.parse(c.startsAt))&&(!c.endsAt||Number.isFinite(Date.parse(c.endsAt))&&now<Date.parse(c.endsAt))&&
     // A publisher embed must satisfy its own delivery contract, which is what keeps an operator that
-    // has neither a tracking host nor an approved partner iframe — bwin Colombia — from serving one.
-    // A Bannerflow embed additionally needs the operator/GEO tracking host; the 1xBet Peru iframe is
-    // bound to 1xBet in Peru, to 1xaff.pe/I, to our verified site id and to an approved
-    // media id by safeOneXBetIframe, so it needs no redirect host of ours.
+    // has neither a tracking host nor an approved partner iframe from serving one. A Bannerflow embed
+    // additionally needs the operator/GEO tracking host. The partner iframes are each bound to one
+    // operator and jurisdiction, one exact URL shape and an approved media id: 1xBet Peru by
+    // safeOneXBetIframe, bwin Colombia by safeEntainIframe. Neither needs a redirect host of ours.
     (isPublisherEmbed(c.delivery)?!!operator&&(c.delivery!=='BETSSON_EMBED'||!!embedTrackingHost(operator,c.locale))&&c.imageUrl===null&&embedDimensions(c.placement,c.width,c.height,c.delivery)&&!!campaignId&&!!safePublisherEmbed(c.delivery,c.embedSourceUrl,campaignId,operator,c.locale):
-      (!c.delivery||c.delivery==='IMAGE')&&!c.embedSourceUrl&&typeof c.imageUrl==='string'&&/^\/sponsors\/[a-zA-Z0-9/_-]+\.(png|webp|jpg|jpeg|avif)$/.test(c.imageUrl))&&c.imageAlt.trim().length>0&&c.imageAlt.length<=300&&
+      (!c.delivery||c.delivery==='IMAGE')&&!c.embedSourceUrl&&typeof c.imageUrl==='string'&&/^\/sponsors\/[a-zA-Z0-9/_-]+\.(png|webp|jpg|jpeg|avif|gif)$/.test(c.imageUrl))&&c.imageAlt.trim().length>0&&c.imageAlt.length<=300&&
     Number.isInteger(c.width)&&c.width>=100&&c.width<=2400&&Number.isInteger(c.height)&&c.height>=40&&c.height<=1600;
 }
 export function geoAllowed(request:Request,locale:SiteLocale,env:Readonly<Record<string,string|undefined>>=process.env){
