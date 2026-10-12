@@ -147,18 +147,21 @@ describe('approved inventory for the final MX/CO/PE commercial layout',()=>{
   it('keeps the approved Mexico and Colombia media ids',()=>{
     const bf=(media:string,geo:string)=>bannerflow(media,`record.betsson.${geo}`);
     expect(resolved('betsson','mx','top',bf('207553','mx'))?.mediaId).toBe('207553');
-    expect(resolved('betsson','mx','right',bf('207557','mx'))?.mediaId).toBe('207557');
+    // Betsson's 300x250 are no longer placed: Winpot (MX) and bwin (CO) hold the desktop right rail.
+    expect(resolved('betsson','mx','right',bf('207557','mx'))).toBeNull();
     expect(resolved('betsson','mx','mobile',bf('207552','mx'))?.mediaId).toBe('207552');
     expect(resolved('betsson','co','top',bf('209366','co'))?.mediaId).toBe('209366');
-    expect(resolved('betsson','co','right',bf('207980','co'))?.mediaId).toBe('207980');
+    expect(resolved('betsson','co','right',bf('207980','co'))).toBeNull();
     expect(resolved('betsson','co','mobile',bf('207978','co'))?.mediaId).toBe('207978');
   });
   it('records the delivery each platform actually generates',()=>{
     expect(inventoryDelivery('1xbet','pe')).toBe('ONE_XBET_IFRAME');
     for(const [operator,locale] of [['betsson','mx'],['betsson','co'],['inkabet','pe']] as const)
       expect(inventoryDelivery(operator,locale)).toBe('BETSSON_EMBED');
-    // An operator with no affiliate access has no inventory and therefore no delivery.
-    for(const [operator,locale] of [['bwin','co'],['1xbet','br'],['betsson','pe'],['inkabet','mx']] as const)
+    expect(inventoryDelivery('bwin','co')).toBe('ENTAIN_IFRAME');
+    expect(inventoryDelivery('winpot.mx','mx')).toBe('IMAGE');
+    // An operator with no affiliate access in a jurisdiction has no inventory and therefore no delivery.
+    for(const [operator,locale] of [['bwin','mx'],['winpot.mx','co'],['1xbet','br'],['betsson','pe'],['inkabet','mx']] as const)
       expect(inventoryDelivery(operator,locale)).toBeNull();
   });
   it('refuses an approved Peru iframe offered for another operator or jurisdiction',()=>{

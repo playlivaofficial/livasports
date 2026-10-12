@@ -11,8 +11,12 @@ const hosts:Record<string,readonly string[]>={
   // Jurisdiction destination allowlists only. These authorise nothing on their own: an outbound link
   // still needs an approved campaign row, and migration 057/063 keep affiliate_enabled false.
   'betsson:co':['betsson.co','www.betsson.co','record.betsson.co'],
-  // bwin Colombia is odds-only: no Entain affiliate access exists, so it gets no tracking host.
+  // bwin Colombia's own domains. Its Entain tracking host is admitted only through owner activation,
+  // pinned to the exact tracker link shape (see OUTBOUND_TRACKERS in affiliate/embed-policy).
   'bwin:co':['sports.bwin.co','www.bwin.co','bwin.co'],
+  // Winpot Mexico's own domains, as its regulator footer and approved landing pages name them. The
+  // Affiliates World tracking host is admitted the same way as Entain's, never from this list.
+  'winpot.mx:mx':['winpot.mx','www.winpot.mx','sport.winpot.mx'],
   'inkabet:pe':['inkabet.pe','www.inkabet.pe','record.inkabet.pe'],
   // The exact domain the MINCETUR register of authorisation holders names for 1xBet Peru (Terminus
   // Platform Peru SAC, RD 4249-2024, registro 21002610010000, VIGENTE), verified 2026-10-07. No

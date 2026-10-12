@@ -19,7 +19,7 @@ import type {Campaign} from './types';
  */
 describe('jurisdiction commercial eligibility',()=>{
   it('gives each GEO exactly its approved operators',()=>{
-    expect(primaryVisibleBookmakers('MX')).toEqual(['betsson']);
+    expect(primaryVisibleBookmakers('MX')).toEqual(['betsson','winpot.mx']);
     expect(primaryVisibleBookmakers('CO')).toEqual(['betsson','bwin']);
     expect(primaryVisibleBookmakers('PE')).toEqual(['inkabet','1xbet']);
   });
@@ -45,24 +45,26 @@ describe('jurisdiction commercial eligibility',()=>{
     expect(creativePromotion('1xbet','mx')).toBeNull();
   });
   it('keeps Brazil and the rest of the world commercially dark',()=>{
-    for(const operator of ['betsson','bwin','inkabet','1xbet'])
+    for(const operator of ['betsson','bwin','inkabet','1xbet','winpot.mx'])
       expect(creativePromotion(operator,'br')).toBeNull();
   });
 });
 
-describe('bwin Colombia stays fail-closed until Entain provisions resources',()=>{
-  it('has no approved creative inventory, so no banner can resolve',()=>{
-    expect(creativePromotion('bwin','co')).toBeNull();
-    expect(inventoryDelivery('bwin','co')).toBeNull();
+describe('bwin Colombia serves only its generated Entain Partners zones',()=>{
+  const zone=(id:string)=>`https://mediaserver.entainpartners.com/renderBanner.do?zoneId=${id}&t=f&v=1&securedDomain=y`;
+  it('accepts exactly the right-rail and mobile zones, and never a Bannerflow tag',()=>{
+    expect(inventoryDelivery('bwin','co')).toBe('ENTAIN_IFRAME');
+    expect(inventoryCreative('bwin','co','right',zone('2247630'))).toMatchObject({mediaId:'2247630',width:300,height:250});
+    expect(inventoryCreative('bwin','co','mobile',zone('2247631'))).toMatchObject({mediaId:'2247631',width:320,height:50});
+    // Betsson keeps the Colombian top banner, so bwin has no top role at all.
+    expect(inventoryCreative('bwin','co','top',zone('2247630'))).toBeNull();
     for(const role of CREATIVE_ROLES)
       expect(inventoryCreative('bwin','co',role,'https://c.bannerflow.net/a/'+'a'.repeat(24)+'?media=1')).toBeNull();
   });
-  it('has no publisher tracking host, so no embed contract can accept it',()=>{
+  it('has no Bannerflow tracking host, so the Betsson embed contract can never accept it',()=>{
     expect(embedTrackingHost('bwin','co')).toBeNull();
   });
-  it('still keeps its Colombian odds destination allowlisted for when a tracker exists',()=>{
-    // Odds and the operator identity are live; only the commercial resources are missing, so the
-    // jurisdiction allowlist stays in place and activation is a configuration step, not a rebuild.
+  it('keeps its Colombian destination allowlisted',()=>{
     expect(safeAffiliateDestination('bwin','co','https://sports.bwin.co/x')).toBe('https://sports.bwin.co/x');
     expect(bookmakerConfig('bwin')?.displayRole).toBe('VISIBLE_PRIMARY');
   });

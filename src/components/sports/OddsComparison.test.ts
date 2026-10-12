@@ -89,7 +89,7 @@ describe('listing MATCH_WINNER cells', () => {
     if(coverage!=='both')expect(html).toContain('Cuota no disponible');
   });
   it('uses the trusted commercial GEO, not the presentation language, for the fixed pool',()=>{
-    expect(listingBookmakerRows({...fixture(),odds:[]},'mx').map(r=>r.id)).toEqual(['betsson']);
+    expect(listingBookmakerRows({...fixture(),odds:[]},'mx').map(r=>r.id)).toEqual(['betsson','winpot.mx']);
     expect(listingBookmakerRows({...fixture(),odds:[]},'co').map(r=>r.id)).toEqual(['betsson','bwin']);
     expect(listingBookmakerRows(fixture(),'br')).toEqual([]);
     const html=renderToStaticMarkup(createElement(OddsComparison,{locale:'en',commercialLocale:'pe',fixture:fixture()}));

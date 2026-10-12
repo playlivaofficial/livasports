@@ -16,13 +16,16 @@ export interface CommercialContext {
 }
 /**
  * How a creative reaches the page. IMAGE is a locally hosted asset inside a first-party anchor.
- * BETSSON_EMBED is the Bannerflow publisher script and ONE_XBET_IFRAME the 1xBet Peru partner iframe;
- * both run only inside the sandboxed credentialless publisher document, so both are privacy-gated.
+ * BETSSON_EMBED is the Bannerflow publisher script, ONE_XBET_IFRAME the 1xBet Peru partner iframe and
+ * ENTAIN_IFRAME the Entain Partners zone iframe for bwin Colombia. All three run only inside the
+ * sandboxed credentialless publisher document, so all three are privacy-gated.
  */
-export type CreativeDelivery='IMAGE'|'BETSSON_EMBED'|'ONE_XBET_IFRAME';
+export type CreativeDelivery='IMAGE'|'BETSSON_EMBED'|'ONE_XBET_IFRAME'|'ENTAIN_IFRAME';
 export type EmbedDelivery=Exclude<CreativeDelivery,'IMAGE'>;
 /** A third-party publisher delivery: never a plain image, always consent-gated and sandboxed. */
-export function isPublisherEmbed(delivery:string|undefined|null):delivery is EmbedDelivery{return delivery==='BETSSON_EMBED'||delivery==='ONE_XBET_IFRAME';}
+export function isPublisherEmbed(delivery:string|undefined|null):delivery is EmbedDelivery{return delivery==='BETSSON_EMBED'||isPartnerIframe(delivery);}
+/** The operator's own creative iframe, nested unmodified inside the sandboxed publisher document. */
+export function isPartnerIframe(delivery:string|undefined|null):delivery is 'ONE_XBET_IFRAME'|'ENTAIN_IFRAME'{return delivery==='ONE_XBET_IFRAME'||delivery==='ENTAIN_IFRAME';}
 export interface Creative {id:string;placement:Placement;locale:SiteLocale;imageUrl:string|null;imageAlt:string;width:number;height:number;approved:boolean;enabled:boolean;startsAt:string|null;endsAt:string|null;delivery?:CreativeDelivery;embedSourceUrl?:string|null;}
 export interface Campaign {
   operatorDomains?:string[];

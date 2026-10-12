@@ -59,7 +59,7 @@ describe('public language × trusted GEO matrix',()=>{
     const body=await presentation(new NextRequest('https://livasports.com/api/presentation',{headers:after})).json();
     expect(body.productGeo).toBe(geo);expect(body.owner.authorized).toBe(false);
     expect(body.commercialLocale).toBe(isCoreGeo(geo)?geo.toLowerCase():null);
-    const pools={MX:['betsson'],CO:['betsson','bwin'],PE:['inkabet','1xbet'],ROW:[]};
+    const pools={MX:['betsson','winpot.mx'],CO:['betsson','bwin'],PE:['inkabet','1xbet'],ROW:[]};
     const pool=VISIBLE_BOOKMAKERS.filter(b=>isCoreGeo(geo)&&b.countries.some(c=>c===geo)).map(b=>b.canonicalId);
     expect(pool).toEqual(pools[geo]);
     expect(formatMoney('10',body.commercialLocale??'en')).toContain(profile.currency==='MXN'?'MX$':profile.currency==='COP'?'COP$':profile.currency==='PEN'?'S/':'USD');
