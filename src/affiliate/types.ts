@@ -12,6 +12,13 @@ export type DestinationType='HOMEPAGE'|'SPORTSBOOK';
 export type PageType='HOME'|'MATCH'|'TEAM'|'PLAYER'|'COMPETITION';
 export interface CommercialContext {
   locale:SiteLocale;pagePath:string;placement:Placement;bookmaker?:Bookmaker;
+  /**
+   * 'logo' marks the bookmaker's own logo on an odds board or slip comparison. The logo is a brand
+   * link to the operator's approved campaign destination, so unlike a price CTA it does not require
+   * that bookmaker to hold a current price. It is part of the signed context, so a token minted for
+   * a logo can only ever be redeemed as a logo.
+   */
+  cta?:'logo';
   fixturePublicId?:string;market?:OddsMarket;selections?:CanonicalSelection[];competitionSlug?:string;slipId?:string;
 }
 /**

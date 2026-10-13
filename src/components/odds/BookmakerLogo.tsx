@@ -14,7 +14,8 @@ export function BookmakerLogo({bookmaker,context,uiLocale='en',sources=[]}:{book
   const pathname=usePathname()??'';
   useEffect(()=>{const node=ref.current;if(!node)return;const observer=new IntersectionObserver(entries=>{if(entries.some(e=>e.isIntersecting)){setVisible(true);observer.disconnect();}},{threshold:.5});observer.observe(node);return()=>observer.disconnect();},[]);
   const pagePath=context?.pagePath??(context?.locale&&pathname.startsWith('/en')?translatedPath(pathname,context.locale):pathname);
-  const resolved=useCommercialOffer({...context,locale:context?.locale??'mx',placement:context?.placement??'match_odds_table',pagePath},visible&&!!context&&isVisibleBookmaker(bookmaker));
+  // A logo is a brand link, resolved as such: it does not wait on this book holding a current price.
+  const resolved=useCommercialOffer({...context,locale:context?.locale??'mx',placement:context?.placement??'match_odds_table',pagePath,cta:'logo'},visible&&!!context&&isVisibleBookmaker(bookmaker));
   const offer=visible&&context?resolved:null;
   const priceKind=sources.some(s=>s.priceKind==='PROXY')?'PROXY':sources.some(s=>s.priceKind==='REAL')?'REAL':undefined;
   useEffect(()=>{if(visible&&book&&isVisibleBookmaker(bookmaker))track('bookmaker_logo_viewed',{bookmaker:book.canonicalId,priceKind,placement:context?.placement,campaignId:offer?.campaignId},{dedupeKey:`logo:${pagePath}:${bookmaker}:${context?.fixturePublicId??'slip'}:${offer?'active':'gated'}`,props:{affiliateEnabled:!!offer}});},[visible,book,bookmaker,context?.placement,context?.fixturePublicId,pagePath,offer,priceKind]);
