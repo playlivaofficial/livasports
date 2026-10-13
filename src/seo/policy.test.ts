@@ -154,8 +154,8 @@ describe('P2 structured data',()=>{
 });
 
 describe('P2 evergreen help',()=>{
-  it('publishes three topics per locale with reciprocal clusters, article Open Graph and language-selector mapping',()=>{
-    expect(helpKinds).toHaveLength(3);
+  it('publishes five topics per locale with reciprocal clusters, article Open Graph and language-selector mapping',()=>{
+    expect(helpKinds).toHaveLength(5);
     for(const locale of locales)for(const kind of helpKinds){
       const slug=helpPath(locale,kind).split('/')[2],metadata=documentMetadata(locale,slug);
       expect(metadata.robots).toBeUndefined();expect(metadata.alternates?.canonical).toBe(helpPath(locale,kind));

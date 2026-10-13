@@ -10,6 +10,7 @@
     "start": "next start",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
+    "qa:seo:growth": "node --require ./scripts/tsx-windows-preload.cjs --import tsx scripts/seo-growth-check.ts --start --preview",
     "validate": "node src/cli.js",
     "diagnose:oddspapi": "node src/oddspapi-cli.js --diagnostic",
     "validate:oddspapi": "node src/oddspapi-cli.js",

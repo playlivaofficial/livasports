@@ -9,8 +9,8 @@ import {helpKinds,helpPath} from './help-routes';
 import {localeOfPage} from '@/seo/intelligence';
 
 describe('canonical MX / CO / PE locale contract',()=>{
-  it('gives each regional football/live hub its own factual country intent',()=>{
-    for(const page of ['home','football','live'] as const){
+  it('gives each regional board its own factual country intent',()=>{
+    for(const page of ['home','football','live','today'] as const){
       const titles=CORE_GEOS.map(geo=>getDictionary(geoProfile(geo).locale as 'mx'|'co'|'pe').pages[page].title);
       expect(new Set(titles).size).toBe(3);
       for(const geo of CORE_GEOS){const copy=getDictionary(geoProfile(geo).locale as 'mx'|'co'|'pe').pages[page];expect(copy.description).not.toMatch(/Brasileirão|Brasil|R\$/);}
