@@ -20,7 +20,7 @@ export function parseContext(value:unknown):CommercialContext|null {
   if(!value||typeof value!=='object'||Array.isArray(value))return null;const v=value as Record<string,unknown>;
   if(Object.keys(v).some(k=>!['locale','pagePath','placement','bookmaker','fixturePublicId','market','selections','competitionSlug','slipId','cta'].includes(k))||
     // A logo is always one named bookmaker on an odds board or slip comparison, never a sponsor slot.
-    (v.cta!==undefined&&(v.cta!=='logo'||!isOddsCtaPlacement(String(v.placement))||!v.bookmaker))||
+    (v.cta!==undefined&&(!v.bookmaker||(v.cta==='logo'?!isOddsCtaPlacement(String(v.placement)):v.cta==='visit'?!isSlipPlacement(String(v.placement)):true)))||
     !['br','mx','co','pe'].includes(String(v.locale))||typeof v.pagePath!=='string'||v.pagePath.length>240||
     !placements.includes(v.placement as never)||(v.bookmaker!==undefined&&!isVisibleBookmaker(String(v.bookmaker))))return null;
   const type=pageType(v.pagePath),placement=String(v.placement);if(!type)return null;

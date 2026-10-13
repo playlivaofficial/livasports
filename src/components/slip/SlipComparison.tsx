@@ -57,7 +57,7 @@ export function SlipComparison({locale,selections,value,checking,uiLocale,stake,
         return <article className="slip-bookmaker" key={b.bookmakerId} aria-labelledby={`slip-bookmaker-${b.bookmakerId}`}
           data-bookmaker={b.bookmakerId} data-complete={b.complete} data-cta={b.ctaState}>
           <header><h4 id={`slip-bookmaker-${b.bookmakerId}`}><BookmakerLogo bookmaker={b.bookmakerId} uiLocale={copyLocale} sources={b.selectionQuotes.map(q=>({priceKind:q.priceKind??null}))} context={{locale,placement:'slip_bookmaker_comparison',bookmaker:b.bookmakerId as BookmakerId,selections:selections.map(wireSelection),...(validSlipId(slipId)?{slipId}:{})}}/></h4><span aria-label={`${text.available}: ${b.availableSelectionCount}/${b.requiredSelectionCount}`}>{b.availableSelectionCount}/{b.requiredSelectionCount}</span></header>
-          {!b.complete?<p className="slip-coverage-state">{text.partial}</p>:null}
+          {!b.complete&&!b.indicativeComplete?<p className="slip-coverage-state">{text.partial}</p>:null}
           {b.complete&&combined?<div className="slip-combined-block">
             <p className="slip-combined"><span>{text.combined}</span><strong><ApproximatePrice approximate={b.estimated} value={combined} label={b.estimated?estimateText.notExecutable:estimateText.real}/></strong></p>
             {estimatedLabel?<p className="slip-return"><span>{b.estimated?estimateText.indicativeReturn:estimateText.actualReturn}</span><strong>{estimatedLabel}</strong></p>:b.complete&&stakeOk?<p className="slip-comparison-note">{text.unavailable}</p>:null}
@@ -70,7 +70,7 @@ export function SlipComparison({locale,selections,value,checking,uiLocale,stake,
               <CalculatedPrice estimate={q.estimate!} locale={copyLocale}/>
             </li>)}</ul>
           </div>:null}
-          {b.ctaState==='ENABLED'?<AffiliateLink compact className="slip-bookmaker-cta" uiLocale={copyLocale} context={{locale,placement:'slip_bookmaker_comparison',bookmaker:b.bookmakerId as BookmakerId,selections:selections.map(wireSelection),...(validSlipId(slipId)?{slipId}:{})}}>{text.ctaAt(bookName)} <span aria-hidden="true">↗</span></AffiliateLink>:b.complete?<p className="slip-comparison-note">{text.gated}</p>:null}
+          <AffiliateLink compact className="slip-bookmaker-cta" uiLocale={copyLocale} ariaLabel={text.ctaAt(bookName)} context={{locale,placement:'slip_bookmaker_comparison',cta:'visit',bookmaker:b.bookmakerId as BookmakerId,selections:selections.map(wireSelection),...(validSlipId(slipId)?{slipId}:{})}}>{text.ctaAt(bookName)} <span aria-hidden="true">↗</span></AffiliateLink>
         </article>;
       })}
       <p className="slip-comparison-note">{text.destination} {text.disclosure} {text.oddsMayChange}</p>

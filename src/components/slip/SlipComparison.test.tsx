@@ -1,5 +1,6 @@
 import {describe,it,expect,vi} from 'vitest';
-vi.mock('@/affiliate/client',async()=>{const {displayOffer}=await import('@/affiliate/fixtures.test-support');return {useCommercialOffer:()=>displayOffer(),privacyOptOut:()=>false,qaBrowser:()=>true};});
+vi.mock('@/affiliate/client',async()=>{const {displayOffer}=await import('@/affiliate/fixtures.test-support');return {useCommercialOffer:vi.fn((context)=>({...displayOffer(),bookmaker:context.bookmaker,href:`/go/${context.bookmaker}/slip_bookmaker_comparison?offer=local-test`})),privacyOptOut:()=>false,qaBrowser:()=>true};});
+import {useCommercialOffer} from '@/affiliate/client';
 import {renderToStaticMarkup} from 'react-dom/server';
 import {SlipComparison} from './SlipComparison';
 import {buildSlipComparison} from '@/slip/comparison';
@@ -39,6 +40,9 @@ describe('P5 compact comparison / internal provenance',()=>{
       const html=renderToStaticMarkup(<SlipComparison locale="co" uiLocale={locale} stake="10" selections={f.selections.map(s=>({...s,addedAt:new Date(f.now).toISOString()}))} checking={false} value={value}/>);
       expect(value.bookmakers.map(b=>b.bookmakerId)).toEqual(PUBLIC_CARD_IDS);
       expect(html.match(/class="slip-bookmaker"/g)).toHaveLength(CARDS);
+      // Both comparison cards request ordinary sportsbook visits even if actual prices are missing.
+      expect(html.match(/class="slip-bookmaker-cta"/g)).toHaveLength(CARDS);
+      expect(vi.mocked(useCommercialOffer).mock.calls.some(([context])=>context.cta==='visit'&&context.bookmaker===INSPECTED)).toBe(true);
       expect(html).not.toMatch(/Betano|betano|slip-proxy-legs|slip-missing/i);
       if(mode==='native')expect(html).not.toContain('CALCULATED_MINUS_10');
       expect(html).not.toMatch(/NaN|guaranteed|profit/);

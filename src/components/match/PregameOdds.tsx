@@ -4,7 +4,8 @@ import type {OddsComparison,OddsMarket,OddsCell,OddsBookmakerRow} from '@/odds/t
 import {SELECTIONS} from '@/odds/types';
 import {emitMatchEvent,type MatchEventContext} from './events';
 import {addSlipSelection,useSlip} from '@/slip/client';
-import {canonicalSelection,selectionKey,SLIP_SCOPE} from '@/slip/types';
+import {canonicalSelection,selectionKey,SLIP_SCOPE,receiptDisplay} from '@/slip/types';
+import {formatSlipOdds} from '@/slip/decimal';
 import {slipCopy,selectionLabel} from '@/slip/localization';
 import {AffiliateLink,commercialCopy} from '@/components/commercial/AffiliateLink';
 import {bookmakerShortName} from '@/slip/comparison-copy';
@@ -80,7 +81,7 @@ export function PregameOdds({initial,context,fixturePublicId,uiLocale}:{initial:
     bookmaker:id,name:bookmakerConfig(id)?.displayName??id,action:null,cells:SELECTIONS[market].map(outcome=>({outcome,decimalOdds:null,state:'UNAVAILABLE',best:false,expiresAt:null,priceKind:null,targetBookmaker:id,sourceBookmaker:null,sourceBookmakerName:null,sourceQuoteId:null,sourceObservedAt:null})),
   }):selected?.rows??[];
   const available=rows.filter(r=>r.cells.some(cellCurrent)).length;
-  const references=referencesForGaps(selected?.references,clock??Number.POSITIVE_INFINITY,market,selected?.line??(market==='TOTAL_GOALS'?2.5:null),
+  const references=primary.length===2?[]:referencesForGaps(selected?.references,clock??Number.POSITIVE_INFINITY,market,selected?.line??(market==='TOTAL_GOALS'?2.5:null),
     rows.flatMap(r=>r.cells.filter(cellCurrent).map(c=>c.outcome)));
   const anyExpired=selected?.rows.some(r=>r.cells.some(c=>c.state==='STALE'||(c.state==='ACTIVE'&&c.decimalOdds!==null&&!cellCurrent(c))));
   const pastKickoff=clock!==null&&selected?.closesAt&&clock>=Date.parse(selected.closesAt);
@@ -108,12 +109,14 @@ export function PregameOdds({initial,context,fixturePublicId,uiLocale}:{initial:
           const reference=rowIndex===0?references.find(q=>q.outcome===cell.outcome):undefined;
           const estimate=!current&&!pastKickoff&&clock!==null?selected?.estimates?.find(e=>e.targetBookmaker===row.bookmaker&&e.market===market&&e.outcome===cell.outcome&&e.line===selected.line&&currentEstimate(e,clock)):undefined;
           const intent=canonicalSelection({fixturePublicId,market,outcome:cell.outcome,line:selected?.line??(market==='TOTAL_GOALS'?2.5:null),scope:SLIP_SCOPE});
-          const pressed=intent?saved.slip.selections.some(s=>selectionKey(s)===selectionKey(intent)):false;
+          const pressed=intent?saved.slip.selections.some(s=>selectionKey(s)===selectionKey(intent)&&receiptDisplay(s)?.book===row.bookmaker):false;
           const priceLabel=current?new Intl.NumberFormat(geoProfile(geoForLocale(presentation)).languageTag,{minimumFractionDigits:2,maximumFractionDigits:2}).format(Number(cell.decimalOdds)):'—';
-          return <td key={cell.outcome} data-outcome-label={text.outcomes[cell.outcome]}>{current&&intent?<button type="button" className={`pregame-price slip-odds-button${best?' is-best':''}`} aria-pressed={pressed} disabled={!saved.ready}
-            data-target-bookmaker={cell.targetBookmaker}
-            aria-label={`${pressed?slipText.selected:slipText.add}: ${slipText.markets[market]}, ${selectionLabel(intent,presentation)}, ${priceLabel}, ${cell.priceKind==='PROXY'?approximateLabel:''} ${row.name}`}
-            onClick={()=>void addSlipSelection(intent,commercialLocale,cell.expiresAt!,row.bookmaker,{targetBookmaker:cell.targetBookmaker,priceKind:cell.priceKind!,decimalOdds:cell.decimalOdds!})}>{pressed?<span className="slip-selected-indicator" aria-hidden="true">✓</span>:null}<span data-price-kind="REAL"><ApproximatePrice approximate={false} value={priceLabel} label={estimateLabels(presentation).real}/></span>{best?<span className="sr-only"> {text.best}</span>:null}</button>:
+          const selectionPrice=current?{priceKind:'REAL' as const,decimalOdds:cell.decimalOdds!,expiresAt:cell.expiresAt!}:
+            estimate?{priceKind:'CALCULATED_MINUS_10' as const,decimalOdds:estimate.decimalOdds,expiresAt:estimate.expiresAt}:null;
+          return <td key={cell.outcome} data-outcome-label={text.outcomes[cell.outcome]}>{selectionPrice&&intent?<button type="button" className={`pregame-price slip-odds-button${best?' is-best':''}${!current&&estimate?' is-calculated':''}`} aria-pressed={pressed} disabled={!saved.ready}
+            data-target-bookmaker={row.bookmaker}
+            aria-label={`${pressed?slipText.selected:slipText.add}: ${slipText.markets[market]}, ${selectionLabel(intent,presentation)}, ${current?priceLabel:`≈${formatSlipOdds(selectionPrice.decimalOdds,presentation)} ${approximateLabel}`}, ${row.name}`}
+            onClick={()=>void addSlipSelection(intent,commercialLocale,selectionPrice.expiresAt,row.bookmaker,{targetBookmaker:row.bookmaker,priceKind:selectionPrice.priceKind,decimalOdds:selectionPrice.decimalOdds})}>{pressed?<span className="slip-selected-indicator" aria-hidden="true">✓</span>:null}{!current&&estimate?<CalculatedPrice estimate={estimate} locale={presentation}/>:<span data-price-kind="REAL"><ApproximatePrice approximate={false} value={priceLabel} label={estimateLabels(presentation).real}/></span>}{best?<span className="sr-only"> {text.best}</span>:null}</button>:
             <span className={`pregame-price${best?' is-best':''}${estimate?' is-calculated':reference?' is-reference':!current?' is-unavailable':''}`} title={best?text.best:!current&&!reference&&!estimate?missingLabel:undefined}>{estimate?<CalculatedPrice estimate={estimate} locale={presentation}/>:reference?<ReferenceOdds quote={reference} uiLocale={presentation}/>:current?<span data-price-kind="REAL"><ApproximatePrice approximate={false} value={priceLabel} label={estimateLabels(presentation).real}/></span>:priceLabel}{best?<span className="sr-only"> {text.best}</span>:null}</span>}</td>;})}
           <td>{row.action&&row.cells.some(cellCurrent)&&fixturePublicId?<AffiliateLink compact className="match-affiliate-cta" uiLocale={presentation} onAvailability={onAvailability} context={{locale:commercialLocale,placement:'match_odds_table',bookmaker:row.bookmaker as 'betsson'|'betano.bet.br',fixturePublicId,market}}>{commercialCopy[presentation].ctaAt(bookmakerShortName(row.bookmaker,row.name))} <span aria-hidden="true">↗</span></AffiliateLink>:<span className="odds-no-action">—</span>}</td></tr>)}</tbody></table>:null}
       {!available?<p className="pregame-empty" role="status">{unavailable}</p>:available===1?<p className="odds-note">{text.single}</p>:null}

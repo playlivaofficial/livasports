@@ -1,4 +1,5 @@
 import {buildComparison} from '@/odds/comparison';
+import {currentEstimate} from '@/odds/calculated-estimate';
 import type {OddsReadSnapshot} from '@/odds/types';
 import type {CanonicalSelection,ResolvedSelection} from './types';
 
@@ -33,14 +34,19 @@ export function resolveSelection(selection:CanonicalSelection,read:SlipFixtureRe
 export function guardResolved(value:ResolvedSelection,now:number,connected=true):ResolvedSelection {
   const guarded=guardPrice(value,now,connected);
   const alternative=connected&&guarded.alternative&&Date.parse(guarded.alternative.expiresAt)>now&&(!guarded.closesAt||Date.parse(guarded.closesAt)>now)?guarded.alternative:undefined;
-  return {...guarded,alternative,coverage:guarded.price?(guarded.price.priceKind==='INDICATIVE'?'INDICATIVE':'REAL'):'UNAVAILABLE'};
+  return {...guarded,alternative,coverage:guarded.price?(['INDICATIVE','CALCULATED_MINUS_10'].includes(guarded.price.priceKind??'')?'INDICATIVE':'REAL'):'UNAVAILABLE'};
 }
 function guardPrice(value:ResolvedSelection,now:number,connected=true):ResolvedSelection {
   if(value.state==='MATCH_FINISHED')return {...value,price:null};
   if(value.fixture?.status==='SCHEDULED'&&value.closesAt&&now>=Date.parse(value.closesAt))return {...value,state:'MATCH_STARTED',price:null};
   if(!['CURRENT','PRICE_CHANGED'].includes(value.state))return {...value,price:null};
   if(value.price&&(!connected||!Number.isFinite(Date.parse(value.price.expiresAt))||now>=Date.parse(value.price.expiresAt)))return {...value,state:'STALE',price:null};
-  if(value.price&&(!Number.isFinite(Number(value.price.decimalOdds))||Number(value.price.decimalOdds)<=1||Number(value.price.decimalOdds)>1000))return {...value,state:'UNAVAILABLE',price:null};
+  if(value.price&&(!Number.isFinite(Number(value.price.decimalOdds))||Number(value.price.decimalOdds)<=(value.price.priceKind==='CALCULATED_MINUS_10'?0:1)||Number(value.price.decimalOdds)>1000))return {...value,state:'UNAVAILABLE',price:null};
+  if(value.price?.priceKind==='CALCULATED_MINUS_10'){
+    const e=value.price.estimate,s=value.selection;
+    if(!currentEstimate(e,now)||e.targetBookmaker!==value.price.bookmaker||e.decimalOdds!==value.price.decimalOdds||
+      e.market!==s.market||e.outcome!==s.outcome||e.line!==s.line||e.scope!==s.scope)return {...value,state:'UNAVAILABLE',price:null};
+  }
   return value;
 }
 

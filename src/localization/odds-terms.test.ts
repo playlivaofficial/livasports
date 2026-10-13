@@ -7,7 +7,8 @@ describe('odds display terms',()=>{
     const body=sections.find(s=>s.body.includes('≈'))?.body??'';
     expect(body).toMatch(/0[,.]90/);
     expect(body).toMatch(/no una cuota ofrecida|não uma cotação oferecida|not a price offered/);
-    expect(body).toMatch(/no se pueden seleccionar|não são selecionáveis|cannot be selected/);
+    expect(body).toMatch(/se pueden seleccionar|podem ser selecionadas|can be selected/);
+    expect(body).toMatch(/no son cuotas ejecutables|não são cotações executáveis|not executable quotes/);
     expect(body).toMatch(/retornos potenciales|retornos potenciais|potential returns/);
   });
 });

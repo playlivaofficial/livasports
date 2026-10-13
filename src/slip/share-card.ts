@@ -69,7 +69,7 @@ export function slipSharePayload(args:{
         outcome:selectionLabel(s,args.locale,fixture),
         // An exported image cannot refresh or retain expandable provenance. Do not
         // export a reference number stripped of its source/time/expiry details.
-        odds:view?.price?.priceKind==='INDICATIVE'?(args.locale==='en'?'Indicative — see LivaSports':args.locale==='br'?'Indicativa — ver LivaSports':'Orientativa — ver LivaSports'):
+        odds:['INDICATIVE','CALCULATED_MINUS_10'].includes(view?.price?.priceKind??'')?(args.locale==='en'?'Indicative — see LivaSports':args.locale==='br'?'Indicativa — ver LivaSports':'Orientativa — ver LivaSports'):
           view?.price?`≈${formatCombinedOdds(view.price.decimalOdds,args.locale)}`:slipCopy[args.locale].states.UNAVAILABLE,
       };
     }),

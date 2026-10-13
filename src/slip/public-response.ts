@@ -6,6 +6,7 @@ function publicSelection(value:ResolvedSelection):ResolvedSelection {
   value={...value,selection:canonicalSelection(value.selection)!};
   if(!value.price)return value;
   const price={...value.price};
+  if(price.estimate)price.estimate=publicEstimate(price.estimate);
   if(price.priceKind==='INDICATIVE')return {...value,price};
   delete price.sourceBookmaker;delete price.sourceQuoteId;delete price.sourceObservedAt;
   return {...value,price};

@@ -19,7 +19,7 @@ const baseCommercialCopy={
 };
 export const commercialCopy={...baseCommercialCopy,co:baseCommercialCopy.mx,pe:baseCommercialCopy.mx};
 export type CommercialCopyLocale=keyof typeof commercialCopy;
-export function AffiliateAnchor({offer,locale,className,children,onActivate}:{offer:PublicOffer;locale:CommercialCopyLocale;className?:string;children?:ReactNode;onActivate?:()=>void}){
+export function AffiliateAnchor({offer,locale,className,children,onActivate,ariaLabel}:{offer:PublicOffer;locale:CommercialCopyLocale;className?:string;children?:ReactNode;onActivate?:()=>void;ariaLabel?:string}){
   const ref=useRef<HTMLAnchorElement>(null),[expired,setExpired]=useState(false);const text=commercialCopy[locale];
   useEffect(()=>{const remaining=Date.parse(offer.expiresAt)-Math.max(Date.now(),Date.parse(offer.resolvedAt));const timer=setTimeout(()=>setExpired(true),Math.max(1,remaining));return()=>clearTimeout(timer);},[offer]);
   useEffect(()=>{const link=ref.current;if(!link||expired||privacyOptOut())return;let timer:ReturnType<typeof setTimeout>|null=null,seen=false,visible=false;
@@ -32,17 +32,17 @@ export function AffiliateAnchor({offer,locale,className,children,onActivate}:{of
     observer.observe(link);link.addEventListener('load',attempt,true);document.addEventListener('visibilitychange',attempt);return()=>{cancel();observer.disconnect();link.removeEventListener('load',attempt,true);document.removeEventListener('visibilitychange',attempt);};
   },[offer,expired]);
   if(expired)return null;
-  return <a ref={ref} className={className} href={offer.href} target="_blank" rel="sponsored nofollow noopener noreferrer" aria-label={`${text.cta} · ${bookmakerConfig(offer.bookmaker)?.shortLabel??offer.bookmaker}`}
+  return <a ref={ref} className={className} href={offer.href} target="_blank" rel="sponsored nofollow noopener noreferrer" aria-label={ariaLabel??`${text.cta} · ${bookmakerConfig(offer.bookmaker)?.shortLabel??offer.bookmaker}`}
     onClick={event=>{if(!event.isTrusted||qaBrowser())event.currentTarget.href=offer.href+'&qa=1';track('affiliate_cta_clicked',{...offer.analytics,bookmaker:offer.bookmaker,placement:offer.placement,campaignId:offer.campaignId},{props:{revenueSurface:revenueSurface(offer.placement)}});onActivate?.();}}
     onAuxClick={event=>{if(!event.isTrusted||qaBrowser())event.currentTarget.href=offer.href+'&qa=1';}}>{children??<>{text.cta} <span aria-hidden="true">↗</span></>}</a>;
 }
-export function AffiliateLink({context,className,onActivate,compact=false,onAvailability,uiLocale,children}:{context:Omit<CommercialContext,'pagePath'>;className?:string;onActivate?:()=>void;compact?:boolean;onAvailability?:(bookmaker:string,available:boolean)=>void;uiLocale?:CommercialCopyLocale;children?:ReactNode}){
+export function AffiliateLink({context,className,onActivate,compact=false,onAvailability,uiLocale,children,ariaLabel}:{context:Omit<CommercialContext,'pagePath'>;className?:string;onActivate?:()=>void;compact?:boolean;onAvailability?:(bookmaker:string,available:boolean)=>void;uiLocale?:CommercialCopyLocale;children?:ReactNode;ariaLabel?:string}){
   const pathname=usePathname()??'';
   const pagePath=pathname.startsWith('/en')?translatedPath(pathname,context.locale):pathname;
   const offer=useCommercialOffer({...context,pagePath});const text=commercialCopy[uiLocale??context.locale];
   const available=!!offer,bookmaker=context.bookmaker??'';
   useEffect(()=>{onAvailability?.(bookmaker,available);return()=>onAvailability?.(bookmaker,false);},[onAvailability,bookmaker,available]);
   if(!offer)return null;
-  return <div className="affiliate-action"><AffiliateAnchor key={offer.token} offer={offer} locale={uiLocale??context.locale} className={className} onActivate={onActivate}>{children}</AffiliateAnchor>
+  return <div className="affiliate-action"><AffiliateAnchor key={offer.token} offer={offer} locale={uiLocale??context.locale} className={className} onActivate={onActivate} ariaLabel={ariaLabel}>{children}</AffiliateAnchor>
     {!compact?<><p className="commercial-caption">{text.destination}</p><p className="commercial-caption">{text.disclosure}</p></>:null}</div>;
 }
