@@ -3,7 +3,7 @@ import {primaryVisibleBookmakers} from './fallback-pool';
 import {validDecimalOdds} from '@/slip/decimal';
 import type {CalculatedOddsEstimate,OddsCell,OddsMarket,OddsOutcome} from './types';
 
-/** Only the owner's ordered local pair. Unknown/cross-GEO/legacy union pools fail closed. */
+/** Only the owner's local pair, in display order. Either member may supply a genuine price. */
 export function comparisonPair(ids:readonly string[]):readonly [string,string]|null {
   const matches=CORE_GEOS.map(primaryVisibleBookmakers).filter(pair=>pair.length===2&&ids.length===2&&pair.every(id=>ids.includes(id)));
   return matches.length===1?[matches[0][0],matches[0][1]]:null;
@@ -17,7 +17,7 @@ export function minusTenPercent(value:string):string|null {
 }
 export function calculatedEstimate(input:{fixtureId:string;market:OddsMarket;outcome:OddsOutcome;line:number|null;target:string;sourceBookmaker:string;sourceName:string;source:OddsCell;now:number}):CalculatedOddsEstimate|null {
   const {source,now}=input;
-  if(!input.fixtureId||comparisonPair([input.sourceBookmaker,input.target])?.[0]!==input.sourceBookmaker||source.priceKind!=='REAL'||source.state!=='ACTIVE'||
+  if(!input.fixtureId||!comparisonPair([input.sourceBookmaker,input.target])||source.priceKind!=='REAL'||source.state!=='ACTIVE'||
     source.outcome!==input.outcome||source.sourceBookmaker!==input.sourceBookmaker||!source.sourceQuoteId||!source.sourceObservedAt||
     !Number.isFinite(Date.parse(source.sourceObservedAt))||Date.parse(source.sourceObservedAt)>now+60000||
     !source.expiresAt||Date.parse(source.expiresAt)<=now||!Number.isFinite(Date.parse(source.expiresAt)))return null;
@@ -31,7 +31,7 @@ export function calculatedEstimate(input:{fixtureId:string;market:OddsMarket;out
 export function currentEstimate(estimate:CalculatedOddsEstimate|undefined,now:number):estimate is CalculatedOddsEstimate {
   return !!estimate&&estimate.kind==='CALCULATED_MINUS_10'&&estimate.executable===false&&estimate.affiliateEligible===false&&
     estimate.multiplier==='0.90'&&estimate.scope==='FULL_TIME_REGULATION'&&estimate.targetBookmaker!==estimate.sourceBookmaker&&
-    comparisonPair([estimate.sourceBookmaker,estimate.targetBookmaker])?.[0]===estimate.sourceBookmaker&&
+    !!comparisonPair([estimate.sourceBookmaker,estimate.targetBookmaker])&&
     Date.parse(estimate.expiresAt)>now&&Date.parse(estimate.sourceObservedAt)<=now+60000&&
     minusTenPercent(estimate.sourceDecimalOdds)===estimate.decimalOdds;
 }

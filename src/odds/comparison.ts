@@ -101,14 +101,18 @@ export function buildComparison(snapshot:OddsReadSnapshot,market:OddsMarket,now=
 function withReferences(result:OddsComparison,snapshot:OddsReadSnapshot,now:number):OddsComparison {
   const pair=comparisonPair(snapshot.referenceGapBookmakers??snapshot.eligibleBookmakers?.map(b=>b.id)??[]);
   if(pair&&snapshot.fixtureId&&snapshot.fixtureStatus==='SCHEDULED'&&Date.parse(snapshot.kickoff)>now){
-    const source=result.rows.find(r=>r.bookmaker===pair[0]&&r.role!=='FALLBACK_REFERENCE');
-    const target=result.rows.find(r=>r.bookmaker===pair[1]&&r.role!=='FALLBACK_REFERENCE');
-    const estimates=SELECTIONS[result.market].flatMap(outcome=>{
+    // Read only genuine rows, never the separate estimates built during this pass.
+    const estimates=pair.flatMap((targetBookmaker,index)=>{
+     const sourceBookmaker=pair[1-index];
+     const source=result.rows.find(r=>r.bookmaker===sourceBookmaker&&r.role!=='FALLBACK_REFERENCE');
+     const target=result.rows.find(r=>r.bookmaker===targetBookmaker&&r.role!=='FALLBACK_REFERENCE');
+     return SELECTIONS[result.market].flatMap(outcome=>{
       const own=target?.cells.find(c=>c.outcome===outcome);
       if(own?.priceKind==='REAL'&&own.state==='ACTIVE'&&own.decimalOdds!==null)return [];
       const cell=source?.cells.find(c=>c.outcome===outcome);if(!cell)return [];
       const estimate=calculatedEstimate({fixtureId:snapshot.fixtureId!,market:result.market,outcome,line:result.line,
-        target:pair[1],sourceBookmaker:pair[0],sourceName:source!.name,source:cell,now});return estimate?[estimate]:[];
+        target:targetBookmaker,sourceBookmaker,sourceName:source!.name,source:cell,now});return estimate?[estimate]:[];
+     });
     });
     if(estimates.length)result={...result,estimates};
   }

@@ -10,7 +10,6 @@ export function ReferenceOdds({quote,uiLocale}:{quote:IndicativeQuote;uiLocale:S
  return <span className="odds-reference-cell" role="note" title={`${disclaimer} ${attribution}`}
    data-reference-outcome={quote.outcome} data-reference-market={quote.market} data-reference-source={quote.bookmaker}>
    <ApproximatePrice className="odds-reference-price" value={Number(quote.decimalOdds).toFixed(2)} label={label}/>
-   <small>{quote.bookmakerName} · {label}</small>
    <span className="sr-only">{disclaimer} {attribution}</span>
  </span>;
 }

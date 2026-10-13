@@ -27,6 +27,7 @@ describe('My Slip selected-leg list',()=>{
     expect(html.match(/class="slip-remove"/g)?.length).toBe(3);
     expect(html.match(/class="slip-item"/g)?.length).toBe(3);
     expect(html).not.toContain('slip-leg-books');expect(html).not.toContain('Current price');
+    expect(html).not.toContain('odds-approx-mark');expect(html).not.toContain('<small>Real quote</small>');
   });
   it('drops the middle leg from the visible list when that canonical selection is removed',()=>{
     const f=comparisonFixture();const selections=saved(f).filter((_,i)=>i!==1);

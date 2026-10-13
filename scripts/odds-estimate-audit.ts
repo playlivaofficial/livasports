@@ -25,7 +25,7 @@ try{
     const estimates=c.estimates?.filter(e=>e.targetBookmaker===book)??[];
     for(const e of estimates){
      const source=c.rows.find(r=>r.bookmaker===e.sourceBookmaker)?.cells.find(q=>q.outcome===e.outcome);
-     if(e.sourceBookmaker!==pair[0]||book!==pair[1]||e.decimalOdds!==minusTenPercent(source?.decimalOdds??'')||source?.priceKind!=='REAL'||
+     if(e.sourceBookmaker!==pair.find(id=>id!==book)||e.decimalOdds!==minusTenPercent(source?.decimalOdds??'')||source?.priceKind!=='REAL'||
        genuine.some(q=>q.outcome===e.outcome)||e.executable||e.affiliateEligible)violations++;
     }
     rows.push({geo,bookmaker:book,fixtureId:f.id,publicId:f.public_id,competition:f.competition,home:f.home,away:f.away,kickoff:f.kickoff,market,

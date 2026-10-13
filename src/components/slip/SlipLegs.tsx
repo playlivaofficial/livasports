@@ -26,7 +26,6 @@ export function SlipLegs({uiLocale,selections,resolvedByKey,comparison,checking,
   resolvedAt:string|null;now:number;onRemove:(selection:SavedSelection,index:number)=>void;onNavigate?:()=>void;onConfirm?:(selection:SavedSelection,price:ReferencePrice)=>void;
 }){
   const text=slipCopy[uiLocale];
-  const approximateLabel=uiLocale==='br'?'preço aproximado':uiLocale==='en'?'approximate price':'cuota aproximada';
   const books=comparison?.bookmakers??[];
   return <ol className="slip-list" aria-label={`${selections.length} ${selections.length===1?text.selection:text.selections}`}>
     {selections.map((s,index)=>{
@@ -59,17 +58,15 @@ export function SlipLegs({uiLocale,selections,resolvedByKey,comparison,checking,
         </div>
         <p className="slip-market"><span>{text.markets[s.market]}</span><strong>{selectionLabel(s,uiLocale,fixture)}</strong></p>
         <div className="slip-pick">
-          {price?<strong className="slip-price"><ApproximatePrice value={price} label={coverageLabel}/></strong>:<span className="slip-no-price">{checking?text.checking:'—'}</span>}
-          <small>{coverageLabel}</small>
+          {price?<strong className="slip-price" title={view?.price?.bookmakerName}><ApproximatePrice approximate={indicative} value={price} label={`${coverageLabel} · ${view?.price?.bookmakerName??''}`}/></strong>:<span className="slip-no-price">{checking?text.checking:'—'}</span>}
         </div>
-        {view?.price?<small>{view.price.bookmakerName}</small>:null}
         {!checking&&!view?.price&&accepted?<small>{uiLocale==='en'?'Suspended selection':uiLocale==='br'?'Seleção suspensa':'Selección suspendida'} · {bookmakerConfig(accepted.book)?.displayName??accepted.book} · {accepted.price}</small>:null}
         {!view?.price&&view?.alternative&&onConfirm?<button type="button" className="slip-share" onClick={()=>onConfirm(s,view.alternative!)}>
           {uiLocale==='en'?'Confirm current odds':uiLocale==='br'?'Confirmar cotação atual':'Confirmar cuota actual'} · {view.alternative.bookmakerName} · {formatSlipOdds(view.alternative.decimalOdds,uiLocale)}
         </button>:null}
         {indicative&&view?.price?.reference?<p className="slip-comparison-note">{view.price.reference.bookmakerName} · {view.price.reference.sourceGeo} · {new Date(view.price.reference.observedAt).toISOString().slice(11,16)} UTC<br/>{uiLocale==='en'?'Information only — not an executable bookmaker offer.':uiLocale==='br'?'Somente informação — não é uma oferta de aposta.':'Solo información — no es una oferta ejecutable.'}<br/><small>{view.price.reference.quoteId}</small></p>:null}
         {view?.state==='PRICE_CHANGED'&&view.previousDecimalOdds&&view.price&&formatSlipOdds(view.previousDecimalOdds,uiLocale)&&price?
-          <p className="slip-reprice"><ApproximatePrice value={formatSlipOdds(view.previousDecimalOdds,uiLocale)!} label={approximateLabel}/> → <ApproximatePrice value={price} label={approximateLabel}/></p>:null}
+          <p className="slip-reprice"><ApproximatePrice approximate={indicative} value={formatSlipOdds(view.previousDecimalOdds,uiLocale)!} label={coverageLabel}/> → <ApproximatePrice approximate={indicative} value={price} label={coverageLabel}/></p>:null}
         {view?.state!=='CURRENT'||missing.length?<div className={`slip-state${missing.length?' is-partial':''}`}>
           <span>{missing.length||(view&&view.state!=='CURRENT')?'! ':view?.state==='CURRENT'?'✓ ':''}{status}</span>
         </div>:null}
