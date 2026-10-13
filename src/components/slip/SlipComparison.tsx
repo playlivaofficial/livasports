@@ -12,7 +12,7 @@ import {ApproximatePrice} from '@/components/odds/ApproximatePrice';
 import {BookmakerLogo} from '@/components/odds/BookmakerLogo';
 import type {BookmakerId} from '@/odds/registry';
 import {estimateLabels} from '@/odds/calculated-estimate';
-import {CalculatedPrice,EstimateDisclaimer} from '@/components/odds/CalculatedPrice';
+import {CalculatedPrice} from '@/components/odds/CalculatedPrice';
 import {selectionLabel} from '@/slip/localization';
 
 function missingQuotes(book:BookmakerSlip){
@@ -59,19 +59,16 @@ export function SlipComparison({locale,selections,value,checking,uiLocale,stake,
           <header><h4 id={`slip-bookmaker-${b.bookmakerId}`}><BookmakerLogo bookmaker={b.bookmakerId} uiLocale={copyLocale} sources={b.selectionQuotes.map(q=>({priceKind:q.priceKind??null}))} context={{locale,placement:'slip_bookmaker_comparison',bookmaker:b.bookmakerId as BookmakerId,selections:selections.map(wireSelection),...(validSlipId(slipId)?{slipId}:{})}}/></h4><span aria-label={`${text.available}: ${b.availableSelectionCount}/${b.requiredSelectionCount}`}>{b.availableSelectionCount}/{b.requiredSelectionCount}</span></header>
           {!b.complete?<p className="slip-coverage-state">{text.partial}</p>:null}
           {b.complete&&combined?<div className="slip-combined-block">
-            <p className="slip-combined"><span>{text.combined} · {b.estimated?estimateText.notExecutable:'Real'}</span><strong><ApproximatePrice value={combined} label={b.estimated?estimateText.notExecutable:estimateText.real}/></strong></p>
+            <p className="slip-combined"><span>{text.combined}</span><strong><ApproximatePrice approximate={b.estimated} value={combined} label={b.estimated?estimateText.notExecutable:estimateText.real}/></strong></p>
             {estimatedLabel?<p className="slip-return"><span>{b.estimated?estimateText.indicativeReturn:estimateText.actualReturn}</span><strong>{estimatedLabel}</strong></p>:b.complete&&stakeOk?<p className="slip-comparison-note">{text.unavailable}</p>:null}
           </div>:b.complete?<p className="slip-comparison-note">{text.unavailable}</p>:missing.length?null:<p className="slip-comparison-note">{text.unavailable}</p>}
           {calculated.length?<div className="slip-indicative-comparison" data-executable="false">
-            <EstimateDisclaimer locale={copyLocale}/>
-            <p className="slip-comparison-note">{estimateText.actualUnavailable}</p>
             {indicative?<p className="slip-combined"><span>{estimateText.indicativeCombined}</span><strong><ApproximatePrice value={indicative} label={estimateText.notExecutable}/></strong></p>:null}
             {indicativeReturn?<p className="slip-return"><span>{estimateText.indicativeReturn}</span><strong>≈ {formatMoney(indicativeReturn,currencyLocale)}</strong></p>:null}
             <ul className="slip-calculated-legs">{calculated.map(q=><li key={`${q.selection.fixturePublicId}-${q.selection.market}-${q.selection.outcome}`}>
               <span>{q.fixture?`${q.fixture.home} vs ${q.fixture.away}`:q.selection.fixturePublicId} · {selectionLabel(q.selection,copyLocale,q.fixture)}</span>
-              <CalculatedPrice estimate={q.estimate!} locale={copyLocale}/><small>{estimateText.source} {q.estimate!.sourceBookmakerName}</small>
+              <CalculatedPrice estimate={q.estimate!} locale={copyLocale}/>
             </li>)}</ul>
-            <p className="slip-comparison-note">{estimateText.notExecutable}</p>
           </div>:null}
           {b.ctaState==='ENABLED'?<AffiliateLink compact className="slip-bookmaker-cta" uiLocale={copyLocale} context={{locale,placement:'slip_bookmaker_comparison',bookmaker:b.bookmakerId as BookmakerId,selections:selections.map(wireSelection),...(validSlipId(slipId)?{slipId}:{})}}>{text.ctaAt(bookName)} <span aria-hidden="true">↗</span></AffiliateLink>:b.complete?<p className="slip-comparison-note">{text.gated}</p>:null}
         </article>;

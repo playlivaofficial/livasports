@@ -139,11 +139,12 @@ export function buildSlipComparison(selections:CanonicalSelection[],locale:SiteL
   })}));
   const pair=comparisonPair(eligible.filter(c=>c.role!=='FALLBACK_REFERENCE').map(c=>c.bookmakerId));
   const bookmakers=withProxies.map(({config,quotes})=>summarize(config,quotes.map((quote,index)=>{
-    if(!pair||config.bookmakerId!==pair[1]||quote.decimalOdds)return quote;
-    const source=sourceQuotes.get(pair[0])?.[index];if(!source||source.state!=='CURRENT'||source.priceKind!=='REAL')return quote;
+    if(!pair||!pair.includes(config.bookmakerId)||quote.decimalOdds)return quote;
+    const sourceBookmaker=pair[0]===config.bookmakerId?pair[1]:pair[0];
+    const source=sourceQuotes.get(sourceBookmaker)?.[index];if(!source||source.state!=='CURRENT'||source.priceKind!=='REAL')return quote;
     const estimate=calculatedEstimate({fixtureId:selections[index].fixturePublicId,market:selections[index].market,outcome:selections[index].outcome,line:selections[index].line,
-      target:pair[1],sourceBookmaker:pair[0],sourceName:source.sourceBookmakerName!,now,source:{outcome:selections[index].outcome,
-        decimalOdds:source.decimalOdds,state:'ACTIVE',best:false,expiresAt:source.expiresAt,priceKind:source.priceKind,targetBookmaker:pair[0],
+      target:config.bookmakerId,sourceBookmaker,sourceName:source.sourceBookmakerName!,now,source:{outcome:selections[index].outcome,
+        decimalOdds:source.decimalOdds,state:'ACTIVE',best:false,expiresAt:source.expiresAt,priceKind:source.priceKind,targetBookmaker:sourceBookmaker,
         sourceBookmaker:source.sourceBookmakerId,sourceBookmakerName:source.sourceBookmakerName,sourceQuoteId:source.sourceQuoteId,sourceObservedAt:source.sourceObservedAt}});
     return estimate?{...quote,estimate}:quote;
   })));

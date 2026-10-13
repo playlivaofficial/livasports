@@ -23,26 +23,28 @@ function snapshot(pair:readonly string[],market:OddsMarket):OddsReadSnapshot {
  return {fixtureId:'f',fixtureStatus:'SCHEDULED',kickoff,quotes,referenceGapBookmakers:pair,eligibleBookmakers:pair.map((id,priority)=>({id,name:id,priority})),insuranceEnabled:false};
 }
 afterEach(()=>{vi.restoreAllMocks();vi.unstubAllEnvs();});
-describe('ordered local −10% comparison; never native bookmaker truth',()=>{
+describe('bidirectional local −10% comparison; never native bookmaker truth',()=>{
  it.each([['2.00','1.8'],['2.50','2.25'],['3.00','2.7'],['4.00','3.6'],['1.05','0.945'],['2.123456789012345678','1.9111111101111111102']])('calculates %s exactly as %s without clamping', (source,expected)=>expect(minusTenPercent(source)).toBe(expected));
  it.each(['0','1','-2','NaN','1001','2e0',''])('rejects invalid genuine source %s',source=>expect(minusTenPercent(source)).toBeNull());
- for(const geo of CORE_GEOS)for(const market of Object.keys(SELECTIONS) as OddsMarket[]){
-  it(`${geo}/${market}: real wins; missing outcomes get only separate non-executable estimates`,()=>{
+ for(const geo of CORE_GEOS)for(const market of Object.keys(SELECTIONS) as OddsMarket[])for(const targetIndex of [0,1]){
+  it(`${geo}/${market}/missing-${targetIndex}: real wins; missing outcomes get only separate non-executable estimates`,()=>{
    const pair=primaryVisibleBookmakers(geo),s=snapshot(pair,market),outcomes=SELECTIONS[market];
+   const target=pair[targetIndex],source=pair[1-targetIndex];
    expect(buildComparison(s,market,now).estimates).toBeUndefined();
-   s.quotes=s.quotes.filter(q=>q.bookmaker!==pair[1]||q.outcome===outcomes[0]);
-   const result=buildComparison(s,market,now,{[pair[1]]:'approved-actual-only'});
+   s.quotes=s.quotes.filter(q=>q.bookmaker!==target||q.outcome===outcomes[0]);
+   const result=buildComparison(s,market,now,{[target]:'approved-actual-only'});
    expect(result.estimates).toHaveLength(outcomes.length-1);
    expect(result.estimates?.some(e=>e.outcome===outcomes[0])).toBe(false);
-   expect(result.rows[1].cells[0]).toMatchObject({decimalOdds:'3',priceKind:'REAL',sourceBookmaker:pair[1]});
+   expect(result.rows[targetIndex].cells[0]).toMatchObject({decimalOdds:String(2+targetIndex),priceKind:'REAL',sourceBookmaker:target});
    for(const estimate of result.estimates??[]){
-    expect(estimate).toMatchObject({targetBookmaker:pair[1],sourceBookmaker:pair[0],executable:false,affiliateEligible:false,market,line:result.line});
+    expect(estimate).toMatchObject({targetBookmaker:target,sourceBookmaker:source,executable:false,affiliateEligible:false,market,line:result.line});
     expect(estimate.decimalOdds).toBe(minusTenPercent(estimate.sourceDecimalOdds));
-    expect(result.rows[1].cells.find(c=>c.outcome===estimate.outcome)).toMatchObject({decimalOdds:null,priceKind:null,best:false});
+    expect(result.rows[targetIndex].cells.find(c=>c.outcome===estimate.outcome)).toMatchObject({decimalOdds:null,priceKind:null,best:false});
+    expect(currentEstimate(estimate,now)).toBe(true);
    }
    expect(result.eligiblePrices).toBe(outcomes.length+1);
    const publicResult=publicOddsComparisons([result])[0];
-   expect(publicResult.estimates?.every(e=>!('sourceQuoteId' in e)&&e.sourceBookmaker===pair[0])).toBe(true);
+   expect(publicResult.estimates?.every(e=>!('sourceQuoteId' in e)&&e.sourceBookmaker===source)).toBe(true);
    if(market==='MATCH_WINNER')expect(listingMatchWinnerOdds(s,now).calculatedOdds).toEqual(publicResult.estimates);
   });
  }
@@ -50,9 +52,12 @@ describe('ordered local −10% comparison; never native bookmaker truth',()=>{
   const s=snapshot(['betsson','bwin'],'MATCH_WINNER');s.quotes=s.quotes.filter(q=>q.bookmaker==='betsson').map(q=>({...q,status}));
   expect(buildComparison(s,'MATCH_WINNER',now).estimates).toBeUndefined();
  });
- it('does not reverse the pair, chain, cross GEOs, or invent odds with no source',()=>{
+ it('reverses from genuine prices only, never chains, crosses GEOs, or invents odds with no source',()=>{
   const s=snapshot(['betsson','bwin'],'MATCH_WINNER');s.quotes=s.quotes.filter(q=>q.bookmaker==='bwin');
-  expect(buildComparison(s,'MATCH_WINNER',now).estimates).toBeUndefined();
+  const result=buildComparison(s,'MATCH_WINNER',now);
+  expect(result.estimates).toHaveLength(3);
+  expect(result.estimates!.every(e=>e.sourceBookmaker==='bwin'&&e.targetBookmaker==='betsson')).toBe(true);
+  expect(result.rows[0].cells.every(c=>c.decimalOdds===null&&c.priceKind===null)).toBe(true);
   s.quotes=[];expect(buildComparison(s,'MATCH_WINNER',now).estimates).toBeUndefined();
   expect(comparisonPair(['betsson','1xbet'])).toBeNull();expect(comparisonPair(['betsson','bwin','winpot.mx'])).toBeNull();
  });
@@ -67,7 +72,33 @@ describe('ordered local −10% comparison; never native bookmaker truth',()=>{
   s.fixtureStatus='FINISHED';expect(buildComparison(s,'MATCH_WINNER',now).estimates).toBeUndefined();
  });
 });
+ it('handles alternating outcome gaps without crossing outcomes or feeding a calculation back',()=>{
+  const s=snapshot(['betsson','winpot.mx'],'MATCH_WINNER');
+  s.quotes=s.quotes.filter(q=>q.bookmaker==='betsson'?q.outcome==='HOME':q.outcome==='DRAW');
+  const result=buildComparison(s,'MATCH_WINNER',now);
+  expect(result.estimates?.map(e=>[e.targetBookmaker,e.outcome,e.sourceBookmaker,e.decimalOdds])).toEqual([
+   ['betsson','DRAW','winpot.mx','3.6'],['winpot.mx','HOME','betsson','1.8'],
+  ]);
+  expect(result.rows.every(r=>r.cells.find(c=>c.outcome==='AWAY')?.decimalOdds===null)).toBe(true);
+ });
 describe('slip canonical integrity and actual versus indicative returns',()=>{
+ for(const geo of CORE_GEOS)for(const count of [1,3,5,10])for(const sourceIndex of [0,1]){
+  it(`${geo}/${count} legs/source-${sourceIndex}: both directions preserve identity, actual availability and non-executable estimates`,()=>{
+   const f=comparisonFixture(count,now),pair=primaryVisibleBookmakers(geo),locale=geo.toLowerCase() as 'mx'|'co'|'pe';
+   const source=pair[sourceIndex],target=pair[1-sourceIndex];
+   f.data.bookmakers=f.data.bookmakers.map((b,i)=>({...b,bookmakerId:pair[i],displayName:pair[i],geoEligibility:{locale,eligible:true},insuranceEnabled:false}));
+   for(const read of f.data.fixtures.values())read.snapshot.quotes=[{...read.snapshot.quotes[sourceIndex],bookmaker:source,bookmakerName:source,bookmakerId:source}];
+   const result=buildSlipComparison(f.selections,locale,f.data.fixtures,f.data.bookmakers,now);
+   const actual=result.bookmakers.find(b=>b.bookmakerId===source)!,estimated=result.bookmakers.find(b=>b.bookmakerId===target)!;
+   expect(actual.complete).toBe(true);expect(actual.calculatedSelectionCount).toBe(0);
+   expect(estimated).toMatchObject({complete:false,availableSelectionCount:0,combinedDecimalOdds:null,calculatedSelectionCount:count,indicativeComplete:true,ctaState:'INCOMPLETE'});
+   expect(estimated.selectionQuotes.map(q=>q.selection)).toEqual(f.selections);
+   expect(estimated.selectionQuotes.every(q=>q.estimate?.sourceBookmaker===source&&q.estimate?.targetBookmaker===target&&q.decimalOdds===null&&currentEstimate(q.estimate,now))).toBe(true);
+   expect(estimated.indicativeCombinedDecimalOdds).toBe(multiplyIndicativeFactors(actual.selectionQuotes.map(q=>minusTenPercent(q.decimalOdds!)!)));
+   expect(guardSlipComparison(result,count,now,false).bookmakers.every(b=>!b.indicativeComplete)).toBe(true);
+   expect(guardSlipComparison(result,count,Date.parse(estimated.selectionQuotes[0].estimate!.expiresAt)).bookmakers.every(b=>!b.indicativeComplete)).toBe(true);
+  });
+ }
  it.each([1,3,5,10])('keeps all %s canonical legs with separate mathematical total, no target quote or CTA',count=>{
   const f=comparisonFixture(count,now);f.data.bookmakers=f.data.bookmakers.map(b=>({...b,insuranceEnabled:false}));
   for(const read of f.data.fixtures.values())read.snapshot.quotes=read.snapshot.quotes.filter(q=>q.bookmaker==='betsson');
@@ -98,16 +129,17 @@ describe('slip canonical integrity and actual versus indicative returns',()=>{
   expect(indicativePotentialReturn('10','0.945')).toBe('9.50');expect(potentialReturn('10','0.945')).toBeNull();
   expect(indicativePotentialReturn('10','1.8')).toBe('18.00');expect(potentialReturn('10','2')).toBe('20.00');
  });
- it('rejects direct admission of the calculated target price and protects the already signed source selection',async()=>{
+ it.each([0,1])('rejects direct admission of calculated target from source %s and protects the signed source selection',async(sourceIndex)=>{
   vi.stubEnv('VERCEL','1');const key='unit-test-quote-identity-only-not-production';vi.stubEnv('AFFILIATE_SIGNING_SECRET',key);vi.spyOn(Date,'now').mockReturnValue(now);
   const f=comparisonFixture(1,now),s=f.selections[0],read=f.data.fixtures.get(s.fixturePublicId)!;
-  f.data.bookmakers.forEach(b=>b.insuranceEnabled=false);read.snapshot.quotes=read.snapshot.quotes.filter(q=>q.bookmaker==='betsson');
-  const source=selectablePrices(s,read,now)[0],lock:SelectionLock={v:1,key:selectionKey(s),geo:'CO',book:'betsson',quote:source.sourceQuoteId!,provider:'ODDSPAPI',price:source.decimalOdds,observed:source.sourceObservedAt!,expires:Date.parse(source.expiresAt)};
+  const sourceBook=['betsson','bwin'][sourceIndex],targetBook=['bwin','betsson'][sourceIndex];
+  f.data.bookmakers.forEach(b=>b.insuranceEnabled=false);read.snapshot.quotes=read.snapshot.quotes.filter(q=>q.bookmaker===sourceBook);
+  const source=selectablePrices(s,read,now)[0],lock:SelectionLock={v:1,key:selectionKey(s),geo:'CO',book:sourceBook,quote:source.sourceQuoteId!,provider:'ODDSPAPI',price:source.decimalOdds,observed:source.sourceObservedAt!,expires:Date.parse(source.expiresAt)};
   const bound={...s,receipt:signSelection(lock,key)};
-  const req=new Request('https://livasports.com/api/slip/select',{method:'POST',headers:{'content-type':'application/json','x-vercel-ip-country':'CO'},body:JSON.stringify({locale:'co',selection:s,bookmaker:'bwin',decimalOdds:'1.89'})});
+  const req=new Request('https://livasports.com/api/slip/select',{method:'POST',headers:{'content-type':'application/json','x-vercel-ip-country':'CO'},body:JSON.stringify({locale:'co',selection:s,bookmaker:targetBook,decimalOdds:minusTenPercent(source.decimalOdds)})});
   expect((await selectSlipRequest(req,async()=>f.data.fixtures,now,key)).status).toBe(409);
-  expect(await currentSlipDestination('bwin',[bound],'co',async()=>f.data,'CO')).toBeNull();
-  expect(resolveLockedSelection(bound,read,lock,'CO',now).price?.bookmaker).toBe('betsson');
+  expect(await currentSlipDestination(targetBook,[bound],'co',async()=>f.data,'CO')).toBeNull();
+  expect(resolveLockedSelection(bound,read,lock,'CO',now).price?.bookmaker).toBe(sourceBook);
   read.snapshot.quotes[0].status='WITHDRAWN';const resolved=resolveLockedSelection(bound,read,lock,'CO',now);
   expect(resolved.selection.fixturePublicId).toBe(s.fixturePublicId);expect(resolved.price).toBeNull();
   expect(enforceSelectionLocks(buildSlipComparison([bound],'co',f.data.fixtures,f.data.bookmakers,now),[resolved]).bookmakers.every(b=>!b.indicativeComplete&&!b.complete)).toBe(true);

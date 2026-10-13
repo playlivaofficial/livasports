@@ -8,14 +8,10 @@ import {ApproximatePrice} from './ApproximatePrice';
 export function CalculatedPrice({estimate,locale}:{estimate:CalculatedOddsEstimate;locale:GeoLocale}){
   const text=estimateLabels(locale);
   const provenance=`${text.source} ${estimate.sourceBookmakerName}: ${estimate.sourceDecimalOdds} × 0.90 · ${estimate.sourceObservedAt}`;
+  const low=Number(estimate.decimalOdds)<1?` · ${text.low}`:'';
   return <span className="calculated-price" data-price-kind="CALCULATED_MINUS_10" data-source-bookmaker={estimate.sourceBookmaker}
-    title={`${text.short} · ${text.disclaimer}. ${provenance}`}>
+    title={`${text.short} · ${text.disclaimer}. ${provenance}${low}`}>
     <ApproximatePrice value={formatSlipOdds(estimate.decimalOdds,locale)??'—'} label={`${text.short}. ${text.disclaimer}`}/>
-    <small>−10%</small><span className="sr-only">{provenance}</span>
-    {Number(estimate.decimalOdds)<1?<span className="calculated-low-factor">{text.low}</span>:null}
+    <span className="sr-only">{provenance}{low}</span>
   </span>;
-}
-export function EstimateDisclaimer({locale,source}:{locale:GeoLocale;source?:string}){
-  const text=estimateLabels(locale);
-  return <p className="odds-estimate-disclaimer">{text.short} · {text.disclaimer}{source?<> · {text.source} {source}</>:null}</p>;
 }

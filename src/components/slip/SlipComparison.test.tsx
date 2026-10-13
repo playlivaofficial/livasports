@@ -15,10 +15,10 @@ const CARDS=PUBLIC_CARD_IDS.length;
 const INSPECTED=PUBLIC_CARD_IDS[1];
 
 describe('P5 compact comparison / internal provenance',()=>{
-  it('shows the requested approximation symbol while preserving the genuine quote label',()=>{
+  it('shows genuine combined prices without an approximation while retaining accessible identity',()=>{
     const f=comparisonFixture(1),value=buildSlipComparison(f.selections,'co',f.data.fixtures,f.data.bookmakers,f.now);
     const html=renderToStaticMarkup(<SlipComparison locale="co" uiLocale="en" stake="10" selections={f.selections.map(s=>({...s,addedAt:new Date(f.now).toISOString()}))} checking={false} value={value}/>);
-    expect(value.bookmakers.some(b=>b.complete&&!b.estimated)).toBe(true);expect(html).toContain('odds-approx-mark');expect(html).toContain('Real bookmaker quote');expect(html).not.toContain('CALCULATED_MINUS_10');
+    expect(value.bookmakers.some(b=>b.complete&&!b.estimated)).toBe(true);expect(html).not.toContain('odds-approx-mark');expect(html).toContain('Real bookmaker quote');expect(html).not.toContain('CALCULATED_MINUS_10');
   });
   it.each([['mx','MX$'],['co','COP$'],['pe','S/']] as const)('uses the trusted %s currency instead of English presentation currency',(locale,symbol)=>{
     const f=comparisonFixture(),value=buildSlipComparison(f.selections,locale,f.data.fixtures,f.data.bookmakers,f.now);
