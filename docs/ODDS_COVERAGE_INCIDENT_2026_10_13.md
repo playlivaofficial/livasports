@@ -101,4 +101,39 @@ An optional `--canary` exists only for a specifically controlled upstream test: 
 
 ## Release acceptance
 
-PR, hosted CI/review, production SHA and rendered MX/CO/PE acceptance: pending release gates. The incident must not be called fully resolved until a successful bounded current upstream check or successful automatic refresh closes the remaining live-provider uncertainty.
+Application fix merged through [PR #60](https://github.com/playlivaofficial/livasports/pull/60). Feature head: `211d6bbaf0c415a522e1840ccebe615ca237fee1`. Merge and verified production code SHA: `3f37b477ca61b61b2459a985837b0ca8bdb6e1b3`. Hosted `verify` and Vercel preview passed. Author review was recorded; a requested automated review did not return an independent approval. No required approval or failing check was bypassed.
+
+The existing LivaSports production project deployed that code as **READY**, deployment `CHL5xsYCfwQKGknkaFKTogBM9RnT`. The apex health endpoint confirmed the same SHA. HTTPS and MX/CO/PE routes passed; www returns 308 to the apex. This document records acceptance of that application release; a later documentation-only commit does not change the tested application code.
+
+### Exhaustive rendered 1X2 parity
+
+Actual production browser DOM was compared against every expected selectable 1X2 price in the same 308-fixture cohort. The default seven-calendar-day board contained 300 cohort fixtures; eight additional fixtures belonged to the October 20 local date in Asia/Tbilisi. Selecting that date exposed the remaining eight. This calendar/rolling-168-hour difference is not missing ingestion.
+
+| GEO | Cohort fixture rows verified | Genuine 1X2 prices compared | Missing/mismatched prices | Bookmaker fixtures with selectable 1X2 |
+|---|---:|---:|---:|---|
+| MX | 308 | 915 | **0** | Betsson 174; Winpot MX 131 |
+| CO | 308 | 1,056 | **0** | Betsson 174; bwin 178 |
+| PE | 308 | 807 | **0** | Inkabet 167; 1xBet 102 |
+
+Total: **2,778 rendered genuine prices**, zero lost/disabled/mismatched expected prices. These are outcome-level comparisons, not counts inferred from HTTP 200. Fixtures with only totals/BTTS explain differences from the “any current price” counts above. All-market database/source audit separately checked 8,771 exact stored observations with zero price/status mismatch, zero duplicate odds rows, zero orphan odds rows and no running ingestion job at the integrity checkpoint.
+
+### Rendered and functional acceptance
+
+- MX/CO/PE at 320, 390, 430 and 1440 pixels: no page horizontal overflow; separate stable bookmaker columns, preserved sponsor banners and consistent logos. Local inspection retained 52-pixel odds targets and 80×26-pixel logo artwork.
+- Match Center loads valid odds at scroll position zero, before intersection with the odds section. Initial loading is visibly distinct from confirmed absence.
+- Recovered CO Bucaramanga–Rionegro: genuine bwin 1.95/3.40/3.50, with no invented Betsson prices. A signed HOME 1.95 selection was admitted and retained bwin identity. The pre-existing finished selection remained suspended, so the two-leg slip honestly showed Betsson 0/2 and bwin 1/2 with no complete-slip affiliate action. Only the newly added test selection was removed; the original selection was preserved.
+- MX Millwall–Swansea: Betsson and Winpot show independent prices for 1X2, OU2.5 and BTTS. PE same fixture: Inkabet and 1xBet independently show all three markets; totals and BTTS tabs were clicked and inspected. No cross-book substitution was used.
+- Local API comparison covered 24 fixture/GEO cases across eight competitions and all three markets, with zero mismatch and `providerRequests=0`. Correct-origin zero-priced admission was rejected in each GEO. Existing signed identity, changed-price confirmation, race, suspension, expiry and incomplete-accumulator tests passed.
+- Public production odds API returned `providerRequests=0`; a locale parameter alone did not override real commercial GEO. Recovery and ordinary navigation consumed no provider requests.
+- Production secret scan inspected 15 documents/chunks: zero leaks and zero client secret references. No credentials were committed or exposed.
+- Browser console reported an existing third-party `1xaff.pe/checker/checker.js` cookie-access SecurityError inside the sponsor iframe. The iframe intentionally omits `allow-same-origin`; this security boundary was not weakened. The banner, odds and slip remained functional. This is recorded rather than claiming a completely warning-free third-party console.
+
+Screenshots are retained in the task's local evidence directory: `odds-incident-co-desktop.jpg`, `odds-incident-mx-mobile.jpg`, `odds-incident-pe-desktop.jpg`, `odds-incident-pe-mobile.jpg`, and `odds-incident-slip-mobile.jpg`. Browser checks used the existing signed owner GEO preview; a physical-location test from each country was not performed.
+
+At 09:30:19 UTC, an automatic scheduler tick completed PARTIAL with no job error and next due 16:00 UTC. The request ledger confirmed no further provider attempts after the bounded 08:43 failure. The runtime is scheduled and alive, but **not all feeds are currently refreshing successfully**.
+
+### Final incident status: PARTIAL — released repair; upstream verification blocked
+
+All known losses against still-valid saved upstream evidence are repaired and production-rendered parity passes. The incident is **not declared fully resolved**: the current OddsPapi HTTP 500 prevents proving newly available or omitted upstream coverage. Existing suspended/expired/missing selections remain blocked; still-valid stored real prices remain usable only until their unchanged expiry.
+
+Next closure gate: a successful quota-permitted automatic refresh (or one specifically bounded canary after provider recovery), followed by the same read-only audit. Do not repeat failed probes, extend freshness, invent missing prices or change subscriptions to force a green status. No additional owner authorization is needed for the deployed repair; external provider recovery remains necessary for final live-coverage proof.
