@@ -4,6 +4,7 @@ import {BOOKMAKER_REGISTRY,isVisibleBookmaker} from './registry';
 import {resolveInsurance} from './insurance';
 import {referenceSourceAllowed} from './reference-policy';
 import type {IndicativeQuote} from './types';
+import {calculatedEstimate,comparisonPair} from './calculated-estimate';
 const UNION_BOOKMAKERS=BOOKMAKER_REGISTRY.map(b=>({bookmaker:b.canonicalId,name:b.displayName}));
 
 export function publicFeedCount(snapshot:OddsReadSnapshot):number {
@@ -98,6 +99,19 @@ export function buildComparison(snapshot:OddsReadSnapshot,market:OddsMarket,now=
   return withReferences(result,snapshot,now);
 }
 function withReferences(result:OddsComparison,snapshot:OddsReadSnapshot,now:number):OddsComparison {
+  const pair=comparisonPair(snapshot.referenceGapBookmakers??snapshot.eligibleBookmakers?.map(b=>b.id)??[]);
+  if(pair&&snapshot.fixtureId&&snapshot.fixtureStatus==='SCHEDULED'&&Date.parse(snapshot.kickoff)>now){
+    const source=result.rows.find(r=>r.bookmaker===pair[0]&&r.role!=='FALLBACK_REFERENCE');
+    const target=result.rows.find(r=>r.bookmaker===pair[1]&&r.role!=='FALLBACK_REFERENCE');
+    const estimates=SELECTIONS[result.market].flatMap(outcome=>{
+      const own=target?.cells.find(c=>c.outcome===outcome);
+      if(own?.priceKind==='REAL'&&own.state==='ACTIVE'&&own.decimalOdds!==null)return [];
+      const cell=source?.cells.find(c=>c.outcome===outcome);if(!cell)return [];
+      const estimate=calculatedEstimate({fixtureId:snapshot.fixtureId!,market:result.market,outcome,line:result.line,
+        target:pair[1],sourceBookmaker:pair[0],sourceName:source!.name,source:cell,now});return estimate?[estimate]:[];
+    });
+    if(estimates.length)result={...result,estimates};
+  }
   // A reference fills an outcome gap, never a missing operator's offer. Any
   // eligible local REAL price for this exact outcome suppresses the reference.
   const primary=snapshot.referenceGapBookmakers??snapshot.eligibleBookmakers?.map(b=>b.id)??

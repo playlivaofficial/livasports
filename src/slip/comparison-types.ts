@@ -22,6 +22,8 @@ export interface BookmakerConfig {
   affiliateEligibility:{approved:boolean;destinationConfigured:boolean;destinationType?:'HOMEPAGE'|'SPORTSBOOK'};
 }
 export interface SelectionQuote {
+  /** Non-executable estimate. decimalOdds/state continue to describe the actual target bookmaker. */
+  estimate?:import('@/odds/types').CalculatedOddsEstimate;
   selection:CanonicalSelection;
   fixture:ResolvedSelection['fixture'];
   state:SelectionState;
@@ -37,6 +39,9 @@ export interface SelectionQuote {
   sourceObservedAt:string|null;
 }
 export interface BookmakerSlip extends BookmakerConfig {
+  indicativeCombinedDecimalOdds?:string|null;
+  indicativeComplete?:boolean;
+  calculatedSelectionCount?:number;
   priceClassification:'REAL_COMPLETE'|'ESTIMATED_COMPLETE'|'INCOMPLETE';
   requiredSelectionCount:number;
   availableSelectionCount:number;

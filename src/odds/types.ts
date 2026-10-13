@@ -80,10 +80,18 @@ export interface OddsBookmakerRow { bookmaker: string; name: string; cells: Odds
   affiliateEligible?: boolean;
 }
 export interface OddsComparison {
+  /** Calculated comparison only. Never merged into executable rows, stored odds or quote receipts. */
+  estimates?:CalculatedOddsEstimate[];
   availability?:Record<string,import('./availability').OddsAvailability>;
   references?:IndicativeQuote[];
   market: OddsMarket; line: number | null; rows: OddsBookmakerRow[];
   observedAt: string | null; providerUpdatedAt: string | null; expiresAt: string | null; closesAt?: string | null; eligiblePrices: number;
+}
+export interface CalculatedOddsEstimate {
+  kind:'CALCULATED_MINUS_10';fixtureId:string;market:OddsMarket;outcome:OddsOutcome;line:number|null;
+  scope:'FULL_TIME_REGULATION';targetBookmaker:string;sourceBookmaker:string;sourceBookmakerName:string;
+  sourceDecimalOdds:string;decimalOdds:string;multiplier:'0.90';sourceObservedAt:string;expiresAt:string;
+  sourceQuoteId?:string;executable:false;affiliateEligible:false;
 }
 export interface IndicativeQuote {
   kind:'INDICATIVE';fixtureId:string;providerFixtureId:string;market:OddsMarket;outcome:OddsOutcome;line:number|null;

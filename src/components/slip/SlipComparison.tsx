@@ -5,12 +5,15 @@ import type {BookmakerSlip,SlipComparison as Comparison} from '@/slip/comparison
 import {canonicalSelection,wireSelection,validSlipId,type SavedSelection} from '@/slip/types';
 import {bookmakerShortName,comparisonCopy} from '@/slip/comparison-copy';
 import type {SlipUiLocale} from '@/slip/localization';
-import {formatMoney,formatSlipOdds,parseStake,potentialReturn} from '@/slip/decimal';
+import {formatMoney,formatSlipOdds,parseStake,potentialReturn,indicativePotentialReturn} from '@/slip/decimal';
 import {emitComparisonEvent} from '@/slip/comparison-events';
 import {AffiliateLink} from '@/components/commercial/AffiliateLink';
 import {ApproximatePrice} from '@/components/odds/ApproximatePrice';
 import {BookmakerLogo} from '@/components/odds/BookmakerLogo';
 import type {BookmakerId} from '@/odds/registry';
+import {estimateLabels} from '@/odds/calculated-estimate';
+import {CalculatedPrice,EstimateDisclaimer} from '@/components/odds/CalculatedPrice';
+import {selectionLabel} from '@/slip/localization';
 
 function missingQuotes(book:BookmakerSlip){
   return book.selectionQuotes.filter(q=>q.decimalOdds===null);
@@ -18,7 +21,7 @@ function missingQuotes(book:BookmakerSlip){
 
 export function SlipComparison({locale,selections,value,checking,uiLocale,stake,slipId,currencyLocale=locale}:{locale:SiteLocale;selections:SavedSelection[];value:Comparison|null;checking:boolean;uiLocale?:SlipUiLocale;currencyLocale?:SlipUiLocale;stake:string;slipId?:string}){
   const copyLocale:SlipUiLocale=uiLocale??locale;const text=comparisonCopy[copyLocale];const section=useRef<HTMLElement>(null);
-  const approximateLabel=copyLocale==='br'?'preço aproximado':copyLocale==='en'?'approximate price':'cuota aproximada';
+  const estimateText=estimateLabels(copyLocale);
   const eventSignature=JSON.stringify({locale,selections:selections.map(s=>canonicalSelection(s)),bookmakers:value?.bookmakers??null});
   useEffect(()=>{
     const current=section.current;if(!current)return;
@@ -47,15 +50,29 @@ export function SlipComparison({locale,selections,value,checking,uiLocale,stake,
         const estimatedLabel=estimated?formatMoney(estimated,currencyLocale):null;
         const stakeOk=parseStake(stake)!==null;
         const missing=missingQuotes(b);
+        const indicative=b.indicativeCombinedDecimalOdds&&b.indicativeComplete?formatSlipOdds(b.indicativeCombinedDecimalOdds,copyLocale):null;
+        const indicativeReturn=indicative&&b.indicativeCombinedDecimalOdds?indicativePotentialReturn(stake,b.indicativeCombinedDecimalOdds):null;
+        const calculated=b.selectionQuotes.filter(q=>q.estimate);
         const bookName=bookmakerShortName(b.bookmakerId,b.displayName);
         return <article className="slip-bookmaker" key={b.bookmakerId} aria-labelledby={`slip-bookmaker-${b.bookmakerId}`}
           data-bookmaker={b.bookmakerId} data-complete={b.complete} data-cta={b.ctaState}>
           <header><h4 id={`slip-bookmaker-${b.bookmakerId}`}><BookmakerLogo bookmaker={b.bookmakerId} uiLocale={copyLocale} sources={b.selectionQuotes.map(q=>({priceKind:q.priceKind??null}))} context={{locale,placement:'slip_bookmaker_comparison',bookmaker:b.bookmakerId as BookmakerId,selections:selections.map(wireSelection),...(validSlipId(slipId)?{slipId}:{})}}/></h4><span aria-label={`${text.available}: ${b.availableSelectionCount}/${b.requiredSelectionCount}`}>{b.availableSelectionCount}/{b.requiredSelectionCount}</span></header>
           {!b.complete?<p className="slip-coverage-state">{text.partial}</p>:null}
           {b.complete&&combined?<div className="slip-combined-block">
-            <p className="slip-combined"><span>{text.combined}</span><strong>{b.estimated?<ApproximatePrice value={combined} label={approximateLabel}/>:combined}</strong></p>
-            {estimatedLabel?<p className="slip-return"><span>{text.potentialReturn}</span><strong>{estimatedLabel}</strong></p>:b.complete&&stakeOk?<p className="slip-comparison-note">{text.unavailable}</p>:null}
+            <p className="slip-combined"><span>{text.combined} · {b.estimated?estimateText.notExecutable:'Real'}</span><strong><ApproximatePrice value={combined} label={b.estimated?estimateText.notExecutable:estimateText.real}/></strong></p>
+            {estimatedLabel?<p className="slip-return"><span>{b.estimated?estimateText.indicativeReturn:estimateText.actualReturn}</span><strong>{estimatedLabel}</strong></p>:b.complete&&stakeOk?<p className="slip-comparison-note">{text.unavailable}</p>:null}
           </div>:b.complete?<p className="slip-comparison-note">{text.unavailable}</p>:missing.length?null:<p className="slip-comparison-note">{text.unavailable}</p>}
+          {calculated.length?<div className="slip-indicative-comparison" data-executable="false">
+            <EstimateDisclaimer locale={copyLocale}/>
+            <p className="slip-comparison-note">{estimateText.actualUnavailable}</p>
+            {indicative?<p className="slip-combined"><span>{estimateText.indicativeCombined}</span><strong><ApproximatePrice value={indicative} label={estimateText.notExecutable}/></strong></p>:null}
+            {indicativeReturn?<p className="slip-return"><span>{estimateText.indicativeReturn}</span><strong>≈ {formatMoney(indicativeReturn,currencyLocale)}</strong></p>:null}
+            <ul className="slip-calculated-legs">{calculated.map(q=><li key={`${q.selection.fixturePublicId}-${q.selection.market}-${q.selection.outcome}`}>
+              <span>{q.fixture?`${q.fixture.home} vs ${q.fixture.away}`:q.selection.fixturePublicId} · {selectionLabel(q.selection,copyLocale,q.fixture)}</span>
+              <CalculatedPrice estimate={q.estimate!} locale={copyLocale}/><small>{estimateText.source} {q.estimate!.sourceBookmakerName}</small>
+            </li>)}</ul>
+            <p className="slip-comparison-note">{estimateText.notExecutable}</p>
+          </div>:null}
           {b.ctaState==='ENABLED'?<AffiliateLink compact className="slip-bookmaker-cta" uiLocale={copyLocale} context={{locale,placement:'slip_bookmaker_comparison',bookmaker:b.bookmakerId as BookmakerId,selections:selections.map(wireSelection),...(validSlipId(slipId)?{slipId}:{})}}>{text.ctaAt(bookName)} <span aria-hidden="true">↗</span></AffiliateLink>:b.complete?<p className="slip-comparison-note">{text.gated}</p>:null}
         </article>;
       })}

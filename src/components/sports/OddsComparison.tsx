@@ -16,6 +16,9 @@ import {ApproximatePrice} from '@/components/odds/ApproximatePrice';
 import {matchPath} from '@/match-center/routes';
 import {ReferenceOdds} from '@/components/odds/ReferenceOdds';
 import {oddsAvailabilityLabel} from '@/odds/availability';
+import {currentEstimate,estimateLabels} from '@/odds/calculated-estimate';
+import {CalculatedPrice,EstimateDisclaimer} from '@/components/odds/CalculatedPrice';
+import {formatSlipOdds} from '@/slip/decimal';
 
 const CELLS=[{outcome:OutcomeCode.HOME,label:'1'},{outcome:OutcomeCode.DRAW,label:'X'},{outcome:OutcomeCode.AWAY,label:'2'}] as const;
 type ListingPrice={decimalOdds:number;expiresAt?:string;observedAt:string;priceKind:'REAL'|'PROXY';targetBookmaker:string};
@@ -50,21 +53,26 @@ export function OddsComparison({locale,fixture,emptyLabel,commercialLocale}:{loc
     {books.length?<div className="listing-odds-books">
       {books.map((book,bookIndex)=>{
         const priced=book.cells.some(c=>current(c.price));
+        const estimates=fixture.status==='SCHEDULED'&&clock!==null&&clock<Date.parse(fixture.kickoff)?(fixture.calculatedOdds??[]).filter(e=>
+          e.targetBookmaker===book.id&&e.market==='MATCH_WINNER'&&e.line===null&&currentEstimate(e,clock)&&
+          !book.cells.some(c=>c.outcome===e.outcome&&current(c.price))):[];
         return <div className={`listing-odds-book${priced?'':' is-unavailable'}`} key={book.id} data-primary-bookmaker={book.id}>
           <BookmakerLogo bookmaker={book.id} uiLocale={locale} sources={book.cells.flatMap(c=>c.price&&current(c.price)?[c.price]:[])}
             context={fixture.publicId&&commercialLocale?{locale:commercialLocale,placement:'match_odds_table',bookmaker:book.id,fixturePublicId:fixture.publicId,market:'MATCH_WINNER',pagePath:matchPath(commercialLocale,fixture.publicId,fixture.homeTeam,fixture.awayTeam)}:undefined}/>
           <div className="listing-odds">{book.cells.map(cell=>{
             const intent=selectable?canonicalSelection({fixturePublicId:fixture.publicId,market:'MATCH_WINNER',outcome:cell.outcome,line:null,scope:SLIP_SCOPE}):null;
             const pressed=!!intent&&saved.slip.selections.some(s=>selectionKey(s)===selectionKey(intent));
-            const valid=current(cell.price),priceLabel=cell.price?.decimalOdds.toFixed(2);
+            const valid=current(cell.price),priceLabel=cell.price?formatSlipOdds(String(cell.price.decimalOdds),locale):null;
             const reference=bookIndex===0?references.find(q=>q.outcome===cell.outcome):undefined;
-            const price=valid?(cell.price?.priceKind==='PROXY'?<ApproximatePrice className="listing-odds-price" value={priceLabel!} label={text.oddsMayChange}/>:<strong className="listing-odds-price" data-price-kind="REAL">{priceLabel}</strong>):reference?<ReferenceOdds quote={reference} uiLocale={locale}/>:<span className="listing-odds-unavailable" aria-label={unavailable} title={emptyLabel??unavailable}>—</span>;
+            const estimate=estimates.find(e=>e.outcome===cell.outcome);
+            const price=valid?<span data-price-kind="REAL"><ApproximatePrice className="listing-odds-price" value={priceLabel!} label={estimateLabels(locale).real}/><small className="odds-real-label">Real</small></span>:estimate?<CalculatedPrice estimate={estimate} locale={locale}/>:reference?<ReferenceOdds quote={reference} uiLocale={locale}/>:<span className="listing-odds-unavailable" aria-label={unavailable} title={emptyLabel??unavailable}>—</span>;
             return intent&&cell.price&&valid?<button type="button" key={cell.outcome} className="listing-odds-cell listing-odds-select" aria-pressed={pressed} disabled={!saved.ready} data-target-bookmaker={book.id}
               aria-label={`${pressed?text.selected:text.add}: ${book.label}, ${selectionLabel(intent,locale,{publicId:fixture.publicId!,home:fixture.homeTeam,away:fixture.awayTeam,competition:fixture.competition,kickoff:fixture.kickoff,status:fixture.status})}, ${priceLabel}`}
               onClick={event=>{event.preventDefault(); event.stopPropagation();void addSlipSelection(intent,commercialLocale!,cell.price!.expiresAt!,book.id,{targetBookmaker:book.id,priceKind:cell.price!.priceKind,decimalOdds:String(cell.price!.decimalOdds)});}}>
               {pressed?<span className="listing-odds-check" aria-hidden="true">✓</span>:null}<span className="listing-odds-label">{cell.label}</span>{price}
-            </button>:<div key={cell.outcome} className={`listing-odds-cell${reference?' is-reference':valid?'':' is-muted'}`}><span className="listing-odds-label">{cell.label}</span>{price}</div>;
+            </button>:<div key={cell.outcome} className={`listing-odds-cell${estimate?' is-calculated':reference?' is-reference':valid?'':' is-muted'}`}><span className="listing-odds-label">{cell.label}</span>{price}</div>;
           })}</div>
+          {estimates.length?<EstimateDisclaimer locale={locale} source={estimates[0].sourceBookmakerName}/>:null}
         </div>;
       })}
     </div>:<span className="odds-empty" aria-label={unavailable}>{unavailable}</span>}
