@@ -12,8 +12,10 @@ export async function recoverNativeIdentities(db:DatabaseClient,jobId:string){
     db.query(`SELECT provider_entity_id AS "providerId",livasports_entity_id AS "fixtureId",metadata->>'homeProviderId' AS "homeProviderId",
       metadata->>'awayProviderId' AS "awayProviderId",metadata->>'canonicalKickoff' AS "canonicalKickoff",metadata->>'providerKickoff' AS "providerKickoff"
       FROM provider_entity_mappings WHERE provider='ODDSPAPI' AND entity_type='FIXTURE'`),
-    db.query(`SELECT s.id,s.payload FROM odds_sync_snapshots s WHERE s.observed_at>now()-interval '1 day'
-      AND EXISTS(SELECT 1 FROM odds_native_diagnostics d WHERE d.snapshot_id=s.id AND d.classification IN ('IDENTITY_UNRESOLVED','INGESTION_BUG'))
+    db.query(`SELECT s.id,s.payload FROM odds_sync_snapshots s WHERE s.observed_at>now()-interval '7 days'
+      AND EXISTS(SELECT 1 FROM odds_native_diagnostics d WHERE d.snapshot_id=s.id AND d.classification IN ('IDENTITY_UNRESOLVED','INGESTION_BUG')
+        AND EXISTS(SELECT 1 FROM jsonb_array_elements(s.payload->'fixtures') f
+          WHERE f->>'providerId'=d.provider_fixture_id AND (f->>'kickoff')::timestamptz>now()))
       ORDER BY EXISTS(SELECT 1 FROM odds_native_diagnostics d WHERE d.snapshot_id=s.id AND d.classification='INGESTION_BUG') DESC,
       (SELECT max(a.at) FROM odds_recovery_actions a WHERE a.action='NATIVE_SAVED_REPAIR' AND a.detail->>'snapshotId'=s.id) ASC NULLS FIRST,s.observed_at DESC LIMIT 3`),
   ]);

@@ -44,6 +44,11 @@ export function safeSchedulerError(error:unknown):string {
   try{const e=JSON.parse(message);if(Number.isInteger(e.status))return `ODDSPAPI_HTTP_${e.status}`;}catch{/* Only allowlisted codes are persisted. */}
   return 'ODDS_REFRESH_FAILED';
 }
+/** An old matchweek's unresolved payload must not disable discovery of every later matchweek. */
+export function requiresMappingReview(row:Record<string,unknown>|undefined){
+  return ['MAPPING','MARKET'].includes(String(row?.failure_class))||
+    (['MAPPING_EMPTY','PARSER_EMPTY'].includes(String(row?.last_outcome))&&row?.unresolved_upcoming!==false);
+}
 export async function schedulerInputs(db:DatabaseClient,tournaments:readonly CatalogTournament[]=[]){
   const feeds=await readVerifiedOperatorFeeds(db);
   const providerIds=[...new Set(feeds.map(f=>f.providerBookmakerId))];
@@ -51,6 +56,9 @@ export async function schedulerInputs(db:DatabaseClient,tournaments:readonly Cat
     true AS public_eligible,
     t.tournament_id,t.last_success_at,t.last_attempt_at,t.last_checked_at,t.pending_since,t.retry_after,t.consecutive_failures,t.last_error,
     t.failure_class,t.backoff_reason,t.next_recheck_at,t.failure_evidence,t.last_outcome,
+    CASE WHEN t.last_outcome IN ('MAPPING_EMPTY','PARSER_EMPTY') THEN EXISTS(SELECT 1 FROM odds_sync_snapshots s CROSS JOIN LATERAL jsonb_array_elements(s.payload->'fixtures') pf
+      WHERE s.bookmaker=t.bookmaker AND s.observed_at=t.last_checked_at
+        AND pf->>'providerCompetitionId'=t.tournament_id AND (pf->>'kickoff')::timestamptz>now()) ELSE false END AS unresolved_upcoming,
     false AS needs_cadence_refresh,
     EXISTS(SELECT 1 FROM odds_geo_current o JOIN fixtures f ON f.id=o.fixture_id
       JOIN provider_entity_mappings m ON m.entity_type='COMPETITION' AND m.provider='ODDSPAPI' AND m.livasports_entity_id=f.competition_id
@@ -79,7 +87,7 @@ export async function schedulerInputs(db:DatabaseClient,tournaments:readonly Cat
       unsupported:support.some(r=>r.bookmaker===bookmaker&&r.tournament_id===t.id),
       // Re-fetching the same unmappable payload cannot repair identity/configuration. Saved-response
       // recovery still runs without provider spend; verified persistence clears this block.
-      mappingBlocked:['MAPPING_EMPTY','PARSER_EMPTY'].includes(row?.last_outcome)||['MAPPING','MARKET'].includes(row?.failure_class),
+      mappingBlocked:requiresMappingReview(row),
       catalogEmpty:t.catalogEmpty===true&&row?.last_error==='ODDSPAPI_HTTP_404'&&!row?.last_success_at,
       fixtures:fixtures.filter(f=>f.competition===t.canonical),publicEligible:true,
       hasUsefulCoverage:row?.useful_coverage===true,lastSuccessAt:row?.last_success_at?.toISOString()??null,retryAfter:row?.retry_after?.toISOString()??null,

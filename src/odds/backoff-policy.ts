@@ -14,7 +14,7 @@ export function classifyBackoff(input:{code:string|null;neverSucceeded?:boolean;
   const evidence:BackoffEvidence={code:input.code,httpStatus:Number.isFinite(http)?http:null,neverSucceeded:!!input.neverSucceeded,isolated:!!input.isolated,catalogEmpty:!!input.catalogEmpty,fixtures:Math.max(0,input.fixtures??0)};
   if(http===404)return input.neverSucceeded?
     {failureClass:'HARD_TARGET',subreason:'HTTP_404_TARGET_NOT_FOUND',delayMinutes:720,hard:true,evidence}:
-    {failureClass:'DATA_EMPTY',subreason:'EMPTY_TEMPORARY_RESPONSE',delayMinutes:30,hard:false,evidence};
+    {failureClass:'DATA_EMPTY',subreason:'EMPTY_TEMPORARY_RESPONSE',delayMinutes:Math.min(720,30*2**Math.min(5,failures-1)),hard:false,evidence};
   if(http===429)return {failureClass:'RATE_LIMIT',subreason:'HTTP_429_RATE_LIMIT',delayMinutes:Math.min(120,15*2**Math.min(3,failures-1)),hard:true,evidence};
   if(http===401||http===403)return {failureClass:'AUTH',subreason:'AUTH_REJECTED',delayMinutes:360,hard:true,evidence};
   if(http>=500&&http<600)return {failureClass:'TRANSIENT_PROVIDER',subreason:'HTTP_5XX_TRANSIENT',delayMinutes:Math.min(60,5*2**Math.min(4,failures-1)),hard:false,evidence};

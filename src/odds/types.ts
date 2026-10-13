@@ -80,6 +80,7 @@ export interface OddsBookmakerRow { bookmaker: string; name: string; cells: Odds
   affiliateEligible?: boolean;
 }
 export interface OddsComparison {
+  availability?:Record<string,import('./availability').OddsAvailability>;
   references?:IndicativeQuote[];
   market: OddsMarket; line: number | null; rows: OddsBookmakerRow[];
   observedAt: string | null; providerUpdatedAt: string | null; expiresAt: string | null; closesAt?: string | null; eligiblePrices: number;

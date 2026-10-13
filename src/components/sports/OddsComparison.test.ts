@@ -35,7 +35,8 @@ describe('listing MATCH_WINNER cells', () => {
 
   it('hides stale prices and renders a freshness warning instead', () => {
     const html = renderToStaticMarkup(createElement(OddsComparison, { locale: 'mx', fixture: fixture('stale', 'stale') }));
-    expect(html).toContain('Cuota no disponible');
+    expect(html).toContain('Cargando cuotas');
+    expect(html).toContain('aria-busy="true"');
     expect(html).not.toContain('1.90');
   });
 
@@ -48,7 +49,7 @@ describe('listing MATCH_WINNER cells', () => {
   it('renders explicit no-odds coverage', () => {
     const value = { ...fixture(), odds: [], oddsState: 'none' as const };
     const html = renderToStaticMarkup(createElement(OddsComparison, { locale: 'br', fixture: value }));
-    expect(html).toContain('aria-label="Cotação indisponível"');
+    expect(html).toContain('aria-label="Carregando odds…"');
     expect(html).not.toContain('>—</span>');
     expect(html).not.toContain('Sem odds');
   });
@@ -86,7 +87,7 @@ describe('listing MATCH_WINNER cells', () => {
     const html=renderToStaticMarkup(createElement(OddsComparison,{locale:'pe',commercialLocale:'pe',fixture:value}));
     expect(html.indexOf('data-primary-bookmaker="inkabet"')).toBeLessThan(html.indexOf('data-primary-bookmaker="1xbet"'));
     expect(html.match(/data-primary-bookmaker=/g)).toHaveLength(2);
-    if(coverage!=='both')expect(html).toContain('Cuota no disponible');
+    if(coverage!=='both')expect(html).toContain('Cargando cuotas');
   });
   it('uses the trusted commercial GEO, not the presentation language, for the fixed pool',()=>{
     expect(listingBookmakerRows({...fixture(),odds:[]},'mx').map(r=>r.id)).toEqual(['betsson','winpot.mx']);

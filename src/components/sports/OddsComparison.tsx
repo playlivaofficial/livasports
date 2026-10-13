@@ -15,6 +15,7 @@ import {BookmakerLogo} from '@/components/odds/BookmakerLogo';
 import {ApproximatePrice} from '@/components/odds/ApproximatePrice';
 import {matchPath} from '@/match-center/routes';
 import {ReferenceOdds} from '@/components/odds/ReferenceOdds';
+import {oddsAvailabilityLabel} from '@/odds/availability';
 
 const CELLS=[{outcome:OutcomeCode.HOME,label:'1'},{outcome:OutcomeCode.DRAW,label:'X'},{outcome:OutcomeCode.AWAY,label:'2'}] as const;
 type ListingPrice={decimalOdds:number;expiresAt?:string;observedAt:string;priceKind:'REAL'|'PROXY';targetBookmaker:string};
@@ -39,12 +40,13 @@ export function OddsComparison({locale,fixture,emptyLabel,commercialLocale}:{loc
   const [clock,setClock]=useState<number|null>(null);
   // Existing stored quotes only. No provider polling is added for references.
   useEffect(()=>{const tick=()=>setClock(Date.now());tick();const timer=window.setInterval(tick,1000);return()=>window.clearInterval(timer);},[]);
-  const text=slipCopy[locale],unavailable=unavailableOddsLabel(locale);
+  const text=slipCopy[locale],unavailable=clock===null?oddsAvailabilityLabel(locale,'LOADING'):
+    fixture.oddsState==='stale'?oddsAvailabilityLabel(locale,'STALE'):unavailableOddsLabel(locale);
   const current=(price:ListingPrice|null)=>!!price?.expiresAt&&price.priceKind==='REAL'&&Number.isFinite(price.decimalOdds)&&price.decimalOdds>1&&price.decimalOdds<=1000&&clock!==null&&clock<Date.parse(price.expiresAt)&&clock<Date.parse(fixture.kickoff);
   const references=fixture.status==='SCHEDULED'&&clock!==null&&clock<Date.parse(fixture.kickoff)?referencesForGaps(fixture.referenceOdds,clock,'MATCH_WINNER',null,
     books.flatMap(book=>book.cells.filter(c=>current(c.price)).map(c=>c.outcome))):[];
   const selectable=!!commercialLocale&&fixture.status==='SCHEDULED'&&/^[0-9a-f]{16}$/.test(fixture.publicId??'');
-  return <div className="odds-slot" data-primary-count={books.length} aria-label={`${locale==='en'?'Pregame odds':locale==='br'?'Odds pré-jogo':'Cuotas prepartido'}. ${text.oddsMayChange}`}>
+  return <div className="odds-slot" aria-busy={clock===null} data-primary-count={books.length} aria-label={`${locale==='en'?'Pregame odds':locale==='br'?'Odds pré-jogo':'Cuotas prepartido'}. ${text.oddsMayChange}`}>
     {books.length?<div className="listing-odds-books">
       {books.map((book,bookIndex)=>{
         const priced=book.cells.some(c=>current(c.price));
