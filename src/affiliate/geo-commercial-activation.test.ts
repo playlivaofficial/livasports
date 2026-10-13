@@ -130,14 +130,14 @@ describe('MX/CO/PE banner activation',()=>{
 
   it('refuses a creative served on another jurisdiction\'s tracking host',async()=>{
     // A real Colombian media id, but pointed at the Mexican tracking host.
-    const co=GEOS[1];
+    const co=GEOS.find(g=>g.geo==='CO'&&g.operator==='betsson')!;
     const f=database(co);
     await expect(activateOperator(f.db,input(co,{creatives:[{role:'top',embedSourceUrl:embed(HOST.mx,co.roles.top)}]}),'owner')).rejects.toThrow();
     expect(creativeRows(f.writes)).toEqual([]);
   });
 
   it('refuses media that is not in this jurisdiction\'s inventory, including the Betsson ES look-alikes',async()=>{
-    const co=GEOS[1];
+    const co=GEOS.find(g=>g.geo==='CO'&&g.operator==='betsson')!;
     // 209565/209568/209574 are Betsson ES Spanish assets that a gallery search once returned for CO.
     for(const media of ['209565','209568','209574','207553']){
       const f=database(co);
