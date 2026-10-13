@@ -25,6 +25,10 @@ const aliases: Record<string, Record<string,string>> = {
     'alacranes de durango':'durango','cd mineros de zacatecas':'mineros de zacatecas','cancun fc':'cancun',
   },
   'colombia-primera-a': {
+    // Incident 2026-10-13: saved events ...74565608 / ...72335204 and ...72335214,
+    // same competition, participant roles and exact UTC kickoffs as canonical fixtures.
+    'ca bucaramanga':'atletico bucaramanga','bucaramanga':'atletico bucaramanga',
+    'ad pasto':'deportivo pasto','pasto':'deportivo pasto',
     'cd tolima':'deportes tolima','fortaleza fc':'fortaleza ceif','deportivo pereira fc sa':'deportivo pereira',
     'cd junior fc':'junior fc','aguilas doradas rionegro':'rionegro aguilas',
     // DIMAYOR confirms the Valledupar move (2024-01-24) and current club name
@@ -36,11 +40,14 @@ const aliases: Record<string, Record<string,string>> = {
     'cucuta deportivo fc':'cucuta deportivo','cucuta':'cucuta deportivo',
   },
   'colombia-primera-b': {
+    'itagui leones fc':'itagui leones',
     'atletico fc cali':'atletico','real cartagena fc':'real cartagena','boyaca patriotas':'patriotas boyaca',
     // Same-role Envigado–Internacional Palmira event id1000123874458760 at 2026-10-11T20:00Z.
     'internacional fc de palmira':'internacional palmira',
   },
   'saudi-pro-league': {
+    'al ittifaq fc':'al ettifaq','al ittifaq':'al ettifaq',
+    'diriyah club':'al diraiyah fc','al taawoun fc':'al taawoun',
     // Saved event id1000095573215752, Al Fateh–Al Ahli, exact 2026-10-09T14:55Z.
     // The country qualifier distinguishes this club from similarly named clubs elsewhere.
     'al ahli saudi fc':'al ahli','al ahli saudi':'al ahli',
@@ -184,6 +191,11 @@ const aliases: Record<string, Record<string,string>> = {
     'amed sportif faaliyetler':'amed sk',
   },
   'conference-league': {
+    // Reviewed saved event pairs on 2026-10-15; these aliases remain competition-scoped.
+    'kuopion palloseura':'kups','inter club de escaldes':'inter club d escaldes',
+    'fc copenhagen':'fc k benhavn','sc braga':'sporting braga',
+    'heart of midlothian fc':'hearts','fc nordsjaelland':'nordsj lland',
+    'st truidense vv':'sint truiden',
     // Explicit contextual variants; never strip club suffixes globally or relax the kickoff guard.
     'hnk hajduk split':'hajduk split',
     'agf aarhus':'agf',
@@ -192,6 +204,7 @@ const aliases: Record<string, Record<string,string>> = {
     'cs universitatea craiova':'universitatea craiova',
     'fk kauno zalgiris':'kauno zalgiris',
   },
+  'fa-cup': {'chertsey town fc':'chertsey town'},
 };
 export function normalizeTeamName(name: string): string {
   return name.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()

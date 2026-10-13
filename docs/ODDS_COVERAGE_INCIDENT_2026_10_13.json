@@ -1,0 +1,3331 @@
+{
+  "status": "SAVED_EVIDENCE_PARITY_PASS_LIVE_UPSTREAM_UNVERIFIED",
+  "baselineSha": "1363bbc6396cc40321fc716da7e623f84c99034c",
+  "beforeAt": "2026-10-13T08:24:28.246Z",
+  "afterAt": "2026-10-13T08:58:48.698Z",
+  "denominator": 308,
+  "competitions": [
+    "champions-league",
+    "championship",
+    "liga-expansion-mx",
+    "colombia-primera-a",
+    "argentina-primera-division",
+    "colombia-primera-b",
+    "mls",
+    "copa-colombia",
+    "saudi-pro-league",
+    "conference-league",
+    "europa-league",
+    "eredivisie",
+    "peru-liga-1",
+    "la-liga-2",
+    "bundesliga",
+    "ligue-1",
+    "serie-a-italy",
+    "la-liga",
+    "brasileirao-serie-a",
+    "liga-mx",
+    "premier-league",
+    "fa-cup",
+    "peru-liga-2"
+  ],
+  "scope": "Approved acquisition competitions; upcoming SCHEDULED fixtures excluding pending, seven-day UTC window. Same 308 IDs used for before/after.",
+  "evidenceLimit": "Latest saved successful provider responses, not an assertion of current upstream availability during HTTP 500 outage.",
+  "providerRequests": {
+    "attempts": 2,
+    "billable": 1,
+    "statuses": [
+      500,
+      500
+    ],
+    "furtherRetries": 0,
+    "recovery": 0
+  },
+  "summary": [
+    {
+      "geo": "PE",
+      "operatorId": "1xbet",
+      "providerBookmakerId": "1xbet",
+      "sourceDomains": [
+        "1xbet.com"
+      ],
+      "upcomingFixtures": 308,
+      "anyCurrent": 104,
+      "markets": {
+        "MATCH_WINNER": 102,
+        "TOTAL_GOALS": 93,
+        "BTTS": 90
+      },
+      "ingested": 204,
+      "providerReturned": 206,
+      "providerFresh": 104,
+      "missingFreshUpstreamFixtures": 0,
+      "missingFreshUpstreamSelections": 0,
+      "latestSavedResponse": "2026-10-13T06:40:18.618Z",
+      "before": {
+        "anyCurrent": 102,
+        "ingested": 196,
+        "markets": {
+          "MATCH_WINNER": 100,
+          "TOTAL_GOALS": 91,
+          "BTTS": 88
+        },
+        "missingAgainstRecoveredEvidence": 14
+      },
+      "latestSuccessAgeMinutes": 139,
+      "absence": {
+        "notReturnedInLatestSavedResponses": 102,
+        "returnedWithoutFreshValidSelection": 102
+      }
+    },
+    {
+      "geo": "CO",
+      "operatorId": "betsson",
+      "providerBookmakerId": "betsson",
+      "sourceDomains": [
+        "www.betsson.com"
+      ],
+      "upcomingFixtures": 308,
+      "anyCurrent": 177,
+      "markets": {
+        "MATCH_WINNER": 174,
+        "TOTAL_GOALS": 175,
+        "BTTS": 177
+      },
+      "ingested": 214,
+      "providerReturned": 214,
+      "providerFresh": 177,
+      "missingFreshUpstreamFixtures": 0,
+      "missingFreshUpstreamSelections": 0,
+      "latestSavedResponse": "2026-10-13T01:30:20.235Z",
+      "before": {
+        "anyCurrent": 172,
+        "ingested": 207,
+        "markets": {
+          "MATCH_WINNER": 169,
+          "TOTAL_GOALS": 170,
+          "BTTS": 172
+        },
+        "missingAgainstRecoveredEvidence": 35
+      },
+      "latestSuccessAgeMinutes": 448,
+      "absence": {
+        "notReturnedInLatestSavedResponses": 94,
+        "returnedWithoutFreshValidSelection": 37
+      }
+    },
+    {
+      "geo": "MX",
+      "operatorId": "betsson",
+      "providerBookmakerId": "betsson",
+      "sourceDomains": [
+        "www.betsson.com"
+      ],
+      "upcomingFixtures": 308,
+      "anyCurrent": 177,
+      "markets": {
+        "MATCH_WINNER": 174,
+        "TOTAL_GOALS": 175,
+        "BTTS": 177
+      },
+      "ingested": 214,
+      "providerReturned": 214,
+      "providerFresh": 177,
+      "missingFreshUpstreamFixtures": 0,
+      "missingFreshUpstreamSelections": 0,
+      "latestSavedResponse": "2026-10-13T01:30:20.235Z",
+      "before": {
+        "anyCurrent": 172,
+        "ingested": 207,
+        "markets": {
+          "MATCH_WINNER": 169,
+          "TOTAL_GOALS": 170,
+          "BTTS": 172
+        },
+        "missingAgainstRecoveredEvidence": 35
+      },
+      "latestSuccessAgeMinutes": 448,
+      "absence": {
+        "notReturnedInLatestSavedResponses": 94,
+        "returnedWithoutFreshValidSelection": 37
+      }
+    },
+    {
+      "geo": "CO",
+      "operatorId": "bwin",
+      "providerBookmakerId": "bwin",
+      "sourceDomains": [
+        "sports.bwin.com"
+      ],
+      "upcomingFixtures": 308,
+      "anyCurrent": 178,
+      "markets": {
+        "MATCH_WINNER": 178,
+        "TOTAL_GOALS": 178,
+        "BTTS": 178
+      },
+      "ingested": 189,
+      "providerReturned": 190,
+      "providerFresh": 178,
+      "missingFreshUpstreamFixtures": 0,
+      "missingFreshUpstreamSelections": 0,
+      "latestSavedResponse": "2026-10-13T01:30:22.645Z",
+      "before": {
+        "anyCurrent": 171,
+        "ingested": 182,
+        "markets": {
+          "MATCH_WINNER": 171,
+          "TOTAL_GOALS": 171,
+          "BTTS": 171
+        },
+        "missingAgainstRecoveredEvidence": 49
+      },
+      "latestSuccessAgeMinutes": 448,
+      "absence": {
+        "notReturnedInLatestSavedResponses": 118,
+        "returnedWithoutFreshValidSelection": 12
+      }
+    },
+    {
+      "geo": "PE",
+      "operatorId": "inkabet",
+      "providerBookmakerId": "inkabet",
+      "sourceDomains": [
+        "www.betsson.com"
+      ],
+      "upcomingFixtures": 308,
+      "anyCurrent": 170,
+      "markets": {
+        "MATCH_WINNER": 167,
+        "TOTAL_GOALS": 168,
+        "BTTS": 170
+      },
+      "ingested": 214,
+      "providerReturned": 214,
+      "providerFresh": 170,
+      "missingFreshUpstreamFixtures": 0,
+      "missingFreshUpstreamSelections": 0,
+      "latestSavedResponse": "2026-10-13T01:30:25.430Z",
+      "before": {
+        "anyCurrent": 165,
+        "ingested": 207,
+        "markets": {
+          "MATCH_WINNER": 162,
+          "TOTAL_GOALS": 163,
+          "BTTS": 165
+        },
+        "missingAgainstRecoveredEvidence": 35
+      },
+      "latestSuccessAgeMinutes": 448,
+      "absence": {
+        "notReturnedInLatestSavedResponses": 94,
+        "returnedWithoutFreshValidSelection": 44
+      }
+    },
+    {
+      "geo": "MX",
+      "operatorId": "winpot.mx",
+      "providerBookmakerId": "winpot.mx",
+      "sourceDomains": [
+        "www.lottoland.com"
+      ],
+      "upcomingFixtures": 308,
+      "anyCurrent": 133,
+      "markets": {
+        "MATCH_WINNER": 131,
+        "TOTAL_GOALS": 95,
+        "BTTS": 118
+      },
+      "ingested": 233,
+      "providerReturned": 233,
+      "providerFresh": 133,
+      "missingFreshUpstreamFixtures": 0,
+      "missingFreshUpstreamSelections": 0,
+      "latestSavedResponse": "2026-10-13T08:10:18.477Z",
+      "before": {
+        "anyCurrent": 129,
+        "ingested": 224,
+        "markets": {
+          "MATCH_WINNER": 127,
+          "TOTAL_GOALS": 92,
+          "BTTS": 115
+        },
+        "missingAgainstRecoveredEvidence": 24
+      },
+      "latestSuccessAgeMinutes": 49,
+      "absence": {
+        "notReturnedInLatestSavedResponses": 75,
+        "returnedWithoutFreshValidSelection": 100
+      }
+    }
+  ],
+  "byCompetition": [
+    {
+      "geo": "PE",
+      "bookmaker": "1xbet",
+      "competition": "champions-league",
+      "upcoming": 18,
+      "providerReturned": 18,
+      "current": 0,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "PE",
+      "bookmaker": "1xbet",
+      "competition": "championship",
+      "upcoming": 24,
+      "providerReturned": 24,
+      "current": 24,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "PE",
+      "bookmaker": "1xbet",
+      "competition": "liga-expansion-mx",
+      "upcoming": 9,
+      "providerReturned": 9,
+      "current": 9,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "PE",
+      "bookmaker": "1xbet",
+      "competition": "colombia-primera-a",
+      "upcoming": 10,
+      "providerReturned": 10,
+      "current": 8,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "PE",
+      "bookmaker": "1xbet",
+      "competition": "argentina-primera-division",
+      "upcoming": 16,
+      "providerReturned": 16,
+      "current": 13,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "PE",
+      "bookmaker": "1xbet",
+      "competition": "colombia-primera-b",
+      "upcoming": 13,
+      "providerReturned": 1,
+      "current": 1,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "PE",
+      "bookmaker": "1xbet",
+      "competition": "mls",
+      "upcoming": 30,
+      "providerReturned": 15,
+      "current": 15,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "PE",
+      "bookmaker": "1xbet",
+      "competition": "copa-colombia",
+      "upcoming": 2,
+      "providerReturned": 2,
+      "current": 2,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "PE",
+      "bookmaker": "1xbet",
+      "competition": "saudi-pro-league",
+      "upcoming": 14,
+      "providerReturned": 0,
+      "current": 0,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "PE",
+      "bookmaker": "1xbet",
+      "competition": "conference-league",
+      "upcoming": 18,
+      "providerReturned": 18,
+      "current": 0,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "PE",
+      "bookmaker": "1xbet",
+      "competition": "europa-league",
+      "upcoming": 18,
+      "providerReturned": 17,
+      "current": 0,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "PE",
+      "bookmaker": "1xbet",
+      "competition": "eredivisie",
+      "upcoming": 9,
+      "providerReturned": 8,
+      "current": 5,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "PE",
+      "bookmaker": "1xbet",
+      "competition": "peru-liga-1",
+      "upcoming": 9,
+      "providerReturned": 0,
+      "current": 0,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "PE",
+      "bookmaker": "1xbet",
+      "competition": "la-liga-2",
+      "upcoming": 11,
+      "providerReturned": 10,
+      "current": 10,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "PE",
+      "bookmaker": "1xbet",
+      "competition": "bundesliga",
+      "upcoming": 9,
+      "providerReturned": 9,
+      "current": 7,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "PE",
+      "bookmaker": "1xbet",
+      "competition": "ligue-1",
+      "upcoming": 9,
+      "providerReturned": 9,
+      "current": 0,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "PE",
+      "bookmaker": "1xbet",
+      "competition": "serie-a-italy",
+      "upcoming": 10,
+      "providerReturned": 10,
+      "current": 0,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "PE",
+      "bookmaker": "1xbet",
+      "competition": "la-liga",
+      "upcoming": 10,
+      "providerReturned": 10,
+      "current": 0,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "PE",
+      "bookmaker": "1xbet",
+      "competition": "brasileirao-serie-a",
+      "upcoming": 10,
+      "providerReturned": 10,
+      "current": 9,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "PE",
+      "bookmaker": "1xbet",
+      "competition": "liga-mx",
+      "upcoming": 9,
+      "providerReturned": 0,
+      "current": 0,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "PE",
+      "bookmaker": "1xbet",
+      "competition": "premier-league",
+      "upcoming": 10,
+      "providerReturned": 10,
+      "current": 1,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "PE",
+      "bookmaker": "1xbet",
+      "competition": "fa-cup",
+      "upcoming": 32,
+      "providerReturned": 0,
+      "current": 0,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "PE",
+      "bookmaker": "1xbet",
+      "competition": "peru-liga-2",
+      "upcoming": 8,
+      "providerReturned": 0,
+      "current": 0,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "CO",
+      "bookmaker": "betsson",
+      "competition": "champions-league",
+      "upcoming": 18,
+      "providerReturned": 18,
+      "current": 15,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "CO",
+      "bookmaker": "betsson",
+      "competition": "championship",
+      "upcoming": 24,
+      "providerReturned": 11,
+      "current": 11,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "CO",
+      "bookmaker": "betsson",
+      "competition": "liga-expansion-mx",
+      "upcoming": 9,
+      "providerReturned": 9,
+      "current": 8,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "CO",
+      "bookmaker": "betsson",
+      "competition": "colombia-primera-a",
+      "upcoming": 10,
+      "providerReturned": 9,
+      "current": 8,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "CO",
+      "bookmaker": "betsson",
+      "competition": "argentina-primera-division",
+      "upcoming": 16,
+      "providerReturned": 15,
+      "current": 9,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "CO",
+      "bookmaker": "betsson",
+      "competition": "colombia-primera-b",
+      "upcoming": 13,
+      "providerReturned": 1,
+      "current": 1,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "CO",
+      "bookmaker": "betsson",
+      "competition": "mls",
+      "upcoming": 30,
+      "providerReturned": 30,
+      "current": 30,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "CO",
+      "bookmaker": "betsson",
+      "competition": "copa-colombia",
+      "upcoming": 2,
+      "providerReturned": 0,
+      "current": 0,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "CO",
+      "bookmaker": "betsson",
+      "competition": "saudi-pro-league",
+      "upcoming": 14,
+      "providerReturned": 3,
+      "current": 2,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "CO",
+      "bookmaker": "betsson",
+      "competition": "conference-league",
+      "upcoming": 18,
+      "providerReturned": 16,
+      "current": 13,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "CO",
+      "bookmaker": "betsson",
+      "competition": "europa-league",
+      "upcoming": 18,
+      "providerReturned": 18,
+      "current": 15,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "CO",
+      "bookmaker": "betsson",
+      "competition": "eredivisie",
+      "upcoming": 9,
+      "providerReturned": 9,
+      "current": 3,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "CO",
+      "bookmaker": "betsson",
+      "competition": "peru-liga-1",
+      "upcoming": 9,
+      "providerReturned": 5,
+      "current": 5,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "CO",
+      "bookmaker": "betsson",
+      "competition": "la-liga-2",
+      "upcoming": 11,
+      "providerReturned": 10,
+      "current": 9,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "CO",
+      "bookmaker": "betsson",
+      "competition": "bundesliga",
+      "upcoming": 9,
+      "providerReturned": 9,
+      "current": 6,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "CO",
+      "bookmaker": "betsson",
+      "competition": "ligue-1",
+      "upcoming": 9,
+      "providerReturned": 8,
+      "current": 7,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "CO",
+      "bookmaker": "betsson",
+      "competition": "serie-a-italy",
+      "upcoming": 10,
+      "providerReturned": 10,
+      "current": 8,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "CO",
+      "bookmaker": "betsson",
+      "competition": "la-liga",
+      "upcoming": 10,
+      "providerReturned": 10,
+      "current": 8,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "CO",
+      "bookmaker": "betsson",
+      "competition": "brasileirao-serie-a",
+      "upcoming": 10,
+      "providerReturned": 10,
+      "current": 9,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "CO",
+      "bookmaker": "betsson",
+      "competition": "liga-mx",
+      "upcoming": 9,
+      "providerReturned": 3,
+      "current": 3,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "CO",
+      "bookmaker": "betsson",
+      "competition": "premier-league",
+      "upcoming": 10,
+      "providerReturned": 10,
+      "current": 7,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "CO",
+      "bookmaker": "betsson",
+      "competition": "fa-cup",
+      "upcoming": 32,
+      "providerReturned": 0,
+      "current": 0,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "CO",
+      "bookmaker": "betsson",
+      "competition": "peru-liga-2",
+      "upcoming": 8,
+      "providerReturned": 0,
+      "current": 0,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "MX",
+      "bookmaker": "betsson",
+      "competition": "champions-league",
+      "upcoming": 18,
+      "providerReturned": 18,
+      "current": 15,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "MX",
+      "bookmaker": "betsson",
+      "competition": "championship",
+      "upcoming": 24,
+      "providerReturned": 11,
+      "current": 11,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "MX",
+      "bookmaker": "betsson",
+      "competition": "liga-expansion-mx",
+      "upcoming": 9,
+      "providerReturned": 9,
+      "current": 8,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "MX",
+      "bookmaker": "betsson",
+      "competition": "colombia-primera-a",
+      "upcoming": 10,
+      "providerReturned": 9,
+      "current": 8,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "MX",
+      "bookmaker": "betsson",
+      "competition": "argentina-primera-division",
+      "upcoming": 16,
+      "providerReturned": 15,
+      "current": 9,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "MX",
+      "bookmaker": "betsson",
+      "competition": "colombia-primera-b",
+      "upcoming": 13,
+      "providerReturned": 1,
+      "current": 1,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "MX",
+      "bookmaker": "betsson",
+      "competition": "mls",
+      "upcoming": 30,
+      "providerReturned": 30,
+      "current": 30,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "MX",
+      "bookmaker": "betsson",
+      "competition": "copa-colombia",
+      "upcoming": 2,
+      "providerReturned": 0,
+      "current": 0,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "MX",
+      "bookmaker": "betsson",
+      "competition": "saudi-pro-league",
+      "upcoming": 14,
+      "providerReturned": 3,
+      "current": 2,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "MX",
+      "bookmaker": "betsson",
+      "competition": "conference-league",
+      "upcoming": 18,
+      "providerReturned": 16,
+      "current": 13,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "MX",
+      "bookmaker": "betsson",
+      "competition": "europa-league",
+      "upcoming": 18,
+      "providerReturned": 18,
+      "current": 15,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "MX",
+      "bookmaker": "betsson",
+      "competition": "eredivisie",
+      "upcoming": 9,
+      "providerReturned": 9,
+      "current": 3,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "MX",
+      "bookmaker": "betsson",
+      "competition": "peru-liga-1",
+      "upcoming": 9,
+      "providerReturned": 5,
+      "current": 5,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "MX",
+      "bookmaker": "betsson",
+      "competition": "la-liga-2",
+      "upcoming": 11,
+      "providerReturned": 10,
+      "current": 9,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "MX",
+      "bookmaker": "betsson",
+      "competition": "bundesliga",
+      "upcoming": 9,
+      "providerReturned": 9,
+      "current": 6,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "MX",
+      "bookmaker": "betsson",
+      "competition": "ligue-1",
+      "upcoming": 9,
+      "providerReturned": 8,
+      "current": 7,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "MX",
+      "bookmaker": "betsson",
+      "competition": "serie-a-italy",
+      "upcoming": 10,
+      "providerReturned": 10,
+      "current": 8,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "MX",
+      "bookmaker": "betsson",
+      "competition": "la-liga",
+      "upcoming": 10,
+      "providerReturned": 10,
+      "current": 8,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "MX",
+      "bookmaker": "betsson",
+      "competition": "brasileirao-serie-a",
+      "upcoming": 10,
+      "providerReturned": 10,
+      "current": 9,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "MX",
+      "bookmaker": "betsson",
+      "competition": "liga-mx",
+      "upcoming": 9,
+      "providerReturned": 3,
+      "current": 3,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "MX",
+      "bookmaker": "betsson",
+      "competition": "premier-league",
+      "upcoming": 10,
+      "providerReturned": 10,
+      "current": 7,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "MX",
+      "bookmaker": "betsson",
+      "competition": "fa-cup",
+      "upcoming": 32,
+      "providerReturned": 0,
+      "current": 0,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "MX",
+      "bookmaker": "betsson",
+      "competition": "peru-liga-2",
+      "upcoming": 8,
+      "providerReturned": 0,
+      "current": 0,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "CO",
+      "bookmaker": "bwin",
+      "competition": "champions-league",
+      "upcoming": 18,
+      "providerReturned": 18,
+      "current": 18,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "CO",
+      "bookmaker": "bwin",
+      "competition": "championship",
+      "upcoming": 24,
+      "providerReturned": 12,
+      "current": 12,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "CO",
+      "bookmaker": "bwin",
+      "competition": "liga-expansion-mx",
+      "upcoming": 9,
+      "providerReturned": 1,
+      "current": 1,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "CO",
+      "bookmaker": "bwin",
+      "competition": "colombia-primera-a",
+      "upcoming": 10,
+      "providerReturned": 3,
+      "current": 3,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "CO",
+      "bookmaker": "bwin",
+      "competition": "argentina-primera-division",
+      "upcoming": 16,
+      "providerReturned": 16,
+      "current": 13,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "CO",
+      "bookmaker": "bwin",
+      "competition": "colombia-primera-b",
+      "upcoming": 13,
+      "providerReturned": 1,
+      "current": 1,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "CO",
+      "bookmaker": "bwin",
+      "competition": "mls",
+      "upcoming": 30,
+      "providerReturned": 29,
+      "current": 29,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "CO",
+      "bookmaker": "bwin",
+      "competition": "copa-colombia",
+      "upcoming": 2,
+      "providerReturned": 0,
+      "current": 0,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "CO",
+      "bookmaker": "bwin",
+      "competition": "saudi-pro-league",
+      "upcoming": 14,
+      "providerReturned": 0,
+      "current": 0,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "CO",
+      "bookmaker": "bwin",
+      "competition": "conference-league",
+      "upcoming": 18,
+      "providerReturned": 18,
+      "current": 18,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "CO",
+      "bookmaker": "bwin",
+      "competition": "europa-league",
+      "upcoming": 18,
+      "providerReturned": 18,
+      "current": 18,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "CO",
+      "bookmaker": "bwin",
+      "competition": "eredivisie",
+      "upcoming": 9,
+      "providerReturned": 5,
+      "current": 5,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "CO",
+      "bookmaker": "bwin",
+      "competition": "peru-liga-1",
+      "upcoming": 9,
+      "providerReturned": 4,
+      "current": 4,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "CO",
+      "bookmaker": "bwin",
+      "competition": "la-liga-2",
+      "upcoming": 11,
+      "providerReturned": 6,
+      "current": 5,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "CO",
+      "bookmaker": "bwin",
+      "competition": "bundesliga",
+      "upcoming": 9,
+      "providerReturned": 9,
+      "current": 7,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "CO",
+      "bookmaker": "bwin",
+      "competition": "ligue-1",
+      "upcoming": 9,
+      "providerReturned": 9,
+      "current": 8,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "CO",
+      "bookmaker": "bwin",
+      "competition": "serie-a-italy",
+      "upcoming": 10,
+      "providerReturned": 10,
+      "current": 8,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "CO",
+      "bookmaker": "bwin",
+      "competition": "la-liga",
+      "upcoming": 10,
+      "providerReturned": 10,
+      "current": 9,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "CO",
+      "bookmaker": "bwin",
+      "competition": "brasileirao-serie-a",
+      "upcoming": 10,
+      "providerReturned": 10,
+      "current": 9,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "CO",
+      "bookmaker": "bwin",
+      "competition": "liga-mx",
+      "upcoming": 9,
+      "providerReturned": 0,
+      "current": 0,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "CO",
+      "bookmaker": "bwin",
+      "competition": "premier-league",
+      "upcoming": 10,
+      "providerReturned": 10,
+      "current": 9,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "CO",
+      "bookmaker": "bwin",
+      "competition": "fa-cup",
+      "upcoming": 32,
+      "providerReturned": 1,
+      "current": 1,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "CO",
+      "bookmaker": "bwin",
+      "competition": "peru-liga-2",
+      "upcoming": 8,
+      "providerReturned": 0,
+      "current": 0,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "PE",
+      "bookmaker": "inkabet",
+      "competition": "champions-league",
+      "upcoming": 18,
+      "providerReturned": 18,
+      "current": 15,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "PE",
+      "bookmaker": "inkabet",
+      "competition": "championship",
+      "upcoming": 24,
+      "providerReturned": 11,
+      "current": 11,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "PE",
+      "bookmaker": "inkabet",
+      "competition": "liga-expansion-mx",
+      "upcoming": 9,
+      "providerReturned": 9,
+      "current": 8,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "PE",
+      "bookmaker": "inkabet",
+      "competition": "colombia-primera-a",
+      "upcoming": 10,
+      "providerReturned": 9,
+      "current": 8,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "PE",
+      "bookmaker": "inkabet",
+      "competition": "argentina-primera-division",
+      "upcoming": 16,
+      "providerReturned": 15,
+      "current": 6,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "PE",
+      "bookmaker": "inkabet",
+      "competition": "colombia-primera-b",
+      "upcoming": 13,
+      "providerReturned": 1,
+      "current": 1,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "PE",
+      "bookmaker": "inkabet",
+      "competition": "mls",
+      "upcoming": 30,
+      "providerReturned": 30,
+      "current": 26,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "PE",
+      "bookmaker": "inkabet",
+      "competition": "copa-colombia",
+      "upcoming": 2,
+      "providerReturned": 0,
+      "current": 0,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "PE",
+      "bookmaker": "inkabet",
+      "competition": "saudi-pro-league",
+      "upcoming": 14,
+      "providerReturned": 3,
+      "current": 2,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "PE",
+      "bookmaker": "inkabet",
+      "competition": "conference-league",
+      "upcoming": 18,
+      "providerReturned": 16,
+      "current": 13,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "PE",
+      "bookmaker": "inkabet",
+      "competition": "europa-league",
+      "upcoming": 18,
+      "providerReturned": 18,
+      "current": 15,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "PE",
+      "bookmaker": "inkabet",
+      "competition": "eredivisie",
+      "upcoming": 9,
+      "providerReturned": 9,
+      "current": 3,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "PE",
+      "bookmaker": "inkabet",
+      "competition": "peru-liga-1",
+      "upcoming": 9,
+      "providerReturned": 5,
+      "current": 5,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "PE",
+      "bookmaker": "inkabet",
+      "competition": "la-liga-2",
+      "upcoming": 11,
+      "providerReturned": 10,
+      "current": 9,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "PE",
+      "bookmaker": "inkabet",
+      "competition": "bundesliga",
+      "upcoming": 9,
+      "providerReturned": 9,
+      "current": 7,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "PE",
+      "bookmaker": "inkabet",
+      "competition": "ligue-1",
+      "upcoming": 9,
+      "providerReturned": 8,
+      "current": 6,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "PE",
+      "bookmaker": "inkabet",
+      "competition": "serie-a-italy",
+      "upcoming": 10,
+      "providerReturned": 10,
+      "current": 8,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "PE",
+      "bookmaker": "inkabet",
+      "competition": "la-liga",
+      "upcoming": 10,
+      "providerReturned": 10,
+      "current": 8,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "PE",
+      "bookmaker": "inkabet",
+      "competition": "brasileirao-serie-a",
+      "upcoming": 10,
+      "providerReturned": 10,
+      "current": 9,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "PE",
+      "bookmaker": "inkabet",
+      "competition": "liga-mx",
+      "upcoming": 9,
+      "providerReturned": 3,
+      "current": 3,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "PE",
+      "bookmaker": "inkabet",
+      "competition": "premier-league",
+      "upcoming": 10,
+      "providerReturned": 10,
+      "current": 7,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "PE",
+      "bookmaker": "inkabet",
+      "competition": "fa-cup",
+      "upcoming": 32,
+      "providerReturned": 0,
+      "current": 0,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "PE",
+      "bookmaker": "inkabet",
+      "competition": "peru-liga-2",
+      "upcoming": 8,
+      "providerReturned": 0,
+      "current": 0,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "MX",
+      "bookmaker": "winpot.mx",
+      "competition": "champions-league",
+      "upcoming": 18,
+      "providerReturned": 18,
+      "current": 2,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "MX",
+      "bookmaker": "winpot.mx",
+      "competition": "championship",
+      "upcoming": 24,
+      "providerReturned": 11,
+      "current": 11,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "MX",
+      "bookmaker": "winpot.mx",
+      "competition": "liga-expansion-mx",
+      "upcoming": 9,
+      "providerReturned": 9,
+      "current": 9,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "MX",
+      "bookmaker": "winpot.mx",
+      "competition": "colombia-primera-a",
+      "upcoming": 10,
+      "providerReturned": 4,
+      "current": 4,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "MX",
+      "bookmaker": "winpot.mx",
+      "competition": "argentina-primera-division",
+      "upcoming": 16,
+      "providerReturned": 16,
+      "current": 16,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "MX",
+      "bookmaker": "winpot.mx",
+      "competition": "colombia-primera-b",
+      "upcoming": 13,
+      "providerReturned": 5,
+      "current": 5,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "MX",
+      "bookmaker": "winpot.mx",
+      "competition": "mls",
+      "upcoming": 30,
+      "providerReturned": 30,
+      "current": 30,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "MX",
+      "bookmaker": "winpot.mx",
+      "competition": "copa-colombia",
+      "upcoming": 2,
+      "providerReturned": 0,
+      "current": 0,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "MX",
+      "bookmaker": "winpot.mx",
+      "competition": "saudi-pro-league",
+      "upcoming": 14,
+      "providerReturned": 9,
+      "current": 9,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "MX",
+      "bookmaker": "winpot.mx",
+      "competition": "conference-league",
+      "upcoming": 18,
+      "providerReturned": 18,
+      "current": 0,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "MX",
+      "bookmaker": "winpot.mx",
+      "competition": "europa-league",
+      "upcoming": 18,
+      "providerReturned": 18,
+      "current": 0,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "MX",
+      "bookmaker": "winpot.mx",
+      "competition": "eredivisie",
+      "upcoming": 9,
+      "providerReturned": 9,
+      "current": 9,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "MX",
+      "bookmaker": "winpot.mx",
+      "competition": "peru-liga-1",
+      "upcoming": 9,
+      "providerReturned": 8,
+      "current": 8,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "MX",
+      "bookmaker": "winpot.mx",
+      "competition": "la-liga-2",
+      "upcoming": 11,
+      "providerReturned": 11,
+      "current": 11,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "MX",
+      "bookmaker": "winpot.mx",
+      "competition": "bundesliga",
+      "upcoming": 9,
+      "providerReturned": 9,
+      "current": 0,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "MX",
+      "bookmaker": "winpot.mx",
+      "competition": "ligue-1",
+      "upcoming": 9,
+      "providerReturned": 9,
+      "current": 0,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "MX",
+      "bookmaker": "winpot.mx",
+      "competition": "serie-a-italy",
+      "upcoming": 10,
+      "providerReturned": 10,
+      "current": 0,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "MX",
+      "bookmaker": "winpot.mx",
+      "competition": "la-liga",
+      "upcoming": 10,
+      "providerReturned": 10,
+      "current": 0,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "MX",
+      "bookmaker": "winpot.mx",
+      "competition": "brasileirao-serie-a",
+      "upcoming": 10,
+      "providerReturned": 10,
+      "current": 10,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "MX",
+      "bookmaker": "winpot.mx",
+      "competition": "liga-mx",
+      "upcoming": 9,
+      "providerReturned": 9,
+      "current": 9,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "MX",
+      "bookmaker": "winpot.mx",
+      "competition": "premier-league",
+      "upcoming": 10,
+      "providerReturned": 10,
+      "current": 0,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "MX",
+      "bookmaker": "winpot.mx",
+      "competition": "fa-cup",
+      "upcoming": 32,
+      "providerReturned": 0,
+      "current": 0,
+      "missingFreshSelections": 0
+    },
+    {
+      "geo": "MX",
+      "bookmaker": "winpot.mx",
+      "competition": "peru-liga-2",
+      "upcoming": 8,
+      "providerReturned": 0,
+      "current": 0,
+      "missingFreshSelections": 0
+    }
+  ],
+  "budget": {
+    "period_start": "2026-10-02T11:10:51.000Z",
+    "period_end": "2026-11-02T11:10:51.000Z",
+    "hard_limit": 5000,
+    "externally_consumed": 8,
+    "provider_reported_usage": 683,
+    "reconciliation_at": "2026-10-13T00:25:17.275Z",
+    "local_counted": 731,
+    "reserved": 1,
+    "completed": 730,
+    "failed_counted": 170,
+    "unmetered_calls": 18,
+    "rolling_day": 155,
+    "today_utc": 56,
+    "rolling_three_days": 350,
+    "verified": true,
+    "used": 739,
+    "internalLimit": 4750,
+    "routineLimit": 4650,
+    "safeRemaining": 4011,
+    "routineRemaining": 3911,
+    "rollingDay": 155,
+    "dailyCap": 194,
+    "rollingHeadroom": 19,
+    "governor": {
+      "periodAllowance": 4750,
+      "routineAllowance": 4650,
+      "used": 739,
+      "remaining": 4011,
+      "routineRemaining": 3911,
+      "remainingDays": 20.09,
+      "rollingDay": 155,
+      "dailyCap": 194,
+      "headroom": 39,
+      "projectedDailyRequests": 117,
+      "projectedEndOfPeriodUsage": 3090,
+      "projectedOverrun": false,
+      "urgentReserve": 39,
+      "recoveryReserve": 20,
+      "discoveryReserve": 2,
+      "routineCeiling": 155,
+      "routineHeadroom": 0,
+      "pressure": "RESERVE_ONLY",
+      "utilizationPct": 79.9,
+      "quotaState": "WARNING",
+      "normalStop": 155,
+      "controlledStop": 174,
+      "requestsTodayUtc": 56,
+      "projectedEndOfDayUsage": 150
+    },
+    "requestsTodayUtc": 56,
+    "estimatedRequestsRemaining": 39,
+    "quota": {
+      "utilizationPct": 79.9,
+      "state": "WARNING",
+      "slowdown": 1.5
+    },
+    "projectedEndOfDayUsage": 150
+  },
+  "cadence": {
+    "scale": 34.07,
+    "horizonDays": 7,
+    "dailyAllowance": 194,
+    "projectedRequests": 439,
+    "projectedDailyRequests": 63,
+    "activeFeeds": 125,
+    "normalDailyTarget": 145,
+    "reservePct": 67.5,
+    "peakDailyRequests": 98,
+    "forecast": {
+      "requests": 439,
+      "byBookmaker": {
+        "1xbet": 84,
+        "betsson": 92,
+        "bwin": 89,
+        "inkabet": 93,
+        "winpot.mx": 81
+      },
+      "byCompetition": {
+        "7": 16.5,
+        "8": 17.833333333333336,
+        "17": 20,
+        "18": 18.833333333333336,
+        "19": 11,
+        "23": 21,
+        "34": 14.333333333333332,
+        "35": 16.5,
+        "37": 17,
+        "54": 15.833333333333332,
+        "155": 24.666666666666664,
+        "238": 1,
+        "242": 18.833333333333332,
+        "325": 24.5,
+        "384": 13,
+        "406": 15.5,
+        "480": 15.666666666666666,
+        "679": 3.5000000000000004,
+        "955": 31,
+        "1238": 23,
+        "1335": 14.5,
+        "15235": 13.5,
+        "27070": 25,
+        "27382": 20.499999999999996,
+        "27464": 22.5,
+        "34480": 3.5000000000000004
+      },
+      "byDay": [
+        27,
+        52,
+        59,
+        59,
+        98,
+        87,
+        57
+      ],
+      "peakDailyRequests": 98
+    },
+    "budgetAvailable": true
+  },
+  "excludedInventory": [
+    {
+      "publicId": "ed65b9ce44ec486a",
+      "competition": "brasileirao-serie-b"
+    },
+    {
+      "publicId": "ba02d727742a0e68",
+      "competition": "super-lig"
+    },
+    {
+      "publicId": "f1861fbdb150085c",
+      "competition": "ligue-2"
+    },
+    {
+      "publicId": "f1454ea1995d88e6",
+      "competition": "ligue-2"
+    },
+    {
+      "publicId": "bcd7c3db4ac081b3",
+      "competition": "ligue-2"
+    },
+    {
+      "publicId": "3e9cf6e9e92bd79b",
+      "competition": "ligue-2"
+    },
+    {
+      "publicId": "8ff29c07a47c3319",
+      "competition": "ligue-2"
+    },
+    {
+      "publicId": "afcdcd1965e7ae78",
+      "competition": "serie-b-italy"
+    },
+    {
+      "publicId": "eeaeca70666844f0",
+      "competition": "brasileirao-serie-b"
+    },
+    {
+      "publicId": "efeebd267f8e4edb",
+      "competition": "brasileirao-serie-b"
+    },
+    {
+      "publicId": "bacfebf9f499c45b",
+      "competition": "super-lig"
+    },
+    {
+      "publicId": "4c7828168b4ac22e",
+      "competition": "ligue-2"
+    },
+    {
+      "publicId": "9cd51f2d8b5c0f28",
+      "competition": "ligue-2"
+    },
+    {
+      "publicId": "0f48e68e6f0d9e9a",
+      "competition": "super-lig"
+    },
+    {
+      "publicId": "5aa1d04bb19b55dc",
+      "competition": "serie-b-italy"
+    },
+    {
+      "publicId": "c9004104f68f7d09",
+      "competition": "serie-b-italy"
+    },
+    {
+      "publicId": "457ca41b04457af5",
+      "competition": "serie-b-italy"
+    },
+    {
+      "publicId": "09f33c4cf93ee1d4",
+      "competition": "serie-b-italy"
+    },
+    {
+      "publicId": "96a60b057f49ad86",
+      "competition": "super-lig"
+    },
+    {
+      "publicId": "a70cbb620fbf1624",
+      "competition": "serie-b-italy"
+    },
+    {
+      "publicId": "e9de87db5560ec9b",
+      "competition": "super-lig"
+    },
+    {
+      "publicId": "9cc58c7c99844213",
+      "competition": "serie-b-italy"
+    },
+    {
+      "publicId": "699efcc69ad180eb",
+      "competition": "ligue-2"
+    },
+    {
+      "publicId": "eabee9e74ac74e6a",
+      "competition": "brasileirao-serie-b"
+    },
+    {
+      "publicId": "28cac5d6786c4d93",
+      "competition": "brasileirao-serie-b"
+    },
+    {
+      "publicId": "0962c3b4a89ea652",
+      "competition": "super-lig"
+    },
+    {
+      "publicId": "e096ba997c06a50e",
+      "competition": "super-lig"
+    },
+    {
+      "publicId": "b16495f0181433e1",
+      "competition": "serie-b-italy"
+    },
+    {
+      "publicId": "1a44300d746e6d6c",
+      "competition": "serie-b-italy"
+    },
+    {
+      "publicId": "69de425e8fca85b7",
+      "competition": "super-lig"
+    },
+    {
+      "publicId": "8638a2e821f8f0ff",
+      "competition": "serie-b-italy"
+    },
+    {
+      "publicId": "49a3d72c2aa64b45",
+      "competition": "brasileirao-serie-b"
+    },
+    {
+      "publicId": "6b2eb524669941d8",
+      "competition": "brasileirao-serie-b"
+    },
+    {
+      "publicId": "78f2be0b0edf42b3",
+      "competition": "brasileirao-serie-b"
+    },
+    {
+      "publicId": "28f41bb2b76c402b",
+      "competition": "brasileirao-serie-b"
+    },
+    {
+      "publicId": "173929aadee65923",
+      "competition": "super-lig"
+    },
+    {
+      "publicId": "1439b4293f5b73f2",
+      "competition": "ligue-2"
+    },
+    {
+      "publicId": "50fce308d6fa428d",
+      "competition": "brasileirao-serie-b"
+    }
+  ],
+  "fixtures": [
+    {
+      "publicId": "04cdb83ec3e54015",
+      "competition": "champions-league",
+      "kickoff": "2026-10-13T16:45:00.000Z"
+    },
+    {
+      "publicId": "f446ccafeece4116",
+      "competition": "champions-league",
+      "kickoff": "2026-10-13T16:45:00.000Z"
+    },
+    {
+      "publicId": "76328776ea3e2966",
+      "competition": "championship",
+      "kickoff": "2026-10-13T18:45:00.000Z"
+    },
+    {
+      "publicId": "16cd0282c6eb2136",
+      "competition": "championship",
+      "kickoff": "2026-10-13T18:45:00.000Z"
+    },
+    {
+      "publicId": "d3ceaa131551e56b",
+      "competition": "championship",
+      "kickoff": "2026-10-13T18:45:00.000Z"
+    },
+    {
+      "publicId": "38d132115d01cf90",
+      "competition": "championship",
+      "kickoff": "2026-10-13T18:45:00.000Z"
+    },
+    {
+      "publicId": "60cbb7a185dd5199",
+      "competition": "championship",
+      "kickoff": "2026-10-13T18:45:00.000Z"
+    },
+    {
+      "publicId": "8eadcfc4d2a59d39",
+      "competition": "championship",
+      "kickoff": "2026-10-13T18:45:00.000Z"
+    },
+    {
+      "publicId": "53bb7038af1c31be",
+      "competition": "championship",
+      "kickoff": "2026-10-13T19:00:00.000Z"
+    },
+    {
+      "publicId": "6316f9d71b5c44c2",
+      "competition": "champions-league",
+      "kickoff": "2026-10-13T19:00:00.000Z"
+    },
+    {
+      "publicId": "694362a47e294ac7",
+      "competition": "champions-league",
+      "kickoff": "2026-10-13T19:00:00.000Z"
+    },
+    {
+      "publicId": "6ff033b42b0543c9",
+      "competition": "champions-league",
+      "kickoff": "2026-10-13T19:00:00.000Z"
+    },
+    {
+      "publicId": "991adecdccbb446e",
+      "competition": "champions-league",
+      "kickoff": "2026-10-13T19:00:00.000Z"
+    },
+    {
+      "publicId": "a5ee1c3732ee4921",
+      "competition": "champions-league",
+      "kickoff": "2026-10-13T19:00:00.000Z"
+    },
+    {
+      "publicId": "ad964edbe9fd4dcf",
+      "competition": "champions-league",
+      "kickoff": "2026-10-13T19:00:00.000Z"
+    },
+    {
+      "publicId": "58d23e2edd62ebfb",
+      "competition": "championship",
+      "kickoff": "2026-10-13T19:00:00.000Z"
+    },
+    {
+      "publicId": "bdc734f7b62b4496",
+      "competition": "champions-league",
+      "kickoff": "2026-10-13T19:00:00.000Z"
+    },
+    {
+      "publicId": "e3c9812f684693f5",
+      "competition": "liga-expansion-mx",
+      "kickoff": "2026-10-13T23:00:00.000Z"
+    },
+    {
+      "publicId": "c7ab375920d3c292",
+      "competition": "colombia-primera-a",
+      "kickoff": "2026-10-13T23:30:00.000Z"
+    },
+    {
+      "publicId": "871e316a8141793e",
+      "competition": "colombia-primera-a",
+      "kickoff": "2026-10-14T01:30:00.000Z"
+    },
+    {
+      "publicId": "598f052ed5b74001",
+      "competition": "champions-league",
+      "kickoff": "2026-10-14T16:45:00.000Z"
+    },
+    {
+      "publicId": "d7c3d1024f0d4f63",
+      "competition": "champions-league",
+      "kickoff": "2026-10-14T16:45:00.000Z"
+    },
+    {
+      "publicId": "0fe63b28b6ce7fe8",
+      "competition": "championship",
+      "kickoff": "2026-10-14T18:45:00.000Z"
+    },
+    {
+      "publicId": "8bdbf9d859b57403",
+      "competition": "championship",
+      "kickoff": "2026-10-14T18:45:00.000Z"
+    },
+    {
+      "publicId": "ce2660fb58ae994d",
+      "competition": "championship",
+      "kickoff": "2026-10-14T18:45:00.000Z"
+    },
+    {
+      "publicId": "35e90bb7d09be3fe",
+      "competition": "championship",
+      "kickoff": "2026-10-14T19:00:00.000Z"
+    },
+    {
+      "publicId": "3186a4d0bb414fa6",
+      "competition": "champions-league",
+      "kickoff": "2026-10-14T19:00:00.000Z"
+    },
+    {
+      "publicId": "368243ac12124a30",
+      "competition": "champions-league",
+      "kickoff": "2026-10-14T19:00:00.000Z"
+    },
+    {
+      "publicId": "37cc599ccc724a81",
+      "competition": "champions-league",
+      "kickoff": "2026-10-14T19:00:00.000Z"
+    },
+    {
+      "publicId": "4d4652b19f45449a",
+      "competition": "champions-league",
+      "kickoff": "2026-10-14T19:00:00.000Z"
+    },
+    {
+      "publicId": "77f45b76efc34330",
+      "competition": "champions-league",
+      "kickoff": "2026-10-14T19:00:00.000Z"
+    },
+    {
+      "publicId": "b45d2694a10843bf",
+      "competition": "champions-league",
+      "kickoff": "2026-10-14T19:00:00.000Z"
+    },
+    {
+      "publicId": "ca9fc61f27b34cc3",
+      "competition": "champions-league",
+      "kickoff": "2026-10-14T19:00:00.000Z"
+    },
+    {
+      "publicId": "53282b5e81964f11",
+      "competition": "argentina-primera-division",
+      "kickoff": "2026-10-14T22:00:00.000Z"
+    },
+    {
+      "publicId": "c92d183e9d1f79ee",
+      "competition": "colombia-primera-b",
+      "kickoff": "2026-10-14T22:00:00.000Z"
+    },
+    {
+      "publicId": "289f591630474cfc",
+      "competition": "mls",
+      "kickoff": "2026-10-14T23:30:00.000Z"
+    },
+    {
+      "publicId": "3ae56ccacc4c4bd5",
+      "competition": "mls",
+      "kickoff": "2026-10-14T23:30:00.000Z"
+    },
+    {
+      "publicId": "506f3c590fb849fa",
+      "competition": "mls",
+      "kickoff": "2026-10-14T23:30:00.000Z"
+    },
+    {
+      "publicId": "80e69720b9264fb7",
+      "competition": "mls",
+      "kickoff": "2026-10-14T23:30:00.000Z"
+    },
+    {
+      "publicId": "a1e97097993c4f44",
+      "competition": "mls",
+      "kickoff": "2026-10-14T23:30:00.000Z"
+    },
+    {
+      "publicId": "ad89c9c4de2d4153",
+      "competition": "mls",
+      "kickoff": "2026-10-14T23:30:00.000Z"
+    },
+    {
+      "publicId": "1e9fd96d639c4341",
+      "competition": "mls",
+      "kickoff": "2026-10-15T00:30:00.000Z"
+    },
+    {
+      "publicId": "1f94763f69544c2a",
+      "competition": "mls",
+      "kickoff": "2026-10-15T00:30:00.000Z"
+    },
+    {
+      "publicId": "5b21a993814d4216",
+      "competition": "mls",
+      "kickoff": "2026-10-15T00:30:00.000Z"
+    },
+    {
+      "publicId": "ffa1e472ddfa4594",
+      "competition": "mls",
+      "kickoff": "2026-10-15T00:30:00.000Z"
+    },
+    {
+      "publicId": "113a6045e59f4e8f",
+      "competition": "mls",
+      "kickoff": "2026-10-15T01:30:00.000Z"
+    },
+    {
+      "publicId": "1a89d4ed5ee244bb",
+      "competition": "mls",
+      "kickoff": "2026-10-15T01:30:00.000Z"
+    },
+    {
+      "publicId": "f32376d2ce341601",
+      "competition": "copa-colombia",
+      "kickoff": "2026-10-15T01:30:00.000Z"
+    },
+    {
+      "publicId": "30f6af959aa744b6",
+      "competition": "mls",
+      "kickoff": "2026-10-15T02:30:00.000Z"
+    },
+    {
+      "publicId": "56e3c2c899fd496e",
+      "competition": "mls",
+      "kickoff": "2026-10-15T02:30:00.000Z"
+    },
+    {
+      "publicId": "dd08de8c8f1e4316",
+      "competition": "mls",
+      "kickoff": "2026-10-15T02:30:00.000Z"
+    },
+    {
+      "publicId": "a39a4025de98a126",
+      "competition": "saudi-pro-league",
+      "kickoff": "2026-10-15T13:40:00.000Z"
+    },
+    {
+      "publicId": "667078b29457470d",
+      "competition": "saudi-pro-league",
+      "kickoff": "2026-10-15T14:50:00.000Z"
+    },
+    {
+      "publicId": "68900a7b2984c332",
+      "competition": "saudi-pro-league",
+      "kickoff": "2026-10-15T15:15:00.000Z"
+    },
+    {
+      "publicId": "05d30fa98e03496e",
+      "competition": "conference-league",
+      "kickoff": "2026-10-15T16:45:00.000Z"
+    },
+    {
+      "publicId": "0a5c6a821feb4628",
+      "competition": "conference-league",
+      "kickoff": "2026-10-15T16:45:00.000Z"
+    },
+    {
+      "publicId": "264156d860024712",
+      "competition": "conference-league",
+      "kickoff": "2026-10-15T16:45:00.000Z"
+    },
+    {
+      "publicId": "3f3ae03f569649ff",
+      "competition": "europa-league",
+      "kickoff": "2026-10-15T16:45:00.000Z"
+    },
+    {
+      "publicId": "7081862ec10f437a",
+      "competition": "conference-league",
+      "kickoff": "2026-10-15T16:45:00.000Z"
+    },
+    {
+      "publicId": "71902a27b66141e8",
+      "competition": "conference-league",
+      "kickoff": "2026-10-15T16:45:00.000Z"
+    },
+    {
+      "publicId": "7952f525b5c74a18",
+      "competition": "europa-league",
+      "kickoff": "2026-10-15T16:45:00.000Z"
+    },
+    {
+      "publicId": "81382ac5257b499e",
+      "competition": "europa-league",
+      "kickoff": "2026-10-15T16:45:00.000Z"
+    },
+    {
+      "publicId": "8214fef908764d41",
+      "competition": "conference-league",
+      "kickoff": "2026-10-15T16:45:00.000Z"
+    },
+    {
+      "publicId": "89a69c13f904431d",
+      "competition": "conference-league",
+      "kickoff": "2026-10-15T16:45:00.000Z"
+    },
+    {
+      "publicId": "9db2bcdb5c7d4b5e",
+      "competition": "europa-league",
+      "kickoff": "2026-10-15T16:45:00.000Z"
+    },
+    {
+      "publicId": "a2a6d547c0d947c3",
+      "competition": "europa-league",
+      "kickoff": "2026-10-15T16:45:00.000Z"
+    },
+    {
+      "publicId": "a4a80ff5d7d844e1",
+      "competition": "europa-league",
+      "kickoff": "2026-10-15T16:45:00.000Z"
+    },
+    {
+      "publicId": "bddba7ff64a24f17",
+      "competition": "europa-league",
+      "kickoff": "2026-10-15T16:45:00.000Z"
+    },
+    {
+      "publicId": "beadd2c622814ea3",
+      "competition": "conference-league",
+      "kickoff": "2026-10-15T16:45:00.000Z"
+    },
+    {
+      "publicId": "cf89c41d585d4967",
+      "competition": "conference-league",
+      "kickoff": "2026-10-15T16:45:00.000Z"
+    },
+    {
+      "publicId": "f274c6c4e85a4470",
+      "competition": "conference-league",
+      "kickoff": "2026-10-15T16:45:00.000Z"
+    },
+    {
+      "publicId": "fd4721e3bafe4fe8",
+      "competition": "europa-league",
+      "kickoff": "2026-10-15T16:45:00.000Z"
+    },
+    {
+      "publicId": "31793974f7af8f83",
+      "competition": "saudi-pro-league",
+      "kickoff": "2026-10-15T18:00:00.000Z"
+    },
+    {
+      "publicId": "00385620e0e3410e",
+      "competition": "europa-league",
+      "kickoff": "2026-10-15T19:00:00.000Z"
+    },
+    {
+      "publicId": "0dc0eb4f166a4a33",
+      "competition": "conference-league",
+      "kickoff": "2026-10-15T19:00:00.000Z"
+    },
+    {
+      "publicId": "3973cab4622844cc",
+      "competition": "conference-league",
+      "kickoff": "2026-10-15T19:00:00.000Z"
+    },
+    {
+      "publicId": "60813c38bf2d493b",
+      "competition": "conference-league",
+      "kickoff": "2026-10-15T19:00:00.000Z"
+    },
+    {
+      "publicId": "677c830476924a3f",
+      "competition": "europa-league",
+      "kickoff": "2026-10-15T19:00:00.000Z"
+    },
+    {
+      "publicId": "80eed7c935f1487f",
+      "competition": "europa-league",
+      "kickoff": "2026-10-15T19:00:00.000Z"
+    },
+    {
+      "publicId": "812d267b066f4fbb",
+      "competition": "conference-league",
+      "kickoff": "2026-10-15T19:00:00.000Z"
+    },
+    {
+      "publicId": "82ba365090904169",
+      "competition": "europa-league",
+      "kickoff": "2026-10-15T19:00:00.000Z"
+    },
+    {
+      "publicId": "8ed7efc864a0424a",
+      "competition": "europa-league",
+      "kickoff": "2026-10-15T19:00:00.000Z"
+    },
+    {
+      "publicId": "8fd5519c20464dc1",
+      "competition": "conference-league",
+      "kickoff": "2026-10-15T19:00:00.000Z"
+    },
+    {
+      "publicId": "9be8edcafb194004",
+      "competition": "europa-league",
+      "kickoff": "2026-10-15T19:00:00.000Z"
+    },
+    {
+      "publicId": "a1a524bc0fa847f0",
+      "competition": "europa-league",
+      "kickoff": "2026-10-15T19:00:00.000Z"
+    },
+    {
+      "publicId": "af5494318bb34209",
+      "competition": "conference-league",
+      "kickoff": "2026-10-15T19:00:00.000Z"
+    },
+    {
+      "publicId": "c100595336744154",
+      "competition": "conference-league",
+      "kickoff": "2026-10-15T19:00:00.000Z"
+    },
+    {
+      "publicId": "c1aabe521c614f64",
+      "competition": "conference-league",
+      "kickoff": "2026-10-15T19:00:00.000Z"
+    },
+    {
+      "publicId": "c5e9fd7d5742401e",
+      "competition": "europa-league",
+      "kickoff": "2026-10-15T19:00:00.000Z"
+    },
+    {
+      "publicId": "ca9009a80f754c7b",
+      "competition": "europa-league",
+      "kickoff": "2026-10-15T19:00:00.000Z"
+    },
+    {
+      "publicId": "d166093afedb4288",
+      "competition": "europa-league",
+      "kickoff": "2026-10-15T19:00:00.000Z"
+    },
+    {
+      "publicId": "e17eef117252ca2d",
+      "competition": "colombia-primera-b",
+      "kickoff": "2026-10-15T20:00:00.000Z"
+    },
+    {
+      "publicId": "d66bcc8c52788b44",
+      "competition": "colombia-primera-b",
+      "kickoff": "2026-10-15T22:00:00.000Z"
+    },
+    {
+      "publicId": "2b006522723b5624",
+      "competition": "colombia-primera-b",
+      "kickoff": "2026-10-15T22:00:00.000Z"
+    },
+    {
+      "publicId": "aae67b4c5237768f",
+      "competition": "colombia-primera-b",
+      "kickoff": "2026-10-15T22:15:00.000Z"
+    },
+    {
+      "publicId": "908ae4ac0938bd56",
+      "competition": "colombia-primera-b",
+      "kickoff": "2026-10-15T23:00:00.000Z"
+    },
+    {
+      "publicId": "59fae4f4c6314515",
+      "competition": "argentina-primera-division",
+      "kickoff": "2026-10-15T23:00:00.000Z"
+    },
+    {
+      "publicId": "8fa308703db66c3d",
+      "competition": "copa-colombia",
+      "kickoff": "2026-10-15T23:00:00.000Z"
+    },
+    {
+      "publicId": "f697f2e2226e1326",
+      "competition": "colombia-primera-b",
+      "kickoff": "2026-10-16T01:00:00.000Z"
+    },
+    {
+      "publicId": "7b62e71925584dc0",
+      "competition": "saudi-pro-league",
+      "kickoff": "2026-10-16T13:15:00.000Z"
+    },
+    {
+      "publicId": "1b658d4cfb86e20a",
+      "competition": "saudi-pro-league",
+      "kickoff": "2026-10-16T15:00:00.000Z"
+    },
+    {
+      "publicId": "6b3180cfb94a4bc7",
+      "competition": "eredivisie",
+      "kickoff": "2026-10-16T18:00:00.000Z"
+    },
+    {
+      "publicId": "a2fd2c4e9a18f1d7",
+      "competition": "saudi-pro-league",
+      "kickoff": "2026-10-16T18:00:00.000Z"
+    },
+    {
+      "publicId": "ac67c2a6ecd1db0e",
+      "competition": "peru-liga-1",
+      "kickoff": "2026-10-16T18:00:00.000Z"
+    },
+    {
+      "publicId": "59ba0974aabfd09b",
+      "competition": "la-liga-2",
+      "kickoff": "2026-10-16T18:30:00.000Z"
+    },
+    {
+      "publicId": "58b54f1344159153",
+      "competition": "bundesliga",
+      "kickoff": "2026-10-16T18:30:00.000Z"
+    },
+    {
+      "publicId": "3c009bbd5e7e7df8",
+      "competition": "ligue-1",
+      "kickoff": "2026-10-16T18:45:00.000Z"
+    },
+    {
+      "publicId": "84b6afa009056ab0",
+      "competition": "serie-a-italy",
+      "kickoff": "2026-10-16T18:45:00.000Z"
+    },
+    {
+      "publicId": "9beab2b5d828da66",
+      "competition": "la-liga",
+      "kickoff": "2026-10-16T19:00:00.000Z"
+    },
+    {
+      "publicId": "dbafacdc6abe2737",
+      "competition": "championship",
+      "kickoff": "2026-10-16T19:00:00.000Z"
+    },
+    {
+      "publicId": "48c550435cd1321b",
+      "competition": "peru-liga-1",
+      "kickoff": "2026-10-16T20:30:00.000Z"
+    },
+    {
+      "publicId": "cc9a936a99864af4",
+      "competition": "argentina-primera-division",
+      "kickoff": "2026-10-16T22:00:00.000Z"
+    },
+    {
+      "publicId": "10e2a00dd249a3f3",
+      "competition": "colombia-primera-b",
+      "kickoff": "2026-10-16T22:15:00.000Z"
+    },
+    {
+      "publicId": "c66870384cb14780",
+      "competition": "brasileirao-serie-a",
+      "kickoff": "2026-10-16T23:00:00.000Z"
+    },
+    {
+      "publicId": "8d13a4b062094945",
+      "competition": "argentina-primera-division",
+      "kickoff": "2026-10-17T00:30:00.000Z"
+    },
+    {
+      "publicId": "080e7207193d2f97",
+      "competition": "liga-expansion-mx",
+      "kickoff": "2026-10-17T01:00:00.000Z"
+    },
+    {
+      "publicId": "562720d627ed4cb0",
+      "competition": "liga-mx",
+      "kickoff": "2026-10-17T01:00:00.000Z"
+    },
+    {
+      "publicId": "09c2d1ac5e8c492f",
+      "competition": "liga-mx",
+      "kickoff": "2026-10-17T03:00:00.000Z"
+    },
+    {
+      "publicId": "31b94f1f99b545aa",
+      "competition": "liga-mx",
+      "kickoff": "2026-10-17T03:00:00.000Z"
+    },
+    {
+      "publicId": "94026b5e137dd24f",
+      "competition": "liga-expansion-mx",
+      "kickoff": "2026-10-17T03:00:00.000Z"
+    },
+    {
+      "publicId": "601568efec2cc678",
+      "competition": "premier-league",
+      "kickoff": "2026-10-17T11:30:00.000Z"
+    },
+    {
+      "publicId": "aaac2ea3d2921420",
+      "competition": "championship",
+      "kickoff": "2026-10-17T11:30:00.000Z"
+    },
+    {
+      "publicId": "75b370e264b8bb59",
+      "competition": "championship",
+      "kickoff": "2026-10-17T11:30:00.000Z"
+    },
+    {
+      "publicId": "33446fe89c67fd17",
+      "competition": "championship",
+      "kickoff": "2026-10-17T11:30:00.000Z"
+    },
+    {
+      "publicId": "9d5c416ded63daa5",
+      "competition": "la-liga",
+      "kickoff": "2026-10-17T12:00:00.000Z"
+    },
+    {
+      "publicId": "408a98c6dc4cd213",
+      "competition": "la-liga-2",
+      "kickoff": "2026-10-17T12:00:00.000Z"
+    },
+    {
+      "publicId": "22738ad9ba2b1602",
+      "competition": "serie-a-italy",
+      "kickoff": "2026-10-17T13:00:00.000Z"
+    },
+    {
+      "publicId": "9b4437448aa4b39e",
+      "competition": "bundesliga",
+      "kickoff": "2026-10-17T13:30:00.000Z"
+    },
+    {
+      "publicId": "6591fae55b6c75ba",
+      "competition": "bundesliga",
+      "kickoff": "2026-10-17T13:30:00.000Z"
+    },
+    {
+      "publicId": "ab3c7325f467eeb9",
+      "competition": "bundesliga",
+      "kickoff": "2026-10-17T13:30:00.000Z"
+    },
+    {
+      "publicId": "f5173be5e5a385d4",
+      "competition": "bundesliga",
+      "kickoff": "2026-10-17T13:30:00.000Z"
+    },
+    {
+      "publicId": "36c0c85d17c04225",
+      "competition": "bundesliga",
+      "kickoff": "2026-10-17T13:30:00.000Z"
+    },
+    {
+      "publicId": "d5876ef5e85015ff",
+      "competition": "fa-cup",
+      "kickoff": "2026-10-17T14:00:00.000Z"
+    },
+    {
+      "publicId": "e3e6c4e82826c5b6",
+      "competition": "fa-cup",
+      "kickoff": "2026-10-17T14:00:00.000Z"
+    },
+    {
+      "publicId": "ff4f484115780ee0",
+      "competition": "championship",
+      "kickoff": "2026-10-17T14:00:00.000Z"
+    },
+    {
+      "publicId": "2db5ccbff8fb6605",
+      "competition": "fa-cup",
+      "kickoff": "2026-10-17T14:00:00.000Z"
+    },
+    {
+      "publicId": "c0b1c1e07f2749b2",
+      "competition": "fa-cup",
+      "kickoff": "2026-10-17T14:00:00.000Z"
+    },
+    {
+      "publicId": "5fef4a089647847c",
+      "competition": "fa-cup",
+      "kickoff": "2026-10-17T14:00:00.000Z"
+    },
+    {
+      "publicId": "d29079375d3005de",
+      "competition": "fa-cup",
+      "kickoff": "2026-10-17T14:00:00.000Z"
+    },
+    {
+      "publicId": "2a72e558f33b0399",
+      "competition": "fa-cup",
+      "kickoff": "2026-10-17T14:00:00.000Z"
+    },
+    {
+      "publicId": "0314a31f3cf9ba48",
+      "competition": "fa-cup",
+      "kickoff": "2026-10-17T14:00:00.000Z"
+    },
+    {
+      "publicId": "d7f902e9dc63839b",
+      "competition": "fa-cup",
+      "kickoff": "2026-10-17T14:00:00.000Z"
+    },
+    {
+      "publicId": "ae7b17fc8027c3d1",
+      "competition": "championship",
+      "kickoff": "2026-10-17T14:00:00.000Z"
+    },
+    {
+      "publicId": "73da42a509dd9681",
+      "competition": "fa-cup",
+      "kickoff": "2026-10-17T14:00:00.000Z"
+    },
+    {
+      "publicId": "09d5dafc55db6120",
+      "competition": "premier-league",
+      "kickoff": "2026-10-17T14:00:00.000Z"
+    },
+    {
+      "publicId": "c49045e42e8cea7d",
+      "competition": "fa-cup",
+      "kickoff": "2026-10-17T14:00:00.000Z"
+    },
+    {
+      "publicId": "1219d9e2d8512093",
+      "competition": "fa-cup",
+      "kickoff": "2026-10-17T14:00:00.000Z"
+    },
+    {
+      "publicId": "fb1ed12a7b822edb",
+      "competition": "championship",
+      "kickoff": "2026-10-17T14:00:00.000Z"
+    },
+    {
+      "publicId": "827ac4f0dc8c7dd3",
+      "competition": "championship",
+      "kickoff": "2026-10-17T14:00:00.000Z"
+    },
+    {
+      "publicId": "be84760d68b02b09",
+      "competition": "fa-cup",
+      "kickoff": "2026-10-17T14:00:00.000Z"
+    },
+    {
+      "publicId": "18186aadba613cdc",
+      "competition": "fa-cup",
+      "kickoff": "2026-10-17T14:00:00.000Z"
+    },
+    {
+      "publicId": "21287b21549cdf3e",
+      "competition": "fa-cup",
+      "kickoff": "2026-10-17T14:00:00.000Z"
+    },
+    {
+      "publicId": "cc7182b746226508",
+      "competition": "fa-cup",
+      "kickoff": "2026-10-17T14:00:00.000Z"
+    },
+    {
+      "publicId": "cc0b9a6c2358fe97",
+      "competition": "fa-cup",
+      "kickoff": "2026-10-17T14:00:00.000Z"
+    },
+    {
+      "publicId": "1ce2bcb2246e605c",
+      "competition": "fa-cup",
+      "kickoff": "2026-10-17T14:00:00.000Z"
+    },
+    {
+      "publicId": "95324fb81b0ee2b3",
+      "competition": "championship",
+      "kickoff": "2026-10-17T14:00:00.000Z"
+    },
+    {
+      "publicId": "2e574fe68399f0df",
+      "competition": "fa-cup",
+      "kickoff": "2026-10-17T14:00:00.000Z"
+    },
+    {
+      "publicId": "8bf089ff6318eebd",
+      "competition": "fa-cup",
+      "kickoff": "2026-10-17T14:00:00.000Z"
+    },
+    {
+      "publicId": "900a6961f40a22ac",
+      "competition": "fa-cup",
+      "kickoff": "2026-10-17T14:00:00.000Z"
+    },
+    {
+      "publicId": "d0d09ee0daecbfc8",
+      "competition": "fa-cup",
+      "kickoff": "2026-10-17T14:00:00.000Z"
+    },
+    {
+      "publicId": "4055e234beea681b",
+      "competition": "championship",
+      "kickoff": "2026-10-17T14:00:00.000Z"
+    },
+    {
+      "publicId": "4a650b6eed320c2d",
+      "competition": "premier-league",
+      "kickoff": "2026-10-17T14:00:00.000Z"
+    },
+    {
+      "publicId": "d55a89afcfa067a9",
+      "competition": "premier-league",
+      "kickoff": "2026-10-17T14:00:00.000Z"
+    },
+    {
+      "publicId": "3b55814081959af4",
+      "competition": "championship",
+      "kickoff": "2026-10-17T14:00:00.000Z"
+    },
+    {
+      "publicId": "b00e94215ef87429",
+      "competition": "fa-cup",
+      "kickoff": "2026-10-17T14:00:00.000Z"
+    },
+    {
+      "publicId": "fead8b9b90d7216c",
+      "competition": "fa-cup",
+      "kickoff": "2026-10-17T14:00:00.000Z"
+    },
+    {
+      "publicId": "4fd8ce91ccc375e6",
+      "competition": "fa-cup",
+      "kickoff": "2026-10-17T14:00:00.000Z"
+    },
+    {
+      "publicId": "665ce0131014c2e1",
+      "competition": "fa-cup",
+      "kickoff": "2026-10-17T14:00:00.000Z"
+    },
+    {
+      "publicId": "93e0fa0d22606462",
+      "competition": "fa-cup",
+      "kickoff": "2026-10-17T14:00:00.000Z"
+    },
+    {
+      "publicId": "ddb4926206029583",
+      "competition": "championship",
+      "kickoff": "2026-10-17T14:00:00.000Z"
+    },
+    {
+      "publicId": "b7f874af2d4fe228",
+      "competition": "fa-cup",
+      "kickoff": "2026-10-17T14:00:00.000Z"
+    },
+    {
+      "publicId": "dcdf353d8088537f",
+      "competition": "fa-cup",
+      "kickoff": "2026-10-17T14:00:00.000Z"
+    },
+    {
+      "publicId": "af91f4da47416527",
+      "competition": "fa-cup",
+      "kickoff": "2026-10-17T14:00:00.000Z"
+    },
+    {
+      "publicId": "2c3f3ad8de8700d9",
+      "competition": "fa-cup",
+      "kickoff": "2026-10-17T14:00:00.000Z"
+    },
+    {
+      "publicId": "b2f52f45277c8665",
+      "competition": "fa-cup",
+      "kickoff": "2026-10-17T14:00:00.000Z"
+    },
+    {
+      "publicId": "cca2dcbf693c8290",
+      "competition": "la-liga-2",
+      "kickoff": "2026-10-17T14:15:00.000Z"
+    },
+    {
+      "publicId": "5e666d274a66ada0",
+      "competition": "la-liga",
+      "kickoff": "2026-10-17T14:15:00.000Z"
+    },
+    {
+      "publicId": "b9856341ef544339",
+      "competition": "eredivisie",
+      "kickoff": "2026-10-17T14:30:00.000Z"
+    },
+    {
+      "publicId": "a4702f5f9ce39ecf",
+      "competition": "ligue-1",
+      "kickoff": "2026-10-17T15:15:00.000Z"
+    },
+    {
+      "publicId": "809f2d5c81d9ea31",
+      "competition": "saudi-pro-league",
+      "kickoff": "2026-10-17T15:40:00.000Z"
+    },
+    {
+      "publicId": "e2ad8c7479a268d1",
+      "competition": "serie-a-italy",
+      "kickoff": "2026-10-17T16:00:00.000Z"
+    },
+    {
+      "publicId": "e27b8afcfdcc7bd5",
+      "competition": "la-liga",
+      "kickoff": "2026-10-17T16:30:00.000Z"
+    },
+    {
+      "publicId": "0d9391f7f728db4f",
+      "competition": "premier-league",
+      "kickoff": "2026-10-17T16:30:00.000Z"
+    },
+    {
+      "publicId": "e0d43dd4e54691ce",
+      "competition": "bundesliga",
+      "kickoff": "2026-10-17T16:30:00.000Z"
+    },
+    {
+      "publicId": "970cbffde6b406a5",
+      "competition": "la-liga-2",
+      "kickoff": "2026-10-17T16:30:00.000Z"
+    },
+    {
+      "publicId": "85f6c9592d5b5205",
+      "competition": "saudi-pro-league",
+      "kickoff": "2026-10-17T18:00:00.000Z"
+    },
+    {
+      "publicId": "7935b235e2d44872",
+      "competition": "eredivisie",
+      "kickoff": "2026-10-17T18:00:00.000Z"
+    },
+    {
+      "publicId": "18c138ba8e6196ac",
+      "competition": "peru-liga-2",
+      "kickoff": "2026-10-17T18:00:00.000Z"
+    },
+    {
+      "publicId": "d02fd1ad1d2444db",
+      "competition": "argentina-primera-division",
+      "kickoff": "2026-10-17T18:00:00.000Z"
+    },
+    {
+      "publicId": "843f9e17e6f019de",
+      "competition": "liga-expansion-mx",
+      "kickoff": "2026-10-17T18:00:00.000Z"
+    },
+    {
+      "publicId": "db1a12c635c8ceb5",
+      "competition": "peru-liga-2",
+      "kickoff": "2026-10-17T18:00:00.000Z"
+    },
+    {
+      "publicId": "6d8d0f7ce0244042",
+      "competition": "mls",
+      "kickoff": "2026-10-17T18:30:00.000Z"
+    },
+    {
+      "publicId": "7e93b9d6dc7aa92a",
+      "competition": "ligue-1",
+      "kickoff": "2026-10-17T18:45:00.000Z"
+    },
+    {
+      "publicId": "3c3e699a9e538bc9",
+      "competition": "serie-a-italy",
+      "kickoff": "2026-10-17T18:45:00.000Z"
+    },
+    {
+      "publicId": "38b4e204fd919b81",
+      "competition": "ligue-1",
+      "kickoff": "2026-10-17T18:45:00.000Z"
+    },
+    {
+      "publicId": "1e29e882c3194d68",
+      "competition": "eredivisie",
+      "kickoff": "2026-10-17T19:00:00.000Z"
+    },
+    {
+      "publicId": "0bfd63b3cac3f835",
+      "competition": "la-liga",
+      "kickoff": "2026-10-17T19:00:00.000Z"
+    },
+    {
+      "publicId": "cb9d210f16e4d60f",
+      "competition": "la-liga-2",
+      "kickoff": "2026-10-17T19:00:00.000Z"
+    },
+    {
+      "publicId": "9d6538d73adf6650",
+      "competition": "peru-liga-1",
+      "kickoff": "2026-10-17T20:00:00.000Z"
+    },
+    {
+      "publicId": "101314c9ed7d1753",
+      "competition": "colombia-primera-a",
+      "kickoff": "2026-10-17T20:00:00.000Z"
+    },
+    {
+      "publicId": "e614ba4835bdbfd2",
+      "competition": "peru-liga-2",
+      "kickoff": "2026-10-17T20:15:00.000Z"
+    },
+    {
+      "publicId": "52983a30c6402229",
+      "competition": "peru-liga-2",
+      "kickoff": "2026-10-17T20:15:00.000Z"
+    },
+    {
+      "publicId": "3ff5a45451d84518",
+      "competition": "argentina-primera-division",
+      "kickoff": "2026-10-17T20:30:00.000Z"
+    },
+    {
+      "publicId": "95a6cadfa34f41a4",
+      "competition": "mls",
+      "kickoff": "2026-10-17T20:30:00.000Z"
+    },
+    {
+      "publicId": "d886cf34c7ce493e",
+      "competition": "argentina-primera-division",
+      "kickoff": "2026-10-17T20:30:00.000Z"
+    },
+    {
+      "publicId": "cf9dab7587024b37",
+      "competition": "brasileirao-serie-a",
+      "kickoff": "2026-10-17T21:00:00.000Z"
+    },
+    {
+      "publicId": "a2ab02c78a614e7c",
+      "competition": "brasileirao-serie-a",
+      "kickoff": "2026-10-17T21:30:00.000Z"
+    },
+    {
+      "publicId": "e76bc9c318af4c76",
+      "competition": "brasileirao-serie-a",
+      "kickoff": "2026-10-17T22:30:00.000Z"
+    },
+    {
+      "publicId": "595a2d2e5a7c46b6",
+      "competition": "argentina-primera-division",
+      "kickoff": "2026-10-17T23:00:00.000Z"
+    },
+    {
+      "publicId": "8022a77e8546d8b1",
+      "competition": "peru-liga-1",
+      "kickoff": "2026-10-17T23:00:00.000Z"
+    },
+    {
+      "publicId": "73fa65fe5b954a7a",
+      "competition": "argentina-primera-division",
+      "kickoff": "2026-10-17T23:00:00.000Z"
+    },
+    {
+      "publicId": "e4119debcbc04f0f",
+      "competition": "liga-mx",
+      "kickoff": "2026-10-17T23:00:00.000Z"
+    },
+    {
+      "publicId": "33945bf016fe0ea5",
+      "competition": "colombia-primera-a",
+      "kickoff": "2026-10-17T23:05:00.000Z"
+    },
+    {
+      "publicId": "6510f7fbb8ac4c78",
+      "competition": "liga-mx",
+      "kickoff": "2026-10-17T23:07:00.000Z"
+    },
+    {
+      "publicId": "70d1bc9cb47e4607",
+      "competition": "mls",
+      "kickoff": "2026-10-17T23:30:00.000Z"
+    },
+    {
+      "publicId": "868d93fc56804c9b",
+      "competition": "mls",
+      "kickoff": "2026-10-17T23:30:00.000Z"
+    },
+    {
+      "publicId": "a4a4336830954f5f",
+      "competition": "mls",
+      "kickoff": "2026-10-17T23:30:00.000Z"
+    },
+    {
+      "publicId": "b991ce2401214139",
+      "competition": "mls",
+      "kickoff": "2026-10-17T23:30:00.000Z"
+    },
+    {
+      "publicId": "e8edf3df45b144f0",
+      "competition": "mls",
+      "kickoff": "2026-10-17T23:30:00.000Z"
+    },
+    {
+      "publicId": "d7de457af54c4094",
+      "competition": "brasileirao-serie-a",
+      "kickoff": "2026-10-18T00:00:00.000Z"
+    },
+    {
+      "publicId": "4528206f92f747ac",
+      "competition": "mls",
+      "kickoff": "2026-10-18T00:30:00.000Z"
+    },
+    {
+      "publicId": "62b31542e00e4f2c",
+      "competition": "mls",
+      "kickoff": "2026-10-18T00:30:00.000Z"
+    },
+    {
+      "publicId": "afb1415a51c5438e",
+      "competition": "mls",
+      "kickoff": "2026-10-18T00:30:00.000Z"
+    },
+    {
+      "publicId": "3cdb2824e1a5340a",
+      "competition": "liga-expansion-mx",
+      "kickoff": "2026-10-18T01:00:00.000Z"
+    },
+    {
+      "publicId": "3f167c609d4b4cd5",
+      "competition": "liga-mx",
+      "kickoff": "2026-10-18T01:00:00.000Z"
+    },
+    {
+      "publicId": "6d11fca382cc4b71",
+      "competition": "liga-mx",
+      "kickoff": "2026-10-18T01:00:00.000Z"
+    },
+    {
+      "publicId": "b02fe1cf2860e01d",
+      "competition": "liga-expansion-mx",
+      "kickoff": "2026-10-18T01:00:00.000Z"
+    },
+    {
+      "publicId": "04c4b4866f55e094",
+      "competition": "liga-expansion-mx",
+      "kickoff": "2026-10-18T01:00:00.000Z"
+    },
+    {
+      "publicId": "c7ce4a68db539d94",
+      "competition": "colombia-primera-a",
+      "kickoff": "2026-10-18T01:10:00.000Z"
+    },
+    {
+      "publicId": "168ee6df23fa0c25",
+      "competition": "peru-liga-1",
+      "kickoff": "2026-10-18T01:30:00.000Z"
+    },
+    {
+      "publicId": "526a84c03eaf49d3",
+      "competition": "mls",
+      "kickoff": "2026-10-18T02:30:00.000Z"
+    },
+    {
+      "publicId": "58f505cd7c9e4e90",
+      "competition": "mls",
+      "kickoff": "2026-10-18T02:30:00.000Z"
+    },
+    {
+      "publicId": "8884a935c8524320",
+      "competition": "mls",
+      "kickoff": "2026-10-18T02:30:00.000Z"
+    },
+    {
+      "publicId": "be78cfa002aa40f4",
+      "competition": "mls",
+      "kickoff": "2026-10-18T02:30:00.000Z"
+    },
+    {
+      "publicId": "027e5dedf4524fce",
+      "competition": "liga-mx",
+      "kickoff": "2026-10-18T03:00:00.000Z"
+    },
+    {
+      "publicId": "e7dadf8c361d771d",
+      "competition": "liga-expansion-mx",
+      "kickoff": "2026-10-18T03:00:00.000Z"
+    },
+    {
+      "publicId": "d00be07d69364797",
+      "competition": "eredivisie",
+      "kickoff": "2026-10-18T10:15:00.000Z"
+    },
+    {
+      "publicId": "2efb1343b153872d",
+      "competition": "serie-a-italy",
+      "kickoff": "2026-10-18T10:30:00.000Z"
+    },
+    {
+      "publicId": "706c8abd171cb74c",
+      "competition": "la-liga-2",
+      "kickoff": "2026-10-18T12:00:00.000Z"
+    },
+    {
+      "publicId": "eefad96204986c65",
+      "competition": "la-liga",
+      "kickoff": "2026-10-18T12:00:00.000Z"
+    },
+    {
+      "publicId": "84b959f35ce242aa",
+      "competition": "eredivisie",
+      "kickoff": "2026-10-18T12:30:00.000Z"
+    },
+    {
+      "publicId": "a1a9483d70839450",
+      "competition": "serie-a-italy",
+      "kickoff": "2026-10-18T13:00:00.000Z"
+    },
+    {
+      "publicId": "b9bfe69dec9fca76",
+      "competition": "premier-league",
+      "kickoff": "2026-10-18T13:00:00.000Z"
+    },
+    {
+      "publicId": "ee5030ce376256dc",
+      "competition": "premier-league",
+      "kickoff": "2026-10-18T13:00:00.000Z"
+    },
+    {
+      "publicId": "3e4034f9b52d0c6b",
+      "competition": "premier-league",
+      "kickoff": "2026-10-18T13:00:00.000Z"
+    },
+    {
+      "publicId": "5795a193c4fb2d30",
+      "competition": "ligue-1",
+      "kickoff": "2026-10-18T13:00:00.000Z"
+    },
+    {
+      "publicId": "0d4401d88fcb4951",
+      "competition": "bundesliga",
+      "kickoff": "2026-10-18T13:30:00.000Z"
+    },
+    {
+      "publicId": "c3124321232296a9",
+      "competition": "la-liga",
+      "kickoff": "2026-10-18T14:15:00.000Z"
+    },
+    {
+      "publicId": "8a29f957aa934a8d",
+      "competition": "la-liga-2",
+      "kickoff": "2026-10-18T14:15:00.000Z"
+    },
+    {
+      "publicId": "410f6d9828454e02",
+      "competition": "eredivisie",
+      "kickoff": "2026-10-18T14:45:00.000Z"
+    },
+    {
+      "publicId": "87374b925fad7083",
+      "competition": "ligue-1",
+      "kickoff": "2026-10-18T15:15:00.000Z"
+    },
+    {
+      "publicId": "c3ece64b7a6e4769",
+      "competition": "ligue-1",
+      "kickoff": "2026-10-18T15:15:00.000Z"
+    },
+    {
+      "publicId": "516701e2d0ee57f9",
+      "competition": "ligue-1",
+      "kickoff": "2026-10-18T15:15:00.000Z"
+    },
+    {
+      "publicId": "7e5370f485176b51",
+      "competition": "premier-league",
+      "kickoff": "2026-10-18T15:30:00.000Z"
+    },
+    {
+      "publicId": "6461ebcf336d2f48",
+      "competition": "bundesliga",
+      "kickoff": "2026-10-18T15:30:00.000Z"
+    },
+    {
+      "publicId": "f5d04905851915dd",
+      "competition": "peru-liga-1",
+      "kickoff": "2026-10-18T16:00:00.000Z"
+    },
+    {
+      "publicId": "b9729a5a6bbfd23a",
+      "competition": "serie-a-italy",
+      "kickoff": "2026-10-18T16:00:00.000Z"
+    },
+    {
+      "publicId": "64925bf2d5a562c0",
+      "competition": "la-liga-2",
+      "kickoff": "2026-10-18T16:30:00.000Z"
+    },
+    {
+      "publicId": "721f8f905708edb5",
+      "competition": "la-liga-2",
+      "kickoff": "2026-10-18T16:30:00.000Z"
+    },
+    {
+      "publicId": "ab76090e91958b99",
+      "competition": "la-liga",
+      "kickoff": "2026-10-18T16:30:00.000Z"
+    },
+    {
+      "publicId": "10af2b8c2ee54670",
+      "competition": "argentina-primera-division",
+      "kickoff": "2026-10-18T17:45:00.000Z"
+    },
+    {
+      "publicId": "234aac3636174046",
+      "competition": "eredivisie",
+      "kickoff": "2026-10-18T18:00:00.000Z"
+    },
+    {
+      "publicId": "f7dec9fd33b1b88d",
+      "competition": "liga-expansion-mx",
+      "kickoff": "2026-10-18T18:00:00.000Z"
+    },
+    {
+      "publicId": "7592924a533c4212",
+      "competition": "eredivisie",
+      "kickoff": "2026-10-18T18:00:00.000Z"
+    },
+    {
+      "publicId": "961225641a11d160",
+      "competition": "peru-liga-2",
+      "kickoff": "2026-10-18T18:00:00.000Z"
+    },
+    {
+      "publicId": "e651bd6e2a4cd22b",
+      "competition": "saudi-pro-league",
+      "kickoff": "2026-10-18T18:00:00.000Z"
+    },
+    {
+      "publicId": "6fa1583510d4574a",
+      "competition": "peru-liga-2",
+      "kickoff": "2026-10-18T18:00:00.000Z"
+    },
+    {
+      "publicId": "34804fe08cd84260",
+      "competition": "peru-liga-1",
+      "kickoff": "2026-10-18T18:15:00.000Z"
+    },
+    {
+      "publicId": "5beba0e4308b7d33",
+      "competition": "serie-a-italy",
+      "kickoff": "2026-10-18T18:45:00.000Z"
+    },
+    {
+      "publicId": "790f3d5bdb6921f4",
+      "competition": "ligue-1",
+      "kickoff": "2026-10-18T18:45:00.000Z"
+    },
+    {
+      "publicId": "b8157e40b64a9be0",
+      "competition": "la-liga-2",
+      "kickoff": "2026-10-18T19:00:00.000Z"
+    },
+    {
+      "publicId": "46f81847676a42d7",
+      "competition": "brasileirao-serie-a",
+      "kickoff": "2026-10-18T19:00:00.000Z"
+    },
+    {
+      "publicId": "91a6e2ac558d50fd",
+      "competition": "colombia-primera-a",
+      "kickoff": "2026-10-18T19:00:00.000Z"
+    },
+    {
+      "publicId": "621e0e138ef04257",
+      "competition": "brasileirao-serie-a",
+      "kickoff": "2026-10-18T19:00:00.000Z"
+    },
+    {
+      "publicId": "0a6df5afe7efefe4",
+      "competition": "la-liga",
+      "kickoff": "2026-10-18T19:00:00.000Z"
+    },
+    {
+      "publicId": "f11a07214f5fa9f6",
+      "competition": "peru-liga-2",
+      "kickoff": "2026-10-18T20:15:00.000Z"
+    },
+    {
+      "publicId": "c3b13e27b4eef9e8",
+      "competition": "peru-liga-2",
+      "kickoff": "2026-10-18T20:15:00.000Z"
+    },
+    {
+      "publicId": "0f7279dee9685ff5",
+      "competition": "peru-liga-1",
+      "kickoff": "2026-10-18T20:30:00.000Z"
+    },
+    {
+      "publicId": "fab0cd5294ff4724",
+      "competition": "colombia-primera-b",
+      "kickoff": "2026-10-18T20:30:00.000Z"
+    },
+    {
+      "publicId": "055c8963bd934c7a",
+      "competition": "argentina-primera-division",
+      "kickoff": "2026-10-18T21:00:00.000Z"
+    },
+    {
+      "publicId": "21ef662ba44c4728",
+      "competition": "argentina-primera-division",
+      "kickoff": "2026-10-18T21:00:00.000Z"
+    },
+    {
+      "publicId": "3490c1a1651243af",
+      "competition": "colombia-primera-a",
+      "kickoff": "2026-10-18T21:00:00.000Z"
+    },
+    {
+      "publicId": "98b2a40469474506",
+      "competition": "mls",
+      "kickoff": "2026-10-18T21:00:00.000Z"
+    },
+    {
+      "publicId": "1e87a9f8366544d1",
+      "competition": "brasileirao-serie-a",
+      "kickoff": "2026-10-18T21:30:00.000Z"
+    },
+    {
+      "publicId": "2a3fc4483c124168",
+      "competition": "brasileirao-serie-a",
+      "kickoff": "2026-10-18T22:30:00.000Z"
+    },
+    {
+      "publicId": "c8c5fa8328e807ae",
+      "competition": "colombia-primera-a",
+      "kickoff": "2026-10-18T23:05:00.000Z"
+    },
+    {
+      "publicId": "27f3d095a1324e7e",
+      "competition": "argentina-primera-division",
+      "kickoff": "2026-10-18T23:15:00.000Z"
+    },
+    {
+      "publicId": "182d18f2d6e63df8",
+      "competition": "peru-liga-1",
+      "kickoff": "2026-10-18T23:30:00.000Z"
+    },
+    {
+      "publicId": "c090721196584698",
+      "competition": "liga-mx",
+      "kickoff": "2026-10-19T01:00:00.000Z"
+    },
+    {
+      "publicId": "cc360c2caa4cad07",
+      "competition": "colombia-primera-a",
+      "kickoff": "2026-10-19T01:10:00.000Z"
+    },
+    {
+      "publicId": "8390574392a1f2d7",
+      "competition": "saudi-pro-league",
+      "kickoff": "2026-10-19T15:05:00.000Z"
+    },
+    {
+      "publicId": "d0a8c716399d344b",
+      "competition": "saudi-pro-league",
+      "kickoff": "2026-10-19T15:20:00.000Z"
+    },
+    {
+      "publicId": "23a0ce58dfef579e",
+      "competition": "serie-a-italy",
+      "kickoff": "2026-10-19T16:30:00.000Z"
+    },
+    {
+      "publicId": "3e28d5be4bc2c611",
+      "competition": "saudi-pro-league",
+      "kickoff": "2026-10-19T18:00:00.000Z"
+    },
+    {
+      "publicId": "8ae496601d669f42",
+      "competition": "saudi-pro-league",
+      "kickoff": "2026-10-19T18:00:00.000Z"
+    },
+    {
+      "publicId": "cce273796f219edb",
+      "competition": "la-liga-2",
+      "kickoff": "2026-10-19T18:30:00.000Z"
+    },
+    {
+      "publicId": "21941b6d8097f60d",
+      "competition": "serie-a-italy",
+      "kickoff": "2026-10-19T18:45:00.000Z"
+    },
+    {
+      "publicId": "776ed5337d8ff341",
+      "competition": "la-liga",
+      "kickoff": "2026-10-19T19:00:00.000Z"
+    },
+    {
+      "publicId": "15294aeea5e83b39",
+      "competition": "colombia-primera-b",
+      "kickoff": "2026-10-19T19:00:00.000Z"
+    },
+    {
+      "publicId": "613e733acbf2e877",
+      "competition": "premier-league",
+      "kickoff": "2026-10-19T19:00:00.000Z"
+    },
+    {
+      "publicId": "9da92d3ce7978075",
+      "competition": "colombia-primera-b",
+      "kickoff": "2026-10-19T21:00:00.000Z"
+    },
+    {
+      "publicId": "0f39402890c7d09f",
+      "competition": "colombia-primera-b",
+      "kickoff": "2026-10-19T22:00:00.000Z"
+    },
+    {
+      "publicId": "792cf89b5e1a4698",
+      "competition": "argentina-primera-division",
+      "kickoff": "2026-10-19T22:00:00.000Z"
+    },
+    {
+      "publicId": "d1d5ead31275498c",
+      "competition": "argentina-primera-division",
+      "kickoff": "2026-10-19T22:00:00.000Z"
+    },
+    {
+      "publicId": "f71d0b4c40fd880f",
+      "competition": "colombia-primera-b",
+      "kickoff": "2026-10-19T23:00:00.000Z"
+    },
+    {
+      "publicId": "bf7866f4a5a34eb1",
+      "competition": "brasileirao-serie-a",
+      "kickoff": "2026-10-19T23:00:00.000Z"
+    },
+    {
+      "publicId": "fe552637890f4ec0",
+      "competition": "argentina-primera-division",
+      "kickoff": "2026-10-20T00:15:00.000Z"
+    },
+    {
+      "publicId": "f26febc9b7d28578",
+      "competition": "colombia-primera-a",
+      "kickoff": "2026-10-20T01:05:00.000Z"
+    }
+  ],
+  "gates": {
+    "nodeTests": 17,
+    "vitestTests": 2765,
+    "lint": "PASS",
+    "typecheck": "PASS",
+    "build": "PASS",
+    "secretScan": "PASS",
+    "hostedCI": "PENDING",
+    "productionAcceptance": "PENDING"
+  }
+}

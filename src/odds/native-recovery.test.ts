@@ -15,6 +15,7 @@ describe('bounded permanent saved-response recovery',()=>{
     expect(state.persist).toHaveBeenCalledWith(db,'lease',payload);
     expect(state.diagnostics).toHaveBeenCalled();
     expect(query.mock.calls.some(([sql])=>sql.includes('LIMIT 3'))).toBe(true);
+    expect(query.mock.calls.some(([sql])=>sql.includes("interval '7 days'")&&sql.includes("(f->>'kickoff')::timestamptz>now()"))).toBe(true);
     expect(query.mock.calls.some(([sql])=>sql.includes("'NATIVE_SAVED_REPAIR'"))).toBe(true);
   });
   it('records a rotation check without replaying an unresolved identity',async()=>{

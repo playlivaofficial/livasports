@@ -17,6 +17,7 @@ import {isSiteLocale,type SiteLocale} from '@/config/i18n';
 import {ReferenceOdds} from '@/components/odds/ReferenceOdds';
 import {referencesForGaps} from '@/odds/display';
 import {primaryVisibleBookmakers} from '@/odds/fallback-pool';
+import {oddsAvailabilityLabel,type OddsAvailability} from '@/odds/availability';
 
 const copy=withSpanishLocales({
   br:{title:'Compare as odds',pregame:'Pré-jogo · 90 minutos',markets:{MATCH_WINNER:'Resultado final',TOTAL_GOALS:'Gols · 2,5',BTTS:'Ambas marcam'},
@@ -40,6 +41,7 @@ export function PregameOdds({initial,context,fixturePublicId,uiLocale}:{initial:
   const commercialLocale=resolvedCommercialLocale??context.locale;
   const slipText=slipCopy[presentation];
   const [comparisons,setComparisons]=useState(initial);const [market,setMarket]=useState<OddsMarket>('MATCH_WINNER');
+  const [readState,setReadState]=useState<'LOADING'|'READY'|'ERROR'>(initial.length?'READY':'LOADING');
   const [clock,setClock]=useState<number|null>(null);const root=useRef<HTMLElement>(null);const visible=useRef(false);
   const text=copy[presentation];const selected=comparisons.find(c=>c.market===market);const sent=useRef(new Set<string>());
   const selectedMarket=useRef(market);
@@ -48,20 +50,25 @@ export function PregameOdds({initial,context,fixturePublicId,uiLocale}:{initial:
   useEffect(()=>{
     let stopped=false;let inFlight=false;let lastAttempt=0;const abort=new AbortController();
     const tick=()=>setClock(Date.now());
-    async function refresh(){if(stopped||inFlight||!navigator.onLine||!visible.current||document.visibilityState!=='visible'||Date.now()-lastAttempt<60000)return;
+    async function refresh(initialRead=false){if(stopped||inFlight||(!initialRead&&!visible.current)||document.visibilityState!=='visible'||Date.now()-lastAttempt<60000)return;
       inFlight=true;lastAttempt=Date.now();tick();try{const response=await fetch(`/api/odds/${context.fixtureId}?locale=${presentation}`,{cache:'no-store',signal:abort.signal});
-        if(response.ok){const body=await response.json();if(!stopped&&Array.isArray(body.comparisons)){
+        if(!response.ok)throw new Error('ODDS_READ_UNAVAILABLE');
+        const body=await response.json();if(!Array.isArray(body.comparisons))throw new Error('INVALID_ODDS_READ');
+        if(!stopped){
           setComparisons(body.comparisons);
           setResolvedCommercialLocale(isSiteLocale(body.commercialLocale)?body.commercialLocale:null);
-        }}
-      }catch{/* Expiry still applies when refresh is unavailable. */}finally{inFlight=false;}}
+          setReadState('READY');
+        }
+      }catch{if(!stopped)setReadState('ERROR');/* Saved prices keep their original expiry. */}finally{inFlight=false;}}
     const observe=(entries:IntersectionObserverEntry[])=>{visible.current=entries.some(e=>e.isIntersecting);if(visible.current){
       if(!sent.current.has('module')){sent.current.add('module');emitMatchEvent('odds_module_view',context,'match_odds');}
       if(!sent.current.has(selectedMarket.current)){sent.current.add(selectedMarket.current);emitMatchEvent('odds_market_view',context,'match_odds',{market:selectedMarket.current});}
       void refresh();}};
     const observer=new IntersectionObserver(observe,{threshold:0.15});if(root.current)observer.observe(root.current);
+    // Initial DB-backed odds retrieval must not depend on scrolling into this panel.
+    tick();void refresh(true);
     const timer=window.setInterval(tick,1000);const refreshTimer=window.setInterval(()=>void refresh(),60000);
-    const focus=()=>{tick();void refresh();};document.addEventListener('visibilitychange',focus);window.addEventListener('pageshow',focus);
+    const focus=()=>{tick();void refresh(true);};document.addEventListener('visibilitychange',focus);window.addEventListener('pageshow',focus);
     return()=>{stopped=true;abort.abort();observer.disconnect();clearInterval(timer);clearInterval(refreshTimer);document.removeEventListener('visibilitychange',focus);window.removeEventListener('pageshow',focus);};
   },[context.fixtureId,context.locale,context.competitionId,context,presentation]);
   const cellCurrent=(cell:OddsCell)=>cell.state==='ACTIVE'&&cell.priceKind==='REAL'&&Number(cell.decimalOdds)>1&&Number(cell.decimalOdds)<=1000&&cell.expiresAt!==null&&clock!==null&&clock<Date.parse(cell.expiresAt)&&!!selected?.closesAt&&clock<Date.parse(selected.closesAt);
@@ -73,13 +80,17 @@ export function PregameOdds({initial,context,fixturePublicId,uiLocale}:{initial:
   const available=rows.filter(r=>r.cells.some(cellCurrent)).length;
   const references=referencesForGaps(selected?.references,clock??Number.POSITIVE_INFINITY,market,selected?.line??(market==='TOTAL_GOALS'?2.5:null),
     rows.flatMap(r=>r.cells.filter(cellCurrent).map(c=>c.outcome)));
-  const anyExpired=selected?.rows.some(r=>r.cells.some(c=>c.state==='STALE'||(c.decimalOdds!==null&&!cellCurrent(c))));
-  const allClosed=selected?.rows.length&&selected.rows.every(r=>r.cells.every(c=>c.state==='CLOSED'||c.state==='UNAVAILABLE'));
+  const anyExpired=selected?.rows.some(r=>r.cells.some(c=>c.state==='STALE'||(c.state==='ACTIVE'&&c.decimalOdds!==null&&!cellCurrent(c))));
   const pastKickoff=clock!==null&&selected?.closesAt&&clock>=Date.parse(selected.closesAt);
-  const unavailable=allClosed||pastKickoff?text.closed:anyExpired?text.stale:selected?.rows.some(r=>r.cells.some(c=>c.state==='SUSPENDED'))?text.suspended:text.empty;
+  const pipeline=Object.values(selected?.availability??{});
+  const availability:OddsAvailability=clock===null||readState==='LOADING'?'LOADING':pastKickoff?'CLOSED':available?'AVAILABLE':readState==='ERROR'?'PROVIDER_ERROR':
+    anyExpired?'STALE':selected?.rows.some(r=>r.cells.some(c=>c.state==='SUSPENDED'))?'SUSPENDED':
+    pipeline.includes('PROVIDER_ERROR')?'PROVIDER_ERROR':pipeline.includes('QUOTA_DELAY')?'QUOTA_DELAY':pipeline.includes('INGESTION_DELAY')?'INGESTION_DELAY':
+    pipeline.length&&pipeline.every(s=>s==='NOT_OFFERED')?'NOT_OFFERED':'UNVERIFIED';
+  const unavailable=oddsAvailabilityLabel(presentation,availability);
   const approximateLabel=presentation==='br'?'preço aproximado':isSpanishLocale(presentation)?'cuota aproximada':'approximate price';
   function select(next:OddsMarket){selectedMarket.current=next;setMarket(next);if(!sent.current.has(next)){sent.current.add(next);emitMatchEvent('odds_market_view',context,'match_odds',{market:next});}}
-  return <section id="odds" ref={root} className="match-panel commercial-panel pregame-odds" aria-label={text.title}>
+  return <section id="odds" ref={root} className="match-panel commercial-panel pregame-odds" aria-label={text.title} aria-busy={availability==='LOADING'} data-odds-availability={availability}>
     <div className="odds-title"><div><h2>{text.title}</h2><p>{text.pregame}</p></div><span className="age-label">18+</span></div>
     <div className="odds-market-tabs" role="tablist" aria-label={text.title}>{(Object.keys(SELECTIONS) as OddsMarket[]).map((key,index,keys)=><button type="button" role="tab" key={key} id={`odds-tab-${key}`} aria-controls="odds-market-panel" aria-selected={key===market} tabIndex={key===market?0:-1} onClick={()=>select(key)} onKeyDown={event=>{
       const next=event.key==='ArrowRight'?keys[(index+1)%keys.length]:event.key==='ArrowLeft'?keys[(index+keys.length-1)%keys.length]:event.key==='Home'?keys[0]:event.key==='End'?keys.at(-1):null;
@@ -89,6 +100,9 @@ export function PregameOdds({initial,context,fixturePublicId,uiLocale}:{initial:
       {rows.length?<table className="pregame-table"><thead><tr><th scope="col">{text.house}</th>{SELECTIONS[market].map(outcome=><th scope="col" key={outcome}>{text.outcomes[outcome]}</th>)}<th scope="col">{text.action}</th></tr></thead>
         <tbody>{rows.map((row,rowIndex)=><tr key={row.bookmaker}><th scope="row"><BookmakerLogo bookmaker={row.bookmaker} uiLocale={presentation} sources={row.cells} context={fixturePublicId?{locale:commercialLocale,placement:'match_odds_table',bookmaker:row.bookmaker as BookmakerId,fixturePublicId,market}:undefined}/></th>{row.cells.map(cell=>{
           const current=cellCurrent(cell);const best=current&&cell.best&&rows.filter(r=>r.cells.some(c=>c.outcome===cell.outcome&&cellCurrent(c))).length>=2;
+          const missingState:OddsAvailability=availability==='LOADING'?'LOADING':pastKickoff?'CLOSED':readState==='ERROR'?'PROVIDER_ERROR':
+            cell.state==='STALE'||cell.state==='ACTIVE'&&!current?'STALE':cell.state==='SUSPENDED'?'SUSPENDED':selected?.availability?.[row.bookmaker]??'UNVERIFIED';
+          const missingLabel=oddsAvailabilityLabel(presentation,missingState);
           const reference=rowIndex===0?references.find(q=>q.outcome===cell.outcome):undefined;
           const intent=canonicalSelection({fixturePublicId,market,outcome:cell.outcome,line:selected?.line??(market==='TOTAL_GOALS'?2.5:null),scope:SLIP_SCOPE});
           const pressed=intent?saved.slip.selections.some(s=>selectionKey(s)===selectionKey(intent)):false;
@@ -97,7 +111,7 @@ export function PregameOdds({initial,context,fixturePublicId,uiLocale}:{initial:
             data-target-bookmaker={cell.targetBookmaker}
             aria-label={`${pressed?slipText.selected:slipText.add}: ${slipText.markets[market]}, ${selectionLabel(intent,presentation)}, ${priceLabel}, ${cell.priceKind==='PROXY'?approximateLabel:''} ${row.name}`}
             onClick={()=>void addSlipSelection(intent,commercialLocale,cell.expiresAt!,row.bookmaker,{targetBookmaker:cell.targetBookmaker,priceKind:cell.priceKind!,decimalOdds:cell.decimalOdds!})}>{pressed?<span className="slip-selected-indicator" aria-hidden="true">✓</span>:null}{cell.priceKind==='PROXY'?<ApproximatePrice value={priceLabel} label={approximateLabel}/>:<strong data-price-kind="REAL">{priceLabel}</strong>}{best?<span className="sr-only"> {text.best}</span>:null}</button>:
-            <span className={`pregame-price${best?' is-best':''}${reference?' is-reference':!current?' is-unavailable':''}`} title={best?text.best:!current&&!reference?unavailable:undefined}>{reference?<ReferenceOdds quote={reference} uiLocale={presentation}/>:current?(cell.priceKind==='PROXY'?<ApproximatePrice value={priceLabel} label={approximateLabel}/>:<strong data-price-kind="REAL">{priceLabel}</strong>):priceLabel}{best?<span className="sr-only"> {text.best}</span>:null}</span>}</td>;})}
+            <span className={`pregame-price${best?' is-best':''}${reference?' is-reference':!current?' is-unavailable':''}`} title={best?text.best:!current&&!reference?missingLabel:undefined}>{reference?<ReferenceOdds quote={reference} uiLocale={presentation}/>:current?(cell.priceKind==='PROXY'?<ApproximatePrice value={priceLabel} label={approximateLabel}/>:<strong data-price-kind="REAL">{priceLabel}</strong>):priceLabel}{best?<span className="sr-only"> {text.best}</span>:null}</span>}</td>;})}
           <td>{row.action&&row.cells.some(cellCurrent)&&fixturePublicId?<AffiliateLink compact className="match-affiliate-cta" uiLocale={presentation} onAvailability={onAvailability} context={{locale:commercialLocale,placement:'match_odds_table',bookmaker:row.bookmaker as 'betsson'|'betano.bet.br',fixturePublicId,market}}>{commercialCopy[presentation].ctaAt(bookmakerShortName(row.bookmaker,row.name))} <span aria-hidden="true">↗</span></AffiliateLink>:<span className="odds-no-action">—</span>}</td></tr>)}</tbody></table>:null}
       {!available?<p className="pregame-empty" role="status">{unavailable}</p>:available===1?<p className="odds-note">{text.single}</p>:null}
       <p className="odds-note">{slipText.oddsMayChange}</p>

@@ -10,6 +10,11 @@ const view:OddsComparison={market:'MATCH_WINNER',line:null,expiresAt:'2026-10-01
     {outcome:'HOME',decimalOdds:'2.5',best:false,state:'ACTIVE',expiresAt:'2026-10-01T18:15:00Z',priceKind:'REAL',targetBookmaker:'betsson',sourceBookmaker:'betsson',sourceBookmakerName:'Betsson',sourceQuoteId:'quote-1',sourceObservedAt:'2026-10-01T18:00:00Z'}]}],
   eligiblePrices:1,observedAt:'2026-10-01T18:00:00Z',providerUpdatedAt:'2026-10-01T17:59:00Z'};
 describe('restrained commercial odds rendering',()=>{
+  it('renders initial retrieval as loading, never as unavailable or closed',()=>{
+    const html=renderToStaticMarkup(<PregameOdds initial={[]} context={{fixtureId:'fixture',competitionId:'competition',locale:'mx'}}/>);
+    expect(html).toContain('Cargando cuotas');expect(html).toContain('aria-busy="true"');
+    expect(html).not.toContain('ya no están disponibles');expect(html).not.toContain('slip-odds-button');
+  });
   it('withholds expired prices and CTAs until client clock verification in every locale',()=>{
     for(const locale of ['br','mx','co','pe','en'] as const){
       const html=renderToStaticMarkup(<PregameOdds initial={[view]} fixturePublicId="aaaaaaaaaaaaaaaa" uiLocale={locale==='en'?'en':undefined} context={{fixtureId:'test-only',competitionId:'test',locale:locale==='en'?'br':locale}}/>);

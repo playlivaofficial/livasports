@@ -168,7 +168,9 @@ export async function persistSnapshot(db:DatabaseClient,jobId:string,snapshot:Od
           last_checked_at=excluded.last_checked_at,last_native_persist_at=CASE WHEN $5 THEN excluded.last_checked_at ELSE odds_refresh_targets.last_native_persist_at END,
           last_outcome=$6,outcome_evidence=$7::jsonb,queue_state='WAITING',lease_job_id=NULL,lease_until=NULL,pending_since=NULL,
           retry_after=NULL,consecutive_failures=0,last_error=NULL,failure_class=NULL,backoff_reason=NULL,next_recheck_at=NULL,failure_evidence='{}'::jsonb
-        WHERE COALESCE(odds_refresh_targets.last_checked_at,odds_refresh_targets.last_success_at,'-infinity'::timestamptz)<=excluded.last_checked_at`,
+        -- A saved-response replay may repair identities, but cannot erase a newer failed attempt/backoff.
+        WHERE GREATEST(odds_refresh_targets.last_checked_at,odds_refresh_targets.last_success_at,
+          odds_refresh_targets.last_attempt_at,'-infinity'::timestamptz)<=excluded.last_checked_at`,
       [snapshot.providerBookmakerId??bookmaker,outcome.tournamentId,snapshot.observedAt,outcome.meaningful,outcome.nativeSelections>0,outcome.outcome,JSON.stringify(outcome)]);
     }
     await tx.query("UPDATE odds_sync_jobs SET cursor=cursor+1,heartbeat_at=now(),lease_expires_at=now()+interval '3 minutes' WHERE id=$1",[jobId]);
