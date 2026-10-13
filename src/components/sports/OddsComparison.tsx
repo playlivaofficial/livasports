@@ -50,7 +50,7 @@ export function OddsComparison({locale,fixture,emptyLabel,commercialLocale}:{loc
         const priced=book.cells.some(c=>current(c.price));
         return <div className={`listing-odds-book${priced?'':' is-unavailable'}`} key={book.id} data-primary-bookmaker={book.id}>
           <BookmakerLogo bookmaker={book.id} uiLocale={locale} sources={book.cells.flatMap(c=>c.price&&current(c.price)?[c.price]:[])}
-            context={priced&&fixture.publicId&&commercialLocale?{locale:commercialLocale,placement:'match_odds_table',bookmaker:book.id,fixturePublicId:fixture.publicId,market:'MATCH_WINNER',pagePath:matchPath(commercialLocale,fixture.publicId,fixture.homeTeam,fixture.awayTeam)}:undefined}/>
+            context={fixture.publicId&&commercialLocale?{locale:commercialLocale,placement:'match_odds_table',bookmaker:book.id,fixturePublicId:fixture.publicId,market:'MATCH_WINNER',pagePath:matchPath(commercialLocale,fixture.publicId,fixture.homeTeam,fixture.awayTeam)}:undefined}/>
           <div className="listing-odds">{book.cells.map(cell=>{
             const intent=selectable?canonicalSelection({fixturePublicId:fixture.publicId,market:'MATCH_WINNER',outcome:cell.outcome,line:null,scope:SLIP_SCOPE}):null;
             const pressed=!!intent&&saved.slip.selections.some(s=>selectionKey(s)===selectionKey(intent));
