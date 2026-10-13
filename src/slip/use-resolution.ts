@@ -2,7 +2,7 @@
 import {useEffect,useState} from 'react';
 import type {SiteLocale} from '@/config/i18n';
 import {guardResolved,markPriceChange} from './resolution';
-import {canonicalSelection,wireSelection,selectionKey,type SavedSelection,type SlipResolution,type ResolvedSelection} from './types';
+import {canonicalSelection,wireSelection,selectionKey,receiptDisplay,type SavedSelection,type SlipResolution,type ResolvedSelection} from './types';
 import {emitSlipEvent} from './events';
 import type {FullSlipResolution} from './comparison-types';
 import {guardSlipComparison,enforceSelectionLocks} from './comparison';
@@ -38,8 +38,9 @@ export function useSlipResolution(selections:SavedSelection[],locale:SiteLocale)
         if(stopped)return;
         body.selections=body.selections.map(value=>{
           const key=`${input.locale}:${selectionKey(value.selection)}:${input.selections.find(s=>selectionKey(s)===selectionKey(value.selection))?.receipt??'unbound'}`;const previous=observations.get(key);
-          let next=markPriceChange(value,previous?.price);
-          if(next.price){const price=next.price.decimalOdds;if(previous?.changed)next={...next,state:'PRICE_CHANGED',previousDecimalOdds:previous.from??previous.price};
+          const indicativeChoice=receiptDisplay(input.selections.find(s=>selectionKey(s)===selectionKey(value.selection))!)?.priceKind==='CALCULATED_MINUS_10';
+          let next=indicativeChoice?value:markPriceChange(value,previous?.price);
+          if(next.price){const price=next.price.decimalOdds;if(previous?.changed&&!indicativeChoice)next={...next,state:'PRICE_CHANGED',previousDecimalOdds:previous.from??previous.price};
             observations.set(key,{price,from:next.previousDecimalOdds??previous?.from??previous?.price,changed:next.state==='PRICE_CHANGED',valid:true});
           }else if(previous?.valid){observations.set(key,{...previous,valid:false});emitSlipEvent('slip_state_invalidated',input.locale,value.selection);}
           return next;

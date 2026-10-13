@@ -55,4 +55,23 @@ describe('asynchronous selection admission',()=>{
     vi.stubGlobal('fetch',vi.fn().mockResolvedValue(response(pick(),'3.00')));
     await addSlipSelection(pick(),'co',expiry(),'betsson',context);expect(slipStore.getSnapshot().slip.selections).toEqual([]);
   });
+  it('admits an explicitly calculated planning price and preserves the chosen bookmaker and kind',async()=>{
+    const indicativeReceipt=Buffer.from(JSON.stringify([2,'test','CO','betsson','source','ODDSPAPI','1.755',new Date().toISOString(),Date.now()+60000,'CALCULATED_MINUS_10','bwin','1.95'])).toString('base64url')+'.'+'b'.repeat(43);
+    const fetch=vi.fn().mockResolvedValue(Response.json({selection:{...pick(),receipt:indicativeReceipt},price:{bookmaker:'betsson',decimalOdds:'1.755',priceKind:'CALCULATED_MINUS_10',expiresAt:expiry()},providerRequests:0}));vi.stubGlobal('fetch',fetch);
+    await addSlipSelection(pick(),'co',expiry(),'betsson',{...context,priceKind:'CALCULATED_MINUS_10',decimalOdds:'1.755'});
+    expect(JSON.parse(fetch.mock.calls[0][1].body).priceKind).toBe('CALCULATED_MINUS_10');
+    expect(slipStore.getSnapshot().slip.selections[0]).toMatchObject({...pick(),receipt:indicativeReceipt});
+  });
+  it('does not silently accept a genuine replacement for the calculated value during admission',async()=>{
+    vi.stubGlobal('fetch',vi.fn().mockResolvedValue(response(pick(),'1.89')));
+    await addSlipSelection(pick(),'co',expiry(),'betsson',{...context,priceKind:'CALCULATED_MINUS_10',decimalOdds:'1.89'});
+    expect(slipStore.getSnapshot().slip.selections).toEqual([]);
+  });
+  it('a clear cancels an in-flight indicative admission just like a genuine selection',async()=>{
+    let resolve!:(r:Response)=>void;vi.stubGlobal('fetch',()=>new Promise<Response>(r=>{resolve=r;}));
+    const task=addSlipSelection(pick(),'co',expiry(),'betsson',{...context,priceKind:'CALCULATED_MINUS_10',decimalOdds:'1.89'});
+    slipStore.dispatch({type:'clear'});
+    resolve(Response.json({selection:{...pick(),receipt},price:{bookmaker:'betsson',decimalOdds:'1.89',priceKind:'CALCULATED_MINUS_10',expiresAt:expiry()},providerRequests:0}));
+    await task;expect(slipStore.getSnapshot().slip.selections).toEqual([]);
+  });
 });

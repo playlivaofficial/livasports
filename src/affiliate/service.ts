@@ -70,10 +70,11 @@ export async function resolveOffer(context:CommercialContext,deps:OfferDependenc
   if(expectedCampaign&&campaign.commercialVersion!==undefined&&campaign.commercialVersion!==expectedVersion)return null;
   const page=await deps.page(context);if(!page)return null;
   let expiresAt=Math.min(now+300000,Date.parse(campaign.endsAt),creative?.endsAt?Date.parse(creative.endsAt):Infinity);
-  // A price CTA must point at a current price. A bookmaker's logo is a brand link and stays live
-  // whether or not that book priced this fixture; every GEO, campaign and destination check above
-  // still applies to it unchanged.
-  if(!isSponsorPlacement(context.placement)&&context.cta!=='logo'){const priceExpiry=await deps.pricing(context,campaign.bookmaker,now);if(priceExpiry===null||priceExpiry<=now)return null;expiresAt=Math.min(expiresAt,priceExpiry);}
+  // Price-specific CTAs still require a current quote. Logos and explicitly signed slip visits
+  // open the approved sportsbook, without promising a price or preloading a bet. An indicative
+  // or incomplete comparison cannot disable that visit; campaign/GEO/destination gates still apply.
+  const sportsbookVisit=context.cta==='visit'&&isSlipPlacement(context.placement)&&!!context.bookmaker;
+  if(!isSponsorPlacement(context.placement)&&context.cta!=='logo'&&!sportsbookVisit){const priceExpiry=await deps.pricing(context,campaign.bookmaker,now);if(priceExpiry===null||priceExpiry<=now)return null;expiresAt=Math.min(expiresAt,priceExpiry);}
   return {campaign,context:{...context,bookmaker:campaign.bookmaker},page,expiresAt,creative};
 }
 export function publicOffer(offer:VerifiedOffer,key:string,now=Date.now(),embedPermission?:'anonymous'|'consent',qaSession?:string):PublicOffer{

@@ -16,28 +16,30 @@ export function feedback(value:SlipFeedback){window.dispatchEvent(new CustomEven
 const pending=new Set<string>();
 export async function addSlipSelection(value:CanonicalSelection,locale:SiteLocale,expiresAt:string,bookmaker?:string,priceContext?:SlipPriceContext,confirm?:SavedSelection){
   const selection=canonicalSelection(value);
-  if(!selection||!bookmaker||priceContext?.priceKind!=='REAL'||!Number.isFinite(Number(priceContext.decimalOdds))||Number(priceContext.decimalOdds)<=1||Number(priceContext.decimalOdds)>1000||!Number.isFinite(Date.parse(expiresAt))||Date.now()>=Date.parse(expiresAt)){feedback({result:'EXPIRED'});return;}
+  const kind=priceContext?.priceKind;
+  if(!selection||!bookmaker||priceContext?.targetBookmaker!==bookmaker||(kind!=='REAL'&&kind!=='CALCULATED_MINUS_10')||!Number.isFinite(Number(priceContext.decimalOdds))||Number(priceContext.decimalOdds)<=(kind==='REAL'?1:0)||Number(priceContext.decimalOdds)>1000||!Number.isFinite(Date.parse(expiresAt))||Date.now()>=Date.parse(expiresAt)){feedback({result:'EXPIRED'});return;}
   const key=marketKey(selection);if(pending.has(key))return;
   slipStore.reload();const before=slipStore.getSnapshot().slip;
   const revision=slipStore.getRevision(key);
   // Removal requires no price and cannot race a pending add back into the slip.
   const existing=before.selections.find(s=>selectionKey(s)===selectionKey(selection));
   const display=existing?receiptDisplay(existing):null;
-  if(existing&&!confirm&&display?.book===bookmaker&&Number(display.price)===Number(priceContext.decimalOdds)&&display.expires>Date.now()){
+  if(existing&&!confirm&&display?.book===bookmaker&&display.priceKind===kind&&Number(display.price)===Number(priceContext.decimalOdds)&&display.expires>Date.now()){
     const result=slipStore.dispatch({type:'remove',key:selectionKey(selection)});feedback({result:result.result});return;
   }
   if(existing&&!confirm)confirm=existing;
   pending.add(key);const abort=new AbortController(),timeout=setTimeout(()=>abort.abort(),10000);
   try{
-  const response=await fetch('/api/slip/select',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({locale,selection,bookmaker,decimalOdds:priceContext.decimalOdds}),cache:'no-store',signal:abort.signal});
+  const response=await fetch('/api/slip/select',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({locale,selection,bookmaker,decimalOdds:priceContext.decimalOdds,priceKind:kind}),cache:'no-store',signal:abort.signal});
   if(!response.ok){feedback({result:'EXPIRED'});return;}
-  const body=await response.json() as {selection:BoundSelection;price:{bookmaker:string;decimalOdds:string;expiresAt:string};providerRequests:number};
-  if(body.providerRequests!==0||!canonicalSelection(body.selection)||selectionKey(body.selection)!==selectionKey(selection)||!body.selection.receipt||!body.price||body.price.bookmaker!==bookmaker||Number(body.price.decimalOdds)!==Number(priceContext.decimalOdds)||!Number.isFinite(Date.parse(body.price.expiresAt))||Date.now()>=Date.parse(body.price.expiresAt)||Date.now()>=Date.parse(expiresAt)){feedback({result:'EXPIRED'});return;}
+  const body=await response.json() as {selection:BoundSelection;price:{bookmaker:string;decimalOdds:string;expiresAt:string;priceKind?:string};providerRequests:number};
+  if(body.providerRequests!==0||!canonicalSelection(body.selection)||selectionKey(body.selection)!==selectionKey(selection)||!body.selection.receipt||!body.price||body.price.bookmaker!==bookmaker||(body.price.priceKind??'REAL')!==kind||Number(body.price.decimalOdds)!==Number(priceContext.decimalOdds)||!Number.isFinite(Date.parse(body.price.expiresAt))||Date.now()>=Date.parse(body.price.expiresAt)||Date.now()>=Date.parse(expiresAt)){feedback({result:'EXPIRED'});return;}
   slipStore.reload();
   // A clear/remove/replacement/other-tab write during admission must never be undone.
   if(slipStore.getRevision(key)!==revision){feedback({result:'EXPIRED'});return;}
   const result=slipStore.dispatch(confirm?{type:'confirm',selection:body.selection,addedAt:new Date().toISOString(),expectedReceipt:confirm.receipt}:{type:'add',selection:body.selection,addedAt:new Date().toISOString()});
-  const analytics={legCount:result.slip.selections.length,priceKind:priceContext?.priceKind};
+  // Keep the existing analytics vocabulary; do not misclassify an estimate as REAL.
+  const analytics={legCount:result.slip.selections.length,priceKind:kind==='REAL'?'REAL' as const:'PROXY' as const};
   if(result.result==='ADDED')emitSlipEvent('slip_selection_add',locale,selection,bookmaker,analytics);
   if(result.result==='REPLACED')emitSlipEvent('slip_selection_replace',locale,selection,bookmaker,analytics);
   if(result.result==='REMOVED')emitSlipEvent('slip_selection_remove',locale,selection,undefined,analytics);

@@ -37,13 +37,13 @@ export function SlipLegs({uiLocale,selections,resolvedByKey,comparison,checking,
         const quote=b.selectionQuotes.find(q=>selectionKey(q.selection)===key)??null;
         return {id:b.bookmakerId,name:bookmakerShortName(b.bookmakerId,b.displayName),available:quote?.decimalOdds!==null&&quote?.decimalOdds!==undefined,priceKind:quote?.priceKind??null,sourceName:quote?.sourceBookmakerName??null,quote};
       });
-      const missing=quotes.filter(q=>q.quote&&!q.available);
+      const missing=quotes.filter(q=>q.quote&&!q.available&&!q.quote.estimate);
       let status:string;
       if(view?.state==='PRICE_CHANGED')status=text.legOddsChanged;
       else if(missing.length===1)status=text.unavailableAtBook(missing[0].name);
       else if(view)status=text.states[view.state];
       else status=checking?text.checking:text.states.UNAVAILABLE;
-      const indicative=view?.price?.priceKind==='INDICATIVE';
+      const indicative=view?.price?.priceKind==='INDICATIVE'||view?.price?.priceKind==='CALCULATED_MINUS_10';
       const coverage=indicative?'INDICATIVE':price?'REAL':'UNAVAILABLE';
       const coverageLabel=indicative?(uiLocale==='br'?'Cotação indicativa':uiLocale==='en'?'Indicative odds':'Cuota orientativa'):price?(uiLocale==='en'?'Real quote':uiLocale==='br'?'Cotação real':'Cuota real'):text.states.UNAVAILABLE;
       return <li className="slip-item" key={key} data-selection={key} data-state={view?.state??'PENDING'} data-coverage={coverage}>
@@ -60,7 +60,7 @@ export function SlipLegs({uiLocale,selections,resolvedByKey,comparison,checking,
         <div className="slip-pick">
           {price?<strong className="slip-price" title={view?.price?.bookmakerName}><ApproximatePrice approximate={indicative} value={price} label={`${coverageLabel} · ${view?.price?.bookmakerName??''}`}/></strong>:<span className="slip-no-price">{checking?text.checking:'—'}</span>}
         </div>
-        {!checking&&!view?.price&&accepted?<small>{uiLocale==='en'?'Suspended selection':uiLocale==='br'?'Seleção suspensa':'Selección suspendida'} · {bookmakerConfig(accepted.book)?.displayName??accepted.book} · {accepted.price}</small>:null}
+        {!checking&&!view?.price&&accepted?<small>{uiLocale==='en'?'Suspended selection':uiLocale==='br'?'Seleção suspensa':'Selección suspendida'} · {bookmakerConfig(accepted.book)?.displayName??accepted.book} · {accepted.priceKind==='CALCULATED_MINUS_10'?'≈':''}{formatSlipOdds(accepted.price,uiLocale)}</small>:null}
         {!view?.price&&view?.alternative&&onConfirm?<button type="button" className="slip-share" onClick={()=>onConfirm(s,view.alternative!)}>
           {uiLocale==='en'?'Confirm current odds':uiLocale==='br'?'Confirmar cotação atual':'Confirmar cuota actual'} · {view.alternative.bookmakerName} · {formatSlipOdds(view.alternative.decimalOdds,uiLocale)}
         </button>:null}

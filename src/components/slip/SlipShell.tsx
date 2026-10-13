@@ -83,7 +83,7 @@ export function SlipShell({commercialLocale=null}:{commercialLocale?:SiteLocale|
   const trigger=useRef<HTMLButtonElement>(null);
   useEffect(()=>{slipStore.reload();const storage=(e:StorageEvent)=>{if(e.key===STORAGE_KEY||e.key===null)slipStore.reload();};
     const action=(e:Event)=>{const value=(e as CustomEvent<SlipFeedback>).detail;
-      if(value.result==='REPLACE_REQUIRED'){setNotice(null);setPending(value);setOpen(true);}else setNotice(value.result);
+      if(value.result==='REPLACE_REQUIRED'){setNotice(null);setPending(value);setOpen(true);}else {setNotice(value.result);if(value.result==='ADDED'||value.result==='REPLACED')setOpen(true);}
     };
     window.addEventListener('storage',storage);window.addEventListener(FEEDBACK_EVENT,action);return()=>{window.removeEventListener('storage',storage);window.removeEventListener(FEEDBACK_EVENT,action);};
   },[]);

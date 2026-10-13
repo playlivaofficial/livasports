@@ -11,12 +11,12 @@ export type CanonicalSelection = {fixturePublicId:string;scope:typeof SLIP_SCOPE
 export type BoundSelection = CanonicalSelection & {receipt?:string};
 export type SavedSelection = BoundSelection & {addedAt:string};
 /** Untrusted display hint only. Authentication always happens server-side against the HMAC and DB. */
-export function receiptDisplay(value:BoundSelection):{book:string;price:string;expires:number;observed:string}|null {
+export function receiptDisplay(value:BoundSelection):{book:string;price:string;expires:number;observed:string;priceKind:'REAL'|'CALCULATED_MINUS_10'}|null {
   if(!value.receipt)return null;
   try{const parsed=JSON.parse(atob(value.receipt.split('.')[0].replace(/-/g,'+').replace(/_/g,'/')));
-    if(Array.isArray(parsed)&&parsed.length!==9)return null;
-    const v=Array.isArray(parsed)?{book:parsed[3],price:parsed[6],observed:parsed[7],expires:parsed[8]}:parsed;
-    return typeof v.book==='string'&&typeof v.price==='string'&&typeof v.observed==='string'&&Number.isFinite(v.expires)?{book:v.book,price:v.price,expires:v.expires,observed:v.observed}:null;
+    if(Array.isArray(parsed)&&![9,12].includes(parsed.length))return null;
+    const v=Array.isArray(parsed)?{book:parsed[3],price:parsed[6],observed:parsed[7],expires:parsed[8],priceKind:parsed[9]}:parsed;
+    return typeof v.book==='string'&&typeof v.price==='string'&&typeof v.observed==='string'&&Number.isFinite(v.expires)?{book:v.book,price:v.price,expires:v.expires,observed:v.observed,priceKind:v.priceKind==='CALCULATED_MINUS_10'?'CALCULATED_MINUS_10':'REAL'}:null;
   }catch{return null;}
 }
 export function wireSelection(value:CanonicalSelection):BoundSelection {
@@ -26,7 +26,8 @@ export function wireSelection(value:CanonicalSelection):BoundSelection {
 export interface StoredSlip {version:typeof SLIP_SCHEMA_VERSION;slipId:string;stake:string;selections:SavedSelection[];}
 export type SelectionState = 'CURRENT'|'PRICE_CHANGED'|'STALE'|'UNAVAILABLE'|'SUSPENDED'|'CLOSED'|'MATCH_STARTED'|'MATCH_FINISHED';
 export interface ReferencePrice {decimalOdds:string;bookmaker:string;bookmakerName:string;best:boolean;expiresAt:string;
-  priceKind?:'REAL'|'PROXY'|'INDICATIVE';sourceBookmaker?:string;sourceQuoteId?:string;sourceObservedAt?:string;
+  priceKind?:'REAL'|'PROXY'|'INDICATIVE'|'CALCULATED_MINUS_10';sourceBookmaker?:string;sourceQuoteId?:string;sourceObservedAt?:string;
+  estimate?:import('@/odds/types').CalculatedOddsEstimate;
   reference?:import('@/odds/types').IndicativeQuote;}
 export interface ResolvedSelection {
   coverage?:'REAL'|'INDICATIVE'|'UNAVAILABLE';

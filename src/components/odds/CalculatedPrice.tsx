@@ -4,7 +4,7 @@ import type {GeoLocale} from '@/config/geo';
 import {formatSlipOdds} from '@/slip/decimal';
 import {ApproximatePrice} from './ApproximatePrice';
 
-/** Informational text only: never a button, selection intent, or affiliate destination. */
+/** Indicative price display: may sit in a planning-selection button, never an executable offer. */
 export function CalculatedPrice({estimate,locale}:{estimate:CalculatedOddsEstimate;locale:GeoLocale}){
   const text=estimateLabels(locale);
   const provenance=`${text.source} ${estimate.sourceBookmakerName}: ${estimate.sourceDecimalOdds} × 0.90 · ${estimate.sourceObservedAt}`;

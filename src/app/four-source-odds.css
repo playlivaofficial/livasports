@@ -105,6 +105,7 @@
 .board-period-label { margin:0; padding:8px 12px; font-size:.8rem; color:var(--text-secondary); border-bottom:1px solid var(--border); }
 /* Derived comparisons have their own non-interactive channel, not executable odds cells. */
 .calculated-price { display:grid; justify-items:center; gap:1px; min-width:0; font-family:var(--font-numeric); color:var(--color-text); }
+:root :is(.listing-odds-select,.slip-odds-button)[aria-pressed='true'] .calculated-price { color:var(--selected-text); }
 .listing-odds-cell.is-calculated { border-style:dashed; background:var(--color-surface); }
 .odds-slot .listing-odds-cell.is-calculated { height:auto; min-height:52px; }
 .odds-slot .listing-odds-books { align-items:start; }

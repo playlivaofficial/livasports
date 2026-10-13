@@ -18,7 +18,8 @@ export interface CommercialContext {
    * that bookmaker to hold a current price. It is part of the signed context, so a token minted for
    * a logo can only ever be redeemed as a logo.
    */
-  cta?:'logo';
+  // A slip 'visit' is also ordinary sportsbook navigation, not a price-specific bet placement.
+  cta?:'logo'|'visit';
   fixturePublicId?:string;market?:OddsMarket;selections?:CanonicalSelection[];competitionSlug?:string;slipId?:string;
 }
 /**
