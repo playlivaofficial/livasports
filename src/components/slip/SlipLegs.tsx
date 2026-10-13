@@ -59,7 +59,7 @@ export function SlipLegs({uiLocale,selections,resolvedByKey,comparison,checking,
         </div>
         <p className="slip-market"><span>{text.markets[s.market]}</span><strong>{selectionLabel(s,uiLocale,fixture)}</strong></p>
         <div className="slip-pick">
-          {price?<strong className="slip-price">{indicative?<ApproximatePrice value={price} label={coverageLabel}/>:price}</strong>:<span className="slip-no-price">{checking?text.checking:'—'}</span>}
+          {price?<strong className="slip-price"><ApproximatePrice value={price} label={coverageLabel}/></strong>:<span className="slip-no-price">{checking?text.checking:'—'}</span>}
           <small>{coverageLabel}</small>
         </div>
         {view?.price?<small>{view.price.bookmakerName}</small>:null}

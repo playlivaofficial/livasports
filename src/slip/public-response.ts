@@ -1,5 +1,6 @@
 import type {FullSlipResolution,SelectionQuote} from './comparison-types';
 import {canonicalSelection,type ResolvedSelection,type SlipResolution} from './types';
+import {publicEstimate} from '@/odds/calculated-estimate';
 
 function publicSelection(value:ResolvedSelection):ResolvedSelection {
   value={...value,selection:canonicalSelection(value.selection)!};
@@ -12,6 +13,7 @@ function publicSelection(value:ResolvedSelection):ResolvedSelection {
 
 function publicQuote(value:SelectionQuote):SelectionQuote {
   const quote={...value,selection:canonicalSelection(value.selection)!} as Partial<SelectionQuote>;
+  if(value.estimate)quote.estimate=publicEstimate(value.estimate);
   delete quote.sourceBookmakerId;delete quote.sourceBookmakerName;delete quote.sourceQuoteId;delete quote.sourceObservedAt;
   return quote as SelectionQuote;
 }

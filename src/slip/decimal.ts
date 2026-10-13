@@ -23,6 +23,16 @@ export function multiplyDecimalOdds(values:readonly string[]):string|null {
   for(const value of values){if(!validDecimalOdds(value))return null;const d=decimal(value)!;units*=d.units;scale+=d.scale;}
   return stringify(units,scale);
 }
+/** Planning factors only; intentionally separate from executable bookmaker odds validation. */
+export function multiplyIndicativeFactors(values:readonly string[]):string|null {
+  if(!values.length||values.length>10)return null;
+  let units=1n,scale=0;
+  for(const value of values){
+    if(!/^\d{1,4}(?:\.\d{1,19})?$/.test(value)||Number(value)<=0||Number(value)>1000)return null;
+    const [whole,fraction='']=value.split('.');units*=BigInt(whole+fraction);scale+=fraction.length;
+  }
+  return stringify(units,scale);
+}
 export function compareDecimal(a:string,b:string):number {
   const [aw,af='']=a.split('.'),[bw,bf='']=b.split('.');const scale=Math.max(af.length,bf.length);
   const left=BigInt(aw+af.padEnd(scale,'0')),right=BigInt(bw+bf.padEnd(scale,'0'));
@@ -32,7 +42,7 @@ export function compareDecimal(a:string,b:string):number {
 /** Half-up to 2 decimal places. Combined odds 6.048 → 605 cents of the displayed price (6.05). */
 export function roundHalfUpCents(value:string):bigint|null {
   const negative=value.startsWith('-');const raw=negative?value.slice(1):value;
-  if(!/^\d{1,40}(?:\.\d{1,40})?$/.test(raw))return null;
+  if(!/^\d{1,40}(?:\.\d{1,200})?$/.test(raw))return null;
   const [whole,fraction='']=raw.split('.');
   const padded=fraction.padEnd(3,'0');
   const cents=BigInt(whole)*100n+BigInt(padded.slice(0,2))+(padded[2]>='5'?1n:0n);
@@ -67,9 +77,16 @@ export function parseStake(raw:string):string|null {
 
 /** Informational return = stake × combined odds after the same half-up 2dp display rounding. */
 export function potentialReturn(stake:string,combinedOdds:string):string|null {
+  return returnForFactor(stake,combinedOdds,false);
+}
+/** Mathematical comparison, not a promise of a return achievable at the target bookmaker. */
+export function indicativePotentialReturn(stake:string,factor:string):string|null {
+  return returnForFactor(stake,factor,true);
+}
+function returnForFactor(stake:string,combinedOdds:string,indicative:boolean):string|null {
   const parsed=parseStake(stake);if(!parsed)return null;
   const stakeCents=roundHalfUpCents(parsed);const oddsCents=roundHalfUpCents(combinedOdds);
-  if(stakeCents===null||oddsCents===null||stakeCents<=0n||oddsCents<=100n)return null;
+  if(stakeCents===null||oddsCents===null||stakeCents<=0n||oddsCents<=(indicative?0n:100n))return null;
   return fromCents((stakeCents*oddsCents+50n)/100n);
 }
 

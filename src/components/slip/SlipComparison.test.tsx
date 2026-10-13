@@ -15,10 +15,10 @@ const CARDS=PUBLIC_CARD_IDS.length;
 const INSPECTED=PUBLIC_CARD_IDS[1];
 
 describe('P5 compact comparison / internal provenance',()=>{
-  it('does not label a complete genuine native comparison as an approximate quote',()=>{
+  it('shows the requested approximation symbol while preserving the genuine quote label',()=>{
     const f=comparisonFixture(1),value=buildSlipComparison(f.selections,'co',f.data.fixtures,f.data.bookmakers,f.now);
     const html=renderToStaticMarkup(<SlipComparison locale="co" uiLocale="en" stake="10" selections={f.selections.map(s=>({...s,addedAt:new Date(f.now).toISOString()}))} checking={false} value={value}/>);
-    expect(value.bookmakers.some(b=>b.complete&&!b.estimated)).toBe(true);expect(html).not.toContain('class="approximate-price');
+    expect(value.bookmakers.some(b=>b.complete&&!b.estimated)).toBe(true);expect(html).toContain('odds-approx-mark');expect(html).toContain('Real bookmaker quote');expect(html).not.toContain('CALCULATED_MINUS_10');
   });
   it.each([['mx','MX$'],['co','COP$'],['pe','S/']] as const)('uses the trusted %s currency instead of English presentation currency',(locale,symbol)=>{
     const f=comparisonFixture(),value=buildSlipComparison(f.selections,locale,f.data.fixtures,f.data.bookmakers,f.now);
@@ -39,7 +39,8 @@ describe('P5 compact comparison / internal provenance',()=>{
       const html=renderToStaticMarkup(<SlipComparison locale="co" uiLocale={locale} stake="10" selections={f.selections.map(s=>({...s,addedAt:new Date(f.now).toISOString()}))} checking={false} value={value}/>);
       expect(value.bookmakers.map(b=>b.bookmakerId)).toEqual(PUBLIC_CARD_IDS);
       expect(html.match(/class="slip-bookmaker"/g)).toHaveLength(CARDS);
-      expect(html).not.toMatch(/estimated|estimad|based on|baseada|basada|Betano|betano|data-source|slip-proxy-legs|slip-missing|<ul/i);
+      expect(html).not.toMatch(/Betano|betano|slip-proxy-legs|slip-missing/i);
+      if(mode==='native')expect(html).not.toContain('CALCULATED_MINUS_10');
       expect(html).not.toMatch(/NaN|guaranteed|profit/);
       expect(JSON.stringify(value)).toBe(before);
       const inspected=value.bookmakers[1];
@@ -52,6 +53,8 @@ describe('P5 compact comparison / internal provenance',()=>{
         expect(inspected.priceClassification).toBe('INCOMPLETE');
         expect(inspected.combinedDecimalOdds).toBeNull();
         expect(inspected.ctaState).toBe('INCOMPLETE');
+        expect(inspected.indicativeComplete).toBe(true);expect(inspected.calculatedSelectionCount).toBe(count);
+        expect(html).toContain('data-executable="false"');expect(html).toContain('CALCULATED_MINUS_10');
         expect(inspected.selectionQuotes.every(q=>q.sourceBookmakerId===null||q.sourceBookmakerId===INSPECTED)).toBe(true);
         // The other card priced everything itself, so its own total is still shown.
         const other=value.bookmakers[0];

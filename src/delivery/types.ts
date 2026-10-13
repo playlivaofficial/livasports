@@ -16,6 +16,7 @@ export interface BookmakerPriceView {
 export interface OutcomeOddsView { outcome: OutcomeCode; prices: BookmakerPriceView[]; }
 export interface MarketOddsView { market: MarketCode; line: number | null; outcomes: OutcomeOddsView[]; }
 export interface FixtureView {
+  calculatedOdds?:import('@/odds/types').CalculatedOddsEstimate[];
   referenceOdds?:import('@/odds/types').IndicativeQuote[];
   id: string; publicId?: string; competition: string; homeTeam: string; awayTeam: string; kickoff: string; status: FixtureStatus;
   competitionSlug?: string; competitionGroup?: string; competitionPriority?: number;
