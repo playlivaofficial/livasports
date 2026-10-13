@@ -1,10 +1,11 @@
 import {withSpanishLocales} from './spanish';
 import type {InterfaceLocale} from './interface';
 import type {HelpKind} from './help-routes';
+import {marketHelp} from './market-help';
 /** P2 evergreen help. Describes implemented product behaviour only; no predictions, licences, experts or prices. */
 export type HelpArticle={title:string;intro:string;sections:{title:string;body:string}[];related:HelpKind[]};
 export const helpReviewedAt='2026-09-17';
-export const helpReviewDate=(locale:InterfaceLocale,kind:HelpKind)=>locale==='br'&&kind==='comparison'?'2026-09-27':helpReviewedAt;
+export const helpReviewDate=(_locale:InterfaceLocale,kind:HelpKind)=>kind==='favorites'?helpReviewedAt:'2026-10-13';
 export const helpCopy=withSpanishLocales({
   br:{eyebrow:'Ajuda',navigation:'Ajuda LivaSports',reviewed:'Atualizado em',related:'Veja também',football:'Ver partidas'},
   mx:{eyebrow:'Ayuda',navigation:'Ayuda LivaSports',reviewed:'Actualizado el',related:'Ver también',football:'Ver partidos'},
@@ -12,12 +13,13 @@ export const helpCopy=withSpanishLocales({
 } as const);
 const baseHelpContent:Record<'br'|'mx'|'en',Record<HelpKind,HelpArticle>>={
  br:{
+  ...marketHelp.br,
   comparison:{title:'Como funciona a comparação de odds da LivaSports',intro:'A LivaSports mostra, lado a lado, as odds pré-jogo registradas para as casas de apostas cobertas. Você não precisa de conta nem de aposta para consultar.',sections:[
    {title:'Protocolo para uma comparação verificável',body:'Comece pela mesma partida: confira competição, mandante, visitante e início. Compare o mesmo mercado, resultado e linha — por exemplo, total de gols acima de 2,5 não é o mesmo que acima de 3,5. Confira o horário de observação e a identificação de preço próprio ou aproximado antes de comparar valores. Uma cotação ausente não vale zero e não deve entrar na comparação.'},
    {title:'Como citar a comparação em uma matéria',body:'Use o endereço da partida consultada, identifique os times e a competição, registre a data e o horário da consulta com fuso, o mercado, a linha e o horário de observação exibido. Indique se o preço era próprio ou aproximado. Vincule também esta metodologia para explicar a cobertura. Uma página atualizável não comprova, sozinha, qual preço estava disponível no passado; preserve seu registro editorial da consulta.'},
    {title:'O que uma diferença de preços permite afirmar',body:'Odds diferentes mostram preços diferentes para a mesma seleção naquele recorte de cobertura e tempo. Não demonstram, por si só, valor de aposta, erro de uma casa, probabilidade verdadeira nem garantia de ganho. Não extrapole a amostra das casas exibidas para todo o mercado. A ausência de cobertura não indica ausência da partida ou do mercado.'},
    {title:'Limites de uso e transparência editorial',body:'Esta página documenta a consulta pública, não concede licença para redistribuir bases de terceiros nem oferece um arquivo histórico de odds. A LivaSports pode receber remuneração por links de afiliados identificados como publicidade; isso não transforma uma comparação em recomendação. Ao citar, mantenha visíveis a origem, o momento e as limitações do dado.'},
-   {title:'De onde vêm as odds',body:'As odds exibidas são cotações pré-jogo salvas a partir de uma fonte de dados de odds. Cada valor mostra a casa e o horário da última observação. Cotações com mais de 15 minutos são tratadas como desatualizadas e deixam de ser exibidas como atuais.'},
+   {title:'De onde vêm as odds',body:'As odds exibidas são cotações pré-jogo registradas pela fonte de dados coberta. A validade depende da cotação e da proximidade do início; não existe um prazo único de 15 minutos para todos os jogos. Preços vencidos, suspensos ou encerrados deixam de ser apresentados como vigentes. Confira a observação e confirme o preço na casa.'},
    {title:'Preço próprio e preço aproximado',body:'Quando existe uma cotação da própria casa para o mercado, ela aparece como preço real dessa casa. Quando a fonte não informa a cotação de uma casa, a LivaSports pode exibir um preço aproximado, baseado na cotação de outra casa coberta. Esse valor é sempre identificado como aproximado e nunca é apresentado como cotação confirmada da casa.'},
    {title:'Por que a odd pode ser diferente na casa',body:'As casas alteram as odds ao longo do tempo, aplicam margens próprias e podem suspender mercados. O que você vê na LivaSports é a última observação registrada, não uma garantia de preço. Confira sempre a odd no site da casa antes de qualquer decisão.'},
    {title:'Melhor preço e cobertura',body:'A marcação de melhor preço compara apenas as casas exibidas naquele momento e considera apenas o valor da odd. A cobertura de casas depende do país e da elegibilidade comercial de cada uma; o México não herda a cobertura do Brasil.'},
@@ -39,8 +41,9 @@ const baseHelpContent:Record<'br'|'mx'|'en',Record<HelpKind,HelpArticle>>={
   ],related:['comparison','decimalOdds']},
  },
  mx:{
+  ...marketHelp.mx,
   comparison:{title:'Cómo funciona la comparación de cuotas de LivaSports',intro:'LivaSports muestra, lado a lado, las cuotas prepartido registradas de las casas de apuestas cubiertas. No necesitas cuenta ni apostar para consultarlas.',sections:[
-   {title:'De dónde vienen las cuotas',body:'Las cuotas mostradas son cotizaciones prepartido guardadas desde una fuente de datos de cuotas. Cada valor indica la casa y la hora de la última observación. Las cotizaciones con más de 15 minutos se consideran desactualizadas y dejan de mostrarse como vigentes.'},
+   {title:'De dónde vienen las cuotas',body:'Las cuotas mostradas son cotizaciones prepartido registradas por la fuente de datos cubierta. Su vigencia depende de la cotización y la proximidad del inicio: no hay un plazo único de 15 minutos para todos los partidos. Los precios vencidos, suspendidos o cerrados dejan de presentarse como vigentes. Comprueba la observación y confirma el precio en la casa.'},
    {title:'Precio propio y precio aproximado',body:'Cuando existe una cotización de la propia casa para el mercado, se muestra como precio real de esa casa. Cuando la fuente no informa la cotización de una casa, LivaSports puede mostrar un precio aproximado, basado en la cotización de otra casa cubierta. Ese valor siempre se identifica como aproximado y nunca se presenta como cotización confirmada de la casa.'},
    {title:'Por qué la cuota puede ser distinta en la casa',body:'Las casas cambian sus cuotas con el tiempo, aplican márgenes propios y pueden suspender mercados. Lo que ves en LivaSports es la última observación registrada, no una garantía de precio. Verifica siempre la cuota en el sitio de la casa antes de cualquier decisión.'},
    {title:'Mejor precio y cobertura',body:'La marca de mejor precio compara solo las casas mostradas en ese momento y considera únicamente el valor de la cuota. La cobertura de casas depende del país y de la elegibilidad comercial de cada una; México no hereda la cobertura de Brasil.'},
@@ -62,8 +65,9 @@ const baseHelpContent:Record<'br'|'mx'|'en',Record<HelpKind,HelpArticle>>={
   ],related:['comparison','decimalOdds']},
  },
  en:{
+  ...marketHelp.en,
   comparison:{title:'How LivaSports odds comparison works',intro:'LivaSports shows recorded pre-match odds from the covered bookmakers side by side. No account and no bet are needed to look.',sections:[
-   {title:'Where the odds come from',body:'Displayed odds are pre-match quotes saved from an odds data source. Each value shows the bookmaker and the time of the last observation. Quotes older than 15 minutes are treated as stale and are no longer shown as current.'},
+   {title:'Where the odds come from',body:'Displayed odds are pre-match quotes recorded from the covered data source. Validity depends on the quote and proximity to kick-off; there is no single 15-minute lifetime for every match. Expired, suspended and closed prices are no longer presented as current. Check the observation and confirm the price at the bookmaker.'},
    {title:'Own price versus approximate price',body:'When the bookmaker\'s own quote exists for a market, it is shown as that bookmaker\'s real price. When the source does not report a bookmaker\'s quote, LivaSports may show an approximate price based on another covered bookmaker\'s quote. That value is always labelled as approximate and is never presented as a confirmed price at the bookmaker.'},
    {title:'Why the price can differ at the bookmaker',body:'Bookmakers move their odds over time, apply their own margins and may suspend markets. What you see on LivaSports is the last recorded observation, not a price guarantee. Always check the odds on the bookmaker\'s site before any decision.'},
    {title:'Best price and coverage',body:'The best-price label compares only the bookmakers displayed at that moment and considers the odds value alone. Bookmaker coverage depends on your country and each bookmaker\'s commercial eligibility; Mexico does not inherit Brazil\'s coverage.'},
@@ -86,4 +90,20 @@ const baseHelpContent:Record<'br'|'mx'|'en',Record<HelpKind,HelpArticle>>={
  },
 };
 
-export const helpContent=withSpanishLocales(baseHelpContent);
+const content=withSpanishLocales(baseHelpContent);
+// Regional help points to real domestic hubs; language never authorizes commercial access.
+const countryContext={
+ mx:{country:'México',comparison:'En México también se usa “momios” para hablar de cuotas. Busca Liga MX o Liga de Expansión MX y abre el partido concreto antes de comparar: Apertura y Clausura, jornada y equipos deben coincidir. El calendario, resultados y tabla están separados; una posición en la tabla no es un precio ni una probabilidad.',slip:'Para un boleto de partidos de Liga MX, comprueba jornada e inicio de cada partido. Los importes de ejemplo están expresados en unidades: si eliges MXN, 10.00 significa diez pesos mexicanos. Cambiar idioma o moneda no cambia las casas elegibles, y una columna sin precio vigente no constituye una oferta.'},
+ co:{country:'Colombia',comparison:'Para Liga BetPlay / Primera A, empieza por el calendario colombiano y distingue la fase y la temporada que muestra la página. Resultados, tabla de posiciones y estadísticas responden a preguntas distintas. No confundas Primera A con el Torneo BetPlay de Primera B ni un marcador final con una cuota prepartido.',slip:'Para comparar partidos de Liga BetPlay, conserva local y visitante aun cuando consultes juegos de otra fase o temporada. Los ejemplos son unidades: un importe de 10.00 COP no equivale a diez pesos mexicanos ni a diez soles. Una comparación entre las casas mostradas no representa todas las casas del país.'},
+ pe:{country:'Perú',comparison:'En Liga 1, consulta la temporada y la etapa disponibles antes de interpretar resultados o tabla. Los nombres Apertura y Clausura no identifican por sí solos el mismo partido: verifica fecha, local y visitante. Sigue el enlace al encuentro para revisar los mercados realmente disponibles; no supongas cobertura por aparecer en el calendario.',slip:'Para un boleto con partidos de Liga 1, confirma fecha y equipos de cada selección. En una comparación expresada en PEN, 10.00 corresponde a diez soles; los ejemplos no convierten monedas ni incluyen condiciones de promociones. La presencia de un equipo peruano no demuestra que una casa tenga una cuota vigente.'},
+} as const;
+function regionalHelp(locale:'mx'|'co'|'pe'):Record<HelpKind,HelpArticle>{
+ const context=countryContext[locale];
+ return {
+  ...content[locale],
+  comparison:{...content[locale].comparison,title:`Cómo comparar cuotas de fútbol en ${context.country}`,intro:`Compara el mismo partido, mercado y resultado en ${context.country}. Identifica cuotas vigentes, valores con ≈ y límites de cobertura antes de consultar una casa.`,sections:[...content[locale].comparison.sections,{title:`Fútbol y cobertura en ${context.country}`,body:context.comparison}],related:['markets','slipComparison','decimalOdds']},
+  markets:{...content[locale].markets,title:`1X2, goles y ambos marcan: guía de fútbol en ${context.country}`,sections:[...content[locale].markets.sections,{title:`Consulta los partidos de ${context.country}`,body:context.comparison}]},
+  slipComparison:{...content[locale].slipComparison,title:`Cómo comparar Mi boleto en ${context.country}`,sections:[...content[locale].slipComparison.sections,{title:`Comparaciones en ${context.country}`,body:context.slip}]},
+ };
+}
+export const helpContent={...content,mx:regionalHelp('mx'),co:regionalHelp('co'),pe:regionalHelp('pe')};

@@ -67,7 +67,7 @@ const baseDictionaries: Record<'br'|'mx', LocaleDictionary> = {
       home: { title: 'Fútbol: próximos 7 días en México', description: 'Partidos de Liga MX y torneos internacionales: horarios, resultados y cuotas disponibles para consultar en México.' },
       football: { title: 'Partidos de fútbol en México', description: 'Consulta Liga MX, Liga de Expansión MX y torneos internacionales: calendario, resultados y clasificación con datos registrados.' },
       live: { title: 'Fútbol en vivo en México', description: 'Consulta los partidos en curso de Liga MX y torneos internacionales. Mostramos los últimos marcadores disponibles y su estado.' },
-      today: { title: 'Partidos de hoy', description: 'Calendario del día en horario de Ciudad de México.' },
+      today: { title: 'Partidos de hoy en México', description: 'Consulta los partidos de fútbol de hoy: Liga MX y torneos internacionales, horarios, resultados disponibles y enlaces a cada encuentro.' },
     },
     labels: {
       currentDate: 'Fecha local', competitions: 'Competiciones', fixtures: 'Partidos', odds: 'Cuotas prepartido', score: 'Marcador', kickoff: 'Inicio',

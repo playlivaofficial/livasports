@@ -10,14 +10,15 @@ vi.mock('@/profiles/runtime',()=>({
 import {GET as sitemapRoute} from '@/app/sitemap.xml/route';
 import {loadCompetitionSitemapSummaries} from '@/sports/sitemap-runtime';
 import {primarySitemap} from '@/seo/sitemap';
+import {helpKinds} from './help-routes';
 import {sitemapXmlProblems} from '@/sports/sitemap';
 import {englishMatchMetadata,englishProfileMetadata} from './english-routes';
 import {CANONICAL_COMPETITION_TARGETS} from '@/config/footballCompetitions';
 it('lists every hub, document and competition entry in all five locales with reciprocal absolute alternates',async()=>{
   const rows=primarySitemap(null);
   const competitions=CANONICAL_COMPETITION_TARGETS.filter(c=>c.enabled).length;
-  // 4 hubs + 4 legal + 3 help + competitions, each in five locales; entities live only in /sports-sitemaps.xml.
-  expect(rows).toHaveLength((4+4+3+competitions)*5);expect(new Set(rows.map(row=>row.url)).size).toBe(rows.length);
+  // Static documents and covered competitions, each in five locales; entities live only in /sports-sitemaps.xml.
+  expect(rows).toHaveLength((4+4+helpKinds.length+competitions)*5);expect(new Set(rows.map(row=>row.url)).size).toBe(rows.length);
   expect(rows.filter(row=>row.url.includes('?competition='))).toHaveLength(competitions*5);
   expect(rows.some(row=>/\/(match|jogo|partido|team|time|equipo|player|jogador|jugador)\//.test(row.url))).toBe(false);
   for(const row of rows){const alts=row.alternates?.languages;expect(Object.keys(alts??{})).toEqual(['pt-BR','es-MX','es-CO','es-PE','en','x-default']);expect(alts?.['x-default']).toBe(alts?.en);
