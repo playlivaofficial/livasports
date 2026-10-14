@@ -352,7 +352,8 @@ export async function upsertGrowthSeoPriorities(db:DatabaseClient,rows:GrowthSeo
     // Serialize only shortlist persistence, not a media job/lease/heartbeat.
     await tx.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`growth:seo-priorities:${geo}`]);
     if((await tx.query(`SELECT 1 WHERE EXISTS(SELECT 1 FROM growth_geo_priorities WHERE geo=$2 AND updated_at>$1)
-      OR EXISTS(SELECT 1 FROM growth_geo_selections WHERE geo=$2 AND selected_at>$1)`,[now,geo])).rows.length)return finish({applied:false,changed:false});
+      OR EXISTS(SELECT 1 FROM growth_geo_selections WHERE geo=$2 AND selected_at>$1)
+      OR EXISTS(SELECT 1 FROM growth_geo_runs WHERE geo=$2 AND state='SUCCEEDED' AND started_at>$1)`,[now,geo])).rows.length)return finish({applied:false,changed:false});
     const prior=(await tx.query(`SELECT fingerprint,current_list FROM growth_geo_selections WHERE geo=$1 ORDER BY selected_at DESC,id DESC LIMIT 1`,[geo])).rows[0];
     const current=rows.map(r=>({fixtureId:r.fixtureId,rank:r.rank,score:r.score,label:r.label??r.fixtureId}));
     const fingerprint=createHash('sha256').update(JSON.stringify(rows.map(r=>[r.fixtureId,r.rank,r.sourceHash]))).digest('hex');

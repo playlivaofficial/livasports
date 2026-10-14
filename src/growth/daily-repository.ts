@@ -7,49 +7,34 @@ import {DAILY_GROWTH_VERSION,growthLocalDay,nextGrowthCheck} from './daily-polic
 import type {CountryDemand} from './country-demand';
 
 export interface DailySelection {fixtureId:string;rank:number;score:number;label:string;canonicalUrl:string;kickoff:string;competition:string;[key:string]:unknown;}
-export interface DailyGrowthRun {id:string;localDay:string;state:string;trigger:string;startedAt:string;finishedAt:string|null;lastCheckedAt:string|null;checkCount:number;considered:number;eligible:number;selectedCount:number;changed:boolean;selection:DailySelection[];countryEvidence:CountryDemand|null;error:string|null;}
+export interface DailyGrowthRun {id:string;localDay:string;state:string;trigger:string;startedAt:string;finishedAt:string|null;lastCheckedAt:string|null;checkCount:number;considered:number;eligible:number;selectedCount:number;changed:boolean;selection:DailySelection[];countryEvidence:CountryDemand|null;error:string|null;discoveryPending?:boolean;discoveryRevalidatedAt?:string|null;}
 export interface DailyFixtureMeasurement {fixtureId:string;url:string;impressions:number|null;clicks:number|null;position:number|null;countryImpressions:number|null;countryClicks:number|null;organicSessions:number;organicReferrals:number;}
 export interface DailyGrowthReport {version:string;localDay:string;nextCheck:string;lastSuccess:DailyGrowthRun|null;runs:DailyGrowthRun[];active:DailySelection[];measurements:DailyFixtureMeasurement[];window:{from:string;to:string};}
 
-/** A cheap hourly validity check; it neither re-scores nor writes still-valid same-day placements. */
-export async function dailyGeoNeedsRanking(db:QueryExecutor,geo:CoreGeo,now:Date){
- const r=(await db.query(`SELECT r.id FROM growth_geo_runs r
-  WHERE r.geo=$1 AND r.local_day=$2::date AND r.config_version=$3 AND r.state='SUCCEEDED'
-   AND r.started_at>$4::timestamptz-interval '24 hours' AND r.selected_count=5
-   AND NOT EXISTS(SELECT 1 FROM seo_breakdown_syncs s WHERE s.property=$5 AND s.dimension='COUNTRY' AND s.state='SUCCEEDED'
-    AND s.captured_at<=$4 AND date_trunc('milliseconds',s.captured_at)>coalesce((r.country_evidence->>'capturedAt')::timestamptz,'1970-01-01'::timestamptz))
-   AND NOT EXISTS(SELECT 1 FROM jsonb_array_elements(r.selection) picked
-    LEFT JOIN growth_geo_priorities p ON p.geo=r.geo AND p.fixture_id=(picked->>'fixtureId')::uuid AND p.active
-    LEFT JOIN fixtures f ON f.id=p.fixture_id
-    WHERE p.fixture_id IS NULL OR p.priority_rank<>(picked->>'rank')::integer OR p.priority_score<>(picked->>'score')::numeric
-     OR p.canonical_url<>(picked->>'canonicalUrl') OR f.kickoff<>(picked->>'kickoff')::timestamptz)
-   AND (SELECT count(*) FROM growth_geo_priorities p JOIN fixtures f ON f.id=p.fixture_id JOIN competitions c ON c.id=f.competition_id
-     JOIN teams ht ON ht.id=f.home_team_id JOIN teams at ON at.id=f.away_team_id
-     WHERE p.geo=$1 AND p.active AND c.enabled AND f.status='SCHEDULED' AND f.kickoff>$4 AND f.kickoff<=$4::timestamptz+interval '7 days'
-      AND NOT ht.provider_placeholder AND NOT at.provider_placeholder AND NOT EXISTS(SELECT 1 FROM sports_pending_fixtures pending WHERE pending.id=f.id))=5
-  ORDER BY r.started_at DESC,r.id DESC LIMIT 1`,[geo,growthLocalDay(geo,now),DAILY_GROWTH_VERSION,now,gscProperty()])).rows[0];
- return !r;
-}
 export async function startDailyGeoRun(db:QueryExecutor,geo:CoreGeo,trigger:'AUTOMATIC'|'OWNER',now:Date){
  await db.query("UPDATE growth_geo_runs SET state='FAILED',finished_at=$2,error_code='INTERRUPTED' WHERE geo=$1 AND state='RUNNING' AND started_at<$2::timestamptz-interval '10 minutes'",[geo,now]);
  const row=(await db.query(`INSERT INTO growth_geo_runs(geo,local_day,trigger_source,config_version,state,started_at)
   VALUES($1,$2,$3,$4,'RUNNING',$5) RETURNING id`,[geo,growthLocalDay(geo,now),trigger,DAILY_GROWTH_VERSION,now])).rows[0];
  return row?String(row.id):null;
 }
-/** Records a real automatic validity check without rewriting the shortlist or producing another daily snapshot. */
-export async function markDailyGrowthCheck(db:QueryExecutor,geo:CoreGeo,now:Date){
- await db.query(`UPDATE growth_geo_runs SET last_checked_at=$2,check_count=check_count+1
-  WHERE id=(SELECT id FROM growth_geo_runs WHERE geo=$1 AND state='SUCCEEDED' AND config_version=$3 ORDER BY started_at DESC,id DESC LIMIT 1)
-   AND (last_checked_at IS NULL OR last_checked_at<$2)`,[geo,now,DAILY_GROWTH_VERSION]);
-}
 export async function finishDailyGeoRun(db:QueryExecutor,id:string|null,result:{state:'SUCCEEDED'|'FAILED'|'SUPERSEDED';considered?:number;eligible?:number;selection?:DailySelection[];country?:CountryDemand;changed?:boolean;error?:string},now:Date){
  if(!id)return;
+ // Include both exited and newly promoted surfaces. The durable receipt commits with the priorities;
+ // the route handler retries unacknowledged invalidations even when the next ranking is unchanged.
+ let paths:string[]=[];
+ if(result.state==='SUCCEEDED'&&result.changed){
+  const previous=(await db.query(`SELECT selection FROM growth_geo_runs
+   WHERE geo=(SELECT geo FROM growth_geo_runs WHERE id=$1) AND state='SUCCEEDED'
+   ORDER BY started_at DESC,id DESC LIMIT 1`,[id])).rows[0];
+  const old=previous?parse<DailySelection[]>(previous.selection):[];
+  paths=[...new Set([...old,...result.selection??[]].flatMap(row=>Array.isArray(row.discoveryPaths)?row.discoveryPaths as string[]:[]))];
+ }
  await db.query(`UPDATE growth_geo_runs SET state=$2,finished_at=$3,considered=$4,eligible=$5,selected_count=$6,changed=$7,
-  selection=$8::jsonb,country_evidence=$9::jsonb,error_code=$10,
+  selection=$8::jsonb,country_evidence=$9::jsonb,error_code=$10,discovery_paths=$11::jsonb,
   last_checked_at=CASE WHEN trigger_source='AUTOMATIC' AND $2='SUCCEEDED' THEN $3 ELSE last_checked_at END,
   check_count=CASE WHEN trigger_source='AUTOMATIC' AND $2='SUCCEEDED' THEN check_count+1 ELSE check_count END
   WHERE id=$1 AND state='RUNNING'`,
- [id,result.state,now,result.considered??0,result.eligible??0,result.state==='SUCCEEDED'?(result.selection?.length??0):0,result.changed??false,JSON.stringify(result.selection??[]),JSON.stringify(result.country??{}),result.error??null]);
+ [id,result.state,now,result.considered??0,result.eligible??0,result.state==='SUCCEEDED'?(result.selection?.length??0):0,result.changed??false,JSON.stringify(result.selection??[]),JSON.stringify(result.country??{}),result.error??null,JSON.stringify(paths)]);
 }
 const iso=(v:unknown)=>v instanceof Date?v.toISOString():new Date(String(v)).toISOString();
 const parse=<T>(v:unknown):T=>typeof v==='string'?JSON.parse(v):v as T;
@@ -58,10 +43,12 @@ export async function readDailyGrowthReport(db:DatabaseClient,geo:CoreGeo,now:Da
  try{
   const raw=(await db.query(`WITH recent AS (SELECT id FROM growth_geo_runs WHERE geo=$1 ORDER BY started_at DESC,id DESC LIMIT 12),
    success AS (SELECT id FROM growth_geo_runs WHERE geo=$1 AND state='SUCCEEDED' ORDER BY started_at DESC,id DESC LIMIT 1)
-   SELECT id,local_day::text,state,trigger_source,started_at,finished_at,last_checked_at,check_count,considered,eligible,selected_count,changed,selection,country_evidence,error_code
+   SELECT id,local_day::text,state,trigger_source,started_at,finished_at,last_checked_at,check_count,considered,eligible,selected_count,changed,selection,country_evidence,error_code,
+    discovery_revalidated_at,(state='SUCCEEDED' AND discovery_paths<>'[]'::jsonb AND discovery_revalidated_at IS NULL) AS discovery_pending
    FROM growth_geo_runs WHERE id IN(SELECT id FROM recent UNION SELECT id FROM success) ORDER BY started_at DESC,id DESC`,[geo])).rows;
   const runs=raw.map(r=>({id:String(r.id),localDay:String(r.local_day),state:String(r.state),trigger:String(r.trigger_source),startedAt:iso(r.started_at),finishedAt:r.finished_at?iso(r.finished_at):null,
-   lastCheckedAt:r.last_checked_at?iso(r.last_checked_at):null,checkCount:Number(r.check_count??0),considered:Number(r.considered),eligible:Number(r.eligible),selectedCount:Number(r.selected_count),changed:r.changed===true,selection:parse<DailySelection[]>(r.selection),countryEvidence:parse<CountryDemand|null>(r.country_evidence),error:r.error_code?String(r.error_code):null}));
+   lastCheckedAt:r.last_checked_at?iso(r.last_checked_at):null,checkCount:Number(r.check_count??0),considered:Number(r.considered),eligible:Number(r.eligible),selectedCount:Number(r.selected_count),changed:r.changed===true,selection:parse<DailySelection[]>(r.selection),countryEvidence:parse<CountryDemand|null>(r.country_evidence),error:r.error_code?String(r.error_code):null,
+   discoveryPending:r.discovery_pending===true,discoveryRevalidatedAt:r.discovery_revalidated_at?iso(r.discovery_revalidated_at):null}));
   const active=(await db.query(`SELECT p.fixture_id,p.priority_rank,p.priority_score,p.canonical_url,f.kickoff,c.slug,ht.name AS home,at.name AS away
    FROM growth_geo_priorities p JOIN fixtures f ON f.id=p.fixture_id JOIN competitions c ON c.id=f.competition_id JOIN teams ht ON ht.id=f.home_team_id JOIN teams at ON at.id=f.away_team_id
    WHERE p.geo=$1 AND p.active AND c.enabled AND f.status='SCHEDULED' AND f.kickoff>$2 AND f.kickoff<=$2::timestamptz+interval '7 days'

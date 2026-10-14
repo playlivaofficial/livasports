@@ -11,6 +11,7 @@ import {markGrowthPosted,readPublishingOverview,type MarkPostedInput} from './ma
 import {VIDEO_CHANNELS} from './config';
 import {validExternalPostUrl} from './manual-publishing';
 import {isCoreGeo} from '@/config/geo';
+import {refreshGrowthDiscovery} from './discovery-refresh';
 
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const reply=(body:unknown,status=200)=>Response.json(body,{status,headers:ownerHeaders});
@@ -25,7 +26,9 @@ export interface GrowthOwnerDependencies {
 }
 const productionDependencies:GrowthOwnerDependencies={database:()=>{
   const url=databaseUrl();if(!url)throw new Error('GROWTH_DATABASE_UNAVAILABLE');return new PostgresDatabaseClient(url);
-},dashboard:readGrowthDashboard,run:runGrowthSelection,transition:transitionGrowthChannel,regeneratePlatform:regenerateGrowthPlatform};
+},dashboard:readGrowthDashboard,run:async(db,trigger,options)=>{
+ const result=await runGrowthSelection(db,trigger,options);await refreshGrowthDiscovery(db);return result;
+},transition:transitionGrowthChannel,regeneratePlatform:regenerateGrowthPlatform};
 
 export async function growthOwnerStatus(request:Request,deps:GrowthOwnerDependencies=productionDependencies){
   const params=new URL(request.url).searchParams,geo=params.get('geo')??'MX';
