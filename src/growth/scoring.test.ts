@@ -30,6 +30,12 @@ describe('Traffic Engine V1 scoring',()=>{
     expect(stageStrength('Semi-final',null)).toEqual({strength:.85,label:'Semi-final'});
     expect(stageStrength('Final',null)).toEqual({strength:1,label:'Final'});
   });
+  it.each([['america','guadalajara','Clásico Nacional'],['atletico-nacional','independiente-medellin','Clásico Paisa'],['alianza-lima','universitario-de-deportes','Clásico del fútbol peruano']])('recognizes sourced local rivalry %s versus %s in either home order',(a,b,name)=>{
+    for(const [home,away] of [[a,b],[b,a]]){
+      const score=scoreFixture(testSignals({home:{slug:home,name:home,publicId:'a',imageUrl:null},away:{slug:away,name:away,publicId:'b',imageUrl:null}}),testNow,{geo:'CO'});
+      expect(score.rivalry).toBe(name);expect(score.lines.find(l=>l.component==='rivalry')?.points).toBe(14);expect(score.lines.find(l=>l.component==='rivalry')?.reason).toContain('https://');
+    }
+  });
   it('lets excellent current odds coverage beat otherwise identical no-odds inventory',()=>{
     const covered=scoreFixture(testSignals({oddsBookmakers:2}),testNow),missing=scoreFixture(testSignals({oddsBookmakers:0}),testNow);
     expect(covered.total-missing.total).toBeCloseTo(13.6);

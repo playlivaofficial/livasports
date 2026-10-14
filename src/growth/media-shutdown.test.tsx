@@ -5,6 +5,10 @@ vi.mock('server-only',()=>({}));
 vi.mock('./repository',()=>({readGrowthFixtures:vi.fn(),readGrowthSelectionHistory:vi.fn(async()=>null),upsertGrowthSeoPriorities:vi.fn(),readLatestGrowthItems:vi.fn(async()=>[])}));
 vi.mock('./evidence-repository',()=>({readGeoGrowthEvidence:vi.fn(async()=>({fixtures:new Map(),demand:[],adjustments:new Map(),search:new Map()})),persistGeoDemand:vi.fn(async()=>new Map())}));
 vi.mock('./manual-repository',()=>({readPublishingOverview:vi.fn(async()=>({posts:[]})),readCurrentPostingReceipts:vi.fn(async()=>[])}));
+vi.mock('./daily-repository',()=>({dailyGeoNeedsRanking:vi.fn(async()=>true),startDailyGeoRun:vi.fn(async()=>null),finishDailyGeoRun:vi.fn(async()=>{}),readDailyGrowthReport:vi.fn(async()=>null),markDailyGrowthCheck:vi.fn(async()=>{})}));
+vi.mock('./country-demand-read',()=>({readCountryDemand:vi.fn(async(_db:unknown,geo:'MX'|'CO'|'PE',now:Date)=>{
+  const {buildCountryDemand}=await import('./country-demand');return buildCountryDemand(geo,[],{from:'2026-08-01',to:'2026-09-01',capturedAt:null},now);
+})}));
 import * as repository from './repository';
 import {runGrowthSelection,readGrowthDashboard,regenerateGrowthPlatform,regenerateV1Drafts,regeneratePremiumDrafts,regenerateRightsFallbackDrafts} from './service';
 import {rankedFixture,testNow} from './fixtures.test-support';
@@ -39,12 +43,14 @@ describe('media shutdown preserves daily intelligence',()=>{
   it('allows eligible empty days without inventing opportunities or media',async()=>{
     vi.mocked(repository.readGrowthFixtures).mockResolvedValue([]);
     expect(await runGrowthSelection(db,'AUTOMATIC',{now:testNow})).toMatchObject({state:'SUCCEEDED',selectionCount:0,socialCount:0,generated:0});
-    for(const geo of ['MX','CO','PE'])expect(repository.upsertGrowthSeoPriorities).toHaveBeenCalledWith(db,[],testNow,geo);
+    for(const geo of ['MX','CO','PE'])expect(repository.upsertGrowthSeoPriorities).toHaveBeenCalledWith(db,[],testNow,geo,expect.any(Function));
   });
-  it('surfaces failures without retrying or creating a video job',async()=>{
+  it('records a GEO failure, preserves its previous placements and lets the other GEOs succeed without media',async()=>{
     vi.mocked(repository.readGrowthFixtures).mockRejectedValueOnce(Error('DB_UNAVAILABLE'));
-    await expect(runGrowthSelection(db,'AUTOMATIC',{now:testNow})).rejects.toThrow('DB_UNAVAILABLE');
-    expect(repository.readGrowthFixtures).toHaveBeenCalledOnce();expect(repository.upsertGrowthSeoPriorities).not.toHaveBeenCalled();
+    const result=await runGrowthSelection(db,'AUTOMATIC',{now:testNow});
+    expect(result.state).toBe('PARTIAL');expect(result.geoResults?.[0]).toMatchObject({geo:'MX',state:'FAILED',error:'GEO_SELECTION_FAILED'});
+    expect(repository.readGrowthFixtures).toHaveBeenCalledTimes(3);expect(repository.upsertGrowthSeoPriorities).toHaveBeenCalledTimes(2);
+    expect(repository.upsertGrowthSeoPriorities).not.toHaveBeenCalledWith(db,expect.anything(),testNow,'MX',expect.any(Function));
   });
   it('closes all legacy regeneration service paths without a DB wakeup',async()=>{
     for(const fn of [regenerateV1Drafts,regeneratePremiumDrafts,regenerateRightsFallbackDrafts])expect(await fn(db)).toMatchObject({error:'MEDIA_GENERATION_DISABLED',generated:0});
@@ -62,7 +68,7 @@ describe('media shutdown preserves daily intelligence',()=>{
   });
   it('keeps the shared cron and required schedules, with no media execution in its service',()=>{
     const cron=JSON.parse(readFileSync('vercel.json','utf8')).crons;
-    expect(cron).toContainEqual({path:'/api/internal/growth-refresh',schedule:'17 10,16,22 * * *'});
+    expect(cron).toContainEqual({path:'/api/internal/growth-refresh',schedule:'17 * * * *'});
     expect(cron).toContainEqual({path:'/api/internal/seo-autopilot',schedule:'10 7 * * *'});
     expect(cron).toContainEqual({path:'/api/internal/odds-refresh',schedule:'*/5 * * * *'});
     const service=readFileSync(new URL('./service.ts',import.meta.url),'utf8');

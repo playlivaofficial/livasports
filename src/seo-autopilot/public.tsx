@@ -8,6 +8,7 @@ import {databaseUrl,PostgresDatabaseClient} from '@/database/client';
 import type {MatchCenterView} from '@/match-center/types';
 import {factualMatchContent} from './content';
 import type {SeoLink} from './policy';
+import {readPriorityLinks} from '@/growth/prominence-read';
 
 let db:PostgresDatabaseClient|undefined;
 function database(){const url=databaseUrl();return url?(db??=new PostgresDatabaseClient(url,()=>undefined,{statementTimeoutMs:3000})):null;}
@@ -37,7 +38,14 @@ export function focusFactualParagraphs(paragraphs:string[],intent:string){
 }
 export type SeoSurface={kind:'HOME'}|{kind:'DAILY'}|{kind:'COMPETITION';slug:string}|{kind:'TEAM';teamId:string}|{kind:'MATCH';fixtureId:string};
 export async function SeoPriorityLinks({locale,surface}:{locale:string;surface:SeoSurface}){
-  if(!isCoreGeo(geoForLocale(locale))||surface.kind==='MATCH')return null;
+  const geo=geoForLocale(locale);
+  if(!isCoreGeo(geo)||surface.kind==='MATCH')return null;
+  // Deterministic discovery follows the committed GEO Top 5, independently of publication/experiment gates.
+  // Keep the existing compact navigation; the retired promotional box stays retired.
+  const selected=await readPriorityLinks(surface,geo).catch(()=>[]);
+  if(selected.length)return <nav className="seo-priority-links" aria-label="Partidos destacados" data-seo-autopilot="priority-links" data-growth-geo={geo} data-growth-promotion="daily-top5">
+      {selected.map(r=><Link key={r.fixtureId} href={new URL(r.canonicalUrl).pathname} prefetch={false} title={r.competition} data-growth-rank={r.rank}>{r.home} x {r.away}</Link>)}
+    </nav>;
   const condition=surface.kind==='COMPETITION'?'c.slug=$2':surface.kind==='TEAM'?'(f.home_team_id=$2 OR f.away_team_id=$2)':'true';
   const values=surface.kind==='COMPETITION'?[locale,surface.slug]:surface.kind==='TEAM'?[locale,surface.teamId]:[locale];
   let rows;

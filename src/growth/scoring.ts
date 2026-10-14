@@ -25,7 +25,7 @@ export interface FixtureSignals {
   commercialBookmakers?:number;
   pageUsable?:boolean;
 }
-export interface PriorityContext {geo:Geo;demandAdjustment?:number;intentStrength?:number;intentReason?:string;searchStrength?:number;commercialStrength?:number;}
+export interface PriorityContext {geo:Geo;demandAdjustment?:number;intentStrength?:number;intentReason?:string;searchStrength?:number;commercialStrength?:number;countrySearchStrength?:number;countrySearchReason?:string;}
 export interface ScoreLine {component:ScoreComponent;weight:number;strength:number;points:number;reason:string;}
 export interface FixturePriority {
   fixtureId:string;publicId:string;kickoff:string;competitionSlug:string;
@@ -95,7 +95,7 @@ export function scoreFixture(signals:FixtureSignals,now:Date=new Date(),context:
   };
 
   const seed=competitionStrength(signals.competitionSlug,context.geo),competition=clamp01(seed+Math.max(-.12,Math.min(.12,context.demandAdjustment??0)));
-  add('competition',competition,`${signals.competitionName}: demanda ${context.geo}, base ${seed.toFixed(2)}, ajuste ${(competition-seed).toFixed(2)}`);
+  add('competition',competition,`${signals.competitionName}: base editorial ${context.geo} ${seed.toFixed(2)}, ajuste humano cualificado ${(competition-seed).toFixed(2)}; no volumen de búsquedas`);
 
   const local=(team:TeamSignal)=>team.country===context.geo&&['MX','CO','PE'].includes(context.geo) ? LOCAL_CLUB_AFFINITY : 0;
   const homeClub=Math.max(clubStrength(signals.home.slug),local(signals.home)),awayClub=Math.max(clubStrength(signals.away.slug),local(signals.away));
@@ -104,7 +104,7 @@ export function scoreFixture(signals:FixtureSignals,now:Date=new Date(),context:
   add('clubs',top+second*SECOND_CLUB_SHARE,local(signals.home)||local(signals.away)?`Participación local ${context.geo}: ${[signals.home,signals.away].filter(t=>local(t)>0).map(t=>t.name).join(', ')} (país canónico del club)`:`Magnitud editorial de clubes: ${topName}; sin tendencia inventada`);
 
   const rivalry=rivalryFor(signals.home.slug,signals.away.slug);
-  add('rivalry',rivalry?rivalry.strength:0,rivalry?`${rivalry.name} — an established derby`:'not a derby fixture');
+  add('rivalry',rivalry?rivalry.strength:0,rivalry?`${rivalry.name} — an established derby${rivalry.source?`; fuente: ${rivalry.source}`:''}`:'not a derby fixture');
 
   const stage=stageStrength(signals.stageName,signals.roundName);
   add('stage',stage.strength,stage.label?`${stage.label} tie`:'no knockout stage recorded');
@@ -129,6 +129,7 @@ export function scoreFixture(signals:FixtureSignals,now:Date=new Date(),context:
   add('intent',context.intentStrength??0,context.intentReason??'Sin muestra suficiente de intención de apuesta por GEO');
   add('search',context.searchStrength??0,'Evidencia GSC de esta URL canónica/locale; no equivale al país del visitante');
   add('commercial',context.commercialStrength??(signals.commercialBookmakers??0)/2,'Cobertura comercial aprobada y activa; nunca se supone una aprobación');
+  add('countrySearch',context.countrySearchStrength??0,context.countrySearchReason??'Sin evidencia GSC cualificada del país real del buscador; señal cero');
 
   const total=eligibility.eligible?round(lines.reduce((sum,line)=>sum+line.points,0)):0;
   const reasons=lines.filter(line=>line.points>0).sort((a,b)=>b.points-a.points||a.component.localeCompare(b.component))

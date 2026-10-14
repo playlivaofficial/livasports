@@ -1,3 +1,5 @@
+import {COUNTRY_DEMAND_POLICY} from './country-demand';
+
 /**
  * Shared Growth engine component policy. Active GEO competition demand comes exclusively from
  * config/geo.ts. Historical creative constants remain below for immutable BR media compatibility.
@@ -6,11 +8,11 @@
  * both consume this score; the normal sports board still keeps chronological usability inside its lists.
  *
  * Nothing here is a trend, a prediction or a popularity metric we cannot source: competition and club
- * tiers are an editorial acquisition decision, and the rivalries are long-established Brazilian derbies.
+ * tiers are an editorial acquisition decision, and rivalry identity uses documented local derbies.
  */
 
 /** Component keys, in the order the owner UI explains them. */
-export const SCORE_COMPONENTS=['competition','clubs','rivalry','stage','standings','proximity','odds','data','destination','intent','search','commercial'] as const;
+export const SCORE_COMPONENTS=['competition','clubs','rivalry','stage','standings','proximity','odds','data','destination','intent','search','commercial','countrySearch'] as const;
 export type ScoreComponent=typeof SCORE_COMPONENTS[number];
 
 /**
@@ -30,6 +32,7 @@ export const SCORE_WEIGHTS:Record<ScoreComponent,number>={
   intent:24,      // qualified, GEO-specific first-party behavior; zero below the evidence floor
   search:3,       // supporting canonical-page evidence, never the primary demand signal
   commercial:3, // only verified active commercial coverage; absence does not hide the sports page
+  countrySearch:COUNTRY_DEMAND_POLICY.weight, // country-filtered league/club evidence, independent of locale
 };
 
 /**
@@ -87,14 +90,18 @@ export const CLUB_ALIASES:Readonly<Record<string,string>>={
   'atletico-mg':'atletico-mineiro','clube-atletico-mineiro':'atletico-mineiro',
   'gremio-fbpa':'gremio','sc-internacional':'internacional','botafogo-fr':'botafogo',
   'fluminense-fc':'fluminense','ec-bahia':'bahia',
+  'club-america':'america','cd-guadalajara':'guadalajara','universitario-de-deportes':'universitario',
 };
 export const clubKey=(slug:string)=>CLUB_ALIASES[slug]??slug;
 /** A second big club adds pull, but two big names are not twice one big name. */
 export const SECOND_CLUB_SHARE=0.45;
 
-export interface Rivalry {readonly clubs:readonly [string,string];readonly name:string;readonly strength:number;}
-/** Long-established Brazilian derbies. Named so the owner UI can say which derby it is. */
+export interface Rivalry {readonly clubs:readonly [string,string];readonly name:string;readonly strength:number;readonly source?:string;}
+/** Documented rivalry identity is an editorial match-importance prior, never invented search volume. */
 export const RIVALRIES:readonly Rivalry[]=[
+  {clubs:['america','guadalajara'],name:'Clásico Nacional',strength:1,source:'https://www.chivasdecorazon.com.mx/es/noticias/15705/chivas-manda-en-el-clsico-nacional'},
+  {clubs:['atletico-nacional','independiente-medellin'],name:'Clásico Paisa',strength:1,source:'https://dimayor.com.co/2025/11/16/atletico-nacional-finalista-de-la-copa-betplay-dimayor-2025/'},
+  {clubs:['alianza-lima','universitario'],name:'Clásico del fútbol peruano',strength:1,source:'https://universitario.pe/noticias/historia/el-clasico-de-los-bastonazos-el-primero-de-la-historia'},
   {clubs:['corinthians','palmeiras'],name:'Derby Paulista',strength:1.00},
   {clubs:['flamengo','fluminense'],name:'Fla-Flu',strength:0.96},
   {clubs:['corinthians','sao-paulo'],name:'Majestoso',strength:0.94},

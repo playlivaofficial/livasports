@@ -14,6 +14,6 @@ export async function growthSchedulerResponse(request:Request){
   try{
     const result=await runGrowthSelection(database(),request.method==='GET'?'AUTOMATIC':'OWNER');
     console.info(`[LivaSports Traffic] ${JSON.stringify({event:'growth-selection',...result})}`);
-    return Response.json(result,{headers});
+    return Response.json(result,{status:result.state==='FAILED'||result.state==='PARTIAL'?503:200,headers});
   }catch{return Response.json({error:'GROWTH_SELECTION_FAILED',mediaGeneration:'DISABLED',providerRequests:0},{status:503,headers});}
 }

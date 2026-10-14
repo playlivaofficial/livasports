@@ -21,6 +21,7 @@ export interface GrowthFixture {
   geo?:CoreGeo;
   bettingEvidence?:BettingEvidence;
   searchEvidence?:SearchEvidence;
+  countrySearchEvidence?:{strength:number;reason:string};
   signals:FixtureSignals;
   destinationPath:string;
   destinationUrl:string;
@@ -149,6 +150,7 @@ export interface GrowthDashboard {
   geo?:CoreGeo;
   demand?:DemandProfile[];
   selection?:GrowthSelectionHistory|null;
+  daily?:import('./daily-repository').DailyGrowthReport|null;
   publishing?:import('./manual-publishing').PublishingOverview;
   generatedAt:string;
   social:RankedGrowthFixture[];
