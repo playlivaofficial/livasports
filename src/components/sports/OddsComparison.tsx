@@ -5,7 +5,7 @@ import type {SiteLocale} from '@/config/i18n';
 import type {FixtureView} from '@/delivery/types';
 import {MarketCode,OutcomeCode} from '@/domain/enums';
 import {addSlipSelection,useSlip} from '@/slip/client';
-import {canonicalSelection,selectionKey,receiptDisplay,SLIP_SCOPE} from '@/slip/types';
+import {canonicalSelection,selectionKey,SLIP_SCOPE} from '@/slip/types';
 import {selectionLabel,slipCopy} from '@/slip/localization';
 import {BOOKMAKER_REGISTRY,bookmakerConfig,isVisibleBookmaker} from '@/odds/registry';
 import {geoForLocale,isCoreGeo} from '@/config/geo';
@@ -62,7 +62,7 @@ export function OddsComparison({locale,fixture,emptyLabel,commercialLocale}:{loc
             context={fixture.publicId&&commercialLocale?{locale:commercialLocale,placement:'match_odds_table',bookmaker:book.id,fixturePublicId:fixture.publicId,market:'MATCH_WINNER',pagePath:matchPath(commercialLocale,fixture.publicId,fixture.homeTeam,fixture.awayTeam)}:undefined}/>
           <div className="listing-odds">{book.cells.map(cell=>{
             const intent=selectable?canonicalSelection({fixturePublicId:fixture.publicId,market:'MATCH_WINNER',outcome:cell.outcome,line:null,scope:SLIP_SCOPE}):null;
-            const pressed=!!intent&&saved.slip.selections.some(s=>selectionKey(s)===selectionKey(intent)&&receiptDisplay(s)?.book===book.id);
+            const pressed=!!intent&&saved.slip.selections.some(s=>selectionKey(s)===selectionKey(intent));
             const valid=current(cell.price),priceLabel=cell.price?formatSlipOdds(String(cell.price.decimalOdds),locale):null;
             const reference=bookIndex===0?references.find(q=>q.outcome===cell.outcome):undefined;
             const estimate=estimates.find(e=>e.outcome===cell.outcome);

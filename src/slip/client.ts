@@ -2,7 +2,7 @@
 import {useSyncExternalStore} from 'react';
 import type {SiteLocale} from '@/config/i18n';
 import {createSlipStore,EMPTY_SLIP,type StorageNotice} from './state';
-import {canonicalSelection,receiptDisplay,selectionKey,marketKey,type CanonicalSelection,type SavedSelection,type BoundSelection} from './types';
+import {canonicalSelection,selectionKey,marketKey,type CanonicalSelection,type SavedSelection,type BoundSelection} from './types';
 import {emitSlipEvent} from './events';
 import type {SlipPriceContext} from './events';
 import {track} from '@/analytics/client';
@@ -23,11 +23,11 @@ export async function addSlipSelection(value:CanonicalSelection,locale:SiteLocal
   const revision=slipStore.getRevision(key);
   // Removal requires no price and cannot race a pending add back into the slip.
   const existing=before.selections.find(s=>selectionKey(s)===selectionKey(selection));
-  const display=existing?receiptDisplay(existing):null;
-  if(existing&&!confirm&&display?.book===bookmaker&&display.priceKind===kind&&Number(display.price)===Number(priceContext.decimalOdds)&&display.expires>Date.now()){
+  // Every column represents the same outcome. Clicking an already selected outcome
+  // toggles it off; only the explicit reconfirm control may replace its signed provenance.
+  if(existing&&!confirm){
     const result=slipStore.dispatch({type:'remove',key:selectionKey(selection)});feedback({result:result.result});return;
   }
-  if(existing&&!confirm)confirm=existing;
   pending.add(key);const abort=new AbortController(),timeout=setTimeout(()=>abort.abort(),10000);
   try{
   const response=await fetch('/api/slip/select',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({locale,selection,bookmaker,decimalOdds:priceContext.decimalOdds,priceKind:kind}),cache:'no-store',signal:abort.signal});

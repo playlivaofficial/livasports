@@ -1,0 +1,189 @@
+{
+  "milestone": "Unified canonical My Slip and commercial presentation repair",
+  "baseline": "df9cf7b4ed827b742248dd49856cecd76a736c3d",
+  "date": "2026-10-14",
+  "releaseStatus": "Candidate: production acceptance required after normal PR merge",
+  "rootCauses": [
+    "Selected styling and click toggling depended on the initial bookmaker instead of the canonical outcome.",
+    "Expired initially chosen receipts suppressed independently current comparison prices.",
+    "Indicative card counters counted genuine quotes only; calculated cards duplicated the canonical fixture list.",
+    "Selection feedback automatically opened the drawer, squeezing the desktop board.",
+    "Ten-leg signed affiliate contexts exceeded the existing 16 KiB batch limit and hid visit CTAs.",
+    "Generic provider crest assets were treated as actual team artwork."
+  ],
+  "changes": [
+    "Canonical toggle/highlight; signed admission and explicit price reconfirmation preserved.",
+    "Independent fresh-source comparisons across authorized registry operators; no chains or cross-GEO source promotion.",
+    "One selection list first; compact genuine/indicative cards with honest coverage counters and normal tracked visits.",
+    "Manual-only drawer; overlay below 1600px preserves board width.",
+    "Byte-bounded offer batches preserve the unchanged server limit, receipts and approved destinations.",
+    "Shared fixed 100x44 logo container and optical artwork sizes; team placeholder rejection and recovery on changed valid URL.",
+    "One mounted sticky mobile creative below measured navigation; existing campaign resolution, rotation, privacy and attribution retained."
+  ],
+  "gates": {
+    "vitest": 3056,
+    "nodeTests": 17,
+    "total": 3073,
+    "typecheck": "PASS",
+    "lint": "PASS",
+    "productionBuild": "PASS",
+    "secretScan": "PASS",
+    "seoGrowthAudit": "PASS"
+  },
+  "localApiQa": {
+    "scenarios": 33,
+    "geos": [
+      "MX",
+      "CO",
+      "PE"
+    ],
+    "markets": [
+      "MATCH_WINNER",
+      "TOTAL_GOALS_2.5",
+      "BTTS"
+    ],
+    "legs": [
+      1,
+      3,
+      5,
+      7,
+      10
+    ],
+    "bothClickOriginsEqual": true,
+    "bothFallbackDirections": true,
+    "comparisons": 51,
+    "approvedVisitRedirects": 102,
+    "providerRequests": 0
+  },
+  "browserQa": {
+    "geos": [
+      "MX",
+      "CO",
+      "PE"
+    ],
+    "actualLegCounts": [
+      1,
+      3,
+      5,
+      7,
+      10
+    ],
+    "sevenLegScreenshotReproduction": {
+      "nativeInkabet": "39863.49",
+      "indicative1xbet": "19066.59",
+      "coverage": "7/7 each",
+      "duplicatedCardMatchLists": 0
+    },
+    "tenLegAffiliateBatchFailure": "Reproduced in browser, repaired, both normal visits restored.",
+    "reloadPersistence": "PASS; drawer remains closed",
+    "outcomeSwitch": "PASS; atomic replacement at ten-leg cap",
+    "crossColumnToggle": "PASS; one canonical selection",
+    "responsive": {"geos":3,"themes":2,"widths":[320,390,430,768,1024,1440],"checks":36,"overflow":0,"minimumOddsTargetPx":44},
+    "stickySponsors": {"MX":"Betsson only","CO":"Existing Betsson/bwin time-window rotation preserved; bwin observed","PE":"Existing 1xBet mobile configuration","scrolling":"Actual mobile scrolling verified; single mounted creative below navigation, separate from slip bar"}
+  },
+  "crestAudit": {
+    "upcomingUniqueTeams": 556,
+    "verifiedTeamSpecificUrlsBefore": 545,
+    "verifiedTeamSpecificUrlsAfter": 545,
+    "upstreamArtworkRecovered": 0,
+    "neutralFallbacksBefore": 0,
+    "neutralFallbacksAfter": 11,
+    "authorizedSeasonRequests": 3,
+    "cdnHeadChecks": 13,
+    "cdnHeadSuccesses": 13,
+    "unresolvedUpcoming": [
+      "Bentín Tacna Heroica (270832)",
+      "FC Cajamarca (270950)",
+      "Deportiva Agropecuaria (270807)",
+      "Deportivo Llacuabamba (239005)",
+      "Internacional Palmira (272065)",
+      "Unión Minas Volcán (278022)",
+      "TBC (260131)",
+      "Santos (232571)",
+      "Comerciantes (239390)",
+      "Estudiantil CNI (265120)",
+      "Sport Huancayo II (276548)"
+    ],
+    "note": "No identity guesses or DB artwork substitutions. Official current-season Sportmonks responses still contain generic team_placeholder.png for the missing teams."
+  },
+  "liga2Audit": {
+    "providerCompetitionId": "15235",
+    "canonicalCompetition": "peru-liga-2",
+    "sportmonksLeagueId": "767",
+    "fixtureStates": "SCHEDULED",
+    "currentOddsPapiFixtureMappings": 0,
+    "currentSavedQuotes": 0,
+    "controlledResults": [
+      {
+        "bookmaker": "inkabet",
+        "status": 404,
+        "code": "FIXTURE_NOT_FOUND"
+      },
+      {
+        "bookmaker": "1xbet",
+        "status": 404,
+        "code": "FIXTURE_NOT_FOUND"
+      }
+    ],
+    "reason": "No current quotes supplied by either entitled local feed. A calculated fallback cannot exist without a genuine source.",
+    "fixtures": [
+      {
+        "home": "Alianza Universidad",
+        "away": "Carlos Mannucci",
+        "sportmonks": "19888173",
+        "kickoff": "2026-10-17T18:00:00Z"
+      },
+      {
+        "home": "Unión Minas Volcán",
+        "away": "Molinos El Pirata",
+        "sportmonks": "19888172",
+        "kickoff": "2026-10-17T18:00:00Z"
+      },
+      {
+        "home": "César Vallejo",
+        "away": "Estudiantil CNI",
+        "sportmonks": "19888409",
+        "kickoff": "2026-10-17T20:15:00Z"
+      },
+      {
+        "home": "Santos",
+        "away": "Academia Cantolao",
+        "sportmonks": "19888408",
+        "kickoff": "2026-10-17T20:15:00Z"
+      },
+      {
+        "home": "Ayacucho",
+        "away": "Unión Comercio",
+        "sportmonks": "19888176",
+        "kickoff": "2026-10-18T18:00:00Z"
+      },
+      {
+        "home": "Deportivo Llacuabamba",
+        "away": "Sport Huancayo II",
+        "sportmonks": "19888175",
+        "kickoff": "2026-10-18T18:00:00Z"
+      }
+    ]
+  },
+  "providerUsage": {
+    "oddsPapiRequests": 3,
+    "oddsPapiBreakdown": "One account probe returned HTTP500; stopped and respected existing cooldown. Two later bounded league probes returned404; no retry.",
+    "sportmonksRequests": 4,
+    "sportmonksBreakdown": "One initial alternate local key returned401; stopped. Three authoritative configured-key season requests returned200.",
+    "ordinaryNavigation": 0,
+    "configurationChanges": 0,
+    "schedulerChanges": 0,
+    "subscriptionChanges": 0,
+    "databaseDataMutations": 0,
+    "note": "Bounded probes used the normal usage ledger/lease/cooldown; QA analytics may record classified QA events."
+  },
+  "preserved": [
+    "SEO/Daily Top5/scoring",
+    "Scheduler/budgets/provider normalization",
+    "GEO eligibility/affiliate destinations",
+    "Signed quote admission/executable-price safeguards",
+    "Pre-existing user browser selections",
+    "Existing production database"
+  ],
+  "migrations": "None"
+}

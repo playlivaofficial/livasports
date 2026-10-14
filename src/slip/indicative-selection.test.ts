@@ -36,6 +36,27 @@ async function admit(f:ReturnType<typeof setup>,index=0,kind:'REAL'|'CALCULATED_
 }
 afterEach(()=>{vi.unstubAllEnvs();vi.restoreAllMocks();});
 describe('server-verified indicative planning selections, never executable synthetic quotes',()=>{
+  for(const geo of ['MX','CO','PE'] as const)for(const count of [1,3,5,7,10])for(const sourceIndex of [0,1]){
+    it(`${geo}/${count} legs/source-${sourceIndex}: click origin cannot restrict independent canonical comparisons`,async()=>{
+      const f=setup(geo,count,sourceIndex),comparisons:unknown[]=[];
+      f.selections.forEach((s,index)=>{
+        const market=(['MATCH_WINNER','TOTAL_GOALS','BTTS'] as const)[index%3];
+        Object.assign(s,{market,outcome:SELECTIONS[market][0],line:market==='TOTAL_GOALS'?2.5:null});
+        const read=f.data.fixtures.get(s.fixturePublicId)!;
+        read.snapshot.quotes=read.snapshot.quotes.map(q=>({...q,market,outcome:s.outcome,line:s.line}));
+      });
+      for(const kind of ['REAL','CALCULATED_MINUS_10'] as const){
+        const selections:BoundSelection[]=[];
+        for(let i=0;i<count;i++){const response=await admit(f,i,kind);expect(response.status).toBe(200);selections.push((await response.json()).selection);}
+        const result=await new ComparisonLoader(async()=>f.data,()=>f.now).resolve(selections,f.locale,geo);
+        expect(new Set(result.selections.map(s=>selectionKey(s.selection))).size).toBe(count);
+        expect(result.comparison.bookmakers.every(b=>b.complete||b.indicativeComplete)).toBe(true);
+        comparisons.push(result.comparison.bookmakers.map(b=>({book:b.bookmakerId,actual:b.combinedDecimalOdds,indicative:b.indicativeCombinedDecimalOdds,
+          covered:b.availableSelectionCount+(b.calculatedSelectionCount??0),prices:b.selectionQuotes.map(q=>({key:selectionKey(q.selection),actual:q.decimalOdds,estimate:q.estimate?.decimalOdds}))})));
+      }
+      expect(comparisons[0]).toEqual(comparisons[1]);
+    });
+  }
   for(const geo of ['MX','CO','PE'] as const)for(const market of Object.keys(SELECTIONS) as OddsMarket[])for(const sourceIndex of [0,1]){
     it(`${geo}/${market}/source-${sourceIndex}: every genuine and estimated outcome can enter the slip with its chosen identity`,async()=>{
       for(const outcome of SELECTIONS[market]){
@@ -54,7 +75,7 @@ describe('server-verified indicative planning selections, never executable synth
       }
     });
   }
-  it.each([1,3,5,10])('retains %s mixed genuine/estimated legs and both indicative comparisons without fabricated actual returns',async count=>{
+  it.each([1,3,5,7,10])('retains %s mixed genuine/estimated legs and both indicative comparisons without fabricated actual returns',async count=>{
     const f=setup('CO',count),bound:BoundSelection[]=[];
     for(let i=0;i<count;i++){
       const r=await admit(f,i,i%2?'REAL':'CALCULATED_MINUS_10');expect(r.status).toBe(200);bound.push((await r.json()).selection);

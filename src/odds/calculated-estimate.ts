@@ -3,10 +3,17 @@ import {primaryVisibleBookmakers} from './fallback-pool';
 import {validDecimalOdds} from '@/slip/decimal';
 import type {CalculatedOddsEstimate,OddsCell,OddsMarket,OddsOutcome} from './types';
 
-/** Only the owner's local pair, in display order. Either member may supply a genuine price. */
+/** Only authorized local operators, in registry order; not a hard-coded two-column limit. */
+export function comparisonBookmakers(ids:readonly string[]):readonly string[] {
+  const unique=[...new Set(ids)];
+  if(unique.length<2)return [];
+  const matches=CORE_GEOS.map(primaryVisibleBookmakers).filter(pool=>unique.every(id=>pool.includes(id)));
+  return matches.length===1?matches[0].filter(id=>unique.includes(id)):[];
+}
+/** Compatibility identity check for a source/target relationship. */
 export function comparisonPair(ids:readonly string[]):readonly [string,string]|null {
-  const matches=CORE_GEOS.map(primaryVisibleBookmakers).filter(pair=>pair.length===2&&ids.length===2&&pair.every(id=>ids.includes(id)));
-  return matches.length===1?[matches[0][0],matches[0][1]]:null;
+  const books=comparisonBookmakers(ids);
+  return ids.length===2&&books.length===2?[books[0],books[1]]:null;
 }
 /** Exact decimal multiplication, without floating point or a fabricated minimum-price clamp. */
 export function minusTenPercent(value:string):string|null {

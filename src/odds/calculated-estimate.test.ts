@@ -6,6 +6,7 @@ import {publicOddsComparisons} from './public-response';
 import {listingMatchWinnerOdds} from './listing';
 import {SELECTIONS,type OddsMarket,type OddsReadSnapshot,type ReadOddsQuote} from './types';
 import {primaryVisibleBookmakers} from './fallback-pool';
+import * as fallbackPool from './fallback-pool';
 import {CORE_GEOS} from '@/config/geo';
 import {comparisonFixture} from '@/slip/comparison-fixtures.test-support';
 import {buildSlipComparison,guardSlipComparison,enforceSelectionLocks} from '@/slip/comparison';
@@ -24,6 +25,18 @@ function snapshot(pair:readonly string[],market:OddsMarket):OddsReadSnapshot {
 }
 afterEach(()=>{vi.restoreAllMocks();vi.unstubAllEnvs();});
 describe('bidirectional local −10% comparison; never native bookmaker truth',()=>{
+ it('compares an expanded authorized pool without hardcoding two operators or chaining estimates',()=>{
+  const original=fallbackPool.primaryVisibleBookmakers;
+  vi.spyOn(fallbackPool,'primaryVisibleBookmakers').mockImplementation(geo=>geo==='PE'?['inkabet','1xbet','bwin']:original(geo));
+  const s=snapshot(['inkabet','1xbet','bwin'],'MATCH_WINNER');
+  s.quotes=s.quotes.filter(q=>q.bookmaker==='bwin');
+  const result=buildComparison(s,'MATCH_WINNER',now);
+  expect(result.rows).toHaveLength(3);expect(result.estimates).toHaveLength(6);
+  expect(result.estimates?.every(e=>e.sourceBookmaker==='bwin'&&e.sourceQuoteId?.startsWith('q-bwin-'))).toBe(true);
+  expect(result.estimates?.filter(e=>e.targetBookmaker==='inkabet')).toHaveLength(3);
+  expect(result.estimates?.filter(e=>e.targetBookmaker==='1xbet')).toHaveLength(3);
+  s.quotes=[];expect(buildComparison(s,'MATCH_WINNER',now).estimates).toBeUndefined();
+ });
  it.each([['2.00','1.8'],['2.50','2.25'],['3.00','2.7'],['4.00','3.6'],['1.05','0.945'],['2.123456789012345678','1.9111111101111111102']])('calculates %s exactly as %s without clamping', (source,expected)=>expect(minusTenPercent(source)).toBe(expected));
  it.each(['0','1','-2','NaN','1001','2e0',''])('rejects invalid genuine source %s',source=>expect(minusTenPercent(source)).toBeNull());
  for(const geo of CORE_GEOS)for(const market of Object.keys(SELECTIONS) as OddsMarket[])for(const targetIndex of [0,1]){

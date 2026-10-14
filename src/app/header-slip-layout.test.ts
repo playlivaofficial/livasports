@@ -5,7 +5,7 @@ describe('desktop header with the reserved slip rail',()=>{
   const css=readFileSync('src/app/sports-product.css','utf8');
   const rules=css.slice(css.indexOf('/* A reserved 400px slip rail'));
   it('gives primary navigation and action controls separate rows only while the desktop slip is open',()=>{
-    expect(rules).toContain('@media(min-width:1100px)');
+    expect(rules).toContain('@media(min-width:1600px)');
     expect(rules).toContain('body[data-slip-open=true] .header-inner { display:grid; grid-template-columns:auto minmax(0,1fr);');
     expect(rules).toContain('body[data-slip-open=true] .header-inner>.brand { grid-column:1; grid-row:1; }');
     expect(rules).toContain('body[data-slip-open=true] .main-nav { grid-column:2; grid-row:1;');

@@ -30,6 +30,9 @@ export interface ReferencePrice {decimalOdds:string;bookmaker:string;bookmakerNa
   estimate?:import('@/odds/types').CalculatedOddsEstimate;
   reference?:import('@/odds/types').IndicativeQuote;}
 export interface ResolvedSelection {
+  /** Server-verified canonical admission, independent of the originally clicked quote's expiry.
+   * Does not authorize any price: every comparison leg still needs its own fresh local source. */
+  comparisonAuthorized?:boolean;
   coverage?:'REAL'|'INDICATIVE'|'UNAVAILABLE';
   selection:CanonicalSelection;
   fixture:{publicId:string;home:string;away:string;competition:string;kickoff:string;status:string}|null;

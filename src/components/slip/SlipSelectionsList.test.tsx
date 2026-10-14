@@ -30,7 +30,7 @@ const removeControls=(html:string)=>html.match(/class="slip-remove"/g)?.length??
 
 describe('My Slip — selected matches list',()=>{
   it('renders one compact row per selection for 1, 3 and 5 selections, each with its own remove control',()=>{
-    for(const count of [1,3,5]){
+    for(const count of [1,3,5,7,10]){
       const f=comparisonFixture(count);const html=render(f,saved(f));
       expect(rows(html)).toBe(count);expect(removeControls(html)).toBe(count);
     }
@@ -90,8 +90,8 @@ describe('My Slip — selected matches list',()=>{
 
 describe('My Slip — panel order',()=>{
   const shell=readFileSync(resolve(process.cwd(),'src/components/slip/SlipShell.tsx'),'utf8');
-  it('keeps the approved order: stake, bookmaker comparison, selected matches, share, footer',()=>{
-    const order=['className="slip-stake"','<SlipComparison','className="slip-selections"','<SlipLegs','className="slip-share"','className="slip-footer"']
+  it('keeps one selections list first, then stake, compact bookmaker comparisons, share and footer',()=>{
+    const order=['className="slip-selections"','<SlipLegs','className="slip-stake"','<SlipComparison','className="slip-share"','className="slip-footer"']
       .map(marker=>{const at=shell.indexOf(marker);expect(at,marker).toBeGreaterThan(-1);return at;});
     expect(order).toEqual([...order].sort((a,b)=>a-b));
   });
@@ -101,5 +101,12 @@ describe('My Slip — panel order',()=>{
   });
   it('keeps Clear all and Share Slip available',()=>{
     expect(shell).toContain('{text.clear}');expect(shell).toContain('{text.share}');
+  });
+  it('opens only from the manual trigger, not initial URL state or selection feedback',()=>{
+    expect(shell).toContain('[open,setOpen]=useState(false)');
+    expect(shell.match(/setOpen\(true\)/g)).toHaveLength(1);
+    const feedbackHandler=shell.slice(shell.indexOf('const action='),shell.indexOf("window.addEventListener('storage'"));
+    expect(feedbackHandler).not.toContain('setOpen');
+    expect(feedbackHandler).not.toMatch(/focus\(|scroll/);
   });
 });

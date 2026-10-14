@@ -1,9 +1,13 @@
 'use client';
 import {useEffect,useState} from 'react';
 import type {CommercialContext,PublicOffer} from './types';
+import {offerBatchSize} from './offer-batch';
 interface Pending {context:CommercialContext;resolve:(offer:PublicOffer|null)=>void;}
 const pending:Pending[]=[];let scheduled=false;
-async function flush(){scheduled=false;const items=pending.splice(0,16);if(pending.length)schedule();
+async function flush(){scheduled=false;const size=offerBatchSize(pending.map(item=>item.context));
+  // An individually oversized request fails closed without poisoning other offers.
+  if(!size){pending.shift()?.resolve(null);if(pending.length)schedule();return;}
+  const items=pending.splice(0,size);if(pending.length)schedule();
   try{const r=await fetch('/api/commercial/offers',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(items.map(i=>i.context)),signal:AbortSignal.timeout(5000),cache:'no-store'});
     const body=await r.json();if(!r.ok||!Array.isArray(body.offers)||body.offers.length!==items.length)throw Error('INVALID_OFFERS');items.forEach((item,i)=>item.resolve(body.offers[i]));
   }catch{items.forEach(item=>item.resolve(null));}
