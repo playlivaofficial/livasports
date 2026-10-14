@@ -5,8 +5,9 @@ import {databaseUrl,PostgresDatabaseClient,type DatabaseClient,type QueryExecuto
 import {rankGrowthInventory,runGrowthSelection} from '../src/growth/service';
 import {buildShortlist} from '../src/growth/shortlist';
 import {readCountryDemand} from '../src/growth/country-demand-read';
-import {readDailyGrowthReport,dailyGeoNeedsRanking} from '../src/growth/daily-repository';
+import {readDailyGrowthReport} from '../src/growth/daily-repository';
 import {CORE_GEOS} from '../src/config/geo';
+import {refreshGrowthDiscovery} from '../src/growth/discovery-refresh';
 const args=process.argv.slice(2),mode=args[0],envAt=args.indexOf('--db-env'),outputAt=args.indexOf('--output');
 if(!['plan','report','migrate-plan','migrate','run','repeat'].includes(mode))throw Error('GEO_MODE_NOT_ALLOWED');
 if(['migrate','run','repeat'].includes(mode)&&!args.includes('--apply'))throw Error('GEO_EXPLICIT_APPLY_REQUIRED');
@@ -28,35 +29,27 @@ try{
    if(mode==='migrate-plan')await tx.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
    await tx.query("SELECT pg_advisory_xact_lock(hashtextextended('growth:daily-seo-migration',0))");
    const baseline=(await tx.query('SELECT filename FROM schema_migrations ORDER BY filename DESC LIMIT 1')).rows[0]?.filename;
-   if(!['069_mx_winpot_co_bwin_commercial.sql','070_geo_daily_seo.sql'].includes(String(baseline)))throw Error('UNEXPECTED_MIGRATION_BASELINE');
-   const sql=await readFile(new URL('../db/migrations/070_geo_daily_seo.sql',import.meta.url),'utf8');
+   if(!['070_geo_daily_seo.sql','071_geo_discovery_refresh.sql'].includes(String(baseline)))throw Error('UNEXPECTED_MIGRATION_BASELINE');
+   const sql=await readFile(new URL('../db/migrations/071_geo_discovery_refresh.sql',import.meta.url),'utf8');
    await tx.query(sql.replace(/^BEGIN;\s*/,'').replace(/COMMIT;\s*$/,''));
-   await tx.query("INSERT INTO schema_migrations(filename) VALUES('070_geo_daily_seo.sql') ON CONFLICT(filename) DO NOTHING");
+   await tx.query("INSERT INTO schema_migrations(filename) VALUES('071_geo_discovery_refresh.sql') ON CONFLICT(filename) DO NOTHING");
    const tables=(await tx.query("SELECT column_name FROM information_schema.columns WHERE table_name='growth_geo_runs' ORDER BY ordinal_position")).rows;
    const reports=[];for(const geo of CORE_GEOS){const report=await readDailyGrowthReport(serialReader(tx),geo,now);if(!report)throw Error('DAILY_REPORT_REHEARSAL_FAILED');reports.push({geo,active:report.active.length,measurementRows:report.measurements.length});}
    let rehearsal:unknown=null;
    if(mode==='migrate-plan'){
     const reader=serialReader(tx),first=await runGrowthSelection(reader,'OWNER',{now}),second=await runGrowthSelection(reader,'OWNER',{now});
-    const needs=[];for(const geo of CORE_GEOS)needs.push({geo,needs:await dailyGeoNeedsRanking(reader,geo,now)});
-    if(needs.some(r=>r.needs)){
-     const diagnostics=(await tx.query(`WITH latest AS (SELECT DISTINCT ON(geo) * FROM growth_geo_runs WHERE state='SUCCEEDED' ORDER BY geo,started_at DESC,id DESC)
-      SELECT r.geo,r.local_day::text,r.config_version,r.selected_count,r.country_evidence->>'capturedAt' AS captured,
-       (SELECT max(captured_at) FROM seo_breakdown_syncs WHERE dimension='COUNTRY' AND state='SUCCEEDED') AS latest_gsc,
-       (SELECT count(*) FROM growth_geo_priorities p JOIN fixtures f ON f.id=p.fixture_id WHERE p.geo=r.geo AND p.active AND f.status='SCHEDULED' AND f.kickoff>$1) AS eligible,
-       (SELECT jsonb_agg(jsonb_build_object('fixture',picked->>'fixtureId','rank',p.priority_rank,'expectedRank',picked->>'rank','score',p.priority_score,'expectedScore',picked->>'score','kickoff',f.kickoff,'expectedKickoff',picked->>'kickoff','url',p.canonical_url,'expectedUrl',picked->>'canonicalUrl'))
-        FROM jsonb_array_elements(r.selection) picked LEFT JOIN growth_geo_priorities p ON p.geo=r.geo AND p.fixture_id=(picked->>'fixtureId')::uuid AND p.active LEFT JOIN fixtures f ON f.id=p.fixture_id) AS selected
-       FROM latest r ORDER BY geo`,[now])).rows;
-     console.error(JSON.stringify({phase:'fresh-guard-diagnostics',needs,diagnostics}));throw Error('DAILY_FRESH_GUARD_REHEARSAL_FAILED');
-    }
     const automatic=await runGrowthSelection(reader,'AUTOMATIC',{now});
-    if(first.state!=='SUCCEEDED'||first.selectionCount!==15||second.state!=='SUCCEEDED'||second.geoResults?.some(r=>r.changed)||automatic.geoResults?.some(r=>r.state!=='FRESH')){
+    if(first.state!=='SUCCEEDED'||first.selectionCount!==15||second.state!=='SUCCEEDED'||second.geoResults?.some(r=>r.changed)||automatic.geoResults?.some(r=>r.state!=='SUCCEEDED'||r.changed)){
      console.error(JSON.stringify({phase:'rollback-rehearsal',first,second,automatic}));throw Error('DAILY_EXECUTION_REHEARSAL_FAILED');
     }
     const count=(await tx.query('SELECT geo,count(*)::int AS n,count(DISTINCT fixture_id)::int AS unique_count FROM growth_geo_priorities WHERE active GROUP BY geo ORDER BY geo')).rows;
     if(count.length!==3||count.some(r=>Number(r.n)!==5||Number(r.unique_count)!==5))throw Error('DAILY_FIVE_REHEARSAL_FAILED');
-    rehearsal={first,second,automatic,counts:count,rolledBack:true};
+    const invalidated:string[]=[],discovery=await refreshGrowthDiscovery(reader,path=>{invalidated.push(path);});
+    const discoveryRepeat=await refreshGrowthDiscovery(reader,()=>{throw Error('DUPLICATE_INVALIDATION');});
+    if(discovery.runs!==3||discovery.paths<9||discoveryRepeat.runs!==0)throw Error('DISCOVERY_REHEARSAL_FAILED');
+    rehearsal={first,second,automatic,counts:count,discovery,discoveryRepeat,invalidated,rolledBack:true};
    }
-   evidence={migration:'070_geo_daily_seo.sql',baseline,columns:tables.map(r=>r.column_name),reportReads:reports,rehearsal,providerRequests:0};
+   evidence={migration:'071_geo_discovery_refresh.sql',baseline,columns:tables.map(r=>r.column_name),reportReads:reports,rehearsal,providerRequests:0};
    if(mode==='migrate-plan')throw Error('EXPECTED_ROLLBACK');
   });}catch(e){if(!(e instanceof Error)||e.message!=='EXPECTED_ROLLBACK')throw e;}
   result={mode,...evidence as object};

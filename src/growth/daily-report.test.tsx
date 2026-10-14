@@ -2,7 +2,7 @@ import {describe,it,expect,vi} from 'vitest';
 import {renderToStaticMarkup} from 'react-dom/server';
 vi.mock('server-only',()=>({}));
 import {DailyGrowthStatus} from './DailyGrowthStatus';
-import {markDailyGrowthCheck} from './daily-repository';
+import {finishDailyGeoRun} from './daily-repository';
 import type {DailyGrowthReport} from './daily-repository';
 import type {QueryExecutor} from '@/database/client';
 const report:DailyGrowthReport={version:'GEO_DAILY_SEO_2',localDay:'2026-10-14',nextCheck:'2026-10-14T08:17:00Z',lastSuccess:null,runs:[],window:{from:'2026-09-14',to:'2026-10-11'},
@@ -15,7 +15,7 @@ describe('daily Owner evidence and measurement boundaries',()=>{
   expect(html).toContain('America/Bogota');expect(html).toContain('requiere inspección');expect(html).toContain('1 / 5 prioridades públicas válidas');
  });
  it('logs automatic checks without creating another placement or changing metadata',async()=>{
-  const query=vi.fn(async()=>({rows:[]}));await markDailyGrowthCheck({query} as unknown as QueryExecutor,'PE',new Date('2026-10-14T08:17:00Z'));
-  const sql=String((query.mock.calls[0] as unknown[])[0]);expect(sql).toContain('UPDATE growth_geo_runs');expect(sql).toContain('last_checked_at<$2');expect(sql).not.toMatch(/growth_geo_priorities|seo_geo_pages|title|description/);
+  const query=vi.fn(async()=>({rows:[]}));await finishDailyGeoRun({query} as unknown as QueryExecutor,'1',{state:'SUCCEEDED',changed:false},new Date('2026-10-14T08:17:00Z'));
+  const sql=String((query.mock.calls[0] as unknown[])[0]);expect(sql).toContain('UPDATE growth_geo_runs');expect(sql).toContain("trigger_source='AUTOMATIC'");expect(sql).not.toMatch(/growth_geo_priorities|seo_geo_pages|title|description/);
  });
 });

@@ -2,6 +2,7 @@ import 'server-only';
 import {databaseUrl,PostgresDatabaseClient} from '@/database/client';
 import {authorizedScheduler} from '@/odds/scheduler-server';
 import {runGrowthSelection} from './service';
+import {refreshGrowthDiscovery} from './discovery-refresh';
 
 let db:PostgresDatabaseClient|undefined;
 function database(){const url=databaseUrl();if(!url)throw new Error('GROWTH_DATABASE_UNAVAILABLE');return db??=new PostgresDatabaseClient(url);}
@@ -13,7 +14,8 @@ export async function growthSchedulerResponse(request:Request){
   if(process.env.VERCEL_ENV==='preview')return Response.json({error:'PREVIEW_REFRESH_DISABLED'},{status:403,headers});
   try{
     const result=await runGrowthSelection(database(),request.method==='GET'?'AUTOMATIC':'OWNER');
-    console.info(`[LivaSports Traffic] ${JSON.stringify({event:'growth-selection',...result})}`);
-    return Response.json(result,{status:result.state==='FAILED'||result.state==='PARTIAL'?503:200,headers});
+    const discovery=await refreshGrowthDiscovery(database());
+    console.info(`[LivaSports Traffic] ${JSON.stringify({event:'growth-selection',...result,discovery})}`);
+    return Response.json({...result,discovery},{status:result.state==='FAILED'||result.state==='PARTIAL'?503:200,headers});
   }catch{return Response.json({error:'GROWTH_SELECTION_FAILED',mediaGeneration:'DISABLED',providerRequests:0},{status:503,headers});}
 }

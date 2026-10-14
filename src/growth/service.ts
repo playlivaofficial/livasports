@@ -17,7 +17,7 @@ import {readCountryDemand} from './country-demand-read';
 import {buildCountryDemand,fixtureCountryDemand} from './country-demand';
 import {gscWindows} from '@/seo/gsc-ingest';
 import {DAILY_GROWTH_VERSION} from './daily-policy';
-import {dailyGeoNeedsRanking,startDailyGeoRun,finishDailyGeoRun,readDailyGrowthReport,markDailyGrowthCheck} from './daily-repository';
+import {startDailyGeoRun,finishDailyGeoRun,readDailyGrowthReport} from './daily-repository';
 import {competitionPath} from '@/sports/policy';
 import {geoProfile} from '@/config/geo';
 import {interfaceRoutes,teamPath} from '@/localization/interface';
@@ -60,7 +60,8 @@ export async function runGrowthSelection(db:DatabaseClient,trigger:'AUTOMATIC'|'
   for(const geo of options.geo?[options.geo]:CORE_GEOS){
    let runId:string|null=null;
    try{
-    if(trigger==='AUTOMATIC'&&!await dailyGeoNeedsRanking(db,geo,now)){await markDailyGrowthCheck(db,geo,now);selectionCount+=5;geoResults.push({geo,state:'FRESH',selected:5,changed:false,runId:null});continue;}
+    // Every hourly execution ranks the entire current inventory, not just yesterday's winners.
+    // Persistence suppresses unchanged writes; validity alone cannot detect a stronger new candidate.
     runId=await startDailyGeoRun(db,geo,trigger,now);
     const {ranked:inventory,evidence,country}=await rankedState(db,now,geo);
     const committed=await persistGeoDemand(db,geo,evidence.demand,now);
@@ -70,7 +71,9 @@ export async function runGrowthSelection(db:DatabaseClient,trigger:'AUTOMATIC'|'
     const shortlist=buildShortlist(inventory.map(row=>row.priority),{size:5});
     const materials=rowsForPriorities(inventory,shortlist.content).map((row,index)=>{
       const rank=index+1,seo=seoPriority(row,rank);
-      const sourceHash=createHash('sha256').update(JSON.stringify({version:DAILY_GROWTH_VERSION,geo,fixture:row.signals.fixtureId,kickoff:row.signals.kickoff,rank,score:row.priority.total,seo,breakdown:row.priority.lines})).digest('hex');
+      // Keep relative-time prose and evidence capture timestamps in the run ledger, not the change
+      // identity: "in 27h" becoming "in 26h" must not rewrite an otherwise identical placement.
+      const sourceHash=createHash('sha256').update(JSON.stringify({version:DAILY_GROWTH_VERSION,geo,fixture:row.signals.fixtureId,kickoff:row.signals.kickoff,rank,score:row.priority.total,seo,breakdown:row.priority.lines.map(({component,points})=>({component,points}))})).digest('hex');
       return {fixtureId:row.signals.fixtureId,rank,score:row.priority.total,topSocial:true,canonicalUrl:row.destinationUrl,seo,sourceHash,
         label:`${row.signals.home.name} × ${row.signals.away.name}`,breakdown:row.priority.lines,reasons:row.priority.reasons,evidence:{betting:row.bettingEvidence,search:row.searchEvidence,country:row.countrySearchEvidence}};
     });
