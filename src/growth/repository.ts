@@ -5,6 +5,7 @@ import {APPROVED_COMPETITION_SLUGS,isAcquisitionCompetition} from '@/config/foot
 import {absoluteUrl} from '@/seo/policy';
 import {CREATIVE_VERSION} from './creative-version';
 import {createHash} from 'node:crypto';
+import {DAILY_GROWTH_VERSION} from './daily-policy';
 import {draftCompliance,socialDraftIdentity,socialMasterIdentity,SOCIAL_POLICY_VERSION} from './socialCompliance';
 import {exposeMaster} from './master-model';
 import type {CanonicalRender} from './canonical-renderer';
@@ -21,7 +22,7 @@ import type {GrowthVideoRenderResult} from './video-renderer';
 import type {GrowthChannelRecord,GrowthChannelStatus,GrowthContentItem,GrowthContentPack,GrowthFixture,GrowthFixtureSnapshot,GrowthMediaRights,GrowthPlatformAsset,GrowthPlayerCandidate,GrowthSeoPriority,GrowthTeamForm,RankedGrowthFixture} from './types';
 
 type Row=Record<string,unknown>;
-const iso=(value:unknown)=>new Date(String(value)).toISOString();
+const iso=(value:unknown)=>value instanceof Date?value.toISOString():new Date(String(value)).toISOString();
 const text=(value:unknown)=>value===null||value===undefined?null:String(value);
 const numeric=(value:unknown)=>value===null||value===undefined?null:Number(value);
 const asJson=<T>(value:unknown):T=>typeof value==='string'?JSON.parse(value) as T:value as T;
@@ -343,16 +344,19 @@ export async function readCanonicalAsset(db:QueryExecutor,itemId:string,kind:Gro
 }
 
 export interface GrowthSeoUpsert {fixtureId:string;rank:number;score:number;topSocial:boolean;canonicalUrl:string;seo:GrowthSeoPriority;sourceHash:string;label?:string;breakdown?:unknown;reasons?:string[];evidence?:unknown;}
-export async function upsertGrowthSeoPriorities(db:DatabaseClient,rows:GrowthSeoUpsert[],now=new Date(),geo:CoreGeo='MX'){
-  if(rows.length>5||new Set(rows.map(r=>r.fixtureId)).size!==rows.length||rows.some((r,index)=>r.rank!==index+1||!new URL(r.canonicalUrl).pathname.startsWith(`/${geoProfile(geo).locale}/`)))throw Error('INVALID_GEO_SELECTION');
-  await db.transaction(async tx=>{
+export interface GrowthSeoPersistResult {applied:boolean;changed:boolean;}
+export async function upsertGrowthSeoPriorities(db:DatabaseClient,rows:GrowthSeoUpsert[],now=new Date(),geo:CoreGeo='MX',onPersist?:(tx:QueryExecutor,result:GrowthSeoPersistResult)=>Promise<void>){
+  if(rows.length>5||new Set(rows.map(r=>r.fixtureId)).size!==rows.length||rows.some((r,index)=>r.rank!==index+1||new URL(r.canonicalUrl).origin!=='https://livasports.com'||!new URL(r.canonicalUrl).pathname.startsWith(`/${geoProfile(geo).locale}/`)))throw Error('INVALID_GEO_SELECTION');
+  return db.transaction(async tx=>{
+    const finish=async(result:GrowthSeoPersistResult)=>{await onPersist?.(tx,result);return result;};
     // Serialize only shortlist persistence, not a media job/lease/heartbeat.
     await tx.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`growth:seo-priorities:${geo}`]);
     if((await tx.query(`SELECT 1 WHERE EXISTS(SELECT 1 FROM growth_geo_priorities WHERE geo=$2 AND updated_at>$1)
-      OR EXISTS(SELECT 1 FROM growth_geo_selections WHERE geo=$2 AND selected_at>$1)`,[now,geo])).rows.length)return;
+      OR EXISTS(SELECT 1 FROM growth_geo_selections WHERE geo=$2 AND selected_at>$1)`,[now,geo])).rows.length)return finish({applied:false,changed:false});
     const prior=(await tx.query(`SELECT fingerprint,current_list FROM growth_geo_selections WHERE geo=$1 ORDER BY selected_at DESC,id DESC LIMIT 1`,[geo])).rows[0];
     const current=rows.map(r=>({fixtureId:r.fixtureId,rank:r.rank,score:r.score,label:r.label??r.fixtureId}));
     const fingerprint=createHash('sha256').update(JSON.stringify(rows.map(r=>[r.fixtureId,r.rank,r.sourceHash]))).digest('hex');
+    if(prior?.fingerprint===fingerprint)return finish({applied:true,changed:false});
     const previous=prior?asJson<import('./types').GrowthSelectionHistory['current']>(prior.current_list):[];
     const exited=previous.filter(r=>!current.some(p=>p.fixtureId===r.fixtureId));
     const exitFacts=exited.length?(await tx.query('SELECT id,status,kickoff FROM fixtures WHERE id=ANY($1::uuid[])',[exited.map(r=>r.fixtureId)])).rows:[];
@@ -376,7 +380,8 @@ export async function upsertGrowthSeoPriorities(db:DatabaseClient,rows:GrowthSeo
       source_hash=EXCLUDED.source_hash,active=true,updated_at=EXCLUDED.updated_at,score_breakdown=EXCLUDED.score_breakdown,reasons=EXCLUDED.reasons,evidence=EXCLUDED.evidence`,
       [row.fixtureId,row.rank,row.score,row.topSocial,row.canonicalUrl,JSON.stringify(row.seo.intent),JSON.stringify(row.seo.placements),row.seo.context,row.sourceHash,now,geo,geoProfile(geo).locale,JSON.stringify(row.breakdown??[]),JSON.stringify(row.reasons??[]),JSON.stringify(row.evidence??{})]);
     if(prior?.fingerprint!==fingerprint)await tx.query(`INSERT INTO growth_geo_selections(geo,fingerprint,current_list,previous_list,rotations,config_version,selected_at)
-      VALUES($1,$2,$3::jsonb,$4::jsonb,$5::jsonb,'GEO_GROWTH_1',$6)`,[geo,fingerprint,JSON.stringify(current),JSON.stringify(previous),JSON.stringify(rotations),now]);
+      VALUES($1,$2,$3::jsonb,$4::jsonb,$5::jsonb,$7,$6)`,[geo,fingerprint,JSON.stringify(current),JSON.stringify(previous),JSON.stringify(rotations),now,DAILY_GROWTH_VERSION]);
+    return finish({applied:true,changed:true});
   });
 }
 export async function readGrowthSelectionHistory(db:QueryExecutor,geo:CoreGeo):Promise<import('./types').GrowthSelectionHistory|null>{

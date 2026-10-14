@@ -5,9 +5,9 @@ import {resolve} from 'node:path';
 import {authorizedScheduler} from '@/odds/scheduler-server';
 
 describe('Traffic Engine V1 automatic generation',()=>{
-  it('uses a separate Brazil-day cadence away from the five-minute odds ticks',()=>{
+  it('checks hourly for GEO-local daily rotation and invalid slots, independently of the odds ticks',()=>{
     const config=JSON.parse(readFileSync(resolve(process.cwd(),'vercel.json'),'utf8')) as {crons:Array<{path:string;schedule:string}>};
-    expect(config.crons).toContainEqual({path:'/api/internal/growth-refresh',schedule:'17 10,16,22 * * *'});
+    expect(config.crons).toContainEqual({path:'/api/internal/growth-refresh',schedule:'17 * * * *'});
     expect(config.crons.filter(cron=>cron.path==='/api/internal/growth-refresh')).toHaveLength(1);
     expect(config.crons).toContainEqual({path:'/api/internal/odds-refresh',schedule:'*/5 * * * *'});
   });

@@ -3,14 +3,15 @@ import {databaseUrl,PostgresDatabaseClient} from '@/database/client';
 import {geoProfile,type CoreGeo} from '@/config/geo';
 import type {GrowthSurface,PriorityLink} from './prominence-types';
 export async function readPriorityLinks(surface:GrowthSurface,geo:CoreGeo):Promise<PriorityLink[]>{
-  const url=databaseUrl();if(!url)return [];const db=new PostgresDatabaseClient(url);
+  const url=databaseUrl();if(!url)return [];const db=new PostgresDatabaseClient(url,()=>undefined,{statementTimeoutMs:3000});
   try{
     const common=`SELECT p.fixture_id,p.priority_rank,p.priority_score,p.canonical_url,p.context_localized,c.display_name_es_mx AS competition,
       c.slug AS competition_slug,f.kickoff,ht.name AS home,at.name AS away,ht.public_id AS home_public_id,at.public_id AS away_public_id
       FROM growth_geo_priorities p JOIN fixtures f ON f.id=p.fixture_id
       JOIN competitions c ON c.id=f.competition_id JOIN teams ht ON ht.id=f.home_team_id JOIN teams at ON at.id=f.away_team_id
       WHERE p.active AND p.geo=$2 AND c.enabled AND f.status='SCHEDULED' AND f.kickoff>now()
-      AND f.kickoff<=now()+interval '7 days' AND NOT ht.provider_placeholder AND NOT at.provider_placeholder`;
+      AND f.kickoff<=now()+interval '7 days' AND NOT ht.provider_placeholder AND NOT at.provider_placeholder
+      AND NOT EXISTS(SELECT 1 FROM sports_pending_fixtures pending WHERE pending.id=f.id)`;
     let query:string,values:unknown[];
     if(surface.kind==='HOME'||surface.kind==='DAILY'){query=`${common} AND p.placements ? $1 ORDER BY p.priority_rank LIMIT 5`;values=[surface.kind];}
     else if(surface.kind==='COMPETITION'){query=`${common} AND p.placements ? 'COMPETITION' AND c.slug=$1 ORDER BY p.priority_rank LIMIT 5`;values=[surface.slug];}

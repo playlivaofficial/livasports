@@ -53,7 +53,7 @@ describe('canonical master model',()=>{
  });
  it('refreshes five SEO priorities per GEO but creates no media job, lease, assets or media history writes',async()=>{
   const result=await runGrowthGeneration(db,'AUTOMATIC',{now:testNow});
-  for(const geo of ['MX','CO','PE'])expect(repo.upsertGrowthSeoPriorities).toHaveBeenCalledWith(db,expect.arrayContaining([expect.objectContaining({rank:5,topSocial:true})]),testNow,geo);
+  for(const geo of ['MX','CO','PE'])expect(repo.upsertGrowthSeoPriorities).toHaveBeenCalledWith(db,expect.arrayContaining([expect.objectContaining({rank:5,topSocial:true})]),testNow,geo,expect.any(Function));
   expect(result).toMatchObject({state:'SUCCEEDED',selectionCount:15,socialCount:15,generated:0,jobId:null,pending:0,mediaGeneration:'DISABLED',providerRequests:0});
   for(const fn of [repo.acquireGrowthJob,repo.finishGrowthJob,repo.persistGrowthItem,repo.rebuildCurrentGrowthQueue,repo.readLatestGrowthItems,renderSocialPackage])expect(fn).not.toHaveBeenCalled();
  });

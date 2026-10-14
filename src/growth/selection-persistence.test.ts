@@ -38,4 +38,17 @@ describe('selection-only transaction',()=>{
     const db={transaction:async(fn:(tx:unknown)=>unknown)=>fn({query})} as DatabaseClient;
     await upsertGrowthSeoPriorities(db,[],new Date(),'PE');expect(query.mock.calls.some(([sql])=>sql.includes('INSERT INTO growth_geo_selections'))).toBe(false);
   });
+  it('commits execution evidence under the same transaction and propagates a ledger failure for rollback',async()=>{
+    const query=vi.fn(async(sql:string)=>{void sql;return {rows:[],rowCount:0};}),rollback=vi.fn();
+    const db={transaction:async(fn:(tx:unknown)=>Promise<unknown>)=>{try{return await fn({query});}catch(error){rollback();throw error;}}} as DatabaseClient;
+    await expect(upsertGrowthSeoPriorities(db,[],new Date(),'CO',async()=>{throw Error('LEDGER_FAILED');})).rejects.toThrow('LEDGER_FAILED');
+    expect(rollback).toHaveBeenCalledOnce();expect(query.mock.calls.some(call=>String(call[0]).includes('UPDATE growth_geo_priorities'))).toBe(true);
+  });
+  it('records an identical successful retry without rewriting placements or legacy selection history',async()=>{
+    const {createHash}=await import('node:crypto'),fingerprint=createHash('sha256').update('[]').digest('hex'),ledger=vi.fn(async()=>{});
+    const query=vi.fn(async(sql:string)=>({rows:sql.startsWith('SELECT fingerprint')?[{fingerprint,current_list:[]}]:[],rowCount:0}));
+    const db={transaction:async(fn:(tx:unknown)=>unknown)=>fn({query})} as DatabaseClient;
+    expect(await upsertGrowthSeoPriorities(db,[],new Date(),'MX',ledger)).toEqual({applied:true,changed:false});
+    expect(ledger).toHaveBeenCalledWith({query},{applied:true,changed:false});expect(query.mock.calls.some(([sql])=>/UPDATE|INSERT/.test(sql))).toBe(false);
+  });
 });

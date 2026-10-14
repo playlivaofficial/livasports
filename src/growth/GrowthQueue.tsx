@@ -8,6 +8,7 @@ import {MasterSocial} from './MasterSocial';
 import type {PublishingOverview} from './manual-publishing';
 import {seoPriority} from './strategy';
 import {CORE_GEOS,geoProfile} from '@/config/geo';
+import {DailyGrowthStatus} from './DailyGrowthStatus';
 
 type Action=(key:string,body:Record<string,unknown>)=>Promise<void>;
 export function latestQueueItems(items:GrowthContentItem[]){
@@ -17,7 +18,7 @@ export function latestQueueItems(items:GrowthContentItem[]){
 }
 export function GrowthPriorityCounts({dashboard}:{dashboard:GrowthDashboard}){
   const geo=dashboard.geo??'MX',currentIds=new Set(dashboard.content.map(row=>row.signals.fixtureId));
-  const persisted=new Set(dashboard.selection?.current.filter(row=>currentIds.has(row.fixtureId)).map(row=>row.fixtureId)??[]).size;
+  const persisted=dashboard.daily?.active.length??new Set(dashboard.selection?.current.filter(row=>currentIds.has(row.fixtureId)).map(row=>row.fixtureId)??[]).size;
   return <section className="owner-health-cards" aria-label={`Prioridades actuales · ${geo}`}>
     <article className="owner-health-card"><span>Top 5 actual · {geo}</span><strong>{currentIds.size} / 5</strong><small>Partidos prioritarios, no publicaciones</small></article>
     <article className="owner-health-card"><span>SEO activo · {geo}</span><strong>{persisted}</strong><small>Prioridades actuales en la selección persistida</small></article>
@@ -50,7 +51,8 @@ export function GrowthQueue({dashboard:initial}:{dashboard:GrowthDashboard}){
     <GrowthPriorityCounts dashboard={dashboard}/>
     <p>{dashboard.considered} considerados · {dashboard.producible} elegibles · {new Intl.DateTimeFormat(profile.languageTag,{timeZone:profile.timeZone,dateStyle:'short',timeStyle:'short'}).format(new Date(dashboard.generatedAt))} ({profile.timeZone}).</p>
     {!dashboard.publishing?<p role="alert">Historial de publicaciones no disponible. El registro de publicaciones anteriores está temporalmente desactivado; las prioridades por GEO siguen disponibles.</p>:null}
-    <section><h2>Top 5 actual</h2><div className="owner-growth-list">{dashboard.content.map((row,index)=><FixtureOpportunity key={row.signals.fixtureId} row={row} rank={index+1} active={dashboard.selection?.current.some(p=>p.fixtureId===row.signals.fixtureId)??false}
+    {dashboard.daily?<DailyGrowthStatus report={dashboard.daily} geo={geo}/>:null}
+    <section><h2>{dashboard.daily?'Candidatos según los datos actuales':'Top 5 actual'}</h2><div className="owner-growth-list">{dashboard.content.map((row,index)=><FixtureOpportunity key={row.signals.fixtureId} row={row} rank={index+1} active={dashboard.selection?.current.some(p=>p.fixtureId===row.signals.fixtureId)??false}
       social={dashboard.social.some(item=>item.signals.fixtureId===row.signals.fixtureId)} item={undefined} overview={dashboard.publishing} busy={busy} act={act}/>)}</div>
       {!dashboard.content.length?<p className="owner-health-notice">No hay partidos elegibles en el horizonte actual.</p>:null}</section>
     <details><summary>Rotaciones y Top 5 anterior · {geo}</summary>{dashboard.selection?<><p>Última selección persistida: {dashboard.selection.selectedAt}. Los partidos terminados o movidos se excluyen en la lectura pública.</p><ol>{dashboard.selection.previous.map(row=><li key={row.fixtureId}>{row.label} · #{row.rank} · {row.score}</li>)}</ol><ul>{dashboard.selection.rotations.map(row=><li key={`${row.action}:${row.fixtureId}`}>{row.action}: {row.label} — {row.reason}</li>)}</ul></>:<p>Aún no hay historial persistido para este GEO.</p>}</details>
