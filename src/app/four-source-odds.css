@@ -143,8 +143,8 @@
 .team-mark { flex-shrink:0; }
 .team-mark .team-logo { inset:1px; width:calc(100% - 2px); height:calc(100% - 2px); }
 .sticky-sponsor-shell { display:none; }
+.app-header { top:var(--commercial-owner-height,0px); }
 @media(max-width:767px) {
-  .app-header { top:var(--commercial-owner-height,0px); }
   .sticky-sponsor-shell:not(:empty) { display:block; position:sticky; top:var(--commercial-nav-height,var(--header-height)); z-index:35; padding:3px 0 5px; margin-block:6px; background:var(--color-bg); border-bottom:1px solid var(--color-border); }
   .sticky-sponsor-shell .commercial-sponsor { width:100%; max-width:100%; margin:0; padding:0; }
   .sticky-sponsor-shell .commercial-sponsor>a { display:block; width:100%; }

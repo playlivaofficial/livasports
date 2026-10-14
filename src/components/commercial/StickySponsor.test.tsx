@@ -25,4 +25,8 @@ describe('one persistent mobile sponsor, unchanged commercial authorization',()=
   expect(creativeFit(970,320)).toEqual({scale:1,offset:325});
   expect(creativeFit(768,320,1.35).scale).toBe(1.35);
  });
+ it('keeps desktop as well as mobile header controls below the owner bar',()=>{
+  const css=readFileSync('src/app/four-source-odds.css','utf8');
+  expect(css.replace(/\r\n/g,'\n')).toContain('.app-header { top:var(--commercial-owner-height,0px); }\n@media(max-width:767px)');
+ });
 });
