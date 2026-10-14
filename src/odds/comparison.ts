@@ -4,7 +4,7 @@ import {BOOKMAKER_REGISTRY,isVisibleBookmaker} from './registry';
 import {resolveInsurance} from './insurance';
 import {referenceSourceAllowed} from './reference-policy';
 import type {IndicativeQuote} from './types';
-import {calculatedEstimate,comparisonPair} from './calculated-estimate';
+import {calculatedEstimate,comparisonBookmakers} from './calculated-estimate';
 const UNION_BOOKMAKERS=BOOKMAKER_REGISTRY.map(b=>({bookmaker:b.canonicalId,name:b.displayName}));
 
 export function publicFeedCount(snapshot:OddsReadSnapshot):number {
@@ -99,19 +99,20 @@ export function buildComparison(snapshot:OddsReadSnapshot,market:OddsMarket,now=
   return withReferences(result,snapshot,now);
 }
 function withReferences(result:OddsComparison,snapshot:OddsReadSnapshot,now:number):OddsComparison {
-  const pair=comparisonPair(snapshot.referenceGapBookmakers??snapshot.eligibleBookmakers?.map(b=>b.id)??[]);
-  if(pair&&snapshot.fixtureId&&snapshot.fixtureStatus==='SCHEDULED'&&Date.parse(snapshot.kickoff)>now){
+  const books=comparisonBookmakers(snapshot.referenceGapBookmakers??snapshot.eligibleBookmakers?.map(b=>b.id)??[]);
+  if(books.length&&snapshot.fixtureId&&snapshot.fixtureStatus==='SCHEDULED'&&Date.parse(snapshot.kickoff)>now){
     // Read only genuine rows, never the separate estimates built during this pass.
-    const estimates=pair.flatMap((targetBookmaker,index)=>{
-     const sourceBookmaker=pair[1-index];
-     const source=result.rows.find(r=>r.bookmaker===sourceBookmaker&&r.role!=='FALLBACK_REFERENCE');
+    const estimates=books.flatMap(targetBookmaker=>{
      const target=result.rows.find(r=>r.bookmaker===targetBookmaker&&r.role!=='FALLBACK_REFERENCE');
      return SELECTIONS[result.market].flatMap(outcome=>{
       const own=target?.cells.find(c=>c.outcome===outcome);
       if(own?.priceKind==='REAL'&&own.state==='ACTIVE'&&own.decimalOdds!==null)return [];
-      const cell=source?.cells.find(c=>c.outcome===outcome);if(!cell)return [];
+      // Stable registry priority, independently per outcome. Never read derived estimates.
+      const source=books.filter(id=>id!==targetBookmaker).map(id=>result.rows.find(r=>r.bookmaker===id&&r.role!=='FALLBACK_REFERENCE'))
+        .find(row=>row?.cells.some(c=>c.outcome===outcome&&c.priceKind==='REAL'&&c.state==='ACTIVE'&&c.decimalOdds));
+      const cell=source?.cells.find(c=>c.outcome===outcome);if(!cell||!source)return [];
       const estimate=calculatedEstimate({fixtureId:snapshot.fixtureId!,market:result.market,outcome,line:result.line,
-        target:targetBookmaker,sourceBookmaker,sourceName:source!.name,source:cell,now});return estimate?[estimate]:[];
+        target:targetBookmaker,sourceBookmaker:source.bookmaker,sourceName:source.name,source:cell,now});return estimate?[estimate]:[];
      });
     });
     if(estimates.length)result={...result,estimates};

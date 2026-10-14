@@ -30,7 +30,7 @@ export function selectableComparisonPrices(selection:CanonicalSelection,read:Sli
     sourceBookmaker:e.sourceBookmaker,sourceQuoteId:e.sourceQuoteId,sourceObservedAt:e.sourceObservedAt,estimate:e}))];
 }
 export function resolveLockedSelection(selection:CanonicalSelection,read:SlipFixtureRead|null,lock:SelectionLock|null,geo:string|null,now:number):ResolvedSelection {
-  const base=resolveSelection(selection,read,now);
+  const base={...resolveSelection(selection,read,now),comparisonAuthorized:!!lock&&lock.key===selectionKey(selection)&&lock.geo===geo};
   const prices=selectablePrices(selection,read,now);
   // V2 signs an indicative planning choice, not a frozen executable offer. Re-read
   // current local truth on every resolution; genuine recovery wins for that same book.

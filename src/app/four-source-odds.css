@@ -1,8 +1,16 @@
 /* Stable GEO operator columns; references fill only uncovered outcome cells. */
 @media(max-width:320px) { body { min-width:0; } }
-.bookmaker-logo { display:inline-flex; flex-direction:column; align-items:center; justify-content:center; width:80px; height:44px; flex-shrink:0; }
-.bookmaker-logo-art { display:flex; align-items:center; justify-content:center; width:80px; height:26px; padding:4px 5px; border-radius:4px; overflow:hidden; background:#fff; color:#172a24; }
-.bookmaker-logo-art img { display:block; width:100%; height:100%; object-fit:contain; }
+.bookmaker-logo { display:inline-flex; flex-direction:column; align-items:center; justify-content:center; width:100px; height:44px; flex-shrink:0; }
+.bookmaker-logo-art { display:flex; align-items:center; justify-content:center; width:96px; height:32px; padding:5px; border-radius:5px; overflow:hidden; background:#fff; color:#172a24; }
+.bookmaker-logo-art img { display:block; width:86px; height:22px; object-fit:contain; }
+/* The approved wordmarks have different aspect ratios. Optical widths retain
+   their native proportions inside one stable box, independent of price coverage. */
+.bookmaker-logo-inkabet { padding-inline:1px; }
+.bookmaker-logo-inkabet img { width:94px; }
+.bookmaker-logo-bwin img { width:76px; }
+.bookmaker-logo-winpot img { width:82px; }
+:root:not([data-theme='dark']) :is(.bookmaker-logo-inkabet,.bookmaker-logo-1xbet) { background:transparent; }
+:root:not([data-theme='dark']) :is(.bookmaker-logo-inkabet,.bookmaker-logo-1xbet) img { mix-blend-mode:multiply; }
 .bookmaker-logo-betsson { background:#ff6600; }
 .bookmaker-logo-bwin, .bookmaker-logo-winpot { background:#000; }
 .bookmaker-logo-sportingbet { background:#295c89; }
@@ -71,12 +79,13 @@
   .pregame-table .pregame-price { width:100%; min-width:44px; min-height:44px; }
 }
 
-/* Comparison-first slip. Source attribution remains in the data/analytics model. */
+/* One canonical selections list, followed by compact comparison cards. */
 .slip-selections summary { display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:44px; cursor:pointer; font-size:.75rem; font-weight:700; color:var(--color-text); }
 .slip-selections summary span { color:var(--color-text-muted); font-size:.65rem; font-weight:500; }
 .slip-selections summary:focus-visible { outline:2px solid var(--color-accent); outline-offset:2px; }
 .slip-selections[open] summary { margin-bottom:4px; }
-.slip-selections .slip-list { gap:4px; margin:0; }
+.slip-selections .slip-list { display:grid; gap:4px; margin:0; }
+:root .slip-selections .slip-list>.slip-item { margin-bottom:0; }
 :root .slip-selections .slip-item { position:relative; padding:6px 50px 6px 8px; gap:3px 8px; }
 .slip-selections .slip-item-header { display:block; }
 .slip-selections .slip-item-header a { display:block; font-size:.74rem; }
@@ -84,7 +93,7 @@
 .slip-selections .slip-market { display:flex; flex-wrap:wrap; gap:2px 6px; font-size:.62rem; }
 .slip-selections .slip-market strong { font-size:.7rem; }
 .slip-selections .slip-price { font-size:.8rem; padding:2px 4px; }
-.slip-summary { padding-block:0; border-bottom:0; }
+.slip-summary { padding-block:0; border-bottom:0; min-height:44px; }
 .slip-summary > div small { display:none; }
 .slip-summary button { min-height:44px; }
 .slip-stake { display:grid; grid-template-columns:minmax(0,1fr) 100px; align-items:center; gap:4px 8px; margin-block:4px; }
@@ -92,10 +101,10 @@
 .slip-stake small { grid-column:1/-1; font-size:.6rem; }
 .slip-comparison { margin-top:8px; padding-top:8px; }
 .slip-comparison h3 { margin:0 0 8px; }
-.slip-bookmaker { margin-top:6px; padding:10px; }
+.slip-bookmaker { margin:6px 0; padding:10px; }
 .slip-bookmaker > header { padding-bottom:4px; margin-bottom:4px; min-height:28px; }
 .slip-bookmaker > header h4 { margin:0; }
-.slip-combined-block { padding:4px 0; border:0; background:transparent; }
+.slip-combined-block { margin:0; padding:4px 0; border:0; background:transparent; }
 .slip-combined { margin:0; }
 .slip-combined strong { font-size:1.3rem; }
 .slip-return { margin:4px 0 0; padding-top:4px; }
@@ -103,7 +112,7 @@
 .slip-bookmaker .slip-comparison-note { margin:4px 0 0; }
 .slip-bookmaker-cta { margin-top:6px; }
 .board-period-label { margin:0; padding:8px 12px; font-size:.8rem; color:var(--text-secondary); border-bottom:1px solid var(--border); }
-/* Derived comparisons have their own non-interactive channel, not executable odds cells. */
+/* Derived comparisons are selectable planning choices, never executable bookmaker quotes. */
 .calculated-price { display:grid; justify-items:center; gap:1px; min-width:0; font-family:var(--font-numeric); color:var(--color-text); }
 :root :is(.listing-odds-select,.slip-odds-button)[aria-pressed='true'] .calculated-price { color:var(--selected-text); }
 .listing-odds-cell.is-calculated { border-style:dashed; background:var(--color-surface); }
@@ -111,9 +120,6 @@
 .odds-slot .listing-odds-books { align-items:start; }
 .odds-slot .listing-odds-book { align-content:start; }
 .slip-indicative-comparison { padding-top:4px; }
-.slip-calculated-legs { list-style:none; padding:0; margin:6px 0; }
-.slip-calculated-legs li { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:3px 8px; padding:5px 0; font-size:10px; overflow-wrap:anywhere; }
-.slip-calculated-legs .calculated-price { max-width:70px; }
 @media(max-width:360px) {
   .sports-board .page-container { padding-inline:4px; }
   .sports-board .sponsor-mobile_inline { width:calc(100% + 8px); margin-inline:-4px; }
@@ -125,4 +131,27 @@
   :is(.sponsor-mobile_inline,.sponsor-profile_mobile_inline),
   :is(.sponsor-mobile_inline,.sponsor-profile_mobile_inline) a { grid-template-columns:minmax(0,1fr); min-width:0; }
   :is(.sponsor-mobile_inline,.sponsor-profile_mobile_inline) > p { min-width:0; max-width:100%; }
+}
+/* Dock only when the remaining canvas can fit navigation and six 44px odds targets.
+   Narrow desktops/tablets use an overlay, never a squeezed/reflowed sports board. */
+@media(max-width:1599px) {
+  body[data-slip-open=true] .site-content-wrapper { margin-right:0; }
+}
+.sports-board .competition-header { flex-wrap:wrap; }
+.sports-board .competition-header>a { flex:1 1 160px; }
+.sports-board .board-odds-heading { flex:0 1 300px; max-width:100%; }
+.team-mark { flex-shrink:0; }
+.team-mark .team-logo { inset:1px; width:calc(100% - 2px); height:calc(100% - 2px); }
+.sticky-sponsor-shell { display:none; }
+@media(max-width:767px) {
+  .app-header { top:var(--commercial-owner-height,0px); }
+  .sticky-sponsor-shell:not(:empty) { display:block; position:sticky; top:var(--commercial-nav-height,var(--header-height)); z-index:35; padding:3px 0 5px; margin-block:6px; background:var(--color-bg); border-bottom:1px solid var(--color-border); }
+  .sticky-sponsor-shell .commercial-sponsor { width:100%; max-width:100%; margin:0; padding:0; }
+  .sticky-sponsor-shell .commercial-sponsor>a { display:block; width:100%; }
+  .sticky-sponsor-shell .commercial-sponsor img { display:block; width:100%; height:auto; max-height:none; object-fit:contain; }
+  .sticky-sponsor-shell .sponsor-embed-box { margin-inline:auto; }
+  .sticky-sponsor-shell .commercial-label { display:block; margin-bottom:2px; font-size:9px; line-height:1.2; }
+  .sticky-sponsor-shell .commercial-sponsor>p { margin:3px 0 0; font-size:9px; line-height:1.3; }
+  html { scroll-padding-top:calc(var(--commercial-nav-height,var(--header-height)) + var(--mobile-sponsor-height,0px) + 8px); }
+  .fixture-row,.sports-match-row { scroll-margin-top:8px; }
 }

@@ -14,7 +14,6 @@ import {SlipComparison} from './SlipComparison';
 import {SlipLegs} from './SlipLegs';
 import {formatMoney,parseStake} from '@/slip/decimal';
 import {shareSlipImage,slipSharePayload} from '@/slip/share-card';
-import {indicativeCombined} from '@/slip/indicative';
 
 function TicketIcon(){return <svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 3h14v6a3 3 0 0 0 0 6v6l-3-2-4 2-4-2-3 2v-6a3 3 0 0 0 0-6V3Z" stroke="currentColor" strokeWidth="1.5"/><path d="M9 8h6M9 12h6M9 16h3" stroke="currentColor" strokeWidth="1.5"/></svg>;}
 
@@ -41,7 +40,6 @@ function SlipDrawer({locale,currencyLocale,uiLocale,selections,stake,slipId,pend
     void addSlipSelection(pending.selection,locale,pending.expiresAt,pending.bookmaker,pending.priceContext);onPending(null);closeRef.current?.focus();
   }
   const currentCount=resolved.filter(v=>v.price!==null).length;
-  const indicativeTotal=indicativeCombined(resolved,now);
   const browse=interfaceRoutes[uiLocale].football;
   return <aside className="slip-panel" ref={panel} role="dialog" aria-modal="false" aria-labelledby="slip-title" aria-describedby="slip-disclaimer" lang={uiLocale==='br'?'pt-BR':uiLocale==='en'?'en':`es-${uiLocale.toUpperCase()}`}>
     <header className="slip-heading"><div><TicketIcon/><h2 id="slip-title">{text.title}</h2><span className="slip-count">{selections.length}</span></div><button type="button" ref={closeRef} className="slip-icon-button" aria-label={text.close} onClick={onClose}>×</button></header>
@@ -52,19 +50,17 @@ function SlipDrawer({locale,currencyLocale,uiLocale,selections,stake,slipId,pend
         <p>{text.replaceWith}: <b>{text.markets[pending.selection.market]} · {selectionLabel(pending.selection,uiLocale,resolved.find(v=>v.selection.fixturePublicId===pending.selection?.fixturePublicId)?.fixture)}</b></p>
         <div><button type="button" onClick={replace}>{text.replace}</button><button type="button" onClick={()=>{onPending(null);closeRef.current?.focus();}}>{text.cancel}</button></div></section>:null}
       {!selections.length?<div className="slip-empty"><span className="slip-empty-icon"><TicketIcon/></span><h3>{text.emptyTitle}</h3><p>{text.empty}</p><Link href={browse} onClick={onClose}>{text.browse} →</Link></div>:<>
+        <section className="slip-selections" aria-labelledby="slip-selections-title">
+          <h3 id="slip-selections-title">{text.yourSelections}<span className="slip-count">{selections.length}</span></h3>
+          <SlipLegs uiLocale={uiLocale} selections={selections} resolvedByKey={byKey} comparison={comparison} checking={checking} resolvedAt={resolvedAt} now={now} onRemove={remove} onNavigate={onClose} onConfirm={(selection,price)=>void addSlipSelection(selection,locale,price.expiresAt,price.bookmaker,{targetBookmaker:price.bookmaker,priceKind:'REAL',decimalOdds:price.decimalOdds},selection)}/>
+        </section>
+        <div className="slip-summary"><div><small>{text.scope}</small></div><button type="button" onClick={clear}>{text.clear}</button></div>
         <label className="slip-stake"><span>{text.stake}</span>
           <input inputMode="decimal" enterKeyHint="done" autoComplete="off" value={stakeValue} aria-invalid={parseStake(stakeValue)===null} aria-describedby="slip-stake-hint"
             onChange={event=>setStakeDraft(event.target.value)} onBlur={commitStake} onKeyDown={event=>{if(event.key==='Enter'){event.preventDefault();commitStake();}}}/>
           <small id="slip-stake-hint">{currencyLocale==='en'?formatMoney('10','en'):slipCopy[locale].stakeHint} · {text.oddsMayChange}</small></label>
         {!online||failed?<p className="slip-notice">{!online?text.offline:text.retry}</p>:null}
         <SlipComparison locale={locale} currencyLocale={currencyLocale} uiLocale={uiLocale} selections={selections} value={comparison} checking={checking} stake={stake} slipId={slipId}/>
-        {indicativeTotal?<section className="reference-odds" aria-label="Indicative combined price"><strong>≈ {Number(indicativeTotal).toFixed(2)}</strong><p>{uiLocale==='en'?'Indicative combined price · information only, not executable at any bookmaker.':uiLocale==='br'?'Cotação combinada indicativa · apenas informação, não executável em nenhuma casa.':'Cuota combinada orientativa · solo información, no ejecutable en ninguna casa.'}</p></section>:null}
-        {/* Below the bookmaker cards: what the visitor actually picked, always visible, removable one by one. */}
-        <section className="slip-selections" aria-labelledby="slip-selections-title">
-          <h3 id="slip-selections-title">{text.yourSelections}<span className="slip-count">{selections.length}</span></h3>
-          <SlipLegs uiLocale={uiLocale} selections={selections} resolvedByKey={byKey} comparison={comparison} checking={checking} resolvedAt={resolvedAt} now={now} onRemove={remove} onNavigate={onClose} onConfirm={(selection,price)=>void addSlipSelection(selection,locale,price.expiresAt,price.bookmaker,{targetBookmaker:price.bookmaker,priceKind:'REAL',decimalOdds:price.decimalOdds},selection)}/>
-        </section>
-        <div className="slip-summary"><div><small>{text.scope}</small></div><button type="button" onClick={clear}>{text.clear}</button></div>
         {resolvedAt?<p className="slip-verified">{currentCount}/{selections.length} {text.currentCount}</p>:null}
         <button type="button" className="slip-share" disabled={sharing||!selections.length} onClick={async()=>{setSharing(true);await shareSlipImage(slipSharePayload({locale:uiLocale,currencyLocale,slipId:slipId||'local',stake,generatedAt:resolvedAt??new Date().toISOString(),selections,resolved,comparison}));setSharing(false);}}>{text.share}</button>
         <p className="slip-comparison-note">{text.shareHint}</p>
@@ -79,11 +75,11 @@ export function SlipShell({commercialLocale=null}:{commercialLocale?:SiteLocale|
   const uiLocale:SlipUiLocale=segment==='br'||segment==='mx'||segment==='co'||segment==='pe'?segment:'en';
   const outboundUnavailable=useSearchParams().get('slip')==='unavailable';
   const {slip,notice:storageNotice,ready}=useSlip();const text=slipCopy[uiLocale];
-  const [open,setOpen]=useState(outboundUnavailable);const [pending,setPending]=useState<SlipFeedback|null>(null);const [notice,setNotice]=useState<string|null>(outboundUnavailable?'OUTBOUND_UNAVAILABLE':null);
+  const [open,setOpen]=useState(false);const [pending,setPending]=useState<SlipFeedback|null>(null);const [notice,setNotice]=useState<string|null>(outboundUnavailable?'OUTBOUND_UNAVAILABLE':null);
   const trigger=useRef<HTMLButtonElement>(null);
   useEffect(()=>{slipStore.reload();const storage=(e:StorageEvent)=>{if(e.key===STORAGE_KEY||e.key===null)slipStore.reload();};
     const action=(e:Event)=>{const value=(e as CustomEvent<SlipFeedback>).detail;
-      if(value.result==='REPLACE_REQUIRED'){setNotice(null);setPending(value);setOpen(true);}else {setNotice(value.result);if(value.result==='ADDED'||value.result==='REPLACED')setOpen(true);}
+      if(value.result==='REPLACE_REQUIRED'){setNotice(value.result);setPending(value);}else setNotice(value.result);
     };
     window.addEventListener('storage',storage);window.addEventListener(FEEDBACK_EVENT,action);return()=>{window.removeEventListener('storage',storage);window.removeEventListener(FEEDBACK_EVENT,action);};
   },[]);

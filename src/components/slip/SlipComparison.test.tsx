@@ -26,7 +26,7 @@ describe('P5 compact comparison / internal provenance',()=>{
     const html=renderToStaticMarkup(<SlipComparison locale={locale} uiLocale="en" stake="10" selections={f.selections.map(s=>({...s,addedAt:new Date(f.now).toISOString()}))} checking={false} value={value}/>);
     expect(html).toContain(symbol);expect(html).not.toContain('USD');expect(html).not.toContain('R$');
   });
-  for(const locale of ['br','mx','en'] as const)for(const count of [1,2,5,10])for(const mode of ['native','alternate','missing'] as const){
+  for(const locale of ['br','mx','co','pe','en'] as const)for(const count of [1,3,5,7,10])for(const mode of ['native','alternate','missing'] as const){
     it(`${locale} / ${count} selections / ${mode}`,()=>{
       const f=withPublicCards(comparisonFixture(count));
       for(const [i,read] of [...f.data.fixtures.values()].entries()){
@@ -58,7 +58,10 @@ describe('P5 compact comparison / internal provenance',()=>{
         expect(inspected.combinedDecimalOdds).toBeNull();
         expect(inspected.ctaState).toBe('INCOMPLETE');
         expect(inspected.indicativeComplete).toBe(true);expect(inspected.calculatedSelectionCount).toBe(count);
-        expect(html).toContain('data-executable="false"');expect(html).toContain('CALCULATED_MINUS_10');
+        expect(html).toContain('data-executable="false"');expect(html).toContain('odds-approx-mark');
+        expect(html).not.toContain('slip-calculated-legs');
+        expect(html).not.toContain(`>0/${count}</span>`);expect(html).toContain(`>${count}/${count}</span>`);
+        expect(html).not.toContain('Atlético Nacional vs Junior');
         expect(inspected.selectionQuotes.every(q=>q.sourceBookmakerId===null||q.sourceBookmakerId===INSPECTED)).toBe(true);
         // The other card priced everything itself, so its own total is still shown.
         const other=value.bookmakers[0];

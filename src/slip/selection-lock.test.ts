@@ -6,7 +6,7 @@ import {signSelection,verifySelection} from './selection-receipt';
 import {selectionKey,wireSelection,parseResolutionRequest} from './types';
 import {selectSlipRequest} from './admission-server';
 import {ComparisonLoader} from './comparison-loader';
-import {enforceSelectionLocks,buildSlipComparison} from './comparison';
+import {enforceSelectionLocks,buildSlipComparison,guardSlipComparison} from './comparison';
 import {restoreSlip,mutateSlip,EMPTY_SLIP,createSlipStore} from './state';
 import {currentSlipDestination} from './comparison-server';
 import {publicSlipResolution} from './public-response';
@@ -67,7 +67,7 @@ describe('strict selection identity and availability',()=>{
     expect(verifySelection({...f.bound[0],market:'MATCH_WINNER',line:null,outcome:'DRAW'},'CO',key)).toBeNull();
     expect(verifySelection(f.bound[0],'CO','wrong-key')).toBeNull();
   });
-  it.each([1,3,5,10])('authoritatively rechecks a %s-leg comparison; one failed leg cannot poison other fixture selections',async count=>{
+  it.each([1,3,5,7,10])('rechecks a %s-leg canonical comparison independently of the initially clicked bookmaker',async count=>{
     vi.stubEnv('AFFILIATE_SIGNING_SECRET',key);const f=setup(count),reader=vi.fn(async()=>f.data),loader=new ComparisonLoader(reader,()=>f.now);
     const first=await loader.resolve(f.bound,'co','CO');expect(first.comparison.bookmakers.every(b=>b.complete)).toBe(true);
     const publicResult=publicSlipResolution(first);expect(validComparisonResponse(publicResult.comparison,'co',f.bound)).toBe(true);
@@ -75,7 +75,12 @@ describe('strict selection identity and availability',()=>{
     f.data.fixtures.get(f.bound[0].fixturePublicId)!.snapshot.quotes[0].status='WITHDRAWN';
     const next=await loader.resolve(f.bound,'co','CO');expect(reader).toHaveBeenCalledTimes(2);
     expect(next.selections[0].price).toBeNull();expect(next.selections.slice(1).every(s=>s.price)).toBe(true);
-    expect(next.comparison.bookmakers.every(b=>!b.complete&&b.combinedDecimalOdds===null&&b.ctaState==='INCOMPLETE')).toBe(true);
+    const native=next.comparison.bookmakers.find(b=>b.bookmakerId==='bwin')!;
+    const indicative=next.comparison.bookmakers.find(b=>b.bookmakerId==='betsson')!;
+    expect(native.complete).toBe(true);expect(native.availableSelectionCount).toBe(count);
+    expect(indicative.indicativeComplete).toBe(true);expect(indicative.complete).toBe(false);
+    expect(indicative.calculatedSelectionCount).toBe(1);
+    expect(next.selections[0].comparisonAuthorized).toBe(true);
     const isolated=await loader.resolve(f.bound.slice(1),'co','CO');if(count>1)expect(isolated.comparison.bookmakers.every(b=>b.complete)).toBe(true);
   });
   it('blocks direct unbound comparisons and affiliate destinations even when other-book odds exist',async()=>{
@@ -101,9 +106,9 @@ describe('strict selection identity and availability',()=>{
     const once=mutateSlip(EMPTY_SLIP,{type:'add',selection:f.bound[0],addedAt:new Date().toISOString()}).slip;
     expect(mutateSlip(once,{type:'confirm',selection:{...f.bound[0],receipt:'changed'},expectedReceipt:'outdated',addedAt:new Date().toISOString()}).slip).toEqual(once);expect(k).toBe(selectionKey(f.bound[0]));
   });
-  it('enforces render-time comparison blocking after selected odds expire',()=>{
+  it('enforces render-time blocking when all current comparison prices expire',()=>{
     const f=setup();const resolved=f.bound.map((s,i)=>resolveLockedSelection(s,f.data.fixtures.get(s.fixturePublicId)!,f.locks[i],'CO',f.locks[i].expires));
-    expect(enforceSelectionLocks(buildSlipComparison(f.bound,'co',f.data.fixtures,f.data.bookmakers,f.now),resolved).bookmakers.every(b=>!b.complete)).toBe(true);
+    expect(enforceSelectionLocks(guardSlipComparison(buildSlipComparison(f.bound,'co',f.data.fixtures,f.data.bookmakers,f.now),1,f.locks[0].expires),resolved).bookmakers.every(b=>!b.complete&&!b.indicativeComplete)).toBe(true);
   });
 });
 describe('direct admission API',()=>{

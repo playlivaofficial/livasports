@@ -16,7 +16,8 @@ describe('informational inline grid cell',()=>{
  });
  it('uses a fixed shared logo artwork size, never conditional availability dimensions',()=>{
   const css=readFileSync('src/app/four-source-odds.css','utf8');
-  expect(css).toContain('width:80px; height:26px');expect(css).toContain('object-fit:contain');
+  expect(css).toContain('width:96px; height:32px');expect(css).toContain('object-fit:contain');
+  expect(css).toContain('width:100px; height:44px');
   expect(css).not.toMatch(/is-unavailable[^}]*bookmaker-logo/);
   expect(css.match(/\.bookmaker-logo-art\s*\{/g)).toHaveLength(1);
  });

@@ -6,7 +6,7 @@ import type {BookmakerAvailabilityState,BookmakerConfig,BookmakerSlip,Comparison
 import {compareDecimal,multiplyDecimalOdds,multiplyIndicativeFactors,validDecimalOdds} from './decimal';
 import {BOOKMAKER_REGISTRY,isVisibleBookmaker,bookmakerConfig} from '@/odds/registry';
 import {resolveInsurance} from '@/odds/insurance';
-import {calculatedEstimate,comparisonPair,currentEstimate} from '@/odds/calculated-estimate';
+import {calculatedEstimate,comparisonBookmakers,currentEstimate} from '@/odds/calculated-estimate';
 
 function diagnosticForState(state:SelectionQuote['state'],reason:SelectionQuote['reason']):ComparisonDiagnostic {
   if(state==='CURRENT')return 'COMPLETE';
@@ -137,11 +137,11 @@ export function buildSlipComparison(selections:CanonicalSelection[],locale:SiteL
     if(!source?.decimalOdds||!source.sourceBookmakerId||!source.sourceBookmakerName||!source.sourceQuoteId||!source.sourceObservedAt)return targetQuote;
     return withDiagnostic({...targetQuote,state:'CURRENT',reason:null,decimalOdds:source.decimalOdds,expiresAt:source.expiresAt,closesAt:source.closesAt,priceKind:'PROXY',sourceBookmakerId:source.sourceBookmakerId,sourceBookmakerName:source.sourceBookmakerName,sourceQuoteId:source.sourceQuoteId,sourceObservedAt:source.sourceObservedAt},'PROXY_QUOTE');
   })}));
-  const pair=comparisonPair(eligible.filter(c=>c.role!=='FALLBACK_REFERENCE').map(c=>c.bookmakerId));
+  const books=comparisonBookmakers(eligible.filter(c=>c.role!=='FALLBACK_REFERENCE').map(c=>c.bookmakerId));
   const bookmakers=withProxies.map(({config,quotes})=>summarize(config,quotes.map((quote,index)=>{
-    if(!pair||!pair.includes(config.bookmakerId)||quote.decimalOdds)return quote;
-    const sourceBookmaker=pair[0]===config.bookmakerId?pair[1]:pair[0];
-    const source=sourceQuotes.get(sourceBookmaker)?.[index];if(!source||source.state!=='CURRENT'||source.priceKind!=='REAL')return quote;
+    if(!books.includes(config.bookmakerId)||quote.decimalOdds)return quote;
+    const sourceBookmaker=books.find(id=>id!==config.bookmakerId&&sourceQuotes.get(id)?.[index].state==='CURRENT'&&sourceQuotes.get(id)?.[index].priceKind==='REAL');
+    const source=sourceBookmaker?sourceQuotes.get(sourceBookmaker)?.[index]:null;if(!source||!sourceBookmaker)return quote;
     const estimate=calculatedEstimate({fixtureId:selections[index].fixturePublicId,market:selections[index].market,outcome:selections[index].outcome,line:selections[index].line,
       target:config.bookmakerId,sourceBookmaker,sourceName:source.sourceBookmakerName!,now,source:{outcome:selections[index].outcome,
         decimalOdds:source.decimalOdds,state:'ACTIVE',best:false,expiresAt:source.expiresAt,priceKind:source.priceKind,targetBookmaker:sourceBookmaker,
@@ -160,9 +160,11 @@ export function guardSlipComparison(value:SlipComparison,count:number,now:number
     return withDiagnostic(q);
   }))),value.generatedAt??new Date(now).toISOString());
 }
-/** An invalid selected identity invalidates that leg at every comparison destination, not other fixtures. */
+/** Signed canonical admission unlocks independent current comparisons, not the old chosen price.
+ * Unbound/tampered selections and closed fixtures remain blocked at every destination. */
 export function enforceSelectionLocks(value:SlipComparison,resolved:ResolvedSelection[]):SlipComparison {
-  const invalid=new Set(resolved.filter(s=>s.state!=='CURRENT'||!s.price).map(s=>selectionKey(s.selection)));
+  const invalid=new Set(resolved.filter(s=>['MATCH_STARTED','MATCH_FINISHED','CLOSED'].includes(s.state)||
+    (!s.comparisonAuthorized&&(s.state!=='CURRENT'||!s.price))).map(s=>selectionKey(s.selection)));
   return finish(value.locale,resolved.length,value.bookmakers.map(b=>summarize(b,b.selectionQuotes.map(q=>invalid.has(selectionKey(q.selection))?
     {...q,state:'SUSPENDED',reason:'INVALID_QUOTE',diagnosticCode:'INVALID_QUOTE',decimalOdds:null,expiresAt:null,priceKind:null,estimate:undefined}:q))),value.generatedAt);
 }

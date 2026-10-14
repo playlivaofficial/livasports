@@ -4,7 +4,7 @@ import type {OddsComparison,OddsMarket,OddsCell,OddsBookmakerRow} from '@/odds/t
 import {SELECTIONS} from '@/odds/types';
 import {emitMatchEvent,type MatchEventContext} from './events';
 import {addSlipSelection,useSlip} from '@/slip/client';
-import {canonicalSelection,selectionKey,SLIP_SCOPE,receiptDisplay} from '@/slip/types';
+import {canonicalSelection,selectionKey,SLIP_SCOPE} from '@/slip/types';
 import {formatSlipOdds} from '@/slip/decimal';
 import {slipCopy,selectionLabel} from '@/slip/localization';
 import {AffiliateLink,commercialCopy} from '@/components/commercial/AffiliateLink';
@@ -109,7 +109,7 @@ export function PregameOdds({initial,context,fixturePublicId,uiLocale}:{initial:
           const reference=rowIndex===0?references.find(q=>q.outcome===cell.outcome):undefined;
           const estimate=!current&&!pastKickoff&&clock!==null?selected?.estimates?.find(e=>e.targetBookmaker===row.bookmaker&&e.market===market&&e.outcome===cell.outcome&&e.line===selected.line&&currentEstimate(e,clock)):undefined;
           const intent=canonicalSelection({fixturePublicId,market,outcome:cell.outcome,line:selected?.line??(market==='TOTAL_GOALS'?2.5:null),scope:SLIP_SCOPE});
-          const pressed=intent?saved.slip.selections.some(s=>selectionKey(s)===selectionKey(intent)&&receiptDisplay(s)?.book===row.bookmaker):false;
+          const pressed=intent?saved.slip.selections.some(s=>selectionKey(s)===selectionKey(intent)):false;
           const priceLabel=current?new Intl.NumberFormat(geoProfile(geoForLocale(presentation)).languageTag,{minimumFractionDigits:2,maximumFractionDigits:2}).format(Number(cell.decimalOdds)):'—';
           const selectionPrice=current?{priceKind:'REAL' as const,decimalOdds:cell.decimalOdds!,expiresAt:cell.expiresAt!}:
             estimate?{priceKind:'CALCULATED_MINUS_10' as const,decimalOdds:estimate.decimalOdds,expiresAt:estimate.expiresAt}:null;

@@ -17,6 +17,22 @@ const context={targetBookmaker:'betsson',priceKind:'REAL' as const,decimalOdds:'
 const expiry=()=>new Date(Date.now()+60000).toISOString();
 const response=(selection=pick(),decimalOdds='2.10')=>Response.json({selection:{...selection,receipt},price:{bookmaker:'betsson',decimalOdds,expiresAt:expiry()},providerRequests:0});
 describe('asynchronous selection admission',()=>{
+  it('toggles the canonical outcome from either bookmaker without replacing provenance or making a second request',async()=>{
+    const fetch=vi.fn().mockResolvedValue(response());vi.stubGlobal('fetch',fetch);
+    await addSlipSelection(pick(),'co',expiry(),'betsson',context);
+    expect(slipStore.getSnapshot().slip.selections).toHaveLength(1);
+    await addSlipSelection(pick(),'co',expiry(),'bwin',{targetBookmaker:'bwin',priceKind:'CALCULATED_MINUS_10',decimalOdds:'1.89'});
+    expect(slipStore.getSnapshot().slip.selections).toEqual([]);
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+  it('replaces a conflicting outcome atomically after signed admission without duplicating the fixture market',async()=>{
+    const away={...pick(),outcome:'AWAY' as const};
+    const fetch=vi.fn().mockResolvedValueOnce(response()).mockResolvedValueOnce(response(away));vi.stubGlobal('fetch',fetch);
+    await addSlipSelection(pick(),'co',expiry(),'betsson',context);
+    await addSlipSelection(away,'co',expiry(),'betsson',context);
+    expect(slipStore.getSnapshot().slip.selections).toHaveLength(1);
+    expect(slipStore.getSnapshot().slip.selections[0].outcome).toBe('AWAY');
+  });
   it.each(['0','NaN','1'])('never sends or saves an invalid price %s',async price=>{
     const fetch=vi.fn();vi.stubGlobal('fetch',fetch);
     // Server checks are authoritative; client prefilter is also required.

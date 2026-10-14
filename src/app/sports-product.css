@@ -181,7 +181,7 @@ html[data-theme=light] .favorite-toggle.is-on { color:#b8860b; }
 
 /* A reserved 400px slip rail reduces the header's content width without
    changing viewport breakpoints. Keep navigation and actions in separate rows. */
-@media(min-width:1100px){
+@media(min-width:1600px){
   body[data-slip-open=true] { --header-height:105px; }
   body[data-slip-open=true] .header-inner { display:grid; grid-template-columns:auto minmax(0,1fr); min-height:104px; gap:0 1rem; padding-block:6px; }
   body[data-slip-open=true] .header-inner>.brand { grid-column:1; grid-row:1; }

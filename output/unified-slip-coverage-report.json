@@ -1,0 +1,262 @@
+{
+  "budget": {
+    "period_start": "2026-10-02T11:10:51Z",
+    "period_end": "2026-11-02T11:10:51Z",
+    "hard_limit": 5000,
+    "externally_consumed": 8,
+    "provider_reported_usage": 771,
+    "reconciliation_at": "2026-10-14T00:30:17.516Z",
+    "local_counted": 777,
+    "reserved": 1,
+    "completed": 776,
+    "failed_counted": 174,
+    "unmetered_calls": 21,
+    "rolling_day": 52,
+    "today_utc": 13,
+    "rolling_three_days": 302,
+    "verified": true,
+    "used": 785,
+    "internalLimit": 4750,
+    "routineLimit": 4650,
+    "safeRemaining": 3965,
+    "routineRemaining": 3865,
+    "rollingDay": 52,
+    "dailyCap": 202,
+    "rollingHeadroom": 129,
+    "governor": {
+      "periodAllowance": 4750,
+      "routineAllowance": 4650,
+      "used": 785,
+      "remaining": 3965,
+      "routineRemaining": 3865,
+      "remainingDays": 19.13,
+      "rollingDay": 52,
+      "dailyCap": 202,
+      "headroom": 150,
+      "projectedDailyRequests": 101,
+      "projectedEndOfPeriodUsage": 2717,
+      "projectedOverrun": false,
+      "urgentReserve": 41,
+      "recoveryReserve": 21,
+      "discoveryReserve": 2,
+      "routineCeiling": 161,
+      "routineHeadroom": 109,
+      "pressure": "NORMAL",
+      "utilizationPct": 25.7,
+      "quotaState": "NORMAL",
+      "normalStop": 161,
+      "controlledStop": 181,
+      "requestsTodayUtc": 13,
+      "projectedEndOfDayUsage": 39
+    },
+    "requestsTodayUtc": 13,
+    "estimatedRequestsRemaining": 150,
+    "quota": {
+      "utilizationPct": 25.7,
+      "state": "NORMAL",
+      "slowdown": 1
+    },
+    "projectedEndOfDayUsage": 39
+  },
+  "at": "2026-10-14T08:04:21.303Z",
+  "summary": [
+    {
+      "geo": "MX",
+      "market": "MATCH_WINNER",
+      "fixtures": 356,
+      "books": [
+        {
+          "book": "betsson",
+          "nativeOutcomes": 531,
+          "estimatedOutcomes": 105,
+          "nativeComplete": 177,
+          "comparisonComplete": 212
+        },
+        {
+          "book": "winpot.mx",
+          "nativeOutcomes": 417,
+          "estimatedOutcomes": 219,
+          "nativeComplete": 139,
+          "comparisonComplete": 212
+        }
+      ],
+      "doubleEmpty": 144
+    },
+    {
+      "geo": "MX",
+      "market": "TOTAL_GOALS",
+      "fixtures": 356,
+      "books": [
+        {
+          "book": "betsson",
+          "nativeOutcomes": 356,
+          "estimatedOutcomes": 56,
+          "nativeComplete": 178,
+          "comparisonComplete": 206
+        },
+        {
+          "book": "winpot.mx",
+          "nativeOutcomes": 206,
+          "estimatedOutcomes": 206,
+          "nativeComplete": 103,
+          "comparisonComplete": 206
+        }
+      ],
+      "doubleEmpty": 150
+    },
+    {
+      "geo": "MX",
+      "market": "BTTS",
+      "fixtures": 356,
+      "books": [
+        {
+          "book": "betsson",
+          "nativeOutcomes": 360,
+          "estimatedOutcomes": 60,
+          "nativeComplete": 180,
+          "comparisonComplete": 210
+        },
+        {
+          "book": "winpot.mx",
+          "nativeOutcomes": 254,
+          "estimatedOutcomes": 166,
+          "nativeComplete": 127,
+          "comparisonComplete": 210
+        }
+      ],
+      "doubleEmpty": 146
+    },
+    {
+      "geo": "CO",
+      "market": "MATCH_WINNER",
+      "fixtures": 356,
+      "books": [
+        {
+          "book": "betsson",
+          "nativeOutcomes": 531,
+          "estimatedOutcomes": 90,
+          "nativeComplete": 177,
+          "comparisonComplete": 207
+        },
+        {
+          "book": "bwin",
+          "nativeOutcomes": 531,
+          "estimatedOutcomes": 90,
+          "nativeComplete": 177,
+          "comparisonComplete": 207
+        }
+      ],
+      "doubleEmpty": 149
+    },
+    {
+      "geo": "CO",
+      "market": "TOTAL_GOALS",
+      "fixtures": 356,
+      "books": [
+        {
+          "book": "betsson",
+          "nativeOutcomes": 356,
+          "estimatedOutcomes": 58,
+          "nativeComplete": 178,
+          "comparisonComplete": 207
+        },
+        {
+          "book": "bwin",
+          "nativeOutcomes": 354,
+          "estimatedOutcomes": 60,
+          "nativeComplete": 177,
+          "comparisonComplete": 207
+        }
+      ],
+      "doubleEmpty": 149
+    },
+    {
+      "geo": "CO",
+      "market": "BTTS",
+      "fixtures": 356,
+      "books": [
+        {
+          "book": "betsson",
+          "nativeOutcomes": 360,
+          "estimatedOutcomes": 54,
+          "nativeComplete": 180,
+          "comparisonComplete": 207
+        },
+        {
+          "book": "bwin",
+          "nativeOutcomes": 354,
+          "estimatedOutcomes": 60,
+          "nativeComplete": 177,
+          "comparisonComplete": 207
+        }
+      ],
+      "doubleEmpty": 149
+    },
+    {
+      "geo": "PE",
+      "market": "MATCH_WINNER",
+      "fixtures": 356,
+      "books": [
+        {
+          "book": "inkabet",
+          "nativeOutcomes": 531,
+          "estimatedOutcomes": 36,
+          "nativeComplete": 177,
+          "comparisonComplete": 189
+        },
+        {
+          "book": "1xbet",
+          "nativeOutcomes": 354,
+          "estimatedOutcomes": 213,
+          "nativeComplete": 118,
+          "comparisonComplete": 189
+        }
+      ],
+      "doubleEmpty": 167
+    },
+    {
+      "geo": "PE",
+      "market": "TOTAL_GOALS",
+      "fixtures": 356,
+      "books": [
+        {
+          "book": "inkabet",
+          "nativeOutcomes": 356,
+          "estimatedOutcomes": 26,
+          "nativeComplete": 178,
+          "comparisonComplete": 191
+        },
+        {
+          "book": "1xbet",
+          "nativeOutcomes": 240,
+          "estimatedOutcomes": 142,
+          "nativeComplete": 120,
+          "comparisonComplete": 191
+        }
+      ],
+      "doubleEmpty": 165
+    },
+    {
+      "geo": "PE",
+      "market": "BTTS",
+      "fixtures": 356,
+      "books": [
+        {
+          "book": "inkabet",
+          "nativeOutcomes": 360,
+          "estimatedOutcomes": 22,
+          "nativeComplete": 180,
+          "comparisonComplete": 191
+        },
+        {
+          "book": "1xbet",
+          "nativeOutcomes": 235,
+          "estimatedOutcomes": 147,
+          "nativeComplete": 117,
+          "comparisonComplete": 191
+        }
+      ],
+      "doubleEmpty": 165
+    }
+  ]
+}
