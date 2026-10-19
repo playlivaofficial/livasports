@@ -1,5 +1,6 @@
 import {describe,expect,it,vi} from 'vitest';
 vi.mock('server-only',()=>({}));
+vi.mock('@/editorial/server',()=>({publishedSitemap:vi.fn(async()=>[])}));
 vi.mock('next/server',()=>({connection:async()=>undefined}));
 vi.mock('@/sports/sitemap-runtime',()=>({loadCompetitionSitemapSummaries:vi.fn(async()=>[{slug:'premier-league',seasonId:'11111111-1111-4111-8111-111111111111',upcoming:3,results:10,standings:true,scorers:true,teams:true,updatedAt:new Date('2026-09-17T13:15:13Z')}])}));
 vi.mock('@/match-center/runtime',()=>({

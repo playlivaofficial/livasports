@@ -1,0 +1,8 @@
+import type {ToolId} from '../routes';
+/** Original interface illustrations, not photographs or fabricated team graphics. */
+export function ToolPreview({id}:{id:ToolId}){
+ if(id==='odds-calculator')return <div className="ed-tool-preview ed-tool-maths" aria-hidden="true"><span>1.85 <b>×</b> 2.10</span><strong>3.885</strong><div><i>1</i><i>2</i><i>3</i><i>+</i><i>4</i><i>5</i><i>6</i><i>×</i></div></div>;
+ if(id==='football-quiz')return <div className="ed-tool-preview ed-tool-quiz" aria-hidden="true"><span>01 <i>/ 10</i></span><strong>?</strong><div><b>A</b><b>B ✓</b><b>C</b></div></div>;
+ const tactical=id==='tactical-board';
+ return <div className={`ed-tool-preview ${tactical?'ed-tool-tactics':'ed-tool-lineup'}`} aria-hidden="true"><svg viewBox="0 0 300 170" fill="none"><path d="M32 17h236v136H32ZM150 17v136M32 55h36v60H32M268 55h-36v60h36" stroke="currentColor" strokeWidth="1.2"/><circle cx="150" cy="85" r="22" stroke="currentColor"/>{(tactical?[[70,85],[130,48],[130,120],[211,85]]:[[48,85],[89,35],[89,68],[89,102],[89,137],[148,48],[145,85],[148,123],[222,35],[232,85],[222,137]]).map(([x,y],i)=><g key={i}><circle cx={x} cy={y} r={tactical?8:7} fill={tactical?'#ffd48e':'#d9ffe8'}/>{!tactical?<text x={x} y={y+2.7} textAnchor="middle" fontSize="7" fontWeight="700" fill="#0d4430">{i+1}</text>:null}</g>)}{tactical?<><path d="m78 81 42-29m-8-2 10 0-3 10m16-2 65 25m-7-9 9 10-13 1m12 7-57 25m10-9-13 10 14 2" stroke="#c8ffe3" strokeWidth="2" strokeDasharray="5 4"/><circle cx="168" cy="114" r="7" stroke="#82bba7"/><circle cx="176" cy="59" r="7" stroke="#82bba7"/></>:null}</svg><span>{tactical?'↗  ·  →  ·  ↘':'4 — 3 — 3'}</span></div>;
+}

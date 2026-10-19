@@ -1,0 +1,8 @@
+import {tr} from '@/v2/content';
+
+/** Only reviewed, locally optimized assets. No arbitrary remote image URL is accepted by the CMS. */
+export const editorialAssets={
+  'old-trafford':{base:'/editorial/old-trafford',width:1920,height:1440,credit:'Samuel Regan-Asante / Unsplash',source:'https://unsplash.com/photos/people-watching-football-game-during-nighttime-abV5LdRGo_k',license:'https://unsplash.com/license',alt:tr('Archive photograph of a football match and spectators at Old Trafford, Manchester','Fotografía de archivo de un partido y su público en Old Trafford, Manchester','Fotografia de arquivo de uma partida e seu público em Old Trafford, Manchester')},
+  azteca:{base:'/editorial/azteca',width:1920,height:1280,credit:'Guido Coppa / Unsplash',source:'https://unsplash.com/photos/people-watching-football-game-during-daytime-cakwIZDHvqE',license:'https://unsplash.com/license',alt:tr('An archive view of the stands and pitch at Estadio Azteca, Mexico City','Vista de archivo de las gradas y el campo del Estadio Azteca, Ciudad de México','Vista de arquivo das arquibancadas e do gramado do Estádio Azteca, Cidade do México')},
+  campin:{base:'/editorial/campin',width:1920,height:3413,credit:'Melissa García / Pexels',source:'https://www.pexels.com/photo/stadium-estadio-nemesio-camacho-el-campin-in-bogota-colombia-12653301/',license:'https://www.pexels.com/license/',alt:tr('An archive view of El Campín stadium beneath cloudy skies in Bogotá','Vista de archivo del estadio El Campín bajo un cielo nublado en Bogotá','Vista de arquivo do estádio El Campín sob céu nublado em Bogotá')},
+} as const;
