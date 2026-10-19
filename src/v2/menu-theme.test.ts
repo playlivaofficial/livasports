@@ -19,4 +19,9 @@ describe('expanded V2 language menu theme parity',()=>{
     expect(contrast(token(rule,'text'),token(rule,'surface'))).toBeGreaterThanOrEqual(4.5);
     expect(contrast(token(rule,'green'),token(rule,'soft'))).toBeGreaterThanOrEqual(4.5);
   });
+  it.each([':root','html[data-theme=dark]'])('%s Owner preview buttons remain readable',selector=>{
+    const rule=css.slice(css.indexOf(selector+'{')).split('}')[0];
+    expect(css).toContain('.owner-preview-page button{background:var(--v2-green);color:var(--v2-surface);');
+    expect(contrast(token(rule,'surface'),token(rule,'green'))).toBeGreaterThanOrEqual(4.5);
+  });
 });
