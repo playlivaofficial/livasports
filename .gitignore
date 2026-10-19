@@ -91,3 +91,5 @@ output/strict-*-private.*
 output/odds-*-private.*
 output/unified-*-private.*
 output/v2-qa/
+output/v3-source-audit/
+output/v3-qa/

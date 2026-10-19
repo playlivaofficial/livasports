@@ -1,12 +1,12 @@
-/** Bounded public V2 release crawl: no credentials, DB writes, affiliate or provider calls. */
+/** Bounded public V3 release crawl: no credentials, DB writes, affiliate or provider calls. */
 import {spawn,type ChildProcess} from 'node:child_process';
 import {setTimeout as delay} from 'node:timers/promises';
 import {load} from 'cheerio';
-import {SaxesParser} from 'saxes';
-import {editorialSitemapClusters} from '../src/v2/seo';
 import {interfaceLocales,languageTags} from '../src/localization/interface';
 import {v2Path} from '../src/v2/routes';
-import {newsPath} from '../src/editorial/copy';
+import {leagues} from '../src/v2/leagues';
+import {competitions,competitionPath,sportsPath,sportIds} from '../src/multisport/catalog';
+import {auditSitemapInventory,selectAuditPages,auditClusterLocales,auditClusterFallback} from './v2-route-inventory';
 
 const start=process.argv.includes('--start'),preview=process.argv.includes('--preview');
 const origin=start?'http://127.0.0.1:3148':process.argv.find(arg=>/^https?:\/\//.test(arg))??'https://livasports.com';
@@ -17,8 +17,8 @@ const links=new Set<string>();let requests=0,server:ChildProcess|undefined;
 const fail=(path:string,problem:string)=>findings.push({path,problem});
 async function get(path:string){
  if(!path.startsWith('/')||path.startsWith('//')||/^\/(api|go|owner|qa)(\/|$)/.test(path))throw Error('SEO_PATH_NOT_PUBLIC');
- const old=seen.get(path);if(old)return old;if(++requests>260)throw Error('SEO_REQUEST_CAP');
- const response=await fetch(origin+path,{redirect:'manual',headers:{'user-agent':'LivaSports-V2-QA/1.0'},signal:AbortSignal.timeout(30000)});
+ const old=seen.get(path);if(old)return old;if(++requests>500)throw Error('SEO_REQUEST_CAP');
+ const response=await fetch(origin+path,{redirect:'manual',headers:{'user-agent':'LivaSports-V3-QA/1.0'},signal:AbortSignal.timeout(30000)});
  const result={status:response.status,body:await response.text(),headers:response.headers};seen.set(path,result);return result;
 }
 try{
@@ -31,37 +31,40 @@ try{
  if(preview){if(!/^Disallow:\s*\/\s*$/m.test(robots.body))fail('/robots.txt','PREVIEW_CRAWLABLE');}
  else{if(!/^Allow:\s*\/\s*$/m.test(robots.body)||/^Disallow:\s*\/\s*$/m.test(robots.body))fail('/robots.txt','PRODUCTION_BLOCKED');for(const path of ['/api/','/go/','/owner/','/qa/'])if(!robots.body.includes(`Disallow: ${path}`))fail('/robots.txt','PRIVATE_PATH_EXPOSED:'+path);if(!robots.body.includes('https://livasports.com/sitemap.xml'))fail('/robots.txt','SITEMAP_UNDECLARED');}
  const sitemap=await get('/sitemap.xml');if(sitemap.status!==200||!sitemap.headers.get('content-type')?.includes('xml'))fail('/sitemap.xml','HTTP_OR_TYPE');
- const parser=new SaxesParser();parser.on('error',()=>fail('/sitemap.xml','XML_INVALID'));parser.write(sitemap.body).close();
- const xml=load(sitemap.body,{xmlMode:true}),submitted=new Set(xml('url > loc').map((_,el)=>xml(el).text()).get());
- const newsSlugs=[...submitted].flatMap(url=>{const match=/^https:\/\/livasports\.com\/en\/news\/([a-z0-9-]+)$/.exec(url);return match?[match[1]]:[];});
- const clusters=[...editorialSitemapClusters(),...newsSlugs.map(slug=>Object.fromEntries(interfaceLocales.map(locale=>[locale,'https://livasports.com'+newsPath(locale,slug)])) as Record<typeof interfaceLocales[number],string>)],expected=new Set(clusters.flatMap(cluster=>Object.values(cluster)));
- if(submitted.size!==expected.size||[...submitted].some(url=>!expected.has(url)))fail('/sitemap.xml','INVENTORY_MISMATCH');
- for(const node of xml('url').toArray()){const loc=xml(node).find('loc').text(),lastmod=xml(node).find('lastmod').text();if(/\/(news|noticias)\//.test(loc)){if(!lastmod||!Number.isFinite(Date.parse(lastmod))||Date.parse(lastmod)>Date.now())fail(loc,'INVALID_NEWS_LASTMOD');}else if(lastmod)fail(loc,'ARTIFICIAL_LASTMOD');}
- for(const cluster of clusters)for(const locale of interfaceLocales){
-  const canonical=cluster[locale],path=new URL(canonical).pathname,result=await get(path),$=load(result.body),problems:string[]=[];
+ const inventory=auditSitemapInventory(sitemap.body);findings.push(...inventory.findings);
+ const sample=selectAuditPages(inventory.clusters),sampledUrls=new Set(sample.map(({cluster,locale})=>cluster.paths[locale]));
+ for(const {cluster:entry,locale} of sample){
+  const cluster=entry.paths,canonical=cluster[locale],path=new URL(canonical).pathname,result=await get(path),$=load(result.body),problems:string[]=[];
   const issue=(problem:string)=>{problems.push(problem);fail(path,problem);};
   if(result.status!==200)issue('HTTP');if($('h1').length!==1)issue('H1_COUNT');if($('html').attr('lang')!==languageTags[locale])issue('LANGUAGE');
   if(!$('title').text()||!$('meta[name=description]').attr('content'))issue('METADATA_MISSING');
   if($('link[rel=canonical]').length!==1||$('link[rel=canonical]').attr('href')!==canonical)issue('CANONICAL');
   const noindex=/noindex/i.test($('meta[name=robots]').map((_,el)=>$(el).attr('content')).get().join(',')+','+result.headers.get('x-robots-tag'));
   if(noindex!==preview)issue(preview?'PREVIEW_INDEXABLE':'PRODUCTION_NOINDEX');
-  for(const target of interfaceLocales)if($(`link[hreflang="${languageTags[target]}"]`).attr('href')!==cluster[target])issue('HREFLANG:'+target);
-  if($('link[hreflang="x-default"]').attr('href')!==cluster.en)issue('X_DEFAULT');
-  const node=xml('url').toArray().find(el=>xml(el).find('loc').text()===canonical);
-  for(const target of interfaceLocales)if(!node||xml(node).find(`xhtml\\:link[hreflang="${languageTags[target]}"]`).attr('href')!==cluster[target])issue('SITEMAP_HREFLANG:'+target);
+  for(const target of interfaceLocales){const link=$(`link[hreflang="${languageTags[target]}"]`);if(auditClusterLocales(entry).includes(target)?link.attr('href')!==cluster[target]:link.length!==0)issue('HREFLANG:'+target);}
+  if($('link[hreflang="x-default"]').attr('href')!==auditClusterFallback(entry))issue('X_DEFAULT');
+  if(entry.competitionId&&$('.ms-source time').first().attr('datetime')!==entry.lastmod)issue('SOURCE_LASTMOD_MISMATCH');
   $('a[href]').each((_,el)=>{const href=$(el).attr('href')!;if(href.startsWith('/')&&!href.startsWith('//'))links.add(href.split(/[?#]/)[0]);if(/^\/go(?:\/|$)/.test(href))issue('ACTIVE_AFFILIATE_LINK');});
   $('script[type="application/ld+json"]').each((_,el)=>{try{const value=JSON.parse($(el).text());if(/"(aggregateRating|offers)"/.test(JSON.stringify(value)))issue('UNVERIFIED_COMMERCIAL_SCHEMA');}catch{issue('INVALID_JSON_LD');}});
   records.push({path,status:result.status,problems});
  }
- // Every indexable page must be discoverable from ordinary server-rendered anchors.
- for(const canonical of expected){const path=new URL(canonical).pathname;if(!links.has(path))fail(path,'ORPHAN_IN_CRAWLED_HTML');}
+ // Check discoverability for the HTML sample, without claiming a full entity crawl.
+ for(const canonical of sampledUrls){const path=new URL(canonical).pathname;if(!links.has(path))fail(path,'ORPHAN_IN_CRAWLED_HTML_SAMPLE');}
  for(const locale of interfaceLocales){
   for(const path of [v2Path(locale,'search'),v2Path(locale,'bookmakers','betsson')]){const r=await get(path),$=load(r.body);if(r.status!==200||!/noindex/i.test($('meta[name=robots]').attr('content')??''))fail(path,'PENDING_OR_SEARCH_INDEXABLE');}
   const obsolete=`/${locale}/${locale==='en'?'live':locale==='br'?'ao-vivo':'en-vivo'}`,gone=await get(obsolete);if(gone.status!==410)fail(obsolete,'RETIRED_LIVE_NOT_410');
   const invalid=`/${locale}/this-v2-route-does-not-exist`,missing=await get(invalid);if(missing.status!==404)fail(invalid,'UNKNOWN_NOT_404');
+  for(const invalid of [sportsPath(locale,'not-a-sport'),sportsPath(locale,'football','not-a-competition')])if((await get(invalid)).status!==404)fail(invalid,'UNKNOWN_SPORTS_NOT_404');
+  for(const section of ['football','leagues'] as const){const path=v2Path(locale,section),r=await get(path);if(![301,308].includes(r.status)||!r.headers.get('location')?.endsWith(sportsPath(locale,'football')))fail(path,'HUB_CANONICAL_REDIRECT');}
+  for(const league of leagues){const path=v2Path(locale,'leagues',league.id),r=await get(path);if(![301,308].includes(r.status)||!r.headers.get('location')?.endsWith(competitionPath(locale,league.id)))fail(path,'LEAGUE_CANONICAL_REDIRECT');}
+  const legacyQuery=v2Path(locale,'football')+'?competition=liga-mx',r=await get(legacyQuery);if(r.status!==301||!r.headers.get('location')?.endsWith(competitionPath(locale,'liga-mx')))fail(legacyQuery,'MIGRATION_REDIRECT');
  }
- for(const [path,destination] of [['/sports-sitemaps.xml','/sitemap.xml'],['/mx/futbol?competition=liga-mx','/mx/ligas/liga-mx']]){const r=await get(path);if(r.status!==301||!r.headers.get('location')?.endsWith(destination))fail(path,'MIGRATION_REDIRECT');}
+ for(const sport of sportIds){
+  const unsupported=competitions.find(item=>item.sport===sport&&['PENDING_SOURCE','RIGHTS_BLOCKED','UNAVAILABLE'].includes(item.coverageStatus)&&!inventory.clusters.some(cluster=>cluster.competitionId===item.id));if(!unsupported)continue;
+  const path=competitionPath('en',unsupported.id),r=await get(path),$=load(r.body);if(r.status!==200||!/noindex/i.test($('meta[name=robots]').attr('content')??''))fail(path,'UNSUPPORTED_COMPETITION_INDEXABLE');
+ }
+ const retiredSitemap=await get('/sports-sitemaps.xml');if(retiredSitemap.status!==301||!retiredSitemap.headers.get('location')?.endsWith('/sitemap.xml'))fail('/sports-sitemaps.xml','MIGRATION_REDIRECT');
  const gone=await get('/sports-sitemaps/matches-0.xml');if(gone.status!==410)fail('/sports-sitemaps/matches-0.xml','RETIRED_BATCH_NOT_410');
- console.log(JSON.stringify({origin,mode:preview?'preview':'production',requests,indexablePages:expected.size,providerRequestsByCrawler:0,records,findings},null,2));process.exitCode=findings.length?1:0;
+ console.log(JSON.stringify({origin,mode:preview?'preview':'production',requests,indexablePages:inventory.expected.size,xmlPagesValidated:inventory.submitted.size,htmlPagesSampled:sample.length,htmlPagesNotSampled:inventory.expected.size-sample.length,providerRequestsByCrawler:0,records,findings},null,2));process.exitCode=findings.length?1:0;
 }catch(error){console.log(JSON.stringify({origin,requests,findings,error:error instanceof Error?error.message:'SEO_CHECK_FAILED'}));process.exitCode=1;}
 finally{server?.kill();}

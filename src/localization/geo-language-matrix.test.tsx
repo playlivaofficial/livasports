@@ -2,7 +2,7 @@ import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
 import {renderToStaticMarkup} from 'react-dom/server';
 import {load} from 'cheerio';
 import {NextRequest} from 'next/server';
-import {defaultLanguage,languageCookie,publicLanguages} from './interface';
+import {defaultLanguage,languageSwitchTarget,languageCookie,publicLanguages} from './interface';
 import {LanguageSelector} from './LanguageSelector';
 import {POST} from '@/app/language/route';
 import {GET as presentation} from '@/app/api/presentation/route';
@@ -52,7 +52,8 @@ describe('public language × trusted GEO matrix',()=>{
     const form=new URLSearchParams({locale:language,returnTo:'/pe/futbol?competition=champions-league#fixtures-content'});
     headers.set('origin','https://livasports.com');
     const switched=await POST(new NextRequest('https://livasports.com/language',{method:'POST',headers,body:form}));
-    expect(switched.status).toBe(303);expect(switched.headers.get('location')).toContain(`/${locale}/${locale==='br'?'futebol':locale==='en'?'football':'futbol'}?competition=champions-league#fixtures-content`);
+    const target=languageSwitchTarget(language,'/pe/futbol',geo);
+    expect(switched.status).toBe(303);expect(switched.headers.get('location')).toContain(`/${target}/${target==='br'?'futebol':target==='en'?'football':'futbol'}?competition=champions-league#fixtures-content`);
     expect(switched.headers.getSetCookie()).toHaveLength(1);expect(switched.headers.get('set-cookie')).toContain(`${languageCookie}=${language}`);
     const after=new Headers(headers);after.set('cookie',switched.headers.get('set-cookie')!.split(';')[0]);
     expect(requestEffectiveGeo(after)).toBe(geo);expect(requestCommercialGeo(after)).toBe(isCoreGeo(geo)?geo:null);
@@ -84,7 +85,7 @@ describe('public language × trusted GEO matrix',()=>{
     const [context,enabled]=f.offer.mock.calls[0] as unknown as [Parameters<typeof parseContext>[0],boolean];
     expect(enabled).toBe(isCoreGeo(geo));if(enabled){const parsed=parseContext(context)!;expect(parsed.locale).toBe(body.commercialLocale);expect(geoAllowed(new Request('https://livasports.com',{headers:after}),parsed.locale)).toBe(true);expect(parsed.pagePath).toBe('/'+body.commercialLocale);}
     const selector=load(renderToStaticMarkup(<LanguageSelector locale={locale}/>));
-    expect(selector('button').map((_i,e)=>selector(e).text().replace('✓','')).get()).toEqual(['Español','Português','English']);
+    expect(selector('button').map((_i,e)=>selector(e).text().replace('✓','')).get()).toEqual(['ES — Español','EN — English','PT — Português']);
     expect(selector('button[aria-current=true]').attr('value')).toBe(language);
   });
 

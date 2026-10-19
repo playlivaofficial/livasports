@@ -1,5 +1,5 @@
 import type {DatabaseClient,QueryExecutor} from '@/database/client';
-import {transitionNews,safeNewsDraft,type NewsDraft,type NewsRecord,type PublishedNews} from './model';
+import {transitionNews,safeNewsDraft,resetTranslationReviews,canonicalSourceUrl,type NewsDraft,type NewsRecord,type PublishedNews} from './model';
 
 const columns='slug,draft,published,revision,reviewed_revision AS "reviewedRevision",reviewed_at::text AS "reviewedAt",archived';
 export class NewsRepository {
@@ -18,16 +18,27 @@ export class NewsRepository {
       if(input.action==='create'){
         if(row)throw new Error('REVISION_CONFLICT');
         if(!input.draft||input.draft.slug!==input.slug||!safeNewsDraft(input.draft))throw new Error('INVALID_DRAFT');
-        row={slug:input.slug,draft:input.draft,published:null,revision:1,reviewedRevision:null,reviewedAt:null,archived:false};
+        row={slug:input.slug,draft:resetTranslationReviews(input.draft),published:null,revision:1,reviewedRevision:null,reviewedAt:null,archived:false};
+        await assertUniqueSource(db,row);
         await db.query('INSERT INTO editorial_news(slug,draft) VALUES ($1,$2)',[row.slug,JSON.stringify(row.draft)]);
       }else{
         if(!row)throw new Error('NOT_FOUND');
         if(input.revision!==row.revision)throw new Error('REVISION_CONFLICT');
         row=transitionNews(row,input.action,input.draft,now);
+        if(input.action!=='archive')await assertUniqueSource(db,row);
         await db.query(`UPDATE editorial_news SET draft=$2,published=$3,revision=$4,reviewed_revision=$5,archived=$6,reviewed_at=$7,edited_at=now() WHERE slug=$1`,[row.slug,JSON.stringify(row.draft),row.published?JSON.stringify(row.published):null,row.revision,row.reviewedRevision,row.archived,row.reviewedAt]);
       }
       await audit(db,row,input.action);return row;
     });
   }
+}
+/** Runs under the same transaction/advisory lock as every newsroom mutation.
+ * Includes archived records and both snapshots: an edited draft must not release
+ * a source URL that is still referenced by its public version. Never LIMIT this check.
+ */
+async function assertUniqueSource(db:QueryExecutor,row:NewsRecord){
+  const source=canonicalSourceUrl(row.draft.sourceUrl);if(!source)return;
+  const existing=await db.query<{draftSource:string|null;publishedSource:string|null}>(`SELECT draft->>'sourceUrl' AS "draftSource",published->>'sourceUrl' AS "publishedSource" FROM editorial_news WHERE slug<>$1`,[row.slug]);
+  if(existing.rows.some(item=>[item.draftSource,item.publishedSource].some(value=>canonicalSourceUrl(value)===source)))throw new Error('DUPLICATE_SOURCE');
 }
 async function audit(db:QueryExecutor,row:NewsRecord,action:string){await db.query('INSERT INTO editorial_news_audit(slug,action,revision,snapshot) VALUES ($1,$2,$3,$4)',[row.slug,action,row.revision,JSON.stringify(row)]);}

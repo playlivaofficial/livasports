@@ -27,7 +27,7 @@ export async function newsroomRequest(request:Request,deps:Dependencies):Promise
     return reply({record});
   }catch(error){
     const reason=error instanceof Error?error.message:'';
-    const statuses:Record<string,number>={REVISION_CONFLICT:409,NOT_FOUND:404,INVALID_DRAFT:400,SLUG_IMMUTABLE:400,REVIEW_REQUIRED:409,RATE_LIMITED:429};
+    const statuses:Record<string,number>={REVISION_CONFLICT:409,DUPLICATE_SOURCE:409,NOT_FOUND:404,INVALID_DRAFT:400,SLUG_IMMUTABLE:400,REVIEW_REQUIRED:409,RATE_LIMITED:429};
     return reply({error:statuses[reason]?reason:'NEWSROOM_UNAVAILABLE'},statuses[reason]??503);
   }
 }

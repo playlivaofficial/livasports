@@ -10,8 +10,8 @@ import {translateEditorialPath} from '@/v2/routes';
 // Presentation preferences never replace the existing commercial jurisdiction.
 export type InterfaceLocale=SiteLocale|'en';
 export type PublicLanguage='es'|'pt'|'en';
-export const publicLanguages=['es','pt','en'] as const;
-export const publicLanguageNames={es:'Español',pt:'Português',en:'English'} as const;
+export const publicLanguages=['es','en','pt'] as const;
+export const publicLanguageNames={es:'Español',en:'English',pt:'Português'} as const;
 export function publicLanguage(locale:InterfaceLocale):PublicLanguage{return locale==='br'?'pt':locale==='en'?'en':'es';}
 /** Migrate legacy language cookies without treating their country as a GEO choice. */
 export function languagePreference(value:unknown):PublicLanguage|null{
@@ -24,12 +24,29 @@ export const languageTags={br:'pt-BR',mx:'es-MX',co:'es-CO',pe:'es-PE',en:'en'} 
 export const interfaceRoutes={...localeRoutes,en:{home:'/en',football:'/en/football',live:'/en/live',today:'/en/matches/today'}} as const;
 export function isInterfaceLocale(value:unknown):value is InterfaceLocale{return interfaceLocales.includes(value as InterfaceLocale);}
 export function pathLocale(path:string):InterfaceLocale|null{const value=path.split('/')[1];return isInterfaceLocale(value)?value:null;}
-export function defaultLanguage(preference:unknown,country:unknown):InterfaceLocale{
-  const language=languagePreference(preference);
+/** Accept-Language is a presentation hint only. It never supplies commercial country. */
+export function browserLanguage(value:unknown):PublicLanguage|null{
+  if(typeof value!=='string'||value.length>2048)return null;
+  const candidates=value.split(',').slice(0,32).flatMap((entry,index)=>{
+    const [tag,...parameters]=entry.trim().split(';'),language=tag.toLowerCase().split('-')[0];
+    if(!publicLanguages.includes(language as PublicLanguage))return [];
+    const quality=parameters.find(parameter=>parameter.trim().toLowerCase().startsWith('q='));
+    const raw=quality?.trim().slice(2)??'1';if(!/^(?:0(?:\.\d{0,3})?|1(?:\.0{0,3})?)$/.test(raw))return [];
+    const q=Number(raw);return q>0?[{language:language as PublicLanguage,q,index}]:[];
+  });
+  return candidates.sort((a,b)=>b.q-a.q||a.index-b.index)[0]?.language??null;
+}
+export function defaultLanguage(preference:unknown,country:unknown,acceptLanguage?:unknown):InterfaceLocale{
+  const language=languagePreference(preference)??browserLanguage(acceptLanguage);
   if(language==='pt')return 'br';
   if(language==='en')return 'en';
   if(language==='es')return country==='CO'?'co':country==='PE'?'pe':'mx';
-  return country==='MX'?'mx':country==='CO'?'co':country==='PE'?'pe':country==='BR'?'br':'en';
+  return country==='MX'||country==='ES'?'mx':country==='CO'?'co':country==='PE'?'pe':country==='BR'||country==='PT'?'br':'en';
+}
+/** Keep a Spanish editorial namespace when already viewing it; do not turn language into GEO. */
+export function languageSwitchTarget(preference:PublicLanguage,returnTo:string,country:unknown):InterfaceLocale{
+  const current=pathLocale(returnTo.split(/[?#]/)[0]);
+  return current&&publicLanguage(current)===preference?current:defaultLanguage(preference,country);
 }
 export function matchPath(locale:InterfaceLocale,id:string,home:string,away:string){
   return locale==='en'?`/en/match/${slugifyMatch(home,away)}-${id}`:legacyMatchPath(locale,id,home,away);

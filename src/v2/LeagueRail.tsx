@@ -1,11 +1,8 @@
 'use client';
 import Link from 'next/link';
 import type {InterfaceLocale} from '@/localization/interface';
-import {leagues,leagueCountry} from './leagues';
-import {useEditorialEdition} from './Header';
-import {v2Path} from './routes';
+import {competitionPath,competitionById,sportName,type CatalogSport} from '@/multisport/catalog';
 export function LeagueRail({locale}:{locale:InterfaceLocale}){
-  const edition=useEditorialEdition(locale),first=edition==='co'?'colombia-primera-a':edition==='pe'?'peru-liga-1':'liga-mx';
-  const ordered=[...leagues].sort((a,b)=>a.id===first?-1:b.id===first?1:0);
-  return <div className="v2-league-rail">{ordered.map(league=><Link className="v2-league-tile" key={league.id} href={v2Path(locale,'leagues',league.id)}><strong className="ed-league-wordmark" data-league={league.id}>{league.name}</strong><span>{leagueCountry(league,locale)}</span></Link>)}</div>;
+  const ids=['liga-mx','colombia-primera-a','peru-liga-1','champions-league','nba','euroleague','mlb','nfl','nhl','ufc','atp-rankings','wta-rankings'];
+  return <div className="v2-league-rail">{ids.map(id=>{const competition=competitionById(id)!;return <Link className="v2-league-tile ms-league-tile" key={id} href={competitionPath(locale,id)}><span className="ms-league-sport">{sportName(competition.sport as CatalogSport,locale)}</span><strong>{competition.officialName}</strong><span>{competition.region}</span></Link>;})}</div>;
 }

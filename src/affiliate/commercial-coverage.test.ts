@@ -149,8 +149,8 @@ describe('the retired public growth box stays retired',()=>{
 
 describe('the public language menu offers languages, never jurisdictions',()=>{
   it('lists exactly the three supported languages',()=>{
-    expect([...publicLanguages]).toEqual(['es','pt','en']);
-    expect(Object.values(publicLanguageNames)).toEqual(['Español','Português','English']);
+    expect([...publicLanguages]).toEqual(['es','en','pt']);
+    expect(Object.values(publicLanguageNames)).toEqual(['Español','English','Português']);
     // A jurisdiction must never be selectable as a language: GEO comes from the trusted edge only.
     for(const geo of ['México','Colombia','Perú','Brasil','Mexico','Peru','Brazil'])
       expect(Object.values(publicLanguageNames as Record<string,string>)).not.toContain(geo);

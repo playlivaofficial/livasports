@@ -5,6 +5,8 @@ import {NextRequest} from 'next/server';
 // its bundled Proxy documentation naming it unstable_doesProxyMatch.
 import {unstable_doesMiddlewareMatch as unstable_doesProxyMatch} from 'next/experimental/testing/server';
 import {config,proxy} from './proxy';
+import {interfaceLocales,interfaceRoutes} from '@/localization/interface';
+import {competitionPath,sportsPath} from '@/multisport/catalog';
 
 describe('narrow, database-free routing proxy',()=>{
   it.each(['/','/br/futebol','/mx/futbol','/co/futbol','/pe/futbol','/en/football','/mx/futbol?competition=liga-mx&tab=results'])(
@@ -17,7 +19,7 @@ describe('narrow, database-free routing proxy',()=>{
     '/en/match/home-x-away-0123456789abcdef','/br/time/team-0123456789abcdef','/mx/equipo/team-0123456789abcdef',
     '/en/team/team-0123456789abcdef','/br/jogador/name-0123456789abcdef','/mx/jugador/name-0123456789abcdef',
     '/en/player/name-0123456789abcdef','/mx/partido/not-valid','/br/futebol/unknown',
-    '/api/odds/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee','/api/auth/session','/api/commercial/offers','/api/owner/preview',
+    '/api/odds/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee','/api/auth/session','/api/presentation','/api/commercial/offers','/api/owner/preview',
     '/owner','/owner/growth','/mx/cuenta','/en/sign-in','/_next/static/chunk.js','/_next/image?url=image.png',
     '/favicon.ico','/robots.txt','/sitemap.xml','/sports-sitemaps.xml','/br/asset.png','/assets/logo.svg',
   ])('does not invoke a function before cache/auth/assets: %s',url=>{
@@ -45,9 +47,27 @@ describe('narrow, database-free routing proxy',()=>{
     const response=await proxy(new NextRequest('https://livasports.com/mx/futbol?competition=liga-mx',{
       headers:{'x-vercel-ip-country':'PE','x-livasports-interface-language':'br'},
     }));
-    expect(response.status).toBe(301);expect(response.headers.get('location')).toBe('https://livasports.com/mx/ligas/liga-mx');
+    expect(response.status).toBe(301);expect(response.headers.get('location')).toBe('https://livasports.com/mx/deportes/football/liga-mx');
     expect(response.headers.has('x-middleware-request-x-livasports-interface-language')).toBe(false);
     expect(response.headers.has('x-middleware-request-x-vercel-ip-country')).toBe(false);
     expect(response.headers.has('set-cookie')).toBe(false);
+  });
+  it.each(interfaceLocales)('redirects the %s football hub before streaming for GET and HEAD',async locale=>{
+    for(const method of ['GET','HEAD'])for(const suffix of ['','?utm_source=test','?competition=']){
+      const response=await proxy(new NextRequest('https://livasports.com'+interfaceRoutes[locale].football+suffix,{method}));
+      expect(response.status).toBe(308);expect(response.headers.get('location')).toBe('https://livasports.com'+sportsPath(locale,'football'));
+      expect(await response.text()).toBe('');expect(response.headers.has('set-cookie')).toBe(false);
+    }
+  });
+  it.each(interfaceLocales)('preserves %s competition intent without an obsolete league URL hop',async locale=>{
+    for(const method of ['GET','HEAD'])for(const tab of ['', '&tab=fixtures']){
+      const response=await proxy(new NextRequest('https://livasports.com'+interfaceRoutes[locale].football+'?competition=liga-mx'+tab,{method}));
+      expect(response.status).toBe(301);expect(response.headers.get('location')).toBe('https://livasports.com'+competitionPath(locale,'liga-mx'));
+      expect(await response.text()).toBe('');expect(response.headers.has('set-cookie')).toBe(false);
+    }
+    for(const tab of ['results','standings','teams','scorers']){
+      const response=await proxy(new NextRequest('https://livasports.com'+interfaceRoutes[locale].football+'?competition=liga-mx&tab='+tab));
+      expect(response.status).toBe(410);expect(response.headers.has('location')).toBe(false);
+    }
   });
 });

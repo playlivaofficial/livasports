@@ -1,6 +1,7 @@
 import {describe,expect,it,vi} from 'vitest';
 vi.mock('server-only',()=>({}));
 vi.mock('@/editorial/server',()=>({publishedSitemap:vi.fn(async()=>[])}));
+vi.mock('@/multisport/server',()=>({publishedSnapshots:vi.fn(async()=>[])}));
 vi.mock('next/server',()=>({connection:async()=>undefined}));
 vi.mock('@/sports/sitemap-runtime',()=>({loadCompetitionSitemapSummaries:vi.fn(async()=>[{slug:'premier-league',seasonId:'11111111-1111-4111-8111-111111111111',upcoming:3,results:10,standings:true,scorers:true,teams:true,updatedAt:new Date('2026-09-17T13:15:13Z')}])}));
 vi.mock('@/match-center/runtime',()=>({
@@ -52,7 +53,9 @@ it('/sitemap.xml is served as well-formed, escaped XML with the correct content 
   expect(response.headers.get('cache-control')).toContain('s-maxage');
   const body=await response.text();
   expect(sitemapXmlProblems(body)).toEqual([]);
-  expect(body).toContain('/en/leagues/premier-league</loc>');
+  expect(body).toContain('/en/sports/football</loc>');
+  expect(body).not.toContain('/en/leagues/premier-league</loc>');
+  expect(body).not.toContain('/en/sports/football/premier-league</loc>');
   expect(body).not.toMatch(/&tab=|\\?competition=/);
   expect(body.match(/<url>/g)).toHaveLength(editorialSitemapClusters().length*5);
   expect(loadCompetitionSitemapSummaries).not.toHaveBeenCalled();

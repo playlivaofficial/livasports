@@ -66,9 +66,9 @@ describe('media shutdown preserves daily intelligence',()=>{
     expect(html).not.toContain('Atualizar e gerar');expect(html).not.toContain('Regenerar plataforma');
     expect(repository.upsertGrowthSeoPriorities).not.toHaveBeenCalled();
   });
-  it('retires all deployed schedules while preserving the archived media safety service',()=>{
+  it('retires legacy media schedules while allowing only the bounded licensed V3 data refresh',()=>{
     const cron=JSON.parse(readFileSync('vercel.json','utf8')).crons;
-    expect(cron).toEqual([]);
+    expect(cron).toEqual([{path:'/api/internal/editorial/sports-refresh',schedule:'17 7 * * *'}]);
     const service=readFileSync(new URL('./service.ts',import.meta.url),'utf8');
     expect(service).not.toMatch(/renderSocialPackage|renderCanonicalStatics|databaseVoiceStore|acquireGrowthJob|finishGrowthJob|persistGrowthItem|rebuildCurrentGrowthQueue/);
     expect(readFileSync(new URL('./scheduler-server.ts',import.meta.url),'utf8')).toContain('runGrowthSelection');

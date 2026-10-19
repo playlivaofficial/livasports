@@ -1,0 +1,36 @@
+{
+  "auditDate": "2026-10-19",
+  "verification": "Unit-tested route translation, preference POST, canonical/hreflang compatibility and trusted-GEO isolation. No production route migration or redirect rollout performed by this change.",
+  "publicLanguages": ["es", "en", "pt"],
+  "routeSets": [
+    {"prefix": "/mx", "language": "es", "hreflang": "es-MX", "decision": "retain", "meaning": "Existing Spanish editorial namespace, not commercial authorization"},
+    {"prefix": "/co", "language": "es", "hreflang": "es-CO", "decision": "retain", "meaning": "Existing Colombian Spanish editorial namespace, not commercial authorization"},
+    {"prefix": "/pe", "language": "es", "hreflang": "es-PE", "decision": "retain", "meaning": "Existing Peruvian Spanish editorial namespace, not commercial authorization"},
+    {"prefix": "/br", "language": "pt", "hreflang": "pt-BR", "decision": "retain", "meaning": "Existing Portuguese namespace, usable worldwide; does not grant Brazil or any other GEO"},
+    {"prefix": "/en", "language": "en", "hreflang": "en", "decision": "retain", "meaning": "Existing global English namespace and x-default"}
+  ],
+  "initialVisit": {
+    "precedence": ["explicit existing path", "saved first-party language preference", "supported browser language", "trusted-country language default", "English"],
+    "geoDefaults": {"MX": "/mx", "CO": "/co", "PE": "/pe", "ES": "/mx", "BR": "/br", "PT": "/br", "other": "/en"},
+    "rootRedirect": "307, private no-store; Vary Cookie and Accept-Language",
+    "explicitPathPolicy": "No automatic locale redirect or cookie override on an explicit existing locale URL"
+  },
+  "manualSwitch": {
+    "es": "Keep an existing /mx, /co or /pe path; otherwise use /co for trusted CO, /pe for trusted PE, and /mx elsewhere",
+    "en": "/en",
+    "pt": "/br",
+    "persistence": "Only livasports_language HttpOnly, Secure on HTTPS, SameSite=Lax cookie; one year",
+    "response": "303 from same-origin POST /language; private no-store",
+    "preserve": ["article identity", "sport", "competition", "entity", "season", "recognized account/legal/tool routes", "query filters", "hash anchor", "authentication cookies", "Owner session and preview", "trusted commercial GEO"],
+    "rejectedReturnDestinations": ["external origins", "protocol-relative paths", "control characters", "backslashes", "unrecognized private routes"]
+  },
+  "examples": [
+    {"from": "/co/deportes/football/bundesliga/season/2026-27", "language": "es", "country": "MX", "to": "/co/deportes/football/bundesliga/season/2026-27"},
+    {"from": "/mx/deportes/basketball/nba", "language": "en", "country": "MX", "to": "/en/sports/basketball/nba"},
+    {"from": "/en/news?newsSport=basketball&newsTopic=nba&newsCountry=international#news-feed-heading", "language": "pt", "country": "GE", "to": "/br/noticias?newsSport=basketball&newsTopic=nba&newsCountry=international#news-feed-heading"},
+    {"from": "/br/esportes/tennis/atp-rankings", "language": "es", "country": "BR", "to": "/mx/deportes/tennis/atp-rankings"}
+  ],
+  "seo": "All five existing canonical/hreflang route sets remain. The selector has three conceptual language choices; no blanket /co or /pe redirect, no /es or /pt route invented, no sitemap consolidation in this change.",
+  "editorialFilters": "newsSport, newsTopic and newsCountry affect only NewsFeed content; they never persist or authorize a country. Obsolete editorial-edition localStorage is ignored.",
+  "commercialPolicy": "Unchanged: trusted MX/CO/PE only; BR, GE, US, ES, PT and unknown remain closed. Owner signed preview is private and independent. Campaigns remain inactive."
+}

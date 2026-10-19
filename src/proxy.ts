@@ -4,6 +4,7 @@ import {CANONICAL_COMPETITION_TARGETS} from '@/config/footballCompetitions';
 import {defaultLanguage,languageCookie,languageTags,interfaceRoutes,pathLocale,type InterfaceLocale} from '@/localization/interface';
 import {requestCountry,requestEffectiveGeo} from '@/odds/commercial-geo';
 import {competitionDisposition,retiredHtml} from '@/v2/retirement-policy';
+import {sportsPath} from '@/multisport/catalog';
 
 function competitionNotFound(locale:InterfaceLocale,head:boolean):Response {
   const text=locale==='en'?{title:'Competition not found',body:'This address does not match a covered competition.',back:'Back to football'}
@@ -18,10 +19,10 @@ export async function proxy(request:NextRequest):Promise<Response>{
     const geo=requestEffectiveGeo(request.headers);
     // BR is commercially ROW but retains an appropriate Portuguese default.
     const country=geo==='ROW'?requestCountry(request.headers):geo;
-    const language=defaultLanguage(request.cookies.get(languageCookie)?.value,country);
+    const language=defaultLanguage(request.cookies.get(languageCookie)?.value,country,request.headers.get('accept-language'));
     const response=NextResponse.redirect(new URL('/'+language,request.url),307);
     response.headers.set('cache-control','private, no-store');
-    response.headers.set('vary','Cookie');return response;
+    response.headers.set('vary','Cookie, Accept-Language');return response;
   }
   const locale=pathLocale(request.nextUrl.pathname)??'en';
   const requested=request.nextUrl.searchParams.get('competition');
@@ -29,6 +30,8 @@ export async function proxy(request:NextRequest):Promise<Response>{
   // Preserve genuine 404s before the board's streaming boundary, with no DB work.
   if(request.nextUrl.pathname===interfaceRoutes[locale].football&&requested&&!CANONICAL_COMPETITION_TARGETS.some(target=>target.slug===requested))return competitionNotFound(locale,request.method==='HEAD');
   if(request.nextUrl.pathname===interfaceRoutes[locale].football&&requested){const disposition=competitionDisposition(locale,requested,request.nextUrl.searchParams.get('tab'));return disposition.path?Response.redirect(new URL(disposition.path,request.url),301):new Response(request.method==='HEAD'?null:retiredHtml(locale),{status:410,headers:{'content-type':'text/html; charset=utf-8','cache-control':'public, max-age=300'}});}
+  // Redirect before the legacy football loading boundary can flush a 200/meta refresh.
+  if(request.nextUrl.pathname===interfaceRoutes[locale].football)return NextResponse.redirect(new URL(sportsPath(locale,'football'),request.url),308);
   const forwarded=new Headers(request.headers);
   forwarded.set('x-livasports-interface-language',locale);
   // Entity identities are validated inside ISR. Never put per-request GEO/DB

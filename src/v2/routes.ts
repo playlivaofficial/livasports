@@ -1,4 +1,5 @@
 import type {InterfaceLocale} from '@/localization/interface';
+import {translateSportsPath} from '@/multisport/catalog';
 
 export type EditorialLanguage='es'|'pt'|'en';
 export const editorialLanguage=(locale:InterfaceLocale):EditorialLanguage=>locale==='en'?'en':locale==='br'?'pt':'es';
@@ -11,6 +12,7 @@ export type Section=keyof typeof namespaces.en;
 export function v2Path(locale:InterfaceLocale,section?:Section,slug?:string){return `/${locale}${section?`/${namespaces[editorialLanguage(locale)][section]}`:''}${slug?`/${slug}`:''}`;}
 export function sectionFromSlug(locale:InterfaceLocale,slug:string):Section|undefined{return (Object.keys(namespaces.en) as Section[]).find(key=>namespaces[editorialLanguage(locale)][key]===slug);}
 export function translateEditorialPath(path:string,target:InterfaceLocale):string|null{
+  const sports=translateSportsPath(path,target);if(sports)return sports;
   const parts=path.split('/').filter(Boolean),source=parts[0] as InterfaceLocale;
   if(!['en','br','mx','co','pe'].includes(source)||parts.length<2||parts.length>3)return null;
   if(parts[1]===(source==='en'?'news':'noticias'))return `/${target}/${target==='en'?'news':'noticias'}${parts[2]?'/'+parts[2]:''}`;
