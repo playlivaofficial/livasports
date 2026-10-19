@@ -62,3 +62,6 @@ body[data-app="v2"] .owner-health a{color:var(--v2-green)}
 body[data-app="v2"] .owner-health-filters label{max-width:100%;flex-wrap:wrap}
 body[data-app="v2"] .owner-health-actions a{display:inline-flex;align-items:center}
 body[data-app="v2"] .v2-interactive-pitch:focus-visible{outline:3px solid var(--v2-green);outline-offset:4px}
+/* Do not inherit the legacy dark-header language colors in light V2 menus. */
+.v2-menu-panel .language-picker button{color:var(--v2-text);background:transparent;min-height:44px}
+.v2-menu-panel .language-picker button:hover,.v2-menu-panel .language-picker button[aria-current=true]{color:var(--v2-green);background:var(--v2-soft)}
