@@ -4,7 +4,7 @@ import {parseComparisonEvent,recordComparisonEvent,comparisonEvents} from '@/sli
 import {boundedJson} from '@/http/body';
 import {embedClickRequest,impressionRequest} from '@/affiliate/server';
 import {ownerPreview} from '@/owner/session';
-import {classifyTraffic,ingestClientBatch} from '@/analytics/server';
+import {analyticsOptedOut,classifyTraffic,ingestClientBatch} from '@/analytics/server';
 import {requestLimit} from '@/security/request-limit';
 import {SOURCE_BOOKMAKER_IDS} from '@/odds/registry';
 
@@ -15,6 +15,8 @@ export async function POST(request: Request): Promise<Response> {
   const origin=request.headers.get('origin');
   if(origin){try{if(new URL(origin).host!==new URL(request.url).host)return new Response(null,{status:403});}
     catch{return new Response(null,{status:403});}}
+  // No event parsing, rate-limit persistence or downstream telemetry for opted-out visitors.
+  if(analyticsOptedOut(request.headers))return new Response(null,{status:204,headers:{'Cache-Control':'private, no-store'}});
   const limited=await requestLimit(request,'events');if(limited)return limited;
   let body:Record<string,unknown>|null;
   try{body=await boundedJson(request,65536) as Record<string,unknown>|null;}

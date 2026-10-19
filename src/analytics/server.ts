@@ -9,6 +9,9 @@ import {BOT_UA,EVENT_VERSION,ID_PATTERN,MAX_BATCH_EVENTS,classifyPage,classifyRe
 export interface IngestionSummary {status:number;accepted:number;duplicates:number;rejected:number;unknown:number;missingSession:number;oversized:number;trafficClass:TrafficClass|null;}
 const ok=(summary:IngestionSummary)=>summary;
 
+/** Respect browser privacy signals at every server boundary, including direct callers. */
+export const analyticsOptedOut=(headers:Headers):boolean=>headers.get('dnt')==='1'||headers.get('sec-gpc')==='1';
+
 /** Coarse, honest traffic classification: owner session, explicit QA marker, obvious crawlers. No scoring, no fingerprints. */
 export function classifyTraffic(headers:Headers,qa=false):TrafficClass{
   if(requestOwnerSession(headers))return 'OWNER';
@@ -83,6 +86,7 @@ async function upsertSessions(db:QueryExecutor,events:readonly ClientEvent[],tra
 export async function ingestClientBatch(request:Request,body:unknown,db?:DatabaseClient):Promise<IngestionSummary>{
   const summary:IngestionSummary={status:204,accepted:0,duplicates:0,rejected:0,unknown:0,missingSession:0,oversized:0,trafficClass:null};
   if(!sameOrigin(request))return ok({...summary,status:403});
+  if(analyticsOptedOut(request.headers))return ok(summary);
   const b=body as {v?:unknown;batch?:unknown;qa?:unknown}|null;
   if(!b||b.v!==EVENT_VERSION||!Array.isArray(b.batch)||b.batch.length===0)return ok({...summary,status:400,rejected:1});
   if(b.batch.length>MAX_BATCH_EVENTS)return ok({...summary,status:413,oversized:1,rejected:b.batch.length});
@@ -138,6 +142,7 @@ export interface ServerEventInput extends EventEntities {
 }
 /** Server-authoritative events (affiliate redirect, sign-in/out, favorites). Attribution comes from the first-party cookies; never throws. */
 export async function recordServerEvent(input:ServerEventInput,db?:DatabaseClient):Promise<boolean>{
+  if(analyticsOptedOut(input.headers))return false;
   const client=db??open();if(!client)return false;
   try{
     const ids=analyticsIds(input.headers);
@@ -175,6 +180,7 @@ const cryptoId=()=>crypto.randomUUID().replace(/-/g,'').slice(0,24);
 
 /** Await only registration with Next's response lifecycle, not analytics I/O. Failed telemetry never delays a user mutation. */
 export async function deferServerEvent(input:ServerEventInput):Promise<void>{
+  if(analyticsOptedOut(input.headers))return;
   try{const {after}=await import('next/server');after(async()=>{await recordServerEvent(input);});}
   catch{console.warn('[LivaSports] {"event":"analytics-defer-unavailable","providerRequests":0}');}
 }

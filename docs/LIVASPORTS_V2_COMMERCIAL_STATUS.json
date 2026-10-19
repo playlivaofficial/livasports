@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "reviewDate": "2026-10-19",
+  "baselineCommit": "628b2d9bc674998ac28226bb68fbbb56a6717eea",
+  "scope": "Repository status inventory and defensive boundary verification. This document is not an activation configuration or commercial approval.",
+  "privatePartnerRecordsReviewed": false,
+  "evidence": {
+    "identityInventory": "src/odds/registry.ts",
+    "inactiveSlots": "src/v2/commercial.ts",
+    "disabledCta": "src/v2/CommercialSection.tsx",
+    "retiredOffers": "src/app/api/commercial/offers/route.ts",
+    "retiredRedirects": "src/app/go/[bookmaker]/[placement]/route.ts",
+    "postbackStub": "src/app/api/affiliate/postback/[bookmaker]/route.ts"
+  },
+  "notVerifiedInThisReview": [
+    "Current partner and jurisdiction approval for each country/operator pair",
+    "Private campaign identifier, version, destination allowlist and validity dates",
+    "Approved offer terms, assets and placements",
+    "Partner tracking documentation, reporting receipts and authenticated conversion handling"
+  ],
+  "runtime": {
+    "offersEndpoint": "retired_410",
+    "outboundEndpoints": "retired_410",
+    "postbackEndpoint": "unconfigured_404",
+    "paidSportsRuntime": "retired",
+    "providerRequestsEvidence": "The health response is a static policy declaration, not a provider billing measurement."
+  },
+  "pairs": [
+    {"countryCode": "MX", "operatorId": "betsson", "logoAsset": "/bookmakers/betsson.webp", "repositoryIdentity": "verified", "slotStatus": "pending_verification", "affiliateEnabled": false, "campaignApproval": "not_assessed"},
+    {"countryCode": "MX", "operatorId": "winpot.mx", "logoAsset": "/bookmakers/winpot.webp", "repositoryIdentity": "verified", "slotStatus": "pending_verification", "affiliateEnabled": false, "campaignApproval": "not_assessed"},
+    {"countryCode": "CO", "operatorId": "betsson", "logoAsset": "/bookmakers/betsson.webp", "repositoryIdentity": "verified", "slotStatus": "pending_verification", "affiliateEnabled": false, "campaignApproval": "not_assessed"},
+    {"countryCode": "CO", "operatorId": "bwin", "logoAsset": "/bookmakers/bwin.webp", "repositoryIdentity": "verified", "slotStatus": "pending_verification", "affiliateEnabled": false, "campaignApproval": "not_assessed"},
+    {"countryCode": "PE", "operatorId": "inkabet", "logoAsset": "/bookmakers/inkabet.webp", "repositoryIdentity": "verified", "slotStatus": "pending_verification", "affiliateEnabled": false, "campaignApproval": "not_assessed"},
+    {"countryCode": "PE", "operatorId": "1xbet", "logoAsset": "/bookmakers/1xbet.webp", "repositoryIdentity": "verified", "slotStatus": "pending_verification", "affiliateEnabled": false, "campaignApproval": "not_assessed"}
+  ]
+}

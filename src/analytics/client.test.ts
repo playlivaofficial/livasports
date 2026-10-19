@@ -3,16 +3,17 @@ import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
 /** Minimal browser fakes (no jsdom): storage, location, referrer, cookies, fetch. */
 function browser(url:string,referrer=''){
   const store=new Map<string,string>();const session=new Map<string,string>();
+  const listeners=new Map<string,()=>void>();
   const u=new URL(url);
   const g=globalThis as Record<string,unknown>;
   g.window=g;g.location={pathname:u.pathname,search:u.search,hostname:u.hostname,protocol:u.protocol};
-  g.document={referrer,cookie:'',visibilityState:'visible',addEventListener:()=>undefined};
+  g.document={referrer,cookie:'',visibilityState:'visible',addEventListener:(name:string,listener:()=>void)=>{listeners.set(name,listener);}};
   g.localStorage={getItem:(k:string)=>store.get(k)??null,setItem:(k:string,v:string)=>{store.set(k,v);},removeItem:(k:string)=>{store.delete(k);}};
   g.sessionStorage={getItem:(k:string)=>session.get(k)??null,setItem:(k:string,v:string)=>{session.set(k,v);},removeItem:(k:string)=>{session.delete(k);}};
-  Object.defineProperty(globalThis,'navigator',{value:{sendBeacon:()=>false},configurable:true});g.addEventListener=()=>undefined;
+  Object.defineProperty(globalThis,'navigator',{value:{sendBeacon:vi.fn(()=>false)},configurable:true});g.addEventListener=(name:string,listener:()=>void)=>{listeners.set(name,listener);};
   const sent:Array<{body:{v:number;batch:Array<Record<string,unknown>>}}>=[];
   g.fetch=vi.fn(async(_url:string,init:{body:string})=>{sent.push({body:JSON.parse(init.body)});return new Response(null,{status:204});});
-  return {store,session,sent,navigate:(next:string)=>{const nu=new URL(next);(g.location as Record<string,string>).pathname=nu.pathname;(g.location as Record<string,string>).search=nu.search;}};
+  return {store,session,sent,emit:(name:string)=>listeners.get(name)?.(),navigate:(next:string)=>{const nu=new URL(next);(g.location as Record<string,string>).pathname=nu.pathname;(g.location as Record<string,string>).search=nu.search;}};
 }
 const events=(sent:Array<{body:{batch:Array<Record<string,unknown>>}}>)=>sent.flatMap(s=>s.body.batch);
 let mod:typeof import('./client');
@@ -26,6 +27,23 @@ describe('P4 client: identity, sessions, attribution, dedupe and the slip funnel
     mod.trackNavigation('/en','');mod.track('search_used');
     await vi.advanceTimersByTimeAsync(2000);
     expect(b.store.size).toBe(0);expect(b.session.size).toBe(0);expect(document.cookie).toBe('');expect(b.sent).toEqual([]);
+  });
+  it.each([{doNotTrack:'1'},{globalPrivacyControl:true}])('discards queued events when privacy changes before the timer flush: %j',async privacy=>{
+    const b=browser('https://livasports.com/en');
+    mod.track('page_viewed');
+    Object.assign(navigator,privacy);
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(b.sent).toEqual([]);expect(navigator.sendBeacon).not.toHaveBeenCalled();
+    Object.assign(navigator,{doNotTrack:'0',globalPrivacyControl:false});
+    mod.track('search_used');await vi.advanceTimersByTimeAsync(2000);
+    expect(events(b.sent).map(event=>event.eventName)).toEqual(['search_used']);
+  });
+  it.each(['pagehide','visibilitychange'])('does not send a queued beacon after opt-out on %s',async name=>{
+    const b=browser('https://livasports.com/en');
+    mod.track('page_viewed');Object.assign(navigator,{globalPrivacyControl:true});
+    Object.assign(document,{visibilityState:'hidden'});b.emit(name);
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(b.sent).toEqual([]);expect(navigator.sendBeacon).not.toHaveBeenCalled();
   });
   it('links a comparison to canonical fixtures without emitting one duplicate event per leg',async()=>{
     const b=browser('https://livasports.com/co');
