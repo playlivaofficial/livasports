@@ -52,7 +52,7 @@ body[data-app=v2] .sr-only{position:absolute;width:1px;height:1px;padding:0;marg
 @media(max-width:359px){.v2-brand{font-size:15px}.v2-header-inner{padding:0 10px;gap:2px}.v2-edition select{max-width:60px}.v2-header-actions{gap:0}.v2-header .v2-icon-button,.v2-header .theme-toggle{width:44px;min-width:44px}}
 body[data-app="v2"] .owner-preview-page{max-width:900px;margin:36px auto 90px;padding:clamp(20px,4vw,40px);background:var(--v2-surface);color:var(--v2-text);border:1px solid var(--v2-border);border-radius:18px}
 body[data-app="v2"] .owner-preview-page :is(input,select,button){min-height:44px;max-width:100%;background:var(--v2-soft);color:var(--v2-text);border:1px solid var(--v2-border);border-radius:8px;padding:10px 14px}
-body[data-app="v2"] .owner-preview-page button{background:var(--v2-green);color:#073b23;font-weight:700;margin:5px}
+body[data-app="v2"] .owner-preview-page button{background:var(--v2-green);color:var(--v2-surface);font-weight:700;margin:5px}
 body[data-app="v2"] .owner-preview-page a{display:inline-flex;min-height:44px;align-items:center;margin:5px 10px;color:var(--v2-green)}
 body[data-app="v2"] .owner-health{color:var(--v2-text);background:var(--v2-surface);border-color:var(--v2-border);margin-bottom:90px;overflow-wrap:anywhere}
 body[data-app="v2"] .owner-health :is(.owner-health-card,.owner-health-filters,.owner-health-notice,input,select,code){background:var(--v2-soft);color:var(--v2-text);border-color:var(--v2-border)}
@@ -62,3 +62,6 @@ body[data-app="v2"] .owner-health a{color:var(--v2-green)}
 body[data-app="v2"] .owner-health-filters label{max-width:100%;flex-wrap:wrap}
 body[data-app="v2"] .owner-health-actions a{display:inline-flex;align-items:center}
 body[data-app="v2"] .v2-interactive-pitch:focus-visible{outline:3px solid var(--v2-green);outline-offset:4px}
+/* Do not inherit the legacy dark-header language colors in light V2 menus. */
+.v2-menu-panel .language-picker button{color:var(--v2-text);background:transparent;min-height:44px}
+.v2-menu-panel .language-picker button:hover,.v2-menu-panel .language-picker button[aria-current=true]{color:var(--v2-green);background:var(--v2-soft)}

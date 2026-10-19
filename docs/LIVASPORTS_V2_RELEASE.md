@@ -54,6 +54,8 @@ Social card: built-in image edit of the existing owned LivaSports brand card; ex
 
 ## Release/rollback and outstanding activation
 
+Production acceptance of PR #70 (`9f95316d7edb97c05e5d5427284d75d4a6d40885`, Vercel `dpl_93Z2AEPk57VzsBb6sYz7Kgzgq4sc`) passed the 165-page crawl, 200 responsive/theme checks, preserved Google/Owner sessions, signed MX/CO/PE inactive-slot checks, tool interactions and a 14-document remote secret scan. Vercel shows no scheduled jobs and zero runtime warnings/errors in the bounded acceptance window. Expanded light-mode controls exposed inherited pale language-menu text and dark-on-dark Owner preview button text; the follow-up changes only scoped V2 colors and adds contrast regressions. Final deployment evidence is recorded in the follow-up PR.
+
 Merge only through reviewed PR with hosted CI and existing Vercel preview; then verify production SHA/domain, pages/tools/accounts/Owner/retired APIs and absence of cron schedules. Record deployment evidence in the PR/final report. No second Vercel/Neon project. Roll back by reviewed revert or prior verified deployment promotion, never reset/force-push or wipe DB. Restoring old code can restore paid jobs, so review schedules before any rollback.
 
 `CLAUDE_AFFILIATE_HANDOFF.md` is the activation contract. All six country/operator slots remain inactive; no legacy destination migrated. Historical postback records/handler remain preserved, but placeholders do not create referrals or revenue.
