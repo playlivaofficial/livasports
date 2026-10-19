@@ -1,7 +1,7 @@
 import 'server-only';
 import {authorizedOwnerKey,newOwnerSession,ownerConfigured,ownerCookie,ownerSessionSeconds,requestOwnerSession,signOwnerSession} from './session';
 import {requestCountry} from '@/odds/commercial-geo';
-import {boundedJson} from '@/slip/server';
+import {boundedJson} from '@/http/body';
 import {productionOwnerLoginLimiter,type OwnerLoginLimiter} from './rate-limit';
 import {isCoreGeo} from '@/config/geo';
 

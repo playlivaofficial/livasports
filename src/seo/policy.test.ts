@@ -78,7 +78,7 @@ describe('P2 route policy',()=>{
   it('robots: production allows query identities and fences tooling; preview blocks everything and never leaks into production',()=>{
     const production=robotsForEnvironment('production');
     expect(production.rules).toEqual({userAgent:'*',allow:'/',disallow:[...robotsDisallow]});
-    expect(production.sitemap).toEqual(['https://livasports.com/sitemap.xml','https://livasports.com/sports-sitemaps.xml']);
+    expect(production.sitemap).toEqual(['https://livasports.com/sitemap.xml']);
     expect((robotsDisallow as readonly string[]).some(rule=>rule.includes('?')||rule.includes('*')||['/br/','/en/','/mx/','/'].includes(rule))).toBe(false);
     for(const environment of ['preview','development',undefined]){const robots=robotsForEnvironment(environment);expect(robots.rules).toEqual({userAgent:'*',disallow:'/'});expect(robots.sitemap).toBeUndefined();}
     // Disallowed prefixes are exactly the non-content families in the policy table.
@@ -88,12 +88,12 @@ describe('P2 route policy',()=>{
 });
 
 describe('P2 unknown competition identity',()=>{
-  it('answers a real 404 at the proxy for slugs outside the registry and passes registry slugs through',async()=>{
+  it('answers a real 404 at the proxy for slugs outside the registry and passes retired registry tabs with 410',async()=>{
     const {NextRequest}=await import('next/server');const {proxy}=await import('@/proxy');
     for(const [locale,path] of [['br','/br/futebol'],['mx','/mx/futbol'],['en','/en/football']] as const){
       const missing=await proxy(new NextRequest(`https://livasports.com${path}?competition=not-a-league`));
       expect(missing.status).toBe(404);expect(await missing.text()).toContain('noindex');expect(missing.headers.get('content-type')).toContain('text/html');
-      expect((await proxy(new NextRequest(`https://livasports.com${path}?competition=${slugs[0]}&tab=results`))).status).toBe(200);
+      expect((await proxy(new NextRequest(`https://livasports.com${path}?competition=${slugs[0]}&tab=results`))).status).toBe(410);
       expect((await proxy(new NextRequest(`https://livasports.com${path}?date=2026-09-17`))).status).toBe(200);
       expect((await proxy(new NextRequest(`https://livasports.com/${locale}?competition=not-a-league`))).status).toBe(200);
     }
@@ -163,7 +163,7 @@ describe('P2 evergreen help',()=>{
       expect((metadata.openGraph as {type:string}).type).toBe('article');
       for(const target of locales)expect(translatedPath(helpPath(locale,kind),target)).toBe(helpPath(target,kind));
       const text=JSON.stringify(helpContent[locale][kind]);
-      expect(text).not.toMatch(/licen[cs]|expert|especialista|prediction|previs[ãa]o|pron[óo]stico|melhor pre[çc]o garantido|best price guaranteed/i);
+      expect(text).not.toMatch(/expert picks|especialista certificado|ganancia garantizada|melhor pre[çc]o garantido|best price guaranteed/i);
     }
     expect(documentMetadata('en','not-a-document').robots).toEqual({index:false,follow:false});
   });

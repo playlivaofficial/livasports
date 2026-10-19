@@ -10,13 +10,13 @@ vi.mock('@/database/client',()=>({databaseUrl:()=> 'test-only',PostgresDatabaseC
 vi.mock('@/odds/scheduler-server',()=>({authorizedScheduler:m.authorized}));
 vi.mock('./service',()=>({runSeoAutopilot:m.run}));
 vi.mock('@/sports/SportsLink',()=>({default:({children,...props}:React.ComponentProps<'a'>)=><a {...props}>{children}</a>}));
-import Page from '@/app/owner/growth/autopilot/page';
+import {OwnerOperations} from '@/v2/OwnerOperations';
 import {GET} from '@/app/api/internal/seo-autopilot/route';
 import {SeoPriorityLinks} from './public';
 describe('owner and scheduler boundaries',()=>{
-  it('blocks anonymous owner reads before any database query',async()=>{m.session.mockReturnValue(false);m.query.mockClear();const html=renderToStaticMarkup(await Page({searchParams:Promise.resolve({})}));expect(html).toContain('Owner login required');expect(m.query).not.toHaveBeenCalled();});
+  it('blocks anonymous owner reads before any database query',async()=>{m.session.mockReturnValue(false);m.query.mockClear();const html=renderToStaticMarkup(await OwnerOperations({legacy:true}));expect(html).toContain('Owner login required');expect(m.query).not.toHaveBeenCalled();});
   it('blocks unauthenticated scheduling before any work',async()=>{m.authorized.mockReturnValue(false);expect((await GET(new Request('https://livasports.com/api/internal/seo-autopilot'))).status).toBe(401);expect(m.run).not.toHaveBeenCalled();});
-  it('previews never run the production worker',async()=>{vi.stubEnv('VERCEL_ENV','preview');m.authorized.mockReturnValue(true);expect((await GET(new Request('https://livasports.com/api/internal/seo-autopilot'))).status).toBe(403);vi.unstubAllEnvs();});
+  it('previews never run the retired production worker',async()=>{vi.stubEnv('VERCEL_ENV','preview');m.authorized.mockReturnValue(true);expect((await GET(new Request('https://livasports.com/api/internal/seo-autopilot'))).status).toBe(401);vi.unstubAllEnvs();});
   it('renders real crawlable links and no Brazil copy in other locales',async()=>{
     m.query.mockResolvedValue({rows:[{url:'https://livasports.com/mx/partido/a-b-1111111111111111',home:'A',away:'B',competition:'Liga'}]});
     const html=renderToStaticMarkup(await SeoPriorityLinks({locale:'mx',surface:{kind:'HOME'}}));expect(html).toContain('href="/mx/partido/a-b-1111111111111111"');

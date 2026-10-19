@@ -73,7 +73,7 @@ export function track(eventName:ClientEventName,entities:EventEntities={},option
 }
 /** Called on every route change: session start (once), landing (first page of the session), page view and entity views. */
 export function trackNavigation(pathname:string,search:string):void{
-  if(typeof window==='undefined')return;
+  if(typeof window==='undefined'||optedOut())return;
   try{
     const key=pathname+search;if(state.lastPage===key)return;state.lastPage=key;
     const session=currentSession();const page=classifyPage(pathname,search);

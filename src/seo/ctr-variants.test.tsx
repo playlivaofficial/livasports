@@ -51,7 +51,8 @@ describe('explicit CTR cohort',()=>{
   });
   it('keeps experiment reads behind the existing owner-session guard and exposes no public API',()=>{
     const source=readFileSync('src/app/owner/growth/seo/page.tsx','utf8');
-    expect(source.indexOf('if(!requestOwnerSession(h))')).toBeLessThan(source.indexOf('const [search,experiments'));
+    const operations=readFileSync('src/v2/OwnerOperations.tsx','utf8');
+    expect(source).toContain('OwnerOperations');expect(operations).toContain('if(!requestOwnerSession(await headers()))');expect(operations).not.toMatch(/readSearch|readExperiments/);
     expect(source).toContain('index:false,follow:false');
     const html=renderToStaticMarkup(<SeoExperiments experiments={[]} opportunities={null}/>);
     expect(html).toContain('No registered metadata changes');expect(html).toContain('not automatic title edits');

@@ -1,6 +1,5 @@
-import type { Metadata } from 'next';
-import { MatchRoutePage, matchMetadata } from '@/match-center/page';
-export const revalidate = 86400;
-export function generateStaticParams(){return [];}
-export function generateMetadata({ params }: { params: Promise<{ match: string }> }): Promise<Metadata> { return matchMetadata(params, 'pe'); }
-export default function Page({ params }: { params: Promise<{ match: string }> }) { return <MatchRoutePage params={params} locale='pe'/>; }
+import {ArchivePage,archiveMetadata} from '@/v2/archive';
+export const revalidate=false;
+export const generateStaticParams=()=>[];
+export async function generateMetadata({params}:{params:Promise<{match:string}>}){return archiveMetadata('pe','match',(await params).match);}
+export default async function Page({params}:{params:Promise<{match:string}>}){return <ArchivePage locale="pe" kind="match" param={(await params).match}/>;}

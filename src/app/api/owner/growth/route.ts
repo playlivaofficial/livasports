@@ -1,7 +1,4 @@
-import {growthOwnerAction,growthOwnerStatus} from '@/growth/owner-server';
-import {withRequestLimit} from '@/security/request-limit';
-export const dynamic='force-dynamic';
+import {retiredOwnerResponse} from '@/v2/retired';
 export const runtime='nodejs';
-export const maxDuration=300;
-export const GET=withRequestLimit('owner',growthOwnerStatus);
-export const POST=withRequestLimit('owner',growthOwnerAction);
+export const GET=retiredOwnerResponse;
+export const POST=retiredOwnerResponse;

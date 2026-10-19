@@ -2,10 +2,11 @@ import {withSpanishLocales} from './spanish';
 import type {InterfaceLocale} from './interface';
 import type {HelpKind} from './help-routes';
 import {marketHelp} from './market-help';
+import {currentHelp} from '@/v2/current-help';
 /** P2 evergreen help. Describes implemented product behaviour only; no predictions, licences, experts or prices. */
 export type HelpArticle={title:string;intro:string;sections:{title:string;body:string}[];related:HelpKind[]};
-export const helpReviewedAt='2026-09-17';
-export const helpReviewDate=(_locale:InterfaceLocale,kind:HelpKind)=>kind==='favorites'?helpReviewedAt:'2026-10-13';
+export const helpReviewedAt='2026-10-19';
+export const helpReviewDate=(_locale:InterfaceLocale,_kind:HelpKind)=>{void _locale;void _kind;return helpReviewedAt;};
 export const helpCopy=withSpanishLocales({
   br:{eyebrow:'Ajuda',navigation:'Ajuda LivaSports',reviewed:'Atualizado em',related:'Veja também',football:'Ver partidas'},
   mx:{eyebrow:'Ayuda',navigation:'Ayuda LivaSports',reviewed:'Actualizado el',related:'Ver también',football:'Ver partidos'},
@@ -106,4 +107,5 @@ function regionalHelp(locale:'mx'|'co'|'pe'):Record<HelpKind,HelpArticle>{
   slipComparison:{...content[locale].slipComparison,title:`Cómo comparar Mi boleto en ${context.country}`,sections:[...content[locale].slipComparison.sections,{title:`Comparaciones en ${context.country}`,body:context.slip}]},
  };
 }
-export const helpContent={...content,mx:regionalHelp('mx'),co:regionalHelp('co'),pe:regionalHelp('pe')};
+const preservedHelp={...content,mx:regionalHelp('mx'),co:regionalHelp('co'),pe:regionalHelp('pe')};
+export const helpContent=Object.fromEntries(Object.entries(preservedHelp).map(([locale,articles])=>[locale,currentHelp(locale as InterfaceLocale,articles)])) as typeof preservedHelp;

@@ -1,5 +1,4 @@
-import {authorityGet,authorityPost} from '@/authority/server';
-import {withRequestLimit} from '@/security/request-limit';
+import {retiredOwnerResponse} from '@/v2/retired';
 export const runtime='nodejs';
-export const GET=withRequestLimit('owner',authorityGet);
-export const POST=withRequestLimit('owner',authorityPost);
+export const GET=retiredOwnerResponse;
+export const POST=retiredOwnerResponse;

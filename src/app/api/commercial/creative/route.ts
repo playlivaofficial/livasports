@@ -1,3 +1,4 @@
-import {creativeRequest} from '@/affiliate/server';
-export function GET(request:Request){return creativeRequest(request);}
-export function HEAD(request:Request){return creativeRequest(request);}
+import {retiredResponse} from '@/v2/retired';
+export const runtime='nodejs';
+export const GET=retiredResponse;
+export const POST=retiredResponse;

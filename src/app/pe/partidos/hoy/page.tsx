@@ -1,4 +1,4 @@
-import { M2SportsPage } from '@/components/sports/M2SportsPage';
-import { routeMetadata } from '@/config/metadata';
-export const metadata = routeMetadata('pe', 'today');
-export default function Page({searchParams}:{searchParams:Promise<Record<string,string|string[]|undefined>>}) { return <M2SportsPage searchParams={searchParams} locale='pe' page="today" />; }
+import {notFound} from 'next/navigation';
+export const metadata={metadataBase:new URL('https://livasports.com'),robots:{index:false,follow:true}};
+/** Direct HTTP requests receive 410 from proxy; no live loader survives RSC navigation. */
+export default function Page(){notFound();}

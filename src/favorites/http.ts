@@ -5,7 +5,7 @@ import {parseGuestFavorites} from './guest';
 import {type FavoriteKind,publicFavoriteId} from './identity';
 import {privateCacheHeaders,sameOrigin} from './origin';
 import {deferServerEvent} from '@/analytics/server';
-import {boundedJson} from '@/slip/server';
+import {boundedJson} from '@/http/body';
 
 const kinds=new Set<FavoriteKind>(['team','competition','fixture']);
 const json=(body:unknown,status=200)=>Response.json(body,{status,headers:privateCacheHeaders});

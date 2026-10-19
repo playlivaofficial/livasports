@@ -71,7 +71,7 @@ describe('callback, cookie and owner isolation',()=>{
 
 describe('auth surfaces stay public-sports safe',()=>{
   it('does not replace proxy.ts or globally gate sports pages',()=>{
-    expect(proxy).toContain("matcher: ['/','/br/futebol','/mx/futbol','/co/futbol','/pe/futbol','/en/football']");
+    expect(proxy).toContain("matcher: ['/','/br/futebol','/mx/futbol','/co/futbol','/pe/futbol','/en/football'");
     expect(proxy).not.toContain('next-auth');
     for(const layout of [publicLayout,requestLayout]){
       expect(layout).not.toContain('SessionProvider');

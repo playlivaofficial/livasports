@@ -90,3 +90,4 @@ output/p0-odds-browser-*
 output/strict-*-private.*
 output/odds-*-private.*
 output/unified-*-private.*
+output/v2-qa/

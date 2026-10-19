@@ -34,23 +34,20 @@ describe('complete bounded sports sitemaps',()=>{
     const full=sitemapEntriesXml(kind,Array.from({length:sitemapBatchSize},()=>entries[0]));
     expect(full.match(/<url>/g)).toHaveLength(2500);expect(Buffer.byteLength(full)).toBeLessThan(5*1024*1024);
   });
-  it('publishes both discovery points only in production',()=>{
-    vi.stubEnv('VERCEL_ENV','production');expect(robots().sitemap).toEqual(['https://livasports.com/sitemap.xml','https://livasports.com/sports-sitemaps.xml']);
+  it('publishes only the finite V2 inventory in production',()=>{
+    vi.stubEnv('VERCEL_ENV','production');expect(robots().sitemap).toEqual(['https://livasports.com/sitemap.xml']);
     vi.stubEnv('VERCEL_ENV','preview');expect(robots().sitemap).toBeUndefined();expect(robots().rules).toEqual({userAgent:'*',disallow:'/'});
   });
-  it('serves valid XML batches, rejects out-of-range pages before loading entries',async()=>{
-    vi.mocked(loadSitemapCounts).mockResolvedValue({matches:501,teams:0,players:0});vi.mocked(loadSitemapBatch).mockResolvedValue(entries);
-    const response=await batch(new Request('https://livasports.com'),{params:Promise.resolve({batch:'matches-1.xml'})});
-    expect(response.status).toBe(200);expect(response.headers.get('content-type')).toContain('application/xml');
-    expect(loadSitemapBatch).toHaveBeenCalledWith('matches',1);expect(await response.text()).toContain('<urlset');
-    vi.mocked(loadSitemapBatch).mockClear();
-    for(const value of ['matches-2.xml','teams-0.xml','matches-99999999999999.xml','invalid'])expect((await batch(new Request('https://livasports.com'),{params:Promise.resolve({batch:value})})).status).toBe(404);
-    expect(loadSitemapBatch).not.toHaveBeenCalled();
-  });
-  it('does not present database failure as an empty successful sitemap or leak error details',async()=>{
-    vi.mocked(loadSitemapCounts).mockRejectedValue(Error('private database value'));
-    for(const response of [await index(),await batch(new Request('https://livasports.com'),{params:Promise.resolve({batch:'teams-0.xml'})})]){
-      expect(response.status).toBe(503);expect(response.headers.get('retry-after')).toBe('300');expect(await response.text()).not.toContain('private');
+  it('answers retired batches with 410 and invalid shapes with 404 without DB reads',async()=>{
+    for(const name of ['matches-1.xml','teams-0.xml','matches-999999.xml']){
+      const response=await batch(new Request('https://livasports.com'),{params:Promise.resolve({batch:name})});
+      expect(response.status).toBe(410);expect(response.headers.get('x-robots-tag')).toBe('noindex');
     }
+    expect((await batch(new Request('https://livasports.com'),{params:Promise.resolve({batch:'invalid'})})).status).toBe(404);
+    expect(loadSitemapCounts).not.toHaveBeenCalled();expect(loadSitemapBatch).not.toHaveBeenCalled();
+  });
+  it('redirects the old index to the current XML inventory without waking the DB',async()=>{
+    const response=await index();expect(response.status).toBe(301);expect(response.headers.get('location')).toBe('https://livasports.com/sitemap.xml');
+    expect(loadSitemapCounts).not.toHaveBeenCalled();expect(loadSitemapBatch).not.toHaveBeenCalled();
   });
 });

@@ -1,26 +1,14 @@
-import {beforeEach,describe,expect,it,vi} from 'vitest';
-const f=vi.hoisted(()=>({snapshot:vi.fn()}));
-vi.mock('@/match-center/runtime',()=>({loadMatchSnapshot:f.snapshot}));
+import {describe,it,expect,vi,afterEach} from 'vitest';
 import {GET} from './route';
-
-const publicId='0123456789abcdef';
-const params=()=>Promise.resolve({publicId});
-describe('private live snapshot over the public ISR shell',()=>{
-  beforeEach(()=>{vi.clearAllMocks();f.snapshot.mockResolvedValue({kind:'found',match:{
-    header:{publicId,status:'LIVE',providerUpdatedAt:'2026-10-04T12:00:00Z'},snapshotAt:'2026-10-04T11:59:00Z',
-  }});});
-  it.each(['br','mx','co','pe'] as const)('uses the %s sports locale without loading commercial odds',async locale=>{
-    const response=await GET(new Request(`https://livasports.com/api/matches/${publicId}?locale=${locale}`),{params:params()});
-    expect(f.snapshot).toHaveBeenCalledWith(publicId,locale);
-    expect(response.status).toBe(200);
-    expect(response.headers.get('cache-control')).toBe('no-store');
-    expect(await response.json()).toEqual({publicId,status:'LIVE',providerUpdatedAt:'2026-10-04T12:00:00Z',snapshotAt:'2026-10-04T11:59:00Z',providerRequests:0});
-  });
-  it('preserves a bounded unavailable response instead of leaking errors',async()=>{
-    f.snapshot.mockRejectedValue(new Error('private database details'));
-    const response=await GET(new Request(`https://livasports.com/api/matches/${publicId}?locale=pe`),{params:params()});
-    expect(response.status).toBe(503);
-    expect(response.headers.get('cache-control')).toBe('no-store');
-    expect(await response.json()).toEqual({error:'temporarily_unavailable'});
-  });
+const snapshot=vi.hoisted(()=>vi.fn());
+vi.mock('@/match-center/runtime',()=>({loadLiveSnapshot:snapshot}));
+afterEach(()=>vi.restoreAllMocks());
+describe('retired live snapshot boundary',()=>{
+ it.each(['br','mx','co','pe','en'])('never refreshes a %s live snapshot',async locale=>{
+  const fetch=vi.spyOn(globalThis,'fetch');
+  const response=await GET(new Request('https://livasports.com/api/matches/0123456789abcdef?locale='+locale),{params:Promise.resolve({publicId:'0123456789abcdef'})});
+  expect(response.status).toBe(410);expect(await response.json()).toEqual({state:'RETIRED_IN_V2',providerRequests:0});
+  expect(response.headers.has('set-cookie')).toBe(false);expect(snapshot).not.toHaveBeenCalled();expect(fetch).not.toHaveBeenCalled();
+ });
+ it('does not revive an endpoint for arbitrary identities or query parameters',()=>{expect(GET(new Request('https://livasports.com/api/matches/invalid?refresh=1')).status).toBe(410);});
 });

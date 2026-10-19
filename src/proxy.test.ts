@@ -41,13 +41,13 @@ describe('narrow, database-free routing proxy',()=>{
     const head=await proxy(new NextRequest(`https://livasports.com${path}?competition=not-a-covered-competition`,{method:'HEAD'}));
     expect(head.status).toBe(404);expect(await head.text()).toBe('');
   });
-  it('passes a known competition to the page without private cookies or GEO mutation',async()=>{
+  it('redirects a known competition to its exact editorial equivalent without private state',async()=>{
     const response=await proxy(new NextRequest('https://livasports.com/mx/futbol?competition=liga-mx',{
       headers:{'x-vercel-ip-country':'PE','x-livasports-interface-language':'br'},
     }));
-    expect(response.headers.get('x-middleware-next')).toBe('1');
-    expect(response.headers.get('x-middleware-request-x-livasports-interface-language')).toBe('mx');
-    expect(response.headers.get('x-middleware-request-x-vercel-ip-country')).toBe('PE');
+    expect(response.status).toBe(301);expect(response.headers.get('location')).toBe('https://livasports.com/mx/ligas/liga-mx');
+    expect(response.headers.has('x-middleware-request-x-livasports-interface-language')).toBe(false);
+    expect(response.headers.has('x-middleware-request-x-vercel-ip-country')).toBe(false);
     expect(response.headers.has('set-cookie')).toBe(false);
   });
 });

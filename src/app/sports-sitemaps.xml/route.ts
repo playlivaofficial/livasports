@@ -1,6 +1,2 @@
-import {loadSitemapCounts} from '@/sports/sitemap-runtime';
-import {sitemapIndexXml} from '@/sports/sitemap';
-export async function GET(){
-  try{return new Response(sitemapIndexXml(await loadSitemapCounts()),{headers:{'Content-Type':'application/xml; charset=utf-8','Cache-Control':'public, max-age=300'}});}
-  catch{return new Response('Sitemap temporarily unavailable',{status:503,headers:{'Retry-After':'300'}});}
-}
+export const dynamic='force-static';
+export function GET(){return new Response(null,{status:301,headers:{Location:'https://livasports.com/sitemap.xml','Cache-Control':'public, max-age=86400'}});}

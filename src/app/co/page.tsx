@@ -1,4 +1,3 @@
-import { M2SportsPage } from '@/components/sports/M2SportsPage';
-import { routeMetadata } from '@/config/metadata';
-export const metadata = routeMetadata('co', 'home');
-export default function Page({searchParams}:{searchParams:Promise<Record<string,string|string[]|undefined>>}) { return <M2SportsPage searchParams={searchParams} locale='co' page="home" />; }
+import {V2Home,v2Metadata} from '@/v2/pages';
+export const metadata=v2Metadata('co');
+export default function Page(){return <V2Home locale="co"/>;}
