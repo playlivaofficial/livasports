@@ -6,6 +6,7 @@ import {SaxesParser} from 'saxes';
 import {editorialSitemapClusters} from '../src/v2/seo';
 import {interfaceLocales,languageTags} from '../src/localization/interface';
 import {v2Path} from '../src/v2/routes';
+import {newsPath} from '../src/editorial/copy';
 
 const start=process.argv.includes('--start'),preview=process.argv.includes('--preview');
 const origin=start?'http://127.0.0.1:3148':process.argv.find(arg=>/^https?:\/\//.test(arg))??'https://livasports.com';
@@ -32,9 +33,10 @@ try{
  const sitemap=await get('/sitemap.xml');if(sitemap.status!==200||!sitemap.headers.get('content-type')?.includes('xml'))fail('/sitemap.xml','HTTP_OR_TYPE');
  const parser=new SaxesParser();parser.on('error',()=>fail('/sitemap.xml','XML_INVALID'));parser.write(sitemap.body).close();
  const xml=load(sitemap.body,{xmlMode:true}),submitted=new Set(xml('url > loc').map((_,el)=>xml(el).text()).get());
- const clusters=editorialSitemapClusters(),expected=new Set(clusters.flatMap(cluster=>Object.values(cluster)));
+ const newsSlugs=[...submitted].flatMap(url=>{const match=/^https:\/\/livasports\.com\/en\/news\/([a-z0-9-]+)$/.exec(url);return match?[match[1]]:[];});
+ const clusters=[...editorialSitemapClusters(),...newsSlugs.map(slug=>Object.fromEntries(interfaceLocales.map(locale=>[locale,'https://livasports.com'+newsPath(locale,slug)])) as Record<typeof interfaceLocales[number],string>)],expected=new Set(clusters.flatMap(cluster=>Object.values(cluster)));
  if(submitted.size!==expected.size||[...submitted].some(url=>!expected.has(url)))fail('/sitemap.xml','INVENTORY_MISMATCH');
- if(xml('lastmod').length)fail('/sitemap.xml','ARTIFICIAL_LASTMOD');
+ for(const node of xml('url').toArray()){const loc=xml(node).find('loc').text(),lastmod=xml(node).find('lastmod').text();if(/\/(news|noticias)\//.test(loc)){if(!lastmod||!Number.isFinite(Date.parse(lastmod))||Date.parse(lastmod)>Date.now())fail(loc,'INVALID_NEWS_LASTMOD');}else if(lastmod)fail(loc,'ARTIFICIAL_LASTMOD');}
  for(const cluster of clusters)for(const locale of interfaceLocales){
   const canonical=cluster[locale],path=new URL(canonical).pathname,result=await get(path),$=load(result.body),problems:string[]=[];
   const issue=(problem:string)=>{problems.push(problem);fail(path,problem);};

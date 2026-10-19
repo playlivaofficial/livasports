@@ -13,6 +13,7 @@ export function sectionFromSlug(locale:InterfaceLocale,slug:string):Section|unde
 export function translateEditorialPath(path:string,target:InterfaceLocale):string|null{
   const parts=path.split('/').filter(Boolean),source=parts[0] as InterfaceLocale;
   if(!['en','br','mx','co','pe'].includes(source)||parts.length<2||parts.length>3)return null;
+  if(parts[1]===(source==='en'?'news':'noticias'))return `/${target}/${target==='en'?'news':'noticias'}${parts[2]?'/'+parts[2]:''}`;
   const section=sectionFromSlug(source,parts[1]);
   return section?v2Path(target,section,parts[2]):null;
 }

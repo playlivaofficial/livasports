@@ -8,7 +8,7 @@ export interface EditorialSection {heading:Translation;body:Translation}
 export interface Article {id:string;category:'analysis'|'guides';art:'stadium'|'pitch'|'ball'|'numbers';title:Translation;summary:Translation;sections:EditorialSection[];sources?:{label:string;url:string}[]}
 
 export const articles:Article[]=[
-  {id:'understanding-4-3-3',category:'analysis',art:'stadium',
+  {id:'understanding-4-3-3',category:'analysis',art:'pitch',
     title:tr('The 4-3-3: a shape is only the beginning','El 4-3-3: la formación es solo el comienzo','O 4-3-3: a formação é só o começo'),
     summary:tr('Width, passing triangles and the space left behind. Learn to watch the relationships, not just the numbers.','Amplitud, triángulos de pase y espacios a la espalda. Aprende a observar relaciones, no solo números.','Amplitude, triângulos de passe e espaços nas costas. Observe as relações, não apenas os números.'),
     sections:[
