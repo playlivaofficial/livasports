@@ -1,10 +1,11 @@
 import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
 vi.mock('server-only',()=>({}));
-const mocked=vi.hoisted(()=>({user:null as {id:string}|null}));
+const mocked=vi.hoisted(()=>({user:null as {id:string}|null,after:vi.fn()}));
 vi.mock('@/auth/session',()=>({currentUser:async()=>mocked.user}));
+vi.mock('next/server',()=>({after:mocked.after}));
 import type {DatabaseClient,QueryExecutor} from '@/database/client';
 import {accessKeyHash,newOwnerSession,ownerCookie,signOwnerSession} from '@/owner/session';
-import {analyticsIds,classifyTraffic,ingestClientBatch,recordServerEvent} from './server';
+import {analyticsIds,classifyTraffic,deferServerEvent,ingestClientBatch,recordServerEvent} from './server';
 
 const origin='https://livasports.com';
 const uuid=(n:number)=>`${String(n).padStart(8,'0')}-0000-4000-8000-000000000000`;
@@ -26,10 +27,25 @@ function database(){
   return {db:{query:typed,transaction:async(w:(tx:{query:QueryExecutor['query']})=>unknown)=>w({query:typed}),close:async()=>{}} as DatabaseClient,query,events,sessions};
 }
 const post=(body:unknown,headers:Record<string,string>={})=>new Request(origin+'/api/events',{method:'POST',headers:{origin,'sec-fetch-site':'same-origin','content-type':'application/json','user-agent':'Mozilla/5.0 (test browser)',...headers},body:JSON.stringify(body)});
-beforeEach(()=>{mocked.user=null;vi.stubEnv('OWNER_QA_SESSION_SECRET','s'.repeat(43));vi.stubEnv('OWNER_QA_ACCESS_HASH',accessKeyHash('q'.repeat(43)));});
+beforeEach(()=>{mocked.user=null;mocked.after.mockClear();vi.stubEnv('OWNER_QA_SESSION_SECRET','s'.repeat(43));vi.stubEnv('OWNER_QA_ACCESS_HASH',accessKeyHash('q'.repeat(43)));});
 afterEach(()=>{vi.unstubAllEnvs();});
 
 describe('P4 ingestion boundary (§15, §17, §26, §33)',()=>{
+  it.each([{dnt:'1'},{'sec-gpc':'1'}] as Record<string,string>[])('performs no analytics queries for opted-out direct ingestion: %j',async privacy=>{
+    const {db,query}=database();const batch={v:1,batch:[event(1)]};
+    expect(await ingestClientBatch(post(batch,privacy),batch,db)).toMatchObject({status:204,accepted:0,rejected:0,trafficClass:null});
+    // Even invalid event contents must not write quality or rate-limit counters.
+    expect(await ingestClientBatch(post({v:1,batch:[{}]},privacy),{v:1,batch:[{}]},db)).toMatchObject({status:204,accepted:0,rejected:0});
+    expect(query).not.toHaveBeenCalled();
+  });
+  it.each([{dnt:'1'},{'sec-gpc':'1'}] as Record<string,string>[])('skips optional server analytics after account actions when opted out: %j',async privacy=>{
+    const {db,query}=database();const headers=new Headers({'user-agent':'Mozilla/5.0',...privacy});
+    for(const name of ['sign_in_completed','sign_out_completed','favorite_added'] as const){
+      expect(await recordServerEvent({name,headers,locale:'en'},db)).toBe(false);
+      await deferServerEvent({name,headers,locale:'en'});
+    }
+    expect(query).not.toHaveBeenCalled();expect(mocked.after).not.toHaveBeenCalled();
+  });
   it('deduplicates authoritative outcomes using the commercial ledger UUID',async()=>{
     const {db,events,query}=database();const input={name:'outbound_redirect_completed' as const,eventId:uuid(42),headers:new Headers({'x-livasports-qa':'1'}),locale:'br' as const};
     await recordServerEvent(input,db);const queries=query.mock.calls.length;await recordServerEvent(input,db);

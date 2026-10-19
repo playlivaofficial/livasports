@@ -43,6 +43,9 @@ function context(){
 const qaSession=()=>{try{return navigator.webdriver===true||localStorage.getItem('ls_qa')==='1';}catch{return false;}};
 function flush(sync=false){
   if(state.timer){clearTimeout(state.timer);state.timer=null;}
+  // A privacy preference can change while a batch is waiting or before pagehide.
+  // Drop that batch rather than sending it later if the visitor opts back in.
+  if(optedOut()){state.queue.length=0;return;}
   if(!state.queue.length)return;
   const batch=state.queue.splice(0,MAX_BATCH_EVENTS);const body=JSON.stringify({v:EVENT_VERSION,batch,...(qaSession()?{qa:true}:{})});
   try{
