@@ -1,0 +1,12 @@
+import Link from 'next/link';
+import {headers} from 'next/headers';
+import {ownerConfigured,requestOwnerSession} from '@/owner/session';
+import {OwnerHealthLogin} from '@/owner/HealthDashboard';
+import {V2Shell} from './pages';
+import {v2RuntimePolicy} from './retired';
+import {reviewIdentities} from './commercial';
+
+export async function OwnerOperations({legacy=false}:{legacy?:boolean}){
+  if(!requestOwnerSession(await headers()))return <OwnerHealthLogin configured={ownerConfigured()} title="LivaSports 2.0 · Owner" subtitle="Private operational overview"/>;
+  return <V2Shell locale="en"><div className="v2-page-heading"><span className="v2-eyebrow">OWNER ONLY</span><h1>{legacy?'Legacy feature retired':'LivaSports 2.0 operations'}</h1><p>Editorial pages and browser tools. Existing accounts, campaigns and historical records are preserved.</p></div><section className="v2-prose"><h2>Runtime policy</h2><dl>{Object.entries(v2RuntimePolicy).map(([key,value])=><div key={key}><dt><strong>{key}</strong></dt><dd>{value}</dd></div>)}</dl><p>These values describe the deployed application policy, not a claim about current external subscription charges. Provider credentials are neither displayed nor used by this dashboard.</p><h2>Commercial readiness</h2><p>All V2 affiliate slots are pending verification. No real tracking destinations have been migrated. Use the separately authenticated GEO preview to inspect MX, CO and PE.</p><ul>{reviewIdentities.map(book=><li key={book.id}>{book.name} — inactive campaign slot</li>)}</ul><p><Link href="/owner/preview">Owner GEO preview →</Link></p><p><Link href="/owner/analytics">Existing analytics history →</Link></p><h2>Preservation</h2><p>The pre-V2 source is archived at Git tag <code>livasports-pre-v2-2026-10-19-d3acfbe</code>. No database reset or deletion is part of this release. Existing sports, standings, odds and social generation actions are retired rather than offered as broken controls.</p></section></V2Shell>;
+}

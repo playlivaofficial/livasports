@@ -1,4 +1,3 @@
-import {EnglishSportsPage} from '@/localization/EnglishSportsPage';
-  import {routeMetadata} from '@/config/metadata';
-  export const metadata=routeMetadata('en','home');
-  export default function Page({searchParams}:{searchParams:Promise<Record<string,string|string[]|undefined>>}){return <EnglishSportsPage searchParams={searchParams} page="home"/>;}
+import {V2Home,v2Metadata} from '@/v2/pages';
+export const metadata=v2Metadata('en');
+export default function Page(){return <V2Home locale="en"/>;}

@@ -7,3 +7,4 @@ import '@/app/owner-preview.css';
 import '@/app/premium-redesign.css';
 import '@/app/warm-themes.css';
 import '@/app/four-source-odds.css';
+import '@/v2/v2.css';

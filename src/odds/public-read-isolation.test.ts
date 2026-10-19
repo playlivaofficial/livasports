@@ -8,6 +8,6 @@ describe('normal navigation never imports an odds provider',()=>{
   it.each(files)('%s stays DB/cache-only',(file)=>{
     const source=readFileSync(resolve(process.cwd(),file),'utf8');
     expect(source).not.toMatch(/M5OddsPapiAdapter|HttpOddsPapiGateway|api\.oddspapi\.io|ODDSPAPI_API_KEY/);
-    expect(source).toMatch(/providerRequests:\s*0|loadOddsComparisons|paidOddsRequests:\s*0|attachListingOdds/);
+    expect(source).toMatch(/providerRequests:\s*0|loadOddsComparisons|paidOddsRequests:\s*0|attachListingOdds|retiredResponse/);
   });
 });

@@ -31,13 +31,13 @@ export function PreviewControls({authorized,preview,previewGeo,configured,countr
   // currency and banners belong to a different preview GEO.
   async function open(geo:CoreGeo){setBusy(true);setError('');try{await action({action:'preview',geo});navigate(geo);}catch(e){setError((e as Error).message);setBusy(false);}}
   function login(event:FormEvent<HTMLFormElement>){event.preventDefault();const form=event.currentTarget,key=new FormData(form).get('key');form.reset();void run({action:'login',key});}
-  return <main className="owner-preview-page"><h1>Owner GEO preview</h1><p>Trusted owner-only preview · no public country override</p>
+  return <main id="main-content" className="owner-preview-page"><h1>Owner GEO preview</h1><p>Trusted owner-only preview · no public country override</p>
     {!configured?<p>Owner access has not been configured.</p>:!authorized?<form onSubmit={login}><label htmlFor="owner-key">Private owner access key</label><input id="owner-key" name="key" type="password" autoComplete="current-password" required maxLength={128}/><button disabled={busy}>Sign in</button></form>:<>
       <p>Real connection: {country??'Unknown'} · <strong>{preview&&previewGeo?`${describe(previewGeo)} · QA_TEST`:'Real GEO'}</strong></p>
       <p>Preview traffic remains QA_TEST. Preview does not approve candidate operators or prove genuine local operator access.</p>
       <label>Experience <select disabled={busy} value={preview&&previewGeo?previewGeo:''} onChange={e=>void run({action:'preview',geo:e.target.value||null})}><option value="">Real GEO</option>{CORE_GEOS.map(geo=><option key={geo} value={geo}>{geoProfile(geo).countryName}</option>)}</select></label>
       {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- Re-read the owner session and preview headers with a full document request. */}
-      {CORE_GEOS.map(geo=><button type="button" key={geo} disabled={busy} onClick={()=>void open(geo)}>Preview {geoProfile(geo).countryName} →</button>)}<a href="/owner/commercial">Commercial Activation</a><a href="/owner/growth">Growth</a><a href="/owner/health">Odds health</a><a href="/owner/analytics">Analytics</a><button disabled={busy} onClick={()=>void run({action:'logout'})}>Sign out</button><p>This device stays signed in for 30 days. Keep your permanent access key private.</p>
+      {CORE_GEOS.map(geo=><button type="button" key={geo} disabled={busy} onClick={()=>void open(geo)}>Preview {geoProfile(geo).countryName} →</button>)}<a href="/owner/commercial">Commercial readiness</a><a href="/owner/growth">Content operations</a><a href="/owner/health">V2 runtime health</a><a href="/owner/analytics">Analytics</a><button disabled={busy} onClick={()=>void run({action:'logout'})}>Sign out</button><p>This device stays signed in for 30 days. Keep your permanent access key private.</p>
     </>}{error?<p role="alert">{error}</p>:null}</main>;
 }
 
@@ -71,7 +71,7 @@ export function OwnerPreviewBar({preview,previewGeo}:{preview:boolean;previewGeo
     {preview&&previewGeo?<span className="owner-preview-context">{describe(previewGeo)}</span>:null}
     <a href="/owner/preview">Owner controls</a>
     {mismatch&&previewGeo?<p className="owner-preview-mismatch" role="alert">
-      This page is {geoProfile(mismatch).countryName}, but the preview is {geoProfile(previewGeo).countryName}: odds, currency and banners follow {geoProfile(previewGeo).countryName}.
+      This page is {geoProfile(mismatch).countryName}, but the preview is {geoProfile(previewGeo).countryName}: commercial slot presentation follows {geoProfile(previewGeo).countryName}.
       {busy?' Switching the preview to match…':<> <button type="button" onClick={()=>{setBusy(true);action({action:'preview',geo:mismatch}).then(()=>window.location.reload()).catch(()=>{setError('Open owner controls to sign in again.');setBusy(false);});}}>Preview {geoProfile(mismatch).countryName} here</button> <button type="button" onClick={()=>navigate(previewGeo)}>Open /{geoProfile(previewGeo).locale}</button></>}
     </p>:null}
     {error?<span role="alert">{error}</span>:null}

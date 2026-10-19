@@ -66,11 +66,9 @@ describe('media shutdown preserves daily intelligence',()=>{
     expect(html).not.toContain('Atualizar e gerar');expect(html).not.toContain('Regenerar plataforma');
     expect(repository.upsertGrowthSeoPriorities).not.toHaveBeenCalled();
   });
-  it('keeps the shared cron and required schedules, with no media execution in its service',()=>{
+  it('retires all deployed schedules while preserving the archived media safety service',()=>{
     const cron=JSON.parse(readFileSync('vercel.json','utf8')).crons;
-    expect(cron).toContainEqual({path:'/api/internal/growth-refresh',schedule:'17 * * * *'});
-    expect(cron).toContainEqual({path:'/api/internal/seo-autopilot',schedule:'10 7 * * *'});
-    expect(cron).toContainEqual({path:'/api/internal/odds-refresh',schedule:'*/5 * * * *'});
+    expect(cron).toEqual([]);
     const service=readFileSync(new URL('./service.ts',import.meta.url),'utf8');
     expect(service).not.toMatch(/renderSocialPackage|renderCanonicalStatics|databaseVoiceStore|acquireGrowthJob|finishGrowthJob|persistGrowthItem|rebuildCurrentGrowthQueue/);
     expect(readFileSync(new URL('./scheduler-server.ts',import.meta.url),'utf8')).toContain('runGrowthSelection');

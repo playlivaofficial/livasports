@@ -1,4 +1,3 @@
-import {EnglishSportsPage} from '@/localization/EnglishSportsPage';
-  import {footballMetadata} from '@/sports/metadata';
-  export function generateMetadata({searchParams}:{searchParams:Promise<Record<string,string|string[]|undefined>>}){return footballMetadata('en',searchParams);}
-  export default function Page({searchParams}:{searchParams:Promise<Record<string,string|string[]|undefined>>}){return <EnglishSportsPage searchParams={searchParams} page="football"/>;}
+import {EditorialIndex,v2Metadata} from '@/v2/pages';
+export const metadata=v2Metadata('en','football');
+export default function Page(){return <EditorialIndex locale="en" section="football"/>;}

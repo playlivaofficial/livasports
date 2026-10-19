@@ -47,7 +47,7 @@ function h(geo:Geo,language:string,owner=false){
 }
 
 describe('public language × trusted GEO matrix',()=>{
-  it.each(matrix)('%s / %s keeps jurisdiction, ranking, Growth, pool, currency and sponsor context',async(geo,language)=>{
+  it.each(matrix)('%s / %s keeps jurisdiction, archived ranking, retired Growth, pool and currency',async(geo,language)=>{
     const headers=h(geo,language),locale=defaultLanguage(language,geo),profile=geoProfile(geo);
     const form=new URLSearchParams({locale:language,returnTo:'/pe/futbol?competition=champions-league#fixtures-content'});
     headers.set('origin','https://livasports.com');
@@ -75,13 +75,9 @@ describe('public language × trusted GEO matrix',()=>{
 
     f.query.mockResolvedValue({rows:isCoreGeo(geo)?Array.from({length:5},(_,i)=>({fixture_id:`fixture-${i}`,priority_rank:i+1,priority_score:80-i,canonical_url:`https://livasports.com/${geo.toLowerCase()}/partido/local-x-away-0123456789abcde${i}`,context_localized:'Verified test context',competition:'Test league',competition_slug:localSlug,kickoff:'2026-10-11T20:00:00Z',home:'Local',away:'Away',home_public_id:'1111111111111111',away_public_id:'2222222222222222'})):[]});
     const response=await prominence(new Request(`https://livasports.com/api/growth/prominence?locale=${locale}&kind=HOME`,{headers:after}));
-    expect(response.headers.get('cache-control')).toBe('private, no-store');
-    const growth=await response.json();expect(growth.geo).toBe(geo);expect(growth.providerRequests).toBe(0);
-    // The public Growth box is retired; the GEO's own Top 5 is still selected and served per jurisdiction.
-    expect(growth.rows.length).toBe(isCoreGeo(geo)?5:0);
-    if(isCoreGeo(geo)){expect(f.query.mock.calls[0][1]).toEqual(['HOME',geo]);
-      expect(growth.rows.every((r:{canonicalUrl:string})=>new URL(r.canonicalUrl).pathname.startsWith('/'+geo.toLowerCase()+'/'))).toBe(true);}
-    else expect(f.query).not.toHaveBeenCalled();
+    expect(response.status).toBe(410);
+    expect(await response.json()).toEqual({state:'RETIRED_IN_V2',providerRequests:0});
+    expect(f.query).not.toHaveBeenCalled();
 
     f.commercial=body.commercialLocale;
     renderToStaticMarkup(<SponsoredSlot copyLocale={locale} context={{locale:'pe',pagePath:`/${locale}`,placement:'home_top_banner'}}/>);
@@ -103,10 +99,10 @@ describe('public language × trusted GEO matrix',()=>{
     for(const path of ['/mx','/co','/pe','/br']){
       const headers=h('ROW','es');headers.set('origin','https://livasports.com');
       expect(requestEffectiveGeo(headers)).toBe('ROW');
-      expect((await prominence(new Request(`https://livasports.com/api/growth/prominence?locale=${path.slice(1)}&kind=HOME`,{headers}))).status).toBe(200);
+      expect((await prominence(new Request(`https://livasports.com/api/growth/prominence?locale=${path.slice(1)}&kind=HOME`,{headers}))).status).toBe(410);
       expect((await ownerAction(new Request('https://livasports.com/api/owner/preview',{method:'POST',headers:{...Object.fromEntries(headers),'content-type':'application/json','sec-fetch-site':'same-origin'},body:JSON.stringify({action:'preview',geo:'PE'})}))).status).toBe(401);
     }
-    expect((await prominence(new Request('https://livasports.com/api/growth/prominence?locale=en&kind=HOME&geo=PE',{headers:h('ROW','en')}))).status).toBe(400);
+    expect((await prominence(new Request('https://livasports.com/api/growth/prominence?locale=en&kind=HOME&geo=PE',{headers:h('ROW','en')}))).status).toBe(410);
     expect(requestEffectiveGeo(new Headers({'x-vercel-ip-country':'BR'}))).toBe('ROW');
   });
   it('legacy Spanish cookies do not select their old country',()=>{

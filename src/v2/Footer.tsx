@@ -1,0 +1,8 @@
+import Link from 'next/link';
+import type {InterfaceLocale} from '@/localization/interface';
+import {helpPath} from '@/localization/help-routes';
+import {legalPath} from '@/localization/legal-routes';
+import {v2Copy} from './copy';
+import {v2Path} from './routes';
+import {Brand} from './Header';
+export function V2Footer({locale}:{locale:InterfaceLocale}){const text=v2Copy(locale);return <footer className="v2-footer"><div className="v2-footer-grid"><div><Link href={v2Path(locale)} aria-label="LivaSports"><Brand/></Link><p>{text.footerLead}</p></div><nav aria-label={text.football}><strong>{text.football}</strong><Link href={v2Path(locale,'leagues')}>{text.leagues}</Link><Link href={v2Path(locale,'analysis')}>{text.analysis}</Link><Link href={v2Path(locale,'guides')}>{text.guides}</Link><Link href={v2Path(locale,'tools')}>{text.tools}</Link></nav><nav aria-label={text.about}><strong>{text.about}</strong><Link href={v2Path(locale,'about')}>{text.about}</Link><Link href={helpPath(locale,'favorites')}>{locale==='en'?'Account & saved records':locale==='br'?'Conta e registros salvos':'Cuenta y registros guardados'}</Link><a href="mailto:playliva.official@gmail.com">{locale==='en'?'Contact':locale==='br'?'Contato':'Contacto'}</a><Link href={legalPath(locale,'privacy')}>{text.privacy}</Link><Link href={legalPath(locale,'terms')}>{text.terms}</Link></nav><nav aria-label={text.responsible}><strong>18+</strong><Link href={legalPath(locale,'responsible')}>{text.responsible}</Link><Link href={legalPath(locale,'disclosure')}>{text.disclosure}</Link><p>{text.commercialNote}</p></nav></div><div className="v2-footer-bottom"><span>© LivaSports</span><p>{text.rights}</p></div></footer>;}

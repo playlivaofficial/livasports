@@ -13,7 +13,7 @@ export function LanguageSelector({locale}:{locale:InterfaceLocale}){
     <form action="/language" method="post" aria-label={label} onSubmit={event=>{
       const input=event.currentTarget.elements.namedItem('returnTo') as HTMLInputElement;
       input.value=window.location.pathname+window.location.search+window.location.hash;
-    }}><input type="hidden" name="returnTo" value={pathname}/>
+    }}><input type="hidden" name="returnTo" value={pathname??`/${locale}`}/>
       {publicLanguages.map(value=><button key={value} name="locale" value={value} type="submit" lang={value} aria-current={value===publicLanguage(locale)?'true':undefined}>
         {publicLanguageNames[value]}<span aria-hidden="true">{value===publicLanguage(locale)?'✓':''}</span></button>)}
     </form></details>;

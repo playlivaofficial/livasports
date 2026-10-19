@@ -1,7 +1,7 @@
 import type {Metadata} from 'next';
 import Link from 'next/link';
 import {notFound} from 'next/navigation';
-import {SiteHeader} from '@/components/sports/SiteHeader';
+import {V2Header} from '@/v2/Header';
 import {interfaceRoutes,languageTags,type InterfaceLocale} from './interface';
 import {legalKind,legalKinds,legalPath,type LegalKind} from './legal-routes';
 import {legalContent,legalReviewedAt,officialSafetySources,safetyCopy} from './legal-content';
@@ -28,8 +28,8 @@ export function SiteFooter({locale}:{locale:InterfaceLocale}){
 export function LegalPage({locale,slug}:{locale:InterfaceLocale;slug:string}){
   const kind=legalKind(locale,slug);if(!kind)notFound();
   const content=legalContent[locale][kind],text=safetyCopy[locale];
-  return <div className="app-shell" lang={languageTags[locale]}><SiteHeader locale={locale} activePage="home" contentId="legal-content"/>
-    <main className="sports-legal-page" id="legal-content"><nav aria-label={text.navigation}><Link href={interfaceRoutes[locale].home}>LivaSports</Link><span aria-hidden="true"> / </span>{content.title}</nav>
+  return <div className="v2-shell" lang={languageTags[locale]}><V2Header locale={locale}/>
+    <main className="v2-main v2-prose" id="main-content"><nav aria-label={text.navigation}><Link href={interfaceRoutes[locale].home}>LivaSports</Link><span aria-hidden="true"> / </span>{content.title}</nav>
       <h1>{content.title}</h1><p className="sports-legal-intro">{content.intro}</p><small>{text.reviewed} <time dateTime={legalReviewedAt}>{new Intl.DateTimeFormat(languageTags[locale],{dateStyle:'long',timeZone:'UTC'}).format(new Date(legalReviewedAt+'T12:00:00Z'))}</time></small>
       {content.sections.map(section=><section key={section.title}><h2>{section.title}</h2><p>{section.body}</p></section>)}
       {kind==='responsible'&&locale==='br'?<><SafetyNotice locale={locale}/><section><h2>{text.sources}</h2><ul>{(['prevention','exclusion','rules'] as const).map(key=><li key={key}><a href={officialSafetySources[key]} rel="noreferrer">{key==='prevention'?text.health:key==='exclusion'?text.exclusion:text.rules}</a></li>)}</ul></section></>:null}

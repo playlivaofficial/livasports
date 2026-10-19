@@ -5,6 +5,7 @@ import {AnalyticsDashboard} from '@/owner/AnalyticsDashboard';
 import {databaseUrl,PostgresDatabaseClient} from '@/database/client';
 import {readAnalyticsReport,type ReportFilters} from '@/analytics/reporting';
 import {parseFilters} from '@/analytics/filters';
+import {V2Header} from '@/v2/Header';
 import '../../owner-health.css';
 export const dynamic='force-dynamic';
 export const metadata={title:'Owner analytics',robots:{index:false,follow:false,nocache:true}};
@@ -16,7 +17,7 @@ export default async function OwnerAnalyticsPage({searchParams}:{searchParams:Pr
   if(!url)return <main className="owner-health"><h1>Owner analytics</h1><p role="alert">Database is not configured.</p></main>;
   const report=await loadReport(url,parseFilters(await searchParams));
   if(!report)return <main className="owner-health"><h1>Owner analytics</h1><p role="alert">Analytics could not be read. Try again shortly.</p></main>;
-  return <AnalyticsDashboard report={report}/>;
+  return <div className="v2-shell"><V2Header locale="en"/><AnalyticsDashboard report={report}/></div>;
 }
 async function loadReport(url:string,filters:ReportFilters){
   const db=new PostgresDatabaseClient(url);

@@ -20,6 +20,13 @@ beforeEach(async()=>{vi.useFakeTimers();vi.resetModules();mod=await import('./cl
 afterEach(()=>{vi.useRealTimers();for(const k of ['window','location','document','localStorage','sessionStorage','navigator','addEventListener'])delete (globalThis as Record<string,unknown>)[k];});
 
 describe('P4 client: identity, sessions, attribution, dedupe and the slip funnel (§5, §6, §7, §17, §34)',()=>{
+  it.each([{doNotTrack:'1'},{globalPrivacyControl:true}])('creates no identifiers or events on navigation when opted out: %j',async privacy=>{
+    const b=browser('https://livasports.com/en');
+    Object.assign(navigator,privacy);
+    mod.trackNavigation('/en','');mod.track('search_used');
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(b.store.size).toBe(0);expect(b.session.size).toBe(0);expect(document.cookie).toBe('');expect(b.sent).toEqual([]);
+  });
   it('links a comparison to canonical fixtures without emitting one duplicate event per leg',async()=>{
     const b=browser('https://livasports.com/co');
     const linked=Array.from({length:10},(_,i)=>String(i).padStart(16,'0'));

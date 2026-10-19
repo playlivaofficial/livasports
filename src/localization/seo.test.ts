@@ -9,6 +9,7 @@ vi.mock('@/profiles/runtime',()=>({
   loadPlayerProfile:async()=>({kind:'found',profile:{publicId:'2123456789abcdef',name:'Player',indexable:true,imageUrl:null}})}));
 import {GET as sitemapRoute} from '@/app/sitemap.xml/route';
 import {loadCompetitionSitemapSummaries} from '@/sports/sitemap-runtime';
+import {editorialSitemapClusters} from '@/v2/seo';
 import {primarySitemap} from '@/seo/sitemap';
 import {helpKinds} from './help-routes';
 import {sitemapXmlProblems} from '@/sports/sitemap';
@@ -50,13 +51,10 @@ it('/sitemap.xml is served as well-formed, escaped XML with the correct content 
   expect(response.headers.get('cache-control')).toContain('s-maxage');
   const body=await response.text();
   expect(sitemapXmlProblems(body)).toEqual([]);
-  expect(body).toContain('competition=premier-league&amp;tab=results</loc>');
-  expect(body).not.toMatch(/&tab=/);
-  // M1: the served document matches the sitemap built from the same coverage summaries — only the
-  // covered competition is submitted, so the registry's other hubs no longer spend index budget.
-  expect(body.match(/<url>/g)).toHaveLength(primarySitemap(await loadCompetitionSitemapSummaries()).length);
-  expect(body.match(/<loc>[^<]*\?competition=/g)).toHaveLength(5*5);
-  expect(body).not.toContain('competition=la-liga');
+  expect(body).toContain('/en/leagues/premier-league</loc>');
+  expect(body).not.toMatch(/&tab=|\\?competition=/);
+  expect(body.match(/<url>/g)).toHaveLength(editorialSitemapClusters().length*5);
+  expect(loadCompetitionSitemapSummaries).not.toHaveBeenCalled();
 });
 
 describe('M1 finished-match decay in metadata',()=>{

@@ -1,4 +1,4 @@
-import {resolveSlipRequest} from '@/slip/server';
-import {withRequestLimit} from '@/security/request-limit';
+import {retiredResponse} from '@/v2/retired';
 export const runtime='nodejs';
-export const POST=withRequestLimit('slip',resolveSlipRequest);
+export const GET=retiredResponse;
+export const POST=retiredResponse;

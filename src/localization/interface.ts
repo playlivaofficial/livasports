@@ -5,6 +5,7 @@ import {authRoutes,type AuthRouteKey} from './auth-copy';
 import {favoritesRoutes,type FavoritesRouteKey} from './favorites-copy';
 import {legalKind,legalPath} from './legal-routes';
 import {helpKind,helpPath} from './help-routes';
+import {translateEditorialPath} from '@/v2/routes';
 
 // Presentation preferences never replace the existing commercial jurisdiction.
 export type InterfaceLocale=SiteLocale|'en';
@@ -42,6 +43,7 @@ export function translatedPath(input:string,target:InterfaceLocale):string{
   if(!input.startsWith('/')||input.startsWith('//')||/[\\\u0000-\u001f\u007f]/.test(input))return interfaceRoutes[target].home;
   const url=new URL(input,'https://livasports.com');
   const source=pathLocale(url.pathname);if(!source)return interfaceRoutes[target].home;
+  const editorial=translateEditorialPath(url.pathname,target);if(editorial)return editorial+url.search+url.hash;
   const page=(Object.keys(interfaceRoutes[source]) as PageKey[]).find(key=>interfaceRoutes[source][key]===url.pathname);
   const auth=(Object.keys(authRoutes[source]) as AuthRouteKey[]).find(key=>authRoutes[source][key]===url.pathname);
   const favorites=(Object.keys(favoritesRoutes[source]) as FavoritesRouteKey[]).find(key=>favoritesRoutes[source][key]===url.pathname);

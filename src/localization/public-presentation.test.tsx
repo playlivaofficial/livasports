@@ -70,7 +70,7 @@ describe('public root shell privacy and deterministic hydration',()=>{
   it.each(['br','mx','co','pe','en'] as const)('renders the explicit %s locale and footer with no owner state in shared HTML',locale=>{
     const fetch=vi.spyOn(globalThis,'fetch');
     const html=renderToStaticMarkup(<PublicRootLayout locale={locale}><main>Public fixture facts</main></PublicRootLayout>);
-    expect(html).toContain(`<html lang="${languageTags[locale]}"`);expect(html).toContain(`<footer class="sports-site-footer" lang="${languageTags[locale]}"`);
+    expect(html).toContain(`<html lang="${languageTags[locale]}"`);expect(html).toContain('class="v2-footer"');
     expect(html).toContain('Public fixture facts');expect(html).not.toContain('Owner controls');expect(html).not.toContain('QA_TEST');expect(html).not.toContain('owner-preview-bar');
     expect(fetch).not.toHaveBeenCalled();
   });

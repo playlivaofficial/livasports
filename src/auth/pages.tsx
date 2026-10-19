@@ -7,6 +7,8 @@ import {authConfigured,emailAuthConfigured,googleAuthConfigured} from './databas
 import {auth} from './config';
 import {signOutUser,updateDisplayName} from './actions';
 import {userProviders} from './session';
+import {v2Path} from '@/v2/routes';
+import {v2Copy} from '@/v2/copy';
 import {AuthShell} from './AuthShell';
 import {SignInForm} from './SignInForm';
 import {authCallbackUrl} from './redirect';
@@ -57,7 +59,7 @@ export async function AccountPage({locale}:{locale:InterfaceLocale}){
       </form>
       <div><p>{text.methods}</p><ul className="auth-methods-list">{methods.map(method=><li key={method}>{method==='google'?text.googleMethod:text.emailMethod}</li>)}</ul></div>
       <div className="auth-favorites"><h2>{fav.accountTitle}</h2><ul><li>{fav.accountTeams}: {counts.teams}</li><li>{fav.accountCompetitions}: {counts.competitions}</li><li>{fav.accountMatches}: {counts.fixtures}</li></ul><Link href={favoritesPath(locale)}>{fav.accountLink}</Link></div>
-      <p className="auth-reserved">{text.reserved}</p>
+      <p className="auth-reserved">{text.reserved}</p><Link className="v2-button v2-button-secondary" href={v2Path(locale,'tools')}>{v2Copy(locale).fanTools} →</Link>
       <form action={signOutUser}><input type="hidden" name="locale" value={locale}/><button className="auth-signout" type="submit">{text.signOut}</button></form>
     </section>
   </AuthShell>;

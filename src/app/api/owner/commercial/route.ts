@@ -1,5 +1,4 @@
-import {ownerCommercialRequest} from '@/affiliate/owner-commercial';
-export const dynamic='force-dynamic';
+import {retiredOwnerResponse} from '@/v2/retired';
 export const runtime='nodejs';
-export const GET=(request:Request)=>ownerCommercialRequest(request);
-export const POST=(request:Request)=>ownerCommercialRequest(request);
+export const GET=retiredOwnerResponse;
+export const POST=retiredOwnerResponse;

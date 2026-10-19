@@ -1,7 +1,7 @@
 import { databaseUrl, PostgresDatabaseClient } from '@/database/client';
 import {parseSlipEvent,recordSlipEvent,slipEvents} from '@/slip/analytics-server';
 import {parseComparisonEvent,recordComparisonEvent,comparisonEvents} from '@/slip/comparison-analytics-server';
-import {boundedJson} from '@/slip/server';
+import {boundedJson} from '@/http/body';
 import {embedClickRequest,impressionRequest} from '@/affiliate/server';
 import {ownerPreview} from '@/owner/session';
 import {classifyTraffic,ingestClientBatch} from '@/analytics/server';

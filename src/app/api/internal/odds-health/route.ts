@@ -1,3 +1,4 @@
-import {schedulerResponse} from '@/odds/scheduler-server';
+import {retiredSchedulerResponse} from '@/v2/retired';
 export const runtime='nodejs';
-export async function GET(request:Request){return schedulerResponse(request,true);}
+export const GET=retiredSchedulerResponse;
+export const POST=retiredSchedulerResponse;

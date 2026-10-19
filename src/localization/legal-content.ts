@@ -1,7 +1,8 @@
 import {withSpanishLocales} from './spanish';
+import {currentLegalContent} from '@/v2/product-notices';
 import type {LegalKind} from './legal-routes';
 type Article={title:string;intro:string;sections:{title:string;body:string}[]};
-export const legalReviewedAt='2026-09-16';
+export const legalReviewedAt='2026-10-19';
 export const officialSafetySources={
   prevention:'https://www.gov.br/saude/pt-br/assuntos/saude-de-a-a-z/s/saude-mental/nao-aposte-sua-saude/prevencao-e-reducao-de-danos',
   exclusion:'https://www.gov.br/fazenda/pt-br/composicao/orgaos/secretaria-de-premios-e-apostas/autoexclusao',
@@ -92,5 +93,6 @@ const baseLegalContent:Record<'br'|'mx'|'en',Record<LegalKind,Article>>={
 };
 const baseSafetyCopy={br:{warning:'Ministério da Fazenda adverte: Apostar pode causar dependência',footer:'Informação esportiva, comparação e divulgação de afiliados. A LivaSports não aceita apostas, não mantém depósitos de apostas e não processa apostas.',sources:'Recursos oficiais do Brasil',health:'Prevenção e apoio à saúde',exclusion:'Autoexclusão oficial',rules:'Regras de publicidade no Brasil',reviewed:'Atualizado em',navigation:'Informações e políticas'},mx:{warning:'Apostar puede causar dependencia y pérdidas económicas.',footer:'Información deportiva, comparación y divulgación de afiliados. LivaSports no acepta apuestas, no mantiene depósitos para apostar y no procesa apuestas.',sources:'Recursos oficiales de Brasil',health:'Prevención y apoyo a la salud',exclusion:'Autoexclusión oficial en Brasil',rules:'Reglas de publicidad de Brasil',reviewed:'Actualizado el',navigation:'Información y políticas'},en:{warning:'Gambling can cause addiction and financial loss.',footer:'Sports information, comparison and affiliate publishing. LivaSports does not accept bets, hold betting deposits or process wagers.',sources:'Official resources in Brazil',health:'Prevention and health support',exclusion:'Official Brazilian self-exclusion',rules:'Brazilian advertising rules',reviewed:'Updated',navigation:'Information and policies'}};
 
-export const legalContent=withSpanishLocales(baseLegalContent);
+const preservedLegalContent=withSpanishLocales(baseLegalContent);
+export const legalContent=Object.fromEntries(Object.entries(preservedLegalContent).map(([locale,content])=>[locale,currentLegalContent(locale as keyof typeof preservedLegalContent,content)])) as typeof preservedLegalContent;
 export const safetyCopy=withSpanishLocales(baseSafetyCopy);

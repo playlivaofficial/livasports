@@ -1,5 +1,4 @@
-import {growthDashboardExport} from '@/owner/growth-dashboard/export';
-import {withRequestLimit} from '@/security/request-limit';
-export const dynamic='force-dynamic';
+import {retiredOwnerResponse} from '@/v2/retired';
 export const runtime='nodejs';
-export const GET=withRequestLimit('owner',growthDashboardExport);
+export const GET=retiredOwnerResponse;
+export const POST=retiredOwnerResponse;

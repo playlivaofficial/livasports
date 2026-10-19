@@ -3,6 +3,7 @@ import {NextResponse} from 'next/server';
 import {CANONICAL_COMPETITION_TARGETS} from '@/config/footballCompetitions';
 import {defaultLanguage,languageCookie,languageTags,interfaceRoutes,pathLocale,type InterfaceLocale} from '@/localization/interface';
 import {requestCountry,requestEffectiveGeo} from '@/odds/commercial-geo';
+import {competitionDisposition,retiredHtml} from '@/v2/retirement-policy';
 
 function competitionNotFound(locale:InterfaceLocale,head:boolean):Response {
   const text=locale==='en'?{title:'Competition not found',body:'This address does not match a covered competition.',back:'Back to football'}
@@ -24,8 +25,10 @@ export async function proxy(request:NextRequest):Promise<Response>{
   }
   const locale=pathLocale(request.nextUrl.pathname)??'en';
   const requested=request.nextUrl.searchParams.get('competition');
+  if(request.nextUrl.pathname===interfaceRoutes[locale].live||request.nextUrl.pathname===interfaceRoutes[locale].today)return new Response(request.method==='HEAD'?null:retiredHtml(locale),{status:410,headers:{'content-type':'text/html; charset=utf-8','cache-control':'public, max-age=300'}});
   // Preserve genuine 404s before the board's streaming boundary, with no DB work.
   if(request.nextUrl.pathname===interfaceRoutes[locale].football&&requested&&!CANONICAL_COMPETITION_TARGETS.some(target=>target.slug===requested))return competitionNotFound(locale,request.method==='HEAD');
+  if(request.nextUrl.pathname===interfaceRoutes[locale].football&&requested){const disposition=competitionDisposition(locale,requested,request.nextUrl.searchParams.get('tab'));return disposition.path?Response.redirect(new URL(disposition.path,request.url),301):new Response(request.method==='HEAD'?null:retiredHtml(locale),{status:410,headers:{'content-type':'text/html; charset=utf-8','cache-control':'public, max-age=300'}});}
   const forwarded=new Headers(request.headers);
   forwarded.set('x-livasports-interface-language',locale);
   // Entity identities are validated inside ISR. Never put per-request GEO/DB
@@ -33,4 +36,4 @@ export async function proxy(request:NextRequest):Promise<Response>{
   return NextResponse.next({request:{headers:forwarded}});
 }
 
-export const config = { matcher: ['/','/br/futebol','/mx/futbol','/co/futbol','/pe/futbol','/en/football'] };
+export const config = { matcher: ['/','/br/futebol','/mx/futbol','/co/futbol','/pe/futbol','/en/football','/br/ao-vivo','/mx/en-vivo','/co/en-vivo','/pe/en-vivo','/en/live','/br/jogos/hoje','/mx/partidos/hoy','/co/partidos/hoy','/pe/partidos/hoy','/en/matches/today'] };

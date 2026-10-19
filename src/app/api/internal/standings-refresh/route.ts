@@ -1,5 +1,4 @@
-import {standingsRefreshResponse} from '@/sports/standings-server';
+import {retiredSchedulerResponse} from '@/v2/retired';
 export const runtime='nodejs';
-export const maxDuration=180;
-export const GET=standingsRefreshResponse;
-export const POST=standingsRefreshResponse;
+export const GET=retiredSchedulerResponse;
+export const POST=retiredSchedulerResponse;
