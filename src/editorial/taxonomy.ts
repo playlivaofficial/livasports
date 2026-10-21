@@ -17,7 +17,7 @@ export const footballTopics={
   'world-cup-qualifiers-concacaf-2030':'World Cup qualifiers · Concacaf 2030',
   'euro':'UEFA EURO','euro-2024-archive':'UEFA EURO 2024 (archive)','euro-qualifiers':'UEFA EURO qualifiers','copa-america':'Copa América',
   'uefa-nations-league':'UEFA Nations League','gold-cup':'Concacaf Gold Cup','gold-cup-2025-archive':'Concacaf Gold Cup 2025 (archive)','concacaf-nations-league':'Concacaf Nations League',
-  'national-teams':'National teams','grassroots':'Grassroots',
+  'national-teams':'National teams','grassroots':'Grassroots','football-news':'Football news',
 } as const;
 export const otherSportTopics={
   nba:{sport:'basketball',name:'NBA'},euroleague:{sport:'basketball',name:'EuroLeague'},
@@ -28,6 +28,9 @@ export const otherSportTopics={
   'atp-masters-1000':{sport:'tennis',name:'ATP Masters 1000'},'wta-1000':{sport:'tennis',name:'WTA 1000'},
   'atp-finals':{sport:'tennis',name:'ATP Finals'},'wta-finals':{sport:'tennis',name:'WTA Finals'},
   'davis-cup':{sport:'tennis',name:'Davis Cup'},'billie-jean-king-cup':{sport:'tennis',name:'Billie Jean King Cup'},
+  'basketball-news':{sport:'basketball',name:'Basketball news'},'baseball-news':{sport:'baseball',name:'Baseball news'},
+  'american-football-news':{sport:'american-football',name:'American football news'},'ice-hockey-news':{sport:'ice-hockey',name:'Ice hockey news'},
+  'mma-news':{sport:'mma',name:'Mixed martial arts news'},'tennis-news':{sport:'tennis',name:'Tennis news'},
 } as const satisfies Record<string,{sport:NewsSport;name:string}>;
 export type NewsCompetition=keyof typeof footballTopics|keyof typeof otherSportTopics;
 export const newsCompetitions=Object.keys({...footballTopics,...otherSportTopics}) as NewsCompetition[];

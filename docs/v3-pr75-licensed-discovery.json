@@ -1,0 +1,68 @@
+{
+  "checkedAt": "2026-10-21T11:11:47.278Z",
+  "status": "PARTIAL_NOT_SEVEN_SPORT_PUBLICATION",
+  "productionChanges": 0,
+  "prRemainsDraft": true,
+  "licensedSource": {
+    "name": "English Wikinews",
+    "license": "CC BY 4.0 for material published after 2024-12-16; attribution retained",
+    "licenseUrl": "https://en.wikinews.org/wiki/Wikinews:Copyright",
+    "apiDocumentation": "https://www.mediawiki.org/wiki/API:Categorymembers",
+    "access": "Documented public MediaWiki API, one bounded request per sport, no pagination or retries",
+    "exclusions": "No images, logos, publisher prose or automatic factual approval",
+    "freshness": "Published category plus exactly one valid publication-date category within seven days. Category insertion and edit timestamps are not publication dates. Disputed/retracted/developing/correction entries excluded."
+  },
+  "liveReadOnlyValidation": {
+    "requests": 7,
+    "modelCalls": 0,
+    "newAiPublications": 0,
+    "results": {
+      "football": "NO_CURRENT_VERIFIED_CANDIDATES",
+      "basketball": "NO_CURRENT_VERIFIED_CANDIDATES",
+      "baseball": "NO_CURRENT_VERIFIED_CANDIDATES",
+      "american-football": "NO_CURRENT_VERIFIED_CANDIDATES",
+      "ice-hockey": "NO_CURRENT_VERIFIED_CANDIDATES",
+      "mma": "NO_CURRENT_VERIFIED_CANDIDATES",
+      "tennis": "NO_CURRENT_VERIFIED_CANDIDATES"
+    },
+    "additionalResearchRequest": "One broader sports-category query returned latest category additions in March 2026. These are not current October reporting and were not published."
+  },
+  "scheduler": {
+    "route": "/api/internal/editorial/news-cycle",
+    "configuredCronUtc": "43 */6 * * *",
+    "sourceRotation": "At most two due desks per run, oldest attempted first; successful empty checks use 24-hour cooldown, errors use existing independent exponential backoff",
+    "sourceRequestsPerDayCap": 16,
+    "runCapPerDay": 4,
+    "sourceExecution": "Connected to the existing scheduler, not dependent on manual discovery script",
+    "actualRepeatedScheduledPublicationCycles": 0,
+    "note": "Live source probe was read-only validation, not a scheduled publication. No calendar-day simulation counted as observed operation. Local automation remains paused; Production activation forbidden."
+  },
+  "publicationCoverage": {
+    "football": "One local real AI Bundesliga result brief preserved; wider football not automatically publishing",
+    "basketball": "No real AI publication; NBA/EuroLeague primary-source automated access/fact verification unresolved",
+    "baseball": "No real AI publication; no current eligible licensed discovery candidate",
+    "american-football": "No real AI publication; primary-source automated access/fact verification unresolved",
+    "ice-hockey": "No real AI publication; dated table/manual newsroom is not automatic reporting",
+    "mma": "No real AI publication; primary-source automated access/fact verification unresolved",
+    "tennis": "No real AI publication; primary-source automated access/fact verification unresolved"
+  },
+  "economics": {
+    "newInferenceSpendUsd": 0,
+    "lifetimeRecordedUsd": 0.002058,
+    "lifetimeReservedUsd": 0.06,
+    "lifetimeValidationCapUsd": 1,
+    "dailyReservationCapUsd": 0.1,
+    "monthlyReservationCapUsd": 3,
+    "projected31DayModelCostAtFourSameCostArticlesDailyUsd": 0.159836,
+    "maximum31DayReservationUsd": 2.48,
+    "caveat": "Projection from one five-call brief, not demonstrated volume, guaranteed article cost or total infrastructure billing. At most four articles/day across all sports, not four per sport. No new subscriptions."
+  },
+  "remainingBlockers": [
+    "No second current eligible source-backed event available from the validated licensed discovery source",
+    "Official feeds require verified automated-access/reuse terms or written permission; a public webpage/robots allowance alone does not establish all rights",
+    "Non-score facts extraction and independent corroboration are not implemented as an approved auto-publication route",
+    "Repeated real scheduled publication across days has not been observed",
+    "Approved crest/photo coverage remains incomplete; identity labels are not official logos",
+    "Owner visual acceptance and explicit Production release/AI activation remain required"
+  ]
+}

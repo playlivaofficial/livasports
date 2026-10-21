@@ -1,7 +1,9 @@
 import {canonicalSourceUrl, safeNewsDraft, type NewsDraft, type NewsRecord, type NewsSport} from './model';
+import {licensedDiscoveryDesks} from './licensed-discovery';
 
 /** Citation discovery only. These are not article/image syndication licences. */
 export const discoveryDesks = [
+  ...licensedDiscoveryDesks.map(d=>({...d,competition:`${d.sport}-news` as import('./taxonomy').NewsCompetition,country:'international' as const,name:'Wikinews · CC BY',url:'https://en.wikinews.org/wiki/Category:'+encodeURIComponent(d.category.replaceAll(' ','_'))})),
   {id:'dimayor',sport:'football',competition:'colombia-primera-a',country:'co',name:'DIMAYOR',url:'https://www.dimayor.com.co/liga-betplay-dimayor/'},
   {id:'liga1',sport:'football',competition:'peru-liga-1',country:'pe',name:'Liga1',url:'https://liga1.pe/noticias/'},
   {id:'nba',sport:'basketball',competition:'nba',country:'international',name:'NBA',url:'https://pr.nba.com/'},
@@ -15,6 +17,7 @@ export interface DiscoveryCandidate {desk:string;url:string;headline:string;sour
 export interface DiscoveryPackage {version:1;discoveredAt:string;candidates:DiscoveryCandidate[]}
 export function isDiscoveryArticleUrl(id:string,value:unknown){
   const desk=discoveryDesks.find(d=>d.id===id),url=canonicalSourceUrl(value);if(!desk||!url||new URL(url).hostname!==new URL(desk.url).hostname.replace(/^www\./,''))return false;
+  if(id.startsWith('wikinews-'))return /^\/wiki\/[^:?#]+$/.test(decodeURIComponent(new URL(url).pathname));
   const path=new URL(url).pathname.replace(/\/$/,'');
   if(url===canonicalSourceUrl(desk.url)||/\/(?:video|videos|tickets|shop|standings|rankings|category|tag|author|privacy|terms|info|lost-password|login|register|comision-de-licencias|tribunal-apelaciones|reglamentos)(?:\/|$)/i.test(path)||!path.split('/').at(-1)?.includes('-'))return false;
   if(id==='dimayor')return /^\/\d{4}\/\d{2}\/\d{2}\//.test(path);

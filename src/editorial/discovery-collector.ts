@@ -2,6 +2,7 @@ import {load} from 'cheerio';
 import robotsParser from 'robots-parser';
 import {canonicalSourceUrl} from './sources';
 import {discoveryDesks,isDiscoveryArticleUrl,type DiscoveryCandidate} from './discovery';
+import {collectWikinews} from './wikinews-discovery';
 const agent='LivaSports-EditorialDiscovery';
 async function boundedText(url:string,fetcher:typeof fetch,max:number){
   const response=await fetcher(url,{redirect:'error',signal:AbortSignal.timeout(12000),headers:{'User-Agent':`${agent}/1.0 (+https://livasports.com)`,Accept:'text/html,text/plain;q=0.9'},cache:'no-store'});
@@ -29,6 +30,7 @@ export function discoveryLinks(html:string,id:string,now=new Date()):DiscoveryCa
 }
 /** Max two requests per fixed desk. Missing/disallowed robots, redirects or failures stop that desk. */
 export async function collectDiscovery(id:string,fetcher:typeof fetch=fetch,now=new Date()){
+  if(id.startsWith('wikinews-'))return collectWikinews(id,fetcher,now);
   const desk=discoveryDesks.find(d=>d.id===id);if(!desk)throw new Error('DESK_NOT_ALLOWED');
   const robotsUrl=new URL('/robots.txt',desk.url).href;let requests=0;
   try{

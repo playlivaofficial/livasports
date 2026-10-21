@@ -1,6 +1,7 @@
 import {SportsRepository} from '@/multisport/repository';
 import {assertOpenLigaSnapshot} from '@/multisport/openligadb';
 import {collectDiscovery} from '../discovery-collector';
+import {collectWikinews} from '../wikinews-discovery';
 import {discoveryDesks} from '../discovery';
 import {AutomationRepository,type SourceState} from './repository';
 import {generateBriefing,type ModelUsage} from './generation';
@@ -8,6 +9,7 @@ import {resultsFromSnapshot,toNewsDraft,factErrors} from './policy';
 
 /** Cache validators apply to a fixed, approved index only. Never persist raw article bodies. */
 export async function collectScheduledDiscovery(source:SourceState,fetcher:typeof fetch=fetch,now=new Date()){
+  if(source.sourceId.startsWith('wikinews-'))return {...await collectWikinews(source.sourceId,fetcher,now),cursor:{}};
   const desk=discoveryDesks.find(d=>d.id===source.sourceId);if(!desk)throw Error('SOURCE_NOT_APPROVED');
   let unchanged=false;const cursor={...source.cursor};
   const conditional:typeof fetch=async(input,init)=>{

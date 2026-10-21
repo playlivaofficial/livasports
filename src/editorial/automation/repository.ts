@@ -67,7 +67,7 @@ export class AutomationRepository {
   async finishSource(runId:string,id:string,status:string,requests:number,cursor:Record<string,string>,now=new Date()){
     await this.db.transaction(async db=>{
       await active(db,runId);
-      const ok=['CANDIDATES_REQUIRE_REVIEW','NOT_MODIFIED','RESULTS_VALIDATED'].includes(status);
+      const ok=['CANDIDATES_REQUIRE_REVIEW','NO_CURRENT_VERIFIED_CANDIDATES','NOT_MODIFIED','RESULTS_VALIDATED'].includes(status);
       const row=(await db.query<{failures:number}>('SELECT failures FROM editorial_discovery_state WHERE source_id=$1 FOR UPDATE',[id])).rows[0];
       const failures=ok?0:Math.min(8,(row?.failures??0)+1),hours=ok?24:Math.min(168,6*2**failures);
       await db.query('UPDATE editorial_discovery_state SET last_attempt_at=$2,last_success_at=CASE WHEN $3 THEN $2 ELSE last_success_at END,next_allowed_at=$4,failures=$5,last_status=$6,cursor=$7 WHERE source_id=$1',[id,now.toISOString(),ok,new Date(+now+hours*3600000).toISOString(),failures,status,JSON.stringify(cursor)]);

@@ -8,7 +8,7 @@ import {discoveryDesks,type DiscoveryCandidate} from '../discovery';
 export const automationLimits=Object.freeze({minIntervalMs:6*3600000,maxRunsPerDay:4,maxRequestsPerDay:16,maxPending:500,maxEventsPerRun:2,maxModelCalls:5,maxModelInputBytes:18000,maxOutputTokens:2200,reserveMicroUsd:20000,maxDailyMicroUsd:100000,maxMonthlyMicroUsd:3000000,maxValidationMicroUsd:1000000});
 export const automationSources=[
   {id:'openliga-results',name:'OpenLigaDB · verified stored results',sport:'football',permission:'structured-facts',automaticAccess:true,rights:'ODbL 1.0; attribution and normalized database export retained',url:'https://www.openligadb.de/',requestLimit:0},
-  ...discoveryDesks.map(d=>({id:d.id,name:d.name,sport:d.sport,permission:'metadata-review',automaticAccess:false,rights:'Scheduled collection not authorized yet. Owner-imported citations only; no article/image reuse or automatic publication grant',url:d.url,requestLimit:2})),
+  ...discoveryDesks.map(d=>({id:d.id,name:d.name,sport:d.sport,permission:'metadata-review',automaticAccess:d.id.startsWith('wikinews-'),rights:d.id.startsWith('wikinews-')?'CC BY metadata discovery allowed; dated published candidates only. Facts/entity verification required before publication; no image rights grant.':'Scheduled collection not authorized yet. Owner-imported citations only; no article/image reuse or automatic publication grant',url:d.url,requestLimit:d.id.startsWith('wikinews-')?1:2})),
 ] as const;
 export interface ResultFacts {
   kind:'result'; eventKey:string; sourceId:'openliga-results'; sourceUrl:string;
