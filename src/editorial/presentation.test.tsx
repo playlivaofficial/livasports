@@ -22,6 +22,7 @@ import {sportsPath} from '@/multisport/catalog';
 
 const database=vi.hoisted(()=>({story:null as PublishedNews|null}));
 vi.mock('./server',()=>({publishedStory:async()=>database.story,publishedNews:async()=>database.story?[database.story]:[]}));
+vi.mock('@/multisport/server',()=>({publishedSnapshots:async()=>[]}));
 vi.mock('@/v2/pages',()=>({V2Shell:({children}:{children:ReactNode})=><main>{children}</main>}));
 const now=new Date('2026-10-19T12:00:00.000Z');
 function spanishOnly(){

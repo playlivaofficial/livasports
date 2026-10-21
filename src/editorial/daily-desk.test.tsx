@@ -44,6 +44,6 @@ describe('daily manual newsroom operation',()=>{
     expect($('.ed-desk-card')).toHaveLength(7);expect($('button')).toHaveLength(7);
     expect($('a[target="_blank"]').length).toBeGreaterThanOrEqual(7);
     expect($('a').toArray().every(link=>$(link).attr('rel')==='noopener noreferrer')).toBe(true);
-    expect($.text()).toContain('no auto-publishing');expect($.text()).toContain('does not claim sources were checked today');
+    expect($.text()).toContain('manual exception desk');expect($.text()).toContain('does not claim sources were checked today');
   });
 });

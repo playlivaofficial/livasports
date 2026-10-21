@@ -80,7 +80,11 @@ await db.query('BEGIN');await db.query("UPDATE qa_existing_data SET value='{}'")
 assert.deepEqual((await db.query('SELECT * FROM qa_existing_data')).rows,before);
 // Only the disposable row created above is removed, allowing the real HTTP publishing test.
 await db.query("DELETE FROM sports_snapshots WHERE snapshot_key='bundesliga:2026/27'");
-for(const name of ['021_owner_qa_login_rate_limit.sql','072_v2_editorial_newsroom.sql'])await db.query(await readFile('db/migrations/'+name,'utf8'));
+for(const name of ['021_owner_qa_login_rate_limit.sql','072_v2_editorial_newsroom.sql','074_v3_news_automation.sql'])await db.query(await readFile('db/migrations/'+name,'utf8'));
+// Reuse this disposable service only; no external credentials or real model calls.
+const automationDbUrl=new URL('postgresql://127.0.0.1');automationDbUrl.port=String(config.port);automationDbUrl.username=config.user;automationDbUrl.password=config.password;automationDbUrl.pathname='/livasports_v3_qa';
+const automationQA=spawn(process.execPath,['--require','./scripts/tsx-windows-preload.cjs','--import','tsx','scripts/v3-news-automation-db-qa.ts'],{env:{...process.env,V3_QA_DATABASE_URL:automationDbUrl.href},stdio:'inherit',windowsHide:true});
+assert.equal(await new Promise(resolve=>automationQA.once('exit',resolve)),0,'Isolated automation migration and publication acceptance');
 const appPassword=randomBytes(32).toString('base64url');
 await db.query((await db.query("SELECT format('CREATE ROLE livasports_v3_app LOGIN PASSWORD %L', $1::text) AS sql",[appPassword])).rows[0].sql);
 await db.query('GRANT USAGE ON SCHEMA public TO livasports_v3_app; GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO livasports_v3_app; GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO livasports_v3_app');

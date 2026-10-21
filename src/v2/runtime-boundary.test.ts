@@ -21,8 +21,8 @@ describe('V2 active deployment dependency boundary',()=>{
   for(const file of reachable)expect(file).not.toMatch(/providers\/.*Adapter|ingestion\/FootballIngestionService|odds\/scheduler(?:-server)?\.ts|growth\/(?:service|.*renderer|scheduler-server)\.ts|seo-autopilot\/runner/);
   expect(reachable).toContain('src/v2/pages.tsx');expect(reachable).toContain('src/auth/config.ts');
  });
- it('allows only the explicitly approved daily OpenLigaDB cron and keeps paid refresh commands retired',()=>{
-  expect(JSON.parse(readFileSync('vercel.json','utf8')).crons).toEqual([{path:'/api/internal/editorial/sports-refresh',schedule:'17 7 * * *'}]);
+ it('allows only bounded V3 data/editorial schedules behind disabled deployment flags and keeps paid refresh commands retired',()=>{
+  expect(JSON.parse(readFileSync('vercel.json','utf8')).crons).toEqual([{path:'/api/internal/editorial/sports-refresh',schedule:'17 7 * * *'},{path:'/api/internal/editorial/news-cycle',schedule:'43 */6 * * *'}]);
   const route=readFileSync('src/app/api/internal/editorial/sports-refresh/route.ts','utf8');
   expect(route).toContain('CRON_SECRET');expect(route).toContain('timingSafeEqual');
   expect(route).toContain("V3_OPENLIGA_AUTOMATION_ENABLED!=='true'");expect(route).toContain('runOpenLigaDbRefresh');

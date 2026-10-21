@@ -2,7 +2,7 @@ import type {NewsDraft,PublishedNews} from './model';
 
 export const newsLanguages=['en','es','pt'] as const;
 export type NewsLanguage=typeof newsLanguages[number];
-export interface TranslationReview {state:'pending'|'reviewed'|'unavailable';reviewedAt:string|null}
+export interface TranslationReview {state:'pending'|'reviewed'|'validated'|'unavailable';reviewedAt:string|null}
 export type TranslationReviews=Record<NewsLanguage,TranslationReview>;
 export const newsLanguageNames:Record<NewsLanguage,string>={en:'English',es:'Español',pt:'Português'};
 const record=(value:unknown):value is Record<string,unknown>=>!!value&&typeof value==='object'&&!Array.isArray(value);
@@ -20,7 +20,7 @@ export function validTranslationMetadata(value:unknown):boolean {
   return newsLanguages.every(language=>{
     const review=reviews[language];
     return record(review)&&Object.keys(review).length===2&&Object.keys(review).every(key=>key==='state'||key==='reviewedAt')&&
-      (review.state==='reviewed'?timestamp(review.reviewedAt):(review.state==='pending'||review.state==='unavailable')&&review.reviewedAt===null)&&
+      (review.state==='reviewed'||review.state==='validated'?timestamp(review.reviewedAt):(review.state==='pending'||review.state==='unavailable')&&review.reviewedAt===null)&&
       (language!==value.originalLanguage||review.state!=='unavailable');
   });
 }
@@ -55,7 +55,7 @@ export function reviewNewsTranslations(draft:NewsDraft,reviewedAt:string):NewsDr
 export function translationReviewMatches(draft:NewsDraft,reviewedAt:string|null):boolean {
   if(!validTranslationMetadata(draft))return false;
   if(!draft.translationReview)return true;
-  return !!reviewedAt&&availableNewsLanguages(draft).every(language=>draft.translationReview![language].state==='reviewed'&&draft.translationReview![language].reviewedAt===reviewedAt);
+  return !!reviewedAt&&availableNewsLanguages(draft).every(language=>['reviewed','validated'].includes(draft.translationReview![language].state)&&draft.translationReview![language].reviewedAt===reviewedAt);
 }
 
 export interface ResolvedNewsTranslation {
@@ -66,7 +66,7 @@ const completeLanguage=(item:PublishedNews,language:NewsLanguage)=>text(item.tit
 /** Never mixes languages or treats pending text as public. Legacy originals are not inferred. */
 export function resolveNewsTranslation(item:PublishedNews,requestedLanguage:NewsLanguage):ResolvedNewsTranslation|null {
   if(!validTranslationMetadata(item)||!newsLanguages.includes(requestedLanguage))return null;
-  const availableLanguages=newsLanguages.filter(language=>completeLanguage(item,language)&&(!item.translationReview||(item.translationReview[language].state==='reviewed'&&item.translationReview[language].reviewedAt===item.verifiedAt)));
+  const availableLanguages=newsLanguages.filter(language=>completeLanguage(item,language)&&(!item.translationReview||(['reviewed','validated'].includes(item.translationReview[language].state)&&item.translationReview[language].reviewedAt===item.verifiedAt)));
   const originalLanguage=item.originalLanguage??null;
   if(originalLanguage&&!availableLanguages.includes(originalLanguage))return null;
   const language=availableLanguages.includes(requestedLanguage)?requestedLanguage:originalLanguage&&availableLanguages.includes(originalLanguage)?originalLanguage:null;

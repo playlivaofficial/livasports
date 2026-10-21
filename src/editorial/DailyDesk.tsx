@@ -5,7 +5,7 @@ import type {NewsRecord,NewsSport} from './model';
 export function DailyDesk({records,now,onStartStory}:{records:NewsRecord[];now:Date;onStartStory:(sport:NewsSport)=>void}){
   const queue=dailyEditorialDesk(records,now);
   return <section className="ed-daily-desk" aria-labelledby="daily-desk-heading">
-    <div className="ed-desk-heading"><div><span className="ed-kicker">Manual editorial operation</span><h3 id="daily-desk-heading">Daily desk · {queue[0].today} UTC</h3></div><span className="ed-desk-status">7 sports · no auto-publishing</span></div>
+    <div className="ed-desk-heading"><div><span className="ed-kicker">Manual editorial operation</span><h3 id="daily-desk-heading">Daily desk · {queue[0].today} UTC</h3></div><span className="ed-desk-status">7 sports · manual exception desk</span></div>
     <p>Open the primary source, choose a genuinely new story, write an original brief and review each available language and image licence. Save → review → publish. The homepage updates without a deployment.</p>
     <div className="ed-desk-grid">{queue.map(item=><article key={item.sport} className="ed-desk-card">
       <h4>{sportName(item.sport,'en')}</h4><p className="ed-desk-next">{item.action==='publish-reviewed'?'Reviewed draft ready':item.action==='review-drafts'?'Draft review needed':item.action==='check-for-updates'?'Check for further updates':'Find and verify a story'}</p>

@@ -9,6 +9,8 @@ export const editorialSourceRegistry=officialSourceHosts.map(host=>({host,source
 
 export function validSourceUrl(value:unknown):value is string {
   if(typeof value!=='string'||value.length>1000||/[\s\\\u0000-\u001f\u007f]/.test(value))return false;
+  // Fixed structured ODbL result citations only; not blanket article-reuse permission.
+  if(/^https:\/\/api\.openligadb\.de\/getmatchdata\/\d+$/.test(value))return true;
   try{const url=new URL(value);return url.protocol==='https:'&&!url.username&&!url.password&&!url.port&&!url.search&&!url.hash&&officialSourceHosts.some(host=>url.hostname===host||url.hostname===`www.${host}`);}catch{return false;}
 }
 /** Collapse only safe aliases: www, trailing slash, URL dot segments and unreserved escapes.

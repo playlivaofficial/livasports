@@ -4,6 +4,10 @@
     {
       "path": "/api/internal/editorial/sports-refresh",
       "schedule": "17 7 * * *"
+    },
+    {
+      "path": "/api/internal/editorial/news-cycle",
+      "schedule": "43 */6 * * *"
     }
   ],
   "git": {

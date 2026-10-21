@@ -49,6 +49,7 @@ jobs:
           path: |
             output/v3-qa/acceptance-2026-10-21/migration.json
             output/v3-qa/acceptance-2026-10-21/owner-workflow.json
+            output/v3-qa/acceptance-2026-10-21/automation-db.json
           retention-days: 7
       - run: pnpm qa:seo:growth
       - run: pnpm typecheck
