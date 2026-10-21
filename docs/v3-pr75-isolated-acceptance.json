@@ -15,6 +15,10 @@
     "ciEngine": "postgres:18 service in the existing standard ubuntu-latest quality-gates job; synthetic data only; no repository secrets passed",
     "migration": "073_v3_sports_snapshots.sql",
     "localResult": "PASS",
+    "hostedCiResult": "PASS",
+    "hostedCiRun": "https://github.com/playlivaofficial/livasports/actions/runs/39556878438",
+    "hostedCiTestedCommit": "4e6d31905a4ac38723e4ce97afdf22ede0760b69",
+    "hostedCiArtifact": "v3-database-acceptance; 1355 bytes; retained for seven days",
     "applications": 3,
     "indexesIncludingPrimaryAndUnique": 7,
     "negativeConstraintAndPrivilegeChecks": 13,
@@ -53,8 +57,18 @@
     "evidenceDirectory": "output/v3-qa/acceptance-2026-10-21",
     "ownerDesignApproval": "PENDING"
   },
+  "qualityGates": {
+    "tests": {"total": 3723, "node": 17, "vitest": 3706, "result": "PASS"},
+    "lint": "PASS",
+    "typecheck": "PASS",
+    "productionBuild": "PASS, including the CI build against isolated PostgreSQL",
+    "secretScan": "PASS, zero credential leaks and zero tracked/unignored environment files",
+    "routeSeoCrawl": {"result": "PASS", "requests": 271, "indexablePages": 170, "findings": 0, "providerRequestsByCrawler": 0},
+    "hostedWorkflow": "Quality gates run 138 completed successfully, including PostgreSQL service shutdown",
+    "localReviewUrl": "http://localhost:3351/en",
+    "testScope": "Owner authentication, sports and newsroom persistence use disposable credentials and real PostgreSQL. External user OAuth/email delivery and legacy analytics are not configured in this isolated database; their endpoints fail closed. Production credentials were never copied."
+  },
   "remainingReleaseBlockers": [
-    "Hosted PostgreSQL CI acceptance result must be verified on the final pushed commit",
     "No authorized zero-incremental-cost isolated hosted database for a functioning Vercel Preview",
     "Owner review of the actual running visual result is pending",
     "Current independently verified coverage remains partial; Liga MX reconciliation and most requested sports publications are incomplete",
