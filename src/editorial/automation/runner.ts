@@ -57,13 +57,14 @@ export async function runNewsAutomation(repo:AutomationRepository,options:{key?:
       if(factErrors(event.facts,now).length){result.generation='FACTS_NO_LONGER_ELIGIBLE';await repo.fail(event.eventKey,result.generation);}
       else{
         await repo.markAttempt(claim.id,event.eventKey);
-        const generated=await generateBriefing(event.facts,options.key,options.fetcher,()=>repo.assertActive(claim.id));Object.assign(usage,generated.usage);result.generation=generated.status;
+        let checkpoint=0;
+        const generated=await generateBriefing(event.facts,options.key,options.fetcher,()=>repo.assertActive(claim.id),e=>repo.saveEvidence(claim.id,event.eventKey,checkpoint++,e));Object.assign(usage,generated.usage);result.generation=generated.status;
         if(generated.copy){const draft=toNewsDraft(generated.copy,event.facts,now);result.published.push(await repo.publish(claim.id,event,draft,now));}
-        else await repo.fail(event.eventKey,generated.status);
+        else{await repo.fail(event.eventKey,generated.status);if(generated.status.startsWith('MODEL_'))result.status='failed';}
       }
     }
     result.changed=!!(result.corrections||result.withdrawn||result.published.length);
-    await repo.finish(claim.id,result,usage);return result;
+    await repo.finish(claim.id,result,usage,result.status==='failed'?'failed':'completed');return result;
   }catch{
     // Intentionally no raw exception, URL, SQL or API response in logs/HTTP/audit.
     result.status='failed';result.changed=!!(result.corrections||result.withdrawn||result.published.length);

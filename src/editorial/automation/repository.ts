@@ -4,6 +4,7 @@ import type {NewsDraft,NewsRecord,PublishedNews} from '../model';
 import {automationLimits as limits,automationSources,eventKey,fingerprint,stableFacts,factErrors,resultsFromSnapshot,type EventFacts,type ResultFacts} from './policy';
 import type {SportsSnapshot} from '@/multisport/model';
 import type {ModelUsage} from './generation';
+import type {ReviewEvidence} from './review';
 
 export interface AutomationEvent {eventKey:string;facts:EventFacts;fingerprint:string;state:string;reason:string;revision:number;newsSlug:string|null;publicationRevision:number|null;attempts:number}
 export interface SourceState {sourceId:string;disabled:boolean;nextAllowedAt:string;lastAttemptAt:string|null;lastSuccessAt:string|null;failures:number;cursor:Record<string,string>;lastStatus:string}
@@ -16,7 +17,13 @@ async function active(db:QueryExecutor,runId:string){
 }
 export class AutomationRepository {
   constructor(readonly db:DatabaseClient){}
-  async initialize(){for(const s of automationSources)await this.db.query('INSERT INTO editorial_discovery_state(source_id,disabled) VALUES ($1,$2) ON CONFLICT DO NOTHING',[s.id,!s.automaticAccess]);}
+  async initialize(){await this.cleanupEvidence();for(const s of automationSources)await this.db.query('INSERT INTO editorial_discovery_state(source_id,disabled) VALUES ($1,$2) ON CONFLICT DO NOTHING',[s.id,!s.automaticAccess]);}
+  async cleanupEvidence(){await this.db.query('DELETE FROM editorial_generation_evidence WHERE expires_at<=now()');}
+  async saveEvidence(runId:string,key:string,checkpoint:number,payload:ReviewEvidence){
+    if(!Number.isInteger(checkpoint)||checkpoint<0||checkpoint>12||Buffer.byteLength(JSON.stringify(payload))>90000)throw Error('PRIVATE_EVIDENCE_LIMIT');
+    await this.db.query('INSERT INTO editorial_generation_evidence(run_id,event_key,checkpoint,payload) VALUES($1,$2,$3,$4) ON CONFLICT(run_id,event_key,checkpoint) DO NOTHING',[runId,key,checkpoint,JSON.stringify(payload)]);
+  }
+  async reviewEvidence(){await this.cleanupEvidence();return (await this.db.query<{run_id:string;event_key:string;checkpoint:number;payload:ReviewEvidence;expires_at:string}>('SELECT run_id,event_key,checkpoint,payload,expires_at::text FROM editorial_generation_evidence WHERE expires_at>now() ORDER BY created_at DESC,checkpoint DESC LIMIT 30')).rows;}
   async dashboard(){
     const [control,sources,events,runs,totals,alerts]=await Promise.all([
       this.db.query<{paused:boolean}>('SELECT paused FROM editorial_automation_control'),
@@ -114,7 +121,7 @@ export class AutomationRepository {
   async fail(key:string,reason:string){
     const retry=['MODEL_RATE_LIMITED','MODEL_UNAVAILABLE','MODEL_FAILED_NO_RETRY'].includes(reason);
     await this.db.query("UPDATE editorial_automation_events SET state=CASE WHEN $3 AND attempts<3 THEN 'generation-failed' ELSE 'review' END,reason=$2,changed_at=now() WHERE event_key=$1 AND state IN ('pending','generation-failed')",[key,reason.slice(0,120),retry]);
-    if(['MODEL_AUTH_REJECTED','MODEL_CONFIGURATION_REJECTED'].includes(reason))await this.db.transaction(async db=>{await db.query('UPDATE editorial_automation_control SET paused=true,edited_at=now()');await audit(db,key,'model-circuit-breaker',{reason});});
+    if(['MODEL_AUTH_REJECTED','MODEL_CONFIGURATION_REJECTED','MODEL_QUOTA_EXCEEDED','MODEL_LIMIT_UNCLASSIFIED'].includes(reason))await this.db.transaction(async db=>{await db.query('UPDATE editorial_automation_control SET paused=true,edited_at=now()');await audit(db,key,'model-circuit-breaker',{reason});});
   }
   async publish(runId:string,event:AutomationEvent,draft:NewsDraft,now=new Date()){
     return this.db.transaction(async db=>{
@@ -138,7 +145,7 @@ export class AutomationRepository {
   }
   async finish(runId:string,result:object,usage:ModelUsage,status:'completed'|'failed'='completed'){
     // Keep the original worst-case reservation, including ambiguous network failures. Never refund it.
-    await this.db.query('UPDATE editorial_automation_runs SET status=$2,finished_at=now(),model_microusd_used=$3,input_tokens=$4,output_tokens=$5,result=$6 WHERE id=$1 AND status=\'running\'',[runId,status,usage.microUsd,usage.inputTokens,usage.outputTokens,JSON.stringify({...result,modelUsage:{calls:usage.calls,stages:usage.stages??{}}})]);
+    await this.db.query('UPDATE editorial_automation_runs SET status=$2,finished_at=now(),model_microusd_used=$3,input_tokens=$4,output_tokens=$5,result=$6 WHERE id=$1 AND status=\'running\'',[runId,status,usage.microUsd,usage.inputTokens,usage.outputTokens,JSON.stringify({...result,modelUsage:{calls:usage.calls,stages:usage.stages??{},...(usage.failure?{failure:usage.failure}:{}),...(usage.audit?{audit:usage.audit}:{})}})]);
     if(usage.microUsd>limits.reserveMicroUsd)await this.db.transaction(async db=>{await db.query('UPDATE editorial_automation_control SET paused=true,edited_at=now()');await audit(db,null,'unexpected-model-usage',{runId,reportedMicroUsd:usage.microUsd});});
   }
 }

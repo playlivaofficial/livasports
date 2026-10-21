@@ -1,0 +1,17 @@
+import {beforeEach,describe,it,expect,vi} from 'vitest';
+import type {AutomationRepository} from './repository';
+const mocks=vi.hoisted(()=>({generate:vi.fn(),snapshot:vi.fn()}));
+vi.mock('./generation',()=>({generateBriefing:mocks.generate}));
+vi.mock('@/multisport/repository',()=>({SportsRepository:class{findPublished=mocks.snapshot;}}));
+vi.mock('@/multisport/openligadb',()=>({assertOpenLigaSnapshot:vi.fn()}));
+vi.mock('./policy',()=>({resultsFromSnapshot:()=>[],factErrors:()=>[],toNewsDraft:vi.fn()}));
+import {runNewsAutomation} from './runner';
+beforeEach(()=>{vi.clearAllMocks();mocks.snapshot.mockResolvedValue({events:[],season:'synthetic'});});
+describe('news scheduler failure reporting — no real model requests',()=>{
+ it.each(['MODEL_RATE_LIMITED','MODEL_QUOTA_EXCEEDED','MODEL_LIMIT_UNCLASSIFIED','MODEL_UNAVAILABLE'])('marks %s failed in both result and durable run',async status=>{
+  const repo={db:{},initialize:vi.fn(),claim:vi.fn().mockResolvedValue({id:'synthetic-run'}),sourceEnabled:vi.fn().mockResolvedValue(true),reconcile:vi.fn().mockResolvedValue(0),finishSource:vi.fn(),dueSources:vi.fn().mockResolvedValue([]),pending:vi.fn().mockResolvedValue({eventKey:'synthetic',facts:{kind:'result'}}),markAttempt:vi.fn(),fail:vi.fn(),finish:vi.fn(),publish:vi.fn()};
+  mocks.generate.mockResolvedValue({copy:null,status,usage:{calls:1,inputTokens:0,outputTokens:0,microUsd:0}});
+  const result=await runNewsAutomation(repo as unknown as AutomationRepository,{key:'synthetic-token',validationOnly:true});
+  expect(result).toMatchObject({status:'failed',generation:status,published:[]});expect(repo.publish).not.toHaveBeenCalled();expect(mocks.generate).toHaveBeenCalledTimes(1);expect(repo.finish.mock.calls[0][3]).toBe('failed');
+ });
+});

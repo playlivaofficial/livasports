@@ -27,14 +27,14 @@
     "Unverified source permissions fail closed even if a source's stored enable flag is changed"
   ],
   "actualModelValidation": {
-    "keyAvailable": false,
-    "authenticatedRequests": 0,
-    "tokens": 0,
-    "spentUsd": 0,
-    "realAiPublications": 0,
-    "translationCost": null,
-    "perArticleCost": null,
-    "reason": "OPENAI_API_KEY not configured at last check; no simulated output counted as real generation"
+    "keyAvailable": true,
+    "authenticatedRequests": 5,
+    "tokens": 5486,
+    "spentUsd": 0.001289,
+    "realAiPublications": 1,
+    "translationCost": 0.000256,
+    "perArticleCost": 0.001289,
+    "reason": "Real local canary published after one targeted correction and fresh independent audit; see v3-pr75-ai-publication.json. Credentials remain local process-only."
   },
   "automaticSourceScope": {
     "enabledByPolicy": [
@@ -58,7 +58,7 @@
     "cronUtc": "43 */6 * * *",
     "runsPerDayMaximum": 4,
     "articlesPerRunMaximum": 1,
-    "modelCallsPerArticleMaximum": 3,
+    "modelCallsPerArticleMaximum": 5,
     "sourceRequestsPerRunMaximum": 4,
     "sourceRequestsPerDayMaximum": 16,
     "inputBytesPerModelCallMaximum": 18000,
@@ -71,18 +71,18 @@
     "maximum31DayReservationsUsd": 2.48,
     "provider": "OpenAI Responses API",
     "candidateModel": "gpt-6-luna",
-    "qualityApproved": false,
+    "qualityApproved": "Short attributed result brief passed independent audit; not approval of premium seven-sport reporting",
     "inputUsdPerMillion": 0.1,
     "outputUsdPerMillion": 0.5,
     "pricingSource": "https://developers.openai.com/api/docs/models/gpt-6-luna",
     "costCaveat": "Token-based estimates are not invoices; cached writes/taxes/hosting are separate. Conservative reservations enforce the cap, including interrupted calls. The full $20 total-cost ceiling still needs deployment-meter verification before activation."
   },
   "database": {
-    "migration": "074",
+    "migration": "074 + 075 (local only)",
     "applications": 3,
-    "realPostgresChecks": 17,
+    "realPostgresChecks": 21,
     "syntheticPublications": 1,
-    "realAiPublications": 0,
+    "realAiPublications": 1,
     "preservedPublicSchemaRows": {
       "sports": 3,
       "news": 15
@@ -133,10 +133,10 @@
     }
   ],
   "gates": {
-    "fullTests": 3799,
+    "fullTests": 3832,
     "nodeTests": 17,
-    "vitestTests": 3782,
-    "vitestFiles": 338,
+    "vitestTests": 3815,
+    "vitestFiles": 342,
     "typecheck": "PASS",
     "lint": "PASS",
     "build": "PASS",
@@ -161,11 +161,11 @@
       "output/v3-qa/acceptance-2026-10-21/automation-mobile-dark.jpg",
       "output/v3-qa/acceptance-2026-10-21/automation-desktop-light.jpg"
     ],
-    "liveAiStoryVisible": false,
+    "liveAiStoryVisible": true,
     "ownerVisualApproval": "PENDING"
   },
   "remainingReleaseBlockers": [
-    "Private local OpenAI credential and real <=$1 source-to-homepage canary, with measured original/translation/audit tokens and cost",
+    "First real local source-to-homepage canary achieved; second source and repeated unattended operation remain unproven",
     "Editorial quality review of real model output and subsequent real publication cycle; model-only validation is risk reduction, not independent fact confirmation",
     "Approved sustainable automatic source coverage beyond Bundesliga; LATAM and other priority data conflicts remain",
     "Authentic licensed identity/photo library remains limited; text labels are not branded logo coverage",

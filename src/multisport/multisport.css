@@ -36,3 +36,14 @@ html[data-theme=dark] .ed-story-hero .ed-hero-eyebrow{color:#052517}
 @media(max-width:359px){.ed-story-hero{min-height:390px}.ed-story-hero .ed-hero-content{padding:19px}.ed-story-hero h1{font-size:27px}.v2-section-heading h2{font-size:21px}.v2-section-heading>a{font-size:11px}}
 .ms-table-preview .ms-table{width:100%;min-width:0;table-layout:fixed}.ms-table-preview .ms-table th,.ms-table-preview .ms-table td{padding:10px 8px}.ms-table-preview .ms-table th:first-child{width:36px}.ms-table-preview .ms-table th:nth-child(2){width:auto;min-width:0;max-width:none}.ms-table-preview .ms-table th:nth-child(n+3){width:50px}.ms-table-preview .ms-entity{min-height:28px;font-size:12px}.ms-table-preview .ms-initial{width:26px;height:26px;flex-shrink:0;font-size:9px}.ms-table-preview .ms-entity>span:last-child{overflow-wrap:anywhere}.ms-table-preview .ms-table-freshness{font-size:10px;padding:9px 14px}.ms-table-preview .ms-table-freshness strong{font-size:11px}.ms-highlight-source>summary{min-height:44px;display:flex;align-items:center;cursor:pointer;font-size:11px;color:var(--v2-muted);border-top:1px solid var(--v2-border)}.ms-highlight-source>summary:after{content:'+';margin-left:auto;font-size:18px}.ms-highlight-source[open]>summary:after{content:'−'}.ms-highlight-source .ms-source{margin:0}
 .ms-table-freshness{display:flex;flex-direction:column;gap:4px;margin:0;padding:10px 18px;border-bottom:1px solid var(--v2-border);border-left:3px solid var(--v2-green);font-size:11px;line-height:1.5;background:var(--v2-soft)}.ms-table-freshness span{color:var(--v2-muted)}.ms-table-freshness-stale,.ms-table-freshness-unconfirmed,.ms-table-freshness-historical,.ms-table-freshness-invalid{border-left-color:#c18b30}.ms-table-freshness strong{font-size:12px}
+/* A sport label is a label, not a substitute league crest. Keep the first real table in view. */
+@media(max-width:700px){
+ .ms-competition-heading{display:block;margin:20px 0}
+ .ms-competition-heading .ms-sport-mark{display:none}
+ .ms-competition-heading h1{font-size:34px;font-weight:820;letter-spacing:-1.2px;margin:8px 0 12px;max-width:18ch}
+ .ms-competition-heading .v2-eyebrow{font-size:10px;letter-spacing:.14em}
+ .ms-section-nav{gap:18px;scrollbar-width:thin}
+ .ms-section-nav a{font-size:12px;min-height:44px}
+ .ms-season-picker{margin:16px 0}
+ .ms-table-baseball th:nth-child(2){min-width:155px}
+}

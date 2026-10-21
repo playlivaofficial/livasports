@@ -16,7 +16,7 @@ async function main(){
  const db=new PostgresDatabaseClient(url.href),now=new Date();
  const checks:string[]=[];
  try{
-  for(const file of ['072_v2_editorial_newsroom.sql','073_v3_sports_snapshots.sql','074_v3_news_automation.sql'])await db.query(await readFile('db/migrations/'+file,'utf8'));
+  for(const file of ['072_v2_editorial_newsroom.sql','073_v3_sports_snapshots.sql','074_v3_news_automation.sql','075_v3_news_review_evidence.sql'])await db.query(await readFile('db/migrations/'+file,'utf8'));
   const migration=await readFile('db/migrations/074_v3_news_automation.sql','utf8');
   await db.query("INSERT INTO editorial_news(slug,draft) VALUES('preserved-owner-draft','{}')");
   await db.query(migration);await db.query(migration);
@@ -35,6 +35,10 @@ async function main(){
   assert.equal(await repo.observe(run.id,facts,now),'new');assert.equal(await repo.observe(run.id,facts,now),'unchanged');checks.push('durable event deduplication');
   const text:GeneratedCopy={en:{title:'Synthetic Club 1 records a victory',summary:'Synthetic Club 1 has a recorded win over Synthetic Club 2.',body:'OpenLigaDB records Synthetic Club 1 against Synthetic Club 2 at 1–0. The recorded result places Synthetic Club 1 on the winning side.'},es:{title:'Victoria de Synthetic Club 1 registrada',summary:'Synthetic Club 1 registra una victoria sobre Synthetic Club 2.',body:'OpenLigaDB registra a Synthetic Club 1 frente a Synthetic Club 2 con 1–0. El resultado registrado corresponde a una victoria de Synthetic Club 1.'},pt:{title:'Vitória registrada de Synthetic Club 1',summary:'Synthetic Club 1 registra uma vitória sobre Synthetic Club 2.',body:'OpenLigaDB registra Synthetic Club 1 contra Synthetic Club 2 com 1–0. O resultado registrado corresponde a uma vitória de Synthetic Club 1.'}};
   const event=await repo.pending();assert.ok(event);await repo.markAttempt(run.id,event.eventKey);
+  const privateMigration=await readFile('db/migrations/075_v3_news_review_evidence.sql','utf8');await db.query(privateMigration);await db.query(privateMigration);checks.push('075 additive migration repeatability');
+  await repo.saveEvidence(run.id,event.eventKey,0,{model:'synthetic',rubric:'test',facts,draft:text,deterministic:[],audit:{grounded:false,translations:true,original:true,quality:true,issues:[{field:'en.body',code:'UNSUPPORTED_FACT',reason:'Synthetic rejection'}]},status:'EDITORIAL_REVIEW_REQUIRED',usage:{calls:0,inputTokens:0,outputTokens:0,microUsd:0},correctedFields:[]});
+  assert.equal((await repo.reviewEvidence()).length,1);assert.equal((await db.query('SELECT count(*) FROM editorial_news WHERE published IS NOT NULL')).rows[0].count,'0');checks.push('rejected draft retained privately without public publication');
+  await db.query("UPDATE editorial_generation_evidence SET created_at=now()-interval '8 days',expires_at=now()-interval '1 day'");assert.deepEqual(await repo.reviewEvidence(),[]);assert.equal((await db.query('SELECT count(*) FROM editorial_generation_evidence')).rows[0].count,'0');checks.push('expired private evidence automatically deleted, no public data touched');
   const slug=await repo.publish(run.id,event,toNewsDraft(text,facts,now),now);
   assert.equal((await db.query('SELECT archived FROM editorial_news WHERE slug=$1',[slug])).rows[0].archived,false);checks.push('atomic policy publication with audit');
   await assert.rejects(repo.publish(run.id,event,toNewsDraft(text,facts,now),now),/PUBLICATION_CONFLICT/);checks.push('no double publication');
@@ -54,6 +58,7 @@ async function main(){
   await db.query("UPDATE editorial_automation_events SET changed_at=now()-interval '13 hours' WHERE event_key=$1",[event.eventKey]);assert.equal((await repo.pending())?.eventKey,event.eventKey);
   await repo.markAttempt(run.id,event.eventKey);await repo.fail(event.eventKey,'MODEL_UNAVAILABLE');assert.equal(await repo.pending(),null);checks.push('durable six/twelve-hour backoff and maximum three attempts');
   await repo.fail(event.eventKey,'MODEL_AUTH_REJECTED');assert.equal((await repo.dashboard()).paused,true);checks.push('authentication failure opens global model circuit breaker');
+  for(const reason of ['MODEL_QUOTA_EXCEEDED','MODEL_LIMIT_UNCLASSIFIED']){await repo.control({paused:false});await repo.fail(event.eventKey,reason);assert.equal((await repo.dashboard()).paused,true);assert.equal(await repo.pending(),null);}checks.push('quota and ambiguous 429 failures stop all subsequent model calls');
   await repo.control({paused:false});
   await repo.control({paused:true});await assert.rejects(repo.assertActive(run.id),/AUTOMATION_STOPPED/);checks.push('emergency pause stops active job publication');
   await repo.finish(run.id,{synthetic:true},{calls:0,inputTokens:0,outputTokens:0,microUsd:0});assert.equal((await repo.dashboard()).usage.lifetimeReservedMicroUsd,20000);checks.push('unknown/failed usage reservation is not refunded');

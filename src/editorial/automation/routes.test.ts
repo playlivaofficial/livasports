@@ -15,6 +15,7 @@ beforeEach(()=>{
 });
 afterEach(()=>vi.unstubAllEnvs());
 describe('autonomous newsroom private route boundaries',()=>{
+ it('returns a failed scheduler status for model failure rather than successful completion',async()=>{mocks.run.mockResolvedValue({status:'failed',generation:'MODEL_QUOTA_EXCEEDED',changed:false,published:[]});expect((await scheduled(cron())).status).toBe(503);expect(mocks.invalidate).not.toHaveBeenCalled();});
  it('blocks unauthenticated cron before storage or provider work',async()=>{expect((await scheduled(new Request(origin+'/api/internal/editorial/news-cycle'))).status).toBe(401);expect(mocks.run).not.toHaveBeenCalled();});
  it('rejects query controls',async()=>{expect((await scheduled(cron('?force=1'))).status).toBe(400);expect(mocks.run).not.toHaveBeenCalled();});
  it('stays disabled without deployment approval',async()=>{vi.stubEnv('V3_NEWS_AUTOMATION_ENABLED','false');expect(await (await scheduled(cron())).json()).toEqual({status:'disabled',requests:0});expect(mocks.run).not.toHaveBeenCalled();});

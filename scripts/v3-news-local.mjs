@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import {readFile,access,mkdir,writeFile} from 'node:fs/promises';
 import {spawnSync,spawn} from 'node:child_process';
-import {randomBytes,createHash} from 'node:crypto';
+import {randomBytes,createHash,createHmac} from 'node:crypto';
 import {resolve} from 'node:path';
 const directory='output/v3-qa/acceptance-2026-10-21';
 const record=JSON.parse(await readFile(directory+'/migration.json','utf8'));
@@ -11,6 +11,7 @@ for(const path of ['.env','.env.local','.env.development.local','.env.production
 function sql(text){const r=spawnSync('wsl.exe',['-d','Ubuntu','--','/usr/lib/postgresql/18/bin/psql','-h',record.cluster,'-p','55475','-U','livasports_v3_qa','-d','livasports_v3_qa','-X','-At','-v','ON_ERROR_STOP=1'],{input:text,encoding:'utf8',windowsHide:true,timeout:20000});if(r.status!==0)throw Error('ISOLATED_SQL_FAILED');return r.stdout.trim();}
 const before=sql("SELECT json_build_object('sports',count(*),'hash',md5(string_agg(row_to_json(s)::text,'' ORDER BY snapshot_key))) FROM sports_snapshots s; SELECT json_build_object('news',count(*),'hash',md5(string_agg(row_to_json(n)::text,'' ORDER BY slug))) FROM editorial_news n;");
 const migration=await readFile('db/migrations/074_v3_news_automation.sql','utf8');sql(migration);sql(migration);sql(migration);
+const reviewMigration=await readFile('db/migrations/075_v3_news_review_evidence.sql','utf8');sql(reviewMigration);sql(reviewMigration);
 const after=sql("SELECT json_build_object('sports',count(*),'hash',md5(string_agg(row_to_json(s)::text,'' ORDER BY snapshot_key))) FROM sports_snapshots s; SELECT json_build_object('news',count(*),'hash',md5(string_agg(row_to_json(n)::text,'' ORDER BY slug))) FROM editorial_news n;");assert.equal(before,after);
 const password=randomBytes(32).toString('base64url');
 sql(`DO $$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname='livasports_acceptance_qa') THEN CREATE ROLE livasports_acceptance_qa LOGIN; END IF; END $$; ALTER ROLE livasports_acceptance_qa PASSWORD '${password}'; GRANT CREATE ON DATABASE livasports_v3_qa TO livasports_acceptance_qa; GRANT USAGE ON SCHEMA public TO livasports_acceptance_qa; GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO livasports_acceptance_qa; GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO livasports_acceptance_qa;`);
@@ -24,6 +25,9 @@ sql(`DO $$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname='livasports_n
 url.username='livasports_news_runtime_qa';
 // Only this approved key is read, in memory. No dotenv import or all-secret export.
 let key=process.env.OPENAI_API_KEY?.trim()??'';
+if(process.argv.includes('--key-stdin')&&process.stdin.isTTY)process.stdin.setRawMode(true);
+if(process.argv.includes('--key-stdin'))key=await new Promise((resolve,reject)=>{let incoming='';const onData=chunk=>{incoming+=chunk;if(incoming.length>1024){process.stdin.off('data',onData);process.stdin.pause();reject(Error('PRIVATE_CREDENTIAL_INPUT_TOO_LARGE'));return;}if(/[\r\n]/.test(incoming)){process.stdin.off('data',onData);process.stdin.pause();resolve(incoming.trim());incoming='';}};process.stdin.on('data',onData);process.stdin.once('end',()=>{if(incoming.trim())resolve(incoming.trim());else reject(Error('PRIVATE_CREDENTIAL_INPUT_MISSING'));});});
+if(process.argv.includes('--key-stdin')&&process.stdin.isTTY)process.stdin.setRawMode(false);
 if(!key)try{const text=await readFile(resolve('../..','.env.local'),'utf8');const raw=text.split(/\r?\n/).find(line=>line.startsWith('OPENAI_API_KEY='))?.slice('OPENAI_API_KEY='.length).trim()??'';key=raw.replace(/^(["'])(.*)\1$/,'$2');}catch{}
 if(process.argv.includes('--run-cycle')&&!key)throw Error('PRIVATE_MODEL_CREDENTIAL_MISSING_NO_CYCLE_EXECUTED');
 const ownerKey=(await readFile(directory+'/local-owner-key.txt','utf8')).trim(),cron=randomBytes(48).toString('base64url');
@@ -35,10 +39,22 @@ process.on('SIGINT',()=>child.kill());
 for(let i=0;i<60;i++){try{const response=await fetch('http://localhost:3351/api/owner/preview');if(response.ok)break;}catch{}if(i===59)throw Error('LOCAL_APP_UNAVAILABLE');await new Promise(r=>setTimeout(r,1000));}
 console.log(JSON.stringify({localServer:'http://localhost:3351',keyConfigured:!!key,modelMode:env.V3_NEWS_MODEL_ENABLED,budgetMode:'validation',lifetimeCeilingUsd:1,productionConnections:0}));
 if(process.argv.includes('--run-cycle')){
- sql('UPDATE editorial_automation_control SET paused=false');
- const response=await fetch('http://localhost:3351/api/internal/editorial/news-cycle',{headers:{Authorization:`Bearer ${cron}`}}),result=await response.json();
- const rerun=await fetch('http://localhost:3351/api/internal/editorial/news-cycle',{headers:{Authorization:`Bearer ${cron}`}}),duplicate=await rerun.json();
- const evidence={at:new Date().toISOString(),status:response.status,result,immediateRerunStatus:rerun.status,immediateRerun:duplicate,keyConfigured:!!key,modelLive:!!key,productionConnections:0};
- await writeFile(directory+'/news-live-cycle.json',JSON.stringify(evidence,null,2));console.log(JSON.stringify(evidence));
+ const session=Buffer.from(JSON.stringify({v:1,id:randomBytes(24).toString('base64url'),expiresAt:Date.now()+3600000,preview:false})).toString('base64url');
+ const signature=createHmac('sha256',env.OWNER_QA_SESSION_SECRET).update('livasports:owner:v1:'+env.OWNER_QA_ACCESS_HASH+':'+session).digest('base64url');
+ const response=await fetch('http://localhost:3351/api/owner/news/automation',{headers:{Cookie:`__Host-livasports_owner=${session}.${signature}`}});
+ assert.equal(response.status,200,'Actual local process must accept its isolated Owner session');
+ const state=await response.json();assert.equal(state.modelConfigured,true);assert.equal(state.modelEnabled,true);assert.equal(state.budgetMode,'validation');assert.equal(state.paused,true);assert.equal(state.limits.maxValidationMicroUsd,1000000);
+ const evidence={at:new Date().toISOString(),actualProcessCredentialAccessible:true,budgetMode:state.budgetMode,productionConnections:0};
+ try{
+  sql('UPDATE editorial_automation_control SET paused=false');
+  const cycle=await fetch('http://localhost:3351/api/internal/editorial/news-cycle',{headers:{Authorization:`Bearer ${cron}`},signal:AbortSignal.timeout(180000)});evidence.status=cycle.status;evidence.result=await cycle.json();
+  const rerun=await fetch('http://localhost:3351/api/internal/editorial/news-cycle',{headers:{Authorization:`Bearer ${cron}`},signal:AbortSignal.timeout(30000)});evidence.immediateRerunStatus=rerun.status;evidence.immediateRerun=await rerun.json();
+ }catch{evidence.failure='LOCAL_CANARY_FAILED';}
+ finally{
+  sql('UPDATE editorial_automation_control SET paused=true');
+  evidence.paused=sql('SELECT paused FROM editorial_automation_control')==='t';
+  evidence.usage=JSON.parse(sql("SELECT coalesce(json_agg(r ORDER BY started_at),'[]') FROM (SELECT started_at,status,model_microusd_reserved,model_microusd_used,input_tokens,output_tokens,result FROM editorial_automation_runs) r"));
+  await writeFile(directory+'/news-live-cycle.json',JSON.stringify(evidence,null,2));console.log(JSON.stringify(evidence));
+ }
 }
 await new Promise(r=>child.once('exit',r));
