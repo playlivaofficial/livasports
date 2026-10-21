@@ -4,11 +4,12 @@ import {validateSnapshot,type SportsSnapshot} from '@/multisport/model';
 import type {NewsDraft} from '../model';
 import {validateNewsDraft} from '../model';
 import {discoveryDesks,type DiscoveryCandidate} from '../discovery';
+import {primaryFeedDesks} from '../primary-feeds';
 
 export const automationLimits=Object.freeze({minIntervalMs:6*3600000,maxRunsPerDay:4,maxRequestsPerDay:16,maxPending:500,maxEventsPerRun:2,maxModelCalls:5,maxModelInputBytes:18000,maxOutputTokens:2200,reserveMicroUsd:20000,maxDailyMicroUsd:100000,maxMonthlyMicroUsd:3000000,maxValidationMicroUsd:1000000});
 export const automationSources=[
   {id:'openliga-results',name:'OpenLigaDB · verified stored results',sport:'football',permission:'structured-facts',automaticAccess:true,rights:'ODbL 1.0; attribution and normalized database export retained',url:'https://www.openligadb.de/',requestLimit:0},
-  ...discoveryDesks.map(d=>({id:d.id,name:d.name,sport:d.sport,permission:'metadata-review',automaticAccess:d.id.startsWith('wikinews-'),rights:d.id.startsWith('wikinews-')?'CC BY metadata discovery allowed; dated published candidates only. Facts/entity verification required before publication; no image rights grant.':'Scheduled collection not authorized yet. Owner-imported citations only; no article/image reuse or automatic publication grant',url:d.url,requestLimit:d.id.startsWith('wikinews-')?1:2})),
+  ...discoveryDesks.map(d=>({id:d.id,name:d.name,sport:d.sport,permission:'metadata-review',automaticAccess:d.id.startsWith('wikinews-')||primaryFeedDesks.some(p=>p.id===d.id),rights:primaryFeedDesks.some(p=>p.id===d.id)?'Publisher-advertised RSS: private headline/date/link discovery only. No full-text, image or automatic publication rights granted. Independent fact and publication-rights review required.':d.id.startsWith('wikinews-')?'CC BY metadata discovery allowed; dated published candidates only. Facts/entity verification required before publication; no image rights grant.':'Scheduled collection not authorized yet. Owner-imported citations only; no article/image reuse or automatic publication grant',url:d.url,requestLimit:d.id.startsWith('wikinews-')?1:2})),
 ] as const;
 export interface ResultFacts {
   kind:'result'; eventKey:string; sourceId:'openliga-results'; sourceUrl:string;

@@ -5,6 +5,7 @@ import {automationLimits as limits,automationSources,eventKey,fingerprint,stable
 import type {SportsSnapshot} from '@/multisport/model';
 import type {ModelUsage} from './generation';
 import type {ReviewEvidence} from './review';
+import {primaryFeedDesks} from '../primary-feeds';
 
 export interface AutomationEvent {eventKey:string;facts:EventFacts;fingerprint:string;state:string;reason:string;revision:number;newsSlug:string|null;publicationRevision:number|null;attempts:number}
 export interface SourceState {sourceId:string;disabled:boolean;nextAllowedAt:string;lastAttemptAt:string|null;lastSuccessAt:string|null;failures:number;cursor:Record<string,string>;lastStatus:string}
@@ -63,13 +64,14 @@ export class AutomationRepository {
     });
   }
   async sourceEnabled(id:string){return automationSources.some(s=>s.id===id&&s.automaticAccess)&&(await this.db.query<{disabled:boolean}>('SELECT disabled FROM editorial_discovery_state WHERE source_id=$1',[id])).rows[0]?.disabled===false;}
-  async dueSources(now=new Date()){return (await this.db.query<SourceState>(`SELECT ${sourceColumns} FROM editorial_discovery_state WHERE NOT disabled AND source_id=ANY($2::text[]) AND next_allowed_at<=$1 ORDER BY last_attempt_at NULLS FIRST,source_id LIMIT 2`,[now.toISOString(),automationSources.filter(s=>s.automaticAccess&&s.id!=='openliga-results').map(s=>s.id)])).rows;}
+  async dueSources(now=new Date()){return (await this.db.query<SourceState>(`SELECT ${sourceColumns} FROM editorial_discovery_state WHERE NOT disabled AND source_id=ANY($2::text[]) AND next_allowed_at<=$1 ORDER BY CASE WHEN source_id=ANY($3::text[]) THEN 0 ELSE 1 END,last_attempt_at NULLS FIRST,source_id LIMIT 2`,[now.toISOString(),automationSources.filter(s=>s.automaticAccess&&s.id!=='openliga-results').map(s=>s.id),primaryFeedDesks.map(s=>s.id)])).rows;}
   async finishSource(runId:string,id:string,status:string,requests:number,cursor:Record<string,string>,now=new Date()){
     await this.db.transaction(async db=>{
       await active(db,runId);
       const ok=['CANDIDATES_REQUIRE_REVIEW','NO_CURRENT_VERIFIED_CANDIDATES','NOT_MODIFIED','RESULTS_VALIDATED'].includes(status);
       const row=(await db.query<{failures:number}>('SELECT failures FROM editorial_discovery_state WHERE source_id=$1 FOR UPDATE',[id])).rows[0];
-      const failures=ok?0:Math.min(8,(row?.failures??0)+1),hours=ok?24:Math.min(168,6*2**failures);
+      // Empty supplementary Wikinews categories must not consume the daily primary-source slots.
+      const failures=ok?0:Math.min(8,(row?.failures??0)+1),hours=ok?(id.startsWith('wikinews-')&&status==='NO_CURRENT_VERIFIED_CANDIDATES'?168:24):Math.min(168,6*2**failures);
       await db.query('UPDATE editorial_discovery_state SET last_attempt_at=$2,last_success_at=CASE WHEN $3 THEN $2 ELSE last_success_at END,next_allowed_at=$4,failures=$5,last_status=$6,cursor=$7 WHERE source_id=$1',[id,now.toISOString(),ok,new Date(+now+hours*3600000).toISOString(),failures,status,JSON.stringify(cursor)]);
       await db.query('UPDATE editorial_automation_runs SET requests_used=requests_used+$2 WHERE id=$1',[runId,requests]);
     });

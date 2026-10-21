@@ -46,9 +46,15 @@ async function main(){
   const old=(await db.query('SELECT archived,published FROM editorial_news WHERE slug=$1',[slug])).rows[0];assert.equal(old.archived,true);assert.ok(old.published);checks.push('source correction withdraws public claim and preserves historical copy');
   assert.equal((await repo.dashboard()).events[0].state,'review');checks.push('correction quarantined, no silent rewrite');
   const metadata={kind:'metadata' as const,candidate:{desk:'nhl',url:'https://www.nhl.com/news/synthetic-ambiguous-item',headline:'Synthetic ambiguous report requiring editorial review',sourceDate:now.toISOString().slice(0,10)}};
-  assert.equal(await repo.sourceEnabled('nhl'),false);const due=await repo.dueSources();assert.equal(due.some(s=>s.sourceId==='nhl'),false);assert.equal(due.length,2);assert.ok(due.every(s=>s.sourceId.startsWith('wikinews-')));checks.push('unverified scheduled source permission is fail-closed; licensed desks bounded to two');
+  assert.equal(await repo.sourceEnabled('nhl'),false);const due=await repo.dueSources();assert.equal(due.some(s=>s.sourceId==='nhl'),false);assert.equal(due.length,2);assert.deepEqual(due.map(s=>s.sourceId),['dimayor-releases','nba-releases']);checks.push('primary RSS desks scheduled independently and bounded to two; unverified HTML source remains disabled');
+  const rss={kind:'metadata' as const,candidate:{desk:'nba-releases',url:'https://pr.nba.com/synthetic-official-announcement',headline:'NBA synthetic official announcement',sourceDate:now.toISOString().slice(0,10)}};
+  assert.equal(await repo.observe(run.id,rss,now),'new');assert.equal(await repo.observe(run.id,rss,now),'unchanged');
+  const rssEvent=(await repo.dashboard()).events.find(e=>e.facts.kind==='metadata'&&e.facts.candidate.desk==='nba-releases')!;
+  assert.equal(rssEvent.state,'review');assert.equal(rssEvent.newsSlug,null);assert.equal(rssEvent.reason,'SOURCE_RIGHTS_AND_FACT_REVIEW');checks.push('primary RSS private intake persists and deduplicates; no fact or publication approval inferred');
   await repo.finishSource(run.id,due[0].sourceId,'NO_CURRENT_VERIFIED_CANDIDATES',1,{},now);
   const cooled=(await repo.dashboard()).sources.find(s=>s.sourceId===due[0].sourceId)!;assert.equal(cooled.failures,0);assert.equal(Date.parse(cooled.nextAllowedAt),+now+86400000);assert.equal((await repo.dueSources()).some(s=>s.sourceId===due[0].sourceId),false);checks.push('empty licensed discovery gets successful cooldown and advances source rotation');
+  await repo.finishSource(run.id,'wikinews-football','NO_CURRENT_VERIFIED_CANDIDATES',1,{},now);
+  const supplement=(await repo.dashboard()).sources.find(s=>s.sourceId==='wikinews-football')!;assert.equal(Date.parse(supplement.nextAllowedAt),+now+7*86400000);checks.push('empty supplementary Wikinews backs off one week without replacing daily primary intake');
   // Synthetic private imported citation, not authorization to make a source request.
   await db.query("UPDATE editorial_discovery_state SET disabled=false WHERE source_id='nhl'");
   await repo.observe(run.id,metadata,now);assert.equal((await repo.dashboard()).events.find(e=>e.facts.kind==='metadata')?.state,'review');checks.push('ambiguous source never auto-published');
