@@ -54,6 +54,7 @@ describe('server-rendered sport-specific tables using unpublished TEST fixtures'
     const nhl = renderToStaticMarkup(<StandingsTable table={testTables[4]} snapshot={rendererSnapshot(testTables[4])} locale="en" />);
     expect(nfl).toContain('>T<'); expect(nfl).toContain('0.625');
     expect(nhl).toContain('>OTL<'); expect(nhl).toContain('>GD<'); expect(nhl).toContain('>3</td>');
+    expect(nhl.indexOf('>PTS</th>')).toBeLessThan(nhl.indexOf('>P</th>'));
   });
   it('shows each known optional statistic independently without inventing its missing counterpart', () => {
     const partials: SportsTable[] = [

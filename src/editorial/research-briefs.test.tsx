@@ -6,12 +6,13 @@ import {readFileSync} from 'node:fs';
 import {Newsroom} from './Newsroom';
 import {v3NewsDrafts} from './v3-seed';
 import {dailyResearchBriefs} from './daily-briefs';
+import {verifiedDiscoveryBriefs} from './discovery-briefs';
 
 describe('private, manually reviewed research briefs',()=>{
-  it('offers the nine drafts in the owner editor without selecting or publishing one',()=>{
+  it('offers all private briefs in the owner editor without selecting or publishing one',()=>{
     const $=load(renderToStaticMarkup(<Newsroom initial={[]} initialTime="2026-10-19T12:00:00.000Z"/>));
     const help=$('details').filter((_,element)=>$(element).find('summary').text()==='Prepared research briefs — unpublished');
-    expect(help.find('option')).toHaveLength(v3NewsDrafts.length+dailyResearchBriefs.length+1);
+    expect(help.find('option')).toHaveLength(v3NewsDrafts.length+dailyResearchBriefs.length+verifiedDiscoveryBriefs.length+1);
     expect(help.text()).toContain('does not save, approve or publish');
     expect($('button').filter((_,button)=>$(button).text()==='Publish reviewed version').is('[disabled]')).toBe(true);
     expect($('.ed-draft-list').text()).not.toContain(v3NewsDrafts[0].title.en);

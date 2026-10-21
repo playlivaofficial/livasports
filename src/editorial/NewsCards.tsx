@@ -8,7 +8,7 @@ import {usablePublishedNews} from './presentation';
 
 export function NewsPhoto({id,locale,priority=false,className=''}:{id:keyof typeof editorialAssets;locale:InterfaceLocale;priority?:boolean;className?:string}){
   const asset=editorialAssets[id];
-  return <picture className={`ed-photo ${className}`}><img src={`${asset.base}-1280.webp`} srcSet={`${asset.base}-640.webp 640w, ${asset.base}-1280.webp 1280w, ${asset.base}-1920.webp 1920w`} sizes="(max-width: 767px) 100vw, (max-width: 1200px) 65vw, 900px" width={asset.width} height={asset.height} alt={translated(asset.alt,locale)} loading={priority?'eager':'lazy'} fetchPriority={priority?'high':'auto'}/></picture>;
+  return <picture className={`ed-photo ${className}`} data-editorial-image={id}><img src={`${asset.base}-1280.webp`} srcSet={`${asset.base}-640.webp 640w, ${asset.base}-1280.webp 1280w, ${asset.base}-1920.webp 1920w`} sizes="(max-width: 767px) 100vw, (max-width: 1200px) 65vw, 900px" width={asset.width} height={asset.height} alt={translated(asset.alt,locale)} loading={priority?'eager':'lazy'} fetchPriority={priority?'high':'auto'}/></picture>;
 }
 /** Credit links are siblings of story links, never nested inside them. */
 export function PhotoCredit({id,locale,className=''}:{id:keyof typeof editorialAssets;locale:InterfaceLocale;className?:string}){
@@ -28,7 +28,7 @@ export function NewsCard({item,locale,lead=false,now=new Date()}:{item:Published
   const text=newsCopy(locale),translation=resolveNewsTranslation(item,publicLanguage(locale));if(!translation)return null;
   return <article className={`ed-news-card ${lead?'ed-news-lead':''} ${item.image==='none'?'ed-news-type':''}`}>
     <Link href={newsPath(locale,item.slug)} className="ed-card-link">
-      {item.image!=='none'?<NewsPhoto id={item.image} locale={locale}/>:<div className="ed-story-mark" aria-hidden="true"><span>{countryName(item.country,locale)}</span><strong>{topicName(item.competition,locale)}</strong><i>↗</i></div>}
+      {item.image!=='none'?<NewsPhoto id={item.image} locale={locale}/>:null}
       <div className="ed-card-copy"><span className="ed-kicker"><span className="ed-sport-tag">{sportName(newsSport(item),locale)}</span> <b>·</b> {countryName(item.country,locale)} <b>·</b> {topicName(item.competition,locale)}</span><NewsLanguageNotice translation={translation} locale={locale}/><h3 lang={translation.language}>{translation.title}</h3>{lead?<p lang={translation.language}>{translation.summary}</p>:null}<div className="ed-date"><span>{item.sourceName}</span><time dateTime={item.sourcePublishedOn}>{newsDate(item.sourcePublishedOn,locale)}</time></div>{lead?<span className="ed-read">{text.read} <b aria-hidden="true">↗</b></span>:null}</div>
     </Link>
     {item.image!=='none'?<PhotoCredit id={item.image} locale={locale}/>:null}
@@ -41,6 +41,13 @@ export function FeaturedNews({items,locale,now=new Date()}:{items:PublishedNews[
 }
 export function selectFeaturedStory(items:readonly PublishedNews[],locale:InterfaceLocale,now=new Date()):PublishedNews|null{
   return items.filter(item=>item.featured&&item.image!=='none'&&Object.hasOwn(editorialAssets,item.image)&&usablePublishedNews(item,now)&&resolveNewsTranslation(item,publicLanguage(locale))).sort((a,b)=>b.sourcePublishedOn.localeCompare(a.sourcePublishedOn)||b.publishedAt.localeCompare(a.publishedAt)||a.slug.localeCompare(b.slug))[0]??null;
+}
+/** Real, dated headlines close to the first fold; no mock breaking-news feed. */
+export function HomeBriefing({items,locale,exclude,now=new Date()}:{items:readonly PublishedNews[];locale:InterfaceLocale;exclude?:string;now?:Date}){
+  const language=publicLanguage(locale),chosen=items.filter(item=>item.slug!==exclude&&usablePublishedNews(item,now)&&resolveNewsTranslation(item,language)).sort((a,b)=>b.sourcePublishedOn.localeCompare(a.sourcePublishedOn)||b.publishedAt.localeCompare(a.publishedAt)).slice(0,3);
+  if(!chosen.length)return null;
+  const heading={en:'On the sports desk',es:'En la redacción',pt:'Na redação'}[language];
+  return <section className="ed-home-briefing" aria-label={heading}><div className="ed-briefing-heading"><h2>{heading}</h2><Link href={newsPath(locale)}>{newsCopy(locale).view} ↗</Link></div><ol>{chosen.map(item=>{const text=resolveNewsTranslation(item,language)!;return <li key={item.slug}><Link href={newsPath(locale,item.slug)}><span className="ed-kicker">{sportName(newsSport(item),locale)} <time dateTime={item.sourcePublishedOn}>{newsDate(item.sourcePublishedOn,locale)}</time></span><strong lang={text.language}>{text.title}</strong><NewsLanguageNotice translation={text} locale={locale}/></Link></li>;})}</ol></section>;
 }
 /** The lead is a real reviewed publication. Empty coverage deliberately yields no fabricated hero. */
 export function FeaturedStoryHero({items,locale,now=new Date()}:{items:readonly PublishedNews[];locale:InterfaceLocale;now?:Date}){

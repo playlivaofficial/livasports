@@ -23,7 +23,7 @@ import {FootballQuiz} from './tools/FootballQuiz';
 import {EditorialSearch} from './Search';
 import {ToolPreview} from './tools/ToolPreview';
 import {publishedNews} from '@/editorial/server';
-import {FeaturedNews,FeaturedStoryHero,selectFeaturedStory} from '@/editorial/NewsCards';
+import {FeaturedNews,FeaturedStoryHero,HomeBriefing,selectFeaturedStory} from '@/editorial/NewsCards';
 import {NewsFeed} from '@/editorial/NewsFeed';
 import {newsCopy} from '@/editorial/copy';
 import {EditorialPolicy} from '@/editorial/EditorialPolicy';
@@ -44,6 +44,7 @@ function ReviewCards({locale}:{locale:InterfaceLocale}){const text=v2Copy(locale
 export async function V2Home({locale}:{locale:InterfaceLocale}){const text=v2Copy(locale),copy=newsCopy(locale),news=await publishedNews(),lead=selectFeaturedStory(news,locale);return <V2Shell locale={locale}>
   <SportsNav locale={locale}/>
   {lead?<FeaturedStoryHero items={news} locale={locale}/>:<Heading title={locale==='en'?'Your world of sport':locale==='br'?'Seu mundo de esporte':'Tu mundo del deporte'} lead={copy.lead}/>}
+  <HomeBriefing items={news} locale={locale} exclude={lead?.slug}/>
   <FeaturedNews items={news.filter(item=>item.slug!==lead?.slug)} locale={locale}/>
   <section className="v2-section"><div className="v2-section-heading"><h2>{locale==='en'?'Popular competitions':locale==='br'?'Competições populares':'Competiciones populares'}</h2><Link className="v2-text-link" href={sportsPath(locale)}>{text.viewAll} ↗</Link></div><LeagueRail locale={locale}/></section>
   <StandingsHighlights locale={locale}/>
