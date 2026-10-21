@@ -1,4 +1,5 @@
 import {randomUUID} from 'node:crypto';
+import {isDeepStrictEqual} from 'node:util';
 import type {DatabaseClient,QueryExecutor} from '@/database/client';
 import type {NewsDraft,NewsRecord,PublishedNews} from '../model';
 import {automationLimits as limits,automationSources,eventKey,fingerprint,stableFacts,factErrors,resultsFromSnapshot,type EventFacts,type ResultFacts} from './policy';
@@ -6,6 +7,17 @@ import type {SportsSnapshot} from '@/multisport/model';
 import type {ModelUsage} from './generation';
 import type {ReviewEvidence} from './review';
 import {primaryFeedDesks} from '../primary-feeds';
+import {candidateDraft} from '../discovery';
+/** A pristine discovery placeholder is not a human-written draft. Never overwrite it.
+ * Preserve it privately; changed, reviewed, archived or previously published records block automation. */
+export function pristineDiscoveryRecord(record:NewsRecord,facts:EventFacts):boolean{
+  if(facts.kind!=='announcement'||record.revision!==1||record.published||record.archived||record.reviewedRevision||record.reviewedAt)return false;
+  try{
+    const language=facts.country==='international'?'en':'es';
+    const expected=candidateDraft({desk:facts.sourceId,url:facts.sourceUrl,sourceDate:facts.eventDate.slice(0,10),headline:record.draft.title[language]});
+    return isDeepStrictEqual(record.draft,expected);
+  }catch{return false;}
+}
 
 export interface AutomationEvent {eventKey:string;facts:EventFacts;fingerprint:string;state:string;reason:string;revision:number;newsSlug:string|null;publicationRevision:number|null;attempts:number}
 export interface SourceState {sourceId:string;disabled:boolean;nextAllowedAt:string;lastAttemptAt:string|null;lastSuccessAt:string|null;failures:number;cursor:Record<string,string>;lastStatus:string}
@@ -79,10 +91,15 @@ export class AutomationRepository {
   async observe(runId:string,facts:EventFacts,now=new Date()):Promise<'new'|'unchanged'|'changed'|'queue-full'>{
     return this.db.transaction(async db=>{
       await db.query('SELECT pg_advisory_xact_lock(724219)');await active(db,runId);
-      const key=eventKey(facts),hash=fingerprint(stableFacts(facts)),source=facts.kind==='result'?facts.sourceId:facts.candidate.desk,url=facts.kind==='result'?facts.sourceUrl:facts.candidate.url;
+      const key=eventKey(facts),hash=fingerprint(stableFacts(facts)),source=facts.kind!=='metadata'?facts.sourceId:facts.candidate.desk,url=facts.kind!=='metadata'?facts.sourceUrl:facts.candidate.url;
       if((await db.query<{disabled:boolean}>('SELECT disabled FROM editorial_discovery_state WHERE source_id=$1',[source])).rows[0]?.disabled!==false)return 'unchanged';
       const old=(await db.query<AutomationEvent>(`SELECT ${eventColumns} FROM editorial_automation_events WHERE event_key=$1 FOR UPDATE`,[key])).rows[0];
       if(old?.fingerprint===hash)return 'unchanged';
+      // Upgrade a never-generated metadata placeholder, not a correction of published facts.
+      if(old?.facts.kind==='metadata'&&facts.kind==='announcement'&&!old.newsSlug&&old.attempts===0&&!factErrors(facts,now).length){
+        await db.query("UPDATE editorial_automation_events SET facts=$2,fingerprint=$3,revision=revision+1,state='pending',reason='PRIMARY_FACTS_VERIFIED',changed_at=$4 WHERE event_key=$1",[key,JSON.stringify(facts),hash,now.toISOString()]);
+        await audit(db,key,'primary-facts-verified');return 'new';
+      }
       const errors=factErrors(facts,now),state=errors.length?'review':'pending',reason=errors[0]??'AWAITING_GENERATION';
       if(!old){
         const count=(await db.query<{count:string}>("SELECT count(*) FROM editorial_automation_events WHERE state NOT IN ('published','withdrawn')")).rows[0].count;
@@ -131,17 +148,21 @@ export class AutomationRepository {
       const stored=(await db.query<AutomationEvent>(`SELECT ${eventColumns} FROM editorial_automation_events WHERE event_key=$1 FOR UPDATE`,[event.eventKey])).rows[0];
       if(!stored||stored.fingerprint!==event.fingerprint||stored.state!=='generation-failed'||stored.newsSlug||factErrors(stored.facts,now).length)throw Error('PUBLICATION_CONFLICT');
       if((await db.query<{disabled:boolean}>('SELECT disabled FROM editorial_discovery_state WHERE source_id=$1',[ (stored.facts as ResultFacts).sourceId])).rows[0]?.disabled!==false)throw Error('SOURCE_DISABLED');
-      const facts=stored.facts as ResultFacts;
+      const facts=stored.facts;
+      if(facts.kind==='metadata')throw Error('PUBLICATION_CONFLICT');
+      if(facts.kind==='result'){
       const snapshot=(await db.query<{published:SportsSnapshot}>("SELECT published FROM sports_snapshots WHERE competition_id=$1 AND season=$2 AND NOT archived AND published IS NOT NULL FOR SHARE",[facts.competition,facts.season])).rows[0]?.published;
       if(!snapshot||!resultsFromSnapshot(snapshot,now).some(f=>f.eventKey===facts.eventKey&&fingerprint(stableFacts(f))===stored.fingerprint))throw Error('SOURCE_CHANGED_DURING_GENERATION');
-      if((await db.query('SELECT slug FROM editorial_news WHERE slug=$1 OR draft->>\'sourceUrl\'=$2 OR published->>\'sourceUrl\'=$2',[draft.slug,draft.sourceUrl])).rows.length)throw Error('OWNER_OR_DUPLICATE_RECORD');
+      }
+      const duplicates=(await db.query<NewsRecord>('SELECT slug,draft,published,revision,reviewed_revision AS "reviewedRevision",reviewed_at AS "reviewedAt",archived FROM editorial_news WHERE slug=$1 OR draft->>\'sourceUrl\'=$2 OR published->>\'sourceUrl\'=$2 FOR UPDATE',[draft.slug,draft.sourceUrl])).rows;
+      if(duplicates.some(row=>row.slug===draft.slug||!pristineDiscoveryRecord(row,facts)))throw Error('OWNER_OR_DUPLICATE_RECORD');
       const stamp=now.toISOString(),published:PublishedNews={...draft,publishedAt:stamp,updatedAt:stamp,verifiedAt:stamp};
       const record:NewsRecord={slug:draft.slug,draft,published,revision:1,reviewedRevision:null,reviewedAt:null,archived:false};
       // No forged human review stamp. Machine policy provenance lives in the separate audit table.
       await db.query('INSERT INTO editorial_news(slug,draft,published) VALUES ($1,$2,$3)',[draft.slug,JSON.stringify(draft),JSON.stringify(published)]);
       await db.query("INSERT INTO editorial_news_audit(slug,action,revision,snapshot) VALUES ($1,'publish',1,$2)",[draft.slug,JSON.stringify(record)]);
-      await db.query("UPDATE editorial_automation_events SET state='published',reason='STRUCTURED_RESULT_POLICY_V1',news_slug=$2,publication_revision=1,changed_at=$3 WHERE event_key=$1",[event.eventKey,draft.slug,stamp]);
-      await audit(db,event.eventKey,'auto-publish',{runId,policy:'structured-result-v1',modelAudit:'passed',deterministicChecks:'passed',translationMode:'model-generated-and-audited',snapshotHash:(event.facts as ResultFacts).sourceSnapshotHash});
+      await db.query("UPDATE editorial_automation_events SET state='published',reason=$4,news_slug=$2,publication_revision=1,changed_at=$3 WHERE event_key=$1",[event.eventKey,draft.slug,stamp,facts.kind==='announcement'?'PRIMARY_ANNOUNCEMENT_POLICY_V1':'STRUCTURED_RESULT_POLICY_V1']);
+      await audit(db,event.eventKey,'auto-publish',{runId,policy:facts.kind==='announcement'?'primary-announcement-v1':'structured-result-v1',modelAudit:'passed',deterministicChecks:'passed',translationMode:'model-generated-and-audited',snapshotHash:facts.kind==='announcement'?facts.provenance.factsHash:facts.sourceSnapshotHash});
       return draft.slug;
     });
   }

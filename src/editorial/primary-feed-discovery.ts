@@ -3,6 +3,7 @@ import robotsParser from 'robots-parser';
 import {primaryFeedDesks} from './primary-feeds';
 import {canonicalSourceUrl} from './sources';
 import {isDiscoveryArticleUrl,type DiscoveryCandidate} from './discovery';
+import {extractAnnouncement} from './automation/announcements';
 
 const agent='LivaSports-EditorialDiscovery';
 function citationUrl(raw:string){
@@ -40,6 +41,19 @@ export function primaryFeedCandidates(xml:string,id:string,now=new Date()):Disco
  }
  return out;
 }
+/** Retain normalized facts only. Feed article text exists only transiently in memory. */
+export function primaryFeedAnnouncements(xml:string,id:string,now=new Date()){
+ const candidates=primaryFeedCandidates(xml,id,now);if(!candidates.length)return [];
+ const $=load(xml,{xmlMode:true});
+ return candidates.flatMap(candidate=>{
+  const item=$('rss > channel > item').toArray().find(el=>citationUrl($(el).children('link').text().trim())===candidate.url);
+  if(!item)return [];
+  const raw=$(item).children('content\\:encoded').text()||$(item).children('description').text();
+  const document=load(raw);document('td,th,p,br').append(' ');
+  const body=document.root().text().replace(/\s+/g,' ').trim();
+  const facts=extractAnnouncement(candidate,body,now);return facts?[facts]:[];
+ });
+}
 async function text(url:string,fetcher:typeof fetch,max:number){
  const r=await fetcher(url,{redirect:'error',signal:AbortSignal.timeout(12000),headers:{'User-Agent':`${agent}/1.0 (+https://livasports.com)`,Accept:'application/rss+xml,application/xml,text/plain;q=0.9'},cache:'no-store'});
  if(!r.ok)throw Error(`HTTP_${r.status}`);
@@ -58,6 +72,6 @@ export async function collectPrimaryFeed(id:string,fetcher:typeof fetch=fetch,no
   if(robotsParser(robotsUrl,robots).isAllowed(desk.url,agent)!==true)return {desk:id,requests,status:'ROBOTS_BLOCKED',candidates:[]};
   requests++;const xml=await text(desk.url,fetcher,512000);
   const candidates=primaryFeedCandidates(xml,id,now);
-  return {desk:id,requests,status:candidates.length?'CANDIDATES_REQUIRE_REVIEW':'NO_CURRENT_VERIFIED_CANDIDATES',candidates};
+  return {desk:id,requests,status:candidates.length?'CANDIDATES_REQUIRE_REVIEW':'NO_CURRENT_VERIFIED_CANDIDATES',candidates,announcements:primaryFeedAnnouncements(xml,id,now)};
  }catch(error){return {desk:id,requests,status:error instanceof Error&&/^(HTTP_\d{3}|SIZE_LIMIT)$/.test(error.message)?error.message:'SOURCE_UNAVAILABLE_NO_RETRY',candidates:[]};}
 }

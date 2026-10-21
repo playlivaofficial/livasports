@@ -7,6 +7,8 @@ import {AutomationRepository} from '../src/editorial/automation/repository';
 import {resultsFromSnapshot,toNewsDraft,type GeneratedCopy} from '../src/editorial/automation/policy';
 import {normalizeOpenLigaSnapshot} from '../src/multisport/openligadb';
 import {snapshotHash} from '../src/multisport/repository';
+import {extractAnnouncement} from '../src/editorial/automation/announcements';
+import {candidateDraft} from '../src/editorial/discovery';
 
 async function main(){
  const url=new URL(process.env.V3_QA_DATABASE_URL??'');
@@ -45,6 +47,22 @@ async function main(){
   const changed={...facts,homeScore:2};assert.equal(await repo.observe(run.id,changed,now),'changed');
   const old=(await db.query('SELECT archived,published FROM editorial_news WHERE slug=$1',[slug])).rows[0];assert.equal(old.archived,true);assert.ok(old.published);checks.push('source correction withdraws public claim and preserves historical copy');
   assert.equal((await repo.dashboard()).events[0].state,'review');checks.push('correction quarantined, no silent rewrite');
+  const candidate={desk:'nba-releases',url:'https://pr.nba.com/synthetic-roster-announcement',headline:'NBA rosters feature 125 international players from record-tying 43 countries across six continents',sourceDate:yesterday.slice(0,10)};
+  const announcement=extractAnnouncement(candidate,'125 international players from a record-tying 43 countries across six continents are on opening-night rosters for the 2026-27 season.',now)!;
+  const placeholder=candidateDraft(candidate);
+  await db.query('INSERT INTO editorial_news(slug,draft) VALUES($1,$2)',[placeholder.slug,JSON.stringify(placeholder)]);
+  await repo.observe(run.id,{kind:'metadata',candidate},now);await repo.observe(run.id,announcement,now);
+  const announced=await repo.pending();assert.ok(announced);assert.equal(announced.facts.kind,'announcement');
+  await repo.markAttempt(run.id,announced.eventKey);
+  const announcementCopy:GeneratedCopy={en:{title:'NBA announces international roster totals',summary:'The NBA reports international representation on opening rosters.',body:'NBA Communications reports 125 international players from 43 countries across six continents on opening-night rosters.'},es:{title:'La NBA anuncia cifras internacionales',summary:'La NBA informa sobre la representación internacional en sus plantillas.',body:'NBA Communications informa de 125 jugadores internacionales de 43 países y seis continentes en las plantillas iniciales.'},pt:{title:'NBA anuncia números internacionais',summary:'A NBA informa sobre a representação internacional nos elencos.',body:'NBA Communications informa que os elencos de abertura incluem 125 jogadores internacionais de 43 países e seis continentes.'}};
+  const announcementSlug=await repo.publish(run.id,announced,toNewsDraft(announcementCopy,announcement,now),now);
+  assert.equal((await db.query('SELECT published FROM editorial_news WHERE slug=$1',[placeholder.slug])).rows[0].published,null);
+  assert.equal(await repo.observe(run.id,announcement,now),'unchanged');
+  await assert.rejects(repo.publish(run.id,announced,toNewsDraft(announcementCopy,announcement,now),now),/PUBLICATION_CONFLICT/);
+  checks.push('announcement JSONB round-trip publication, metadata promotion, duplicate protection and pristine private placeholder preservation');
+  const corrected={...announcement,detail:{...announcement.detail,type:'roster-announcement' as const,season:'2026-27',scope:'opening-night' as const,internationalPlayers:126,countries:43,continents:6}};
+  await repo.observe(run.id,corrected,now);assert.equal((await db.query('SELECT archived FROM editorial_news WHERE slug=$1',[announcementSlug])).rows[0].archived,true);
+  checks.push('changed announcement withdraws public version and quarantines unverified correction');
   const metadata={kind:'metadata' as const,candidate:{desk:'nhl',url:'https://www.nhl.com/news/synthetic-ambiguous-item',headline:'Synthetic ambiguous report requiring editorial review',sourceDate:now.toISOString().slice(0,10)}};
   assert.equal(await repo.sourceEnabled('nhl'),false);const due=await repo.dueSources();assert.equal(due.some(s=>s.sourceId==='nhl'),false);assert.equal(due.length,2);assert.deepEqual(due.map(s=>s.sourceId),['dimayor-releases','nba-releases']);checks.push('primary RSS desks scheduled independently and bounded to two; unverified HTML source remains disabled');
   const rss={kind:'metadata' as const,candidate:{desk:'nba-releases',url:'https://pr.nba.com/synthetic-official-announcement',headline:'NBA synthetic official announcement',sourceDate:now.toISOString().slice(0,10)}};
@@ -77,7 +95,7 @@ async function main(){
   assert.deepEqual(await repo.claim(true,true,now),{reason:'model-budget'});checks.push('$1 lifetime validation hard stop including abandoned calls');
   await db.query('BEGIN');await db.query("UPDATE editorial_automation_control SET paused=true");await db.query('ROLLBACK');assert.equal((await repo.dashboard()).paused,false);checks.push('transaction rollback preserves control state');
   const indexes=(await db.query("SELECT indexname FROM pg_indexes WHERE schemaname=current_schema() AND tablename LIKE 'editorial_%' ORDER BY indexname")).rows.map(x=>x.indexname);
-  const evidence={at:now.toISOString(),environment:'isolated PostgreSQL synthetic schema',migration:'074',applications:3,checks,indexes,realSourceCalls:0,realModelCalls:0,productionConnections:0,syntheticPublications:1,schemaPreservedForInspection:schema};
+  const evidence={at:now.toISOString(),environment:'isolated PostgreSQL synthetic schema',migration:'074',applications:3,checks,indexes,realSourceCalls:0,realModelCalls:0,productionConnections:0,syntheticPublications:2,schemaPreservedForInspection:schema};
   await mkdir('output/v3-qa/acceptance-2026-10-21',{recursive:true});await writeFile('output/v3-qa/acceptance-2026-10-21/automation-db.json',JSON.stringify(evidence,null,2));console.log(JSON.stringify(evidence));
  }finally{await db.close();await admin.close();}
 }

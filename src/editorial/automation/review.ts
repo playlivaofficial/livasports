@@ -1,10 +1,10 @@
-import type {GeneratedCopy,ResultFacts} from './policy';
+import type {GeneratedCopy,PublicationFacts} from './policy';
 import type {ModelUsage} from './generation';
 export const reviewFields=['en.title','en.summary','en.body','es.title','es.summary','es.body','pt.title','pt.summary','pt.body'] as const;
 export const issueCodes=['UNSUPPORTED_FACT','SCORE_OR_TEAM','TRANSLATION_DIFFERENCE','LANGUAGE_QUALITY','REPETITION','FORMAT','ATTRIBUTION','COPYING_SIGNAL'] as const;
 export interface ReviewIssue {field:typeof reviewFields[number];code:typeof issueCodes[number];reason:string}
 export interface EditorialAudit {grounded:boolean;translations:boolean;original:boolean;quality:boolean;issues:ReviewIssue[]}
-export interface ReviewEvidence {model:string;rubric:string;facts:ResultFacts;draft:Partial<GeneratedCopy>;deterministic:string[];audit:EditorialAudit|null;status:string;usage:ModelUsage;correctedFields:string[]}
+export interface ReviewEvidence {model:string;rubric:string;facts:PublicationFacts;draft:Partial<GeneratedCopy>;deterministic:string[];audit:EditorialAudit|null;status:string;usage:ModelUsage;correctedFields:string[]}
 const privateText=(s:string)=>s.replace(/sk-[A-Za-z0-9_-]{8,}|Bearer\s+\S+|postgres(?:ql)?:\/\/\S+/gi,'[REDACTED]');
 export function parseAudit(value:unknown):EditorialAudit|null{
  if(!value||typeof value!=='object')return null;

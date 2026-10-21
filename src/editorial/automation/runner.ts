@@ -6,6 +6,7 @@ import {discoveryDesks} from '../discovery';
 import {AutomationRepository,type SourceState} from './repository';
 import {generateBriefing,type ModelUsage} from './generation';
 import {resultsFromSnapshot,toNewsDraft,factErrors} from './policy';
+import type {AnnouncementFacts} from './announcements';
 
 /** Cache validators apply to a fixed, approved index only. Never persist raw article bodies. */
 export async function collectScheduledDiscovery(source:SourceState,fetcher:typeof fetch=fetch,now=new Date()){
@@ -52,10 +53,11 @@ export async function runNewsAutomation(repo:AutomationRepository,options:{key?:
       if(!await repo.sourceEnabled(source.sourceId))continue;
       const found=await collectScheduledDiscovery(source,options.fetcher,now);result.requests+=found.requests;
       await repo.finishSource(claim.id,source.sourceId,found.status,found.requests,found.cursor,now);
-      for(const candidate of found.candidates){const state=await repo.observe(claim.id,{kind:'metadata',candidate},now);if(state==='new')result.discovered++;if(state==='changed')result.corrections++;}
+      const announcements:AnnouncementFacts[]='announcements' in found&&Array.isArray(found.announcements)?found.announcements:[];
+      for(const candidate of found.candidates){const facts=announcements.find(f=>f.sourceUrl===candidate.url)??{kind:'metadata' as const,candidate};const state=await repo.observe(claim.id,facts,now);if(state==='new')result.discovered++;if(state==='changed')result.corrections++;}
     }
     const event=await repo.pending();
-    if(event&&options.key&&event.facts.kind==='result'&&resultsValidated){
+    if(event&&options.key&&(event.facts.kind==='announcement'||(event.facts.kind==='result'&&resultsValidated))){
       if(factErrors(event.facts,now).length){result.generation='FACTS_NO_LONGER_ELIGIBLE';await repo.fail(event.eventKey,result.generation);}
       else{
         await repo.markAttempt(claim.id,event.eventKey);
