@@ -2,7 +2,61 @@
 
 This is the release runbook, not an activation record. Adding configuration does not establish that a migration ran, a snapshot was published, or automation was enabled. Production migration, environment changes and deployment require separate approval.
 
-## Current release evidence — 19 October 2026
+## Current product acceptance — 21 October 2026
+
+PR #75 remains Draft. No merge, deployment, Production database writes, environment edits, paid resources or new subscriptions are authorized in this phase. The **isolated database milestone is complete**, not the product. The 3,723-test baseline and PostgreSQL acceptance are recorded in `v3-pr75-isolated-acceptance.json` and [CI run 39557365994](https://github.com/playlivaofficial/livasports/actions/runs/39557365994). The older 19 October notes below are historical, not current blockers.
+
+### Minimum viable release scope, not a claim of launch readiness
+
+- **Verified real data demonstrable now:** Bundesliga, 18 teams, 306 scheduled/results records including 54 completed fixtures, source cutoff 18 October 15:30 UTC. Published only into isolated local PostgreSQL. The page prominently labels it an older snapshot, not a current/live table. A refreshed, independently checked snapshot is required for a current-data launch claim. No other competition is yet approved as operational current coverage.
+- **News demonstrable now:** seven source-attributed publications in the isolated database and public local homepage: football/DIMAYOR (17 Oct), NBA staff announcement (14 Oct), NFL club report (18 Oct), tennis/WTA (18 Oct), archival UFC pre-event notice (16 Oct), MLB English brief (20 Oct), NHL English brief (21 Oct). This proves the workflow and sport sections, not seven fresh stories every day. The two short briefs explicitly mark ES/PT unavailable and render the reviewed English original; do not index those fallback routes as translations. MLB/NHL/NFL have no cleared event photograph. Existing football/basketball/tennis/MMA archive photography retains visible credit, licence and context. No AI athlete imagery, copied article photos or invented league crests.
+- **Unavailable for current-data release:** Liga MX, Colombia Primera A, Peru Liga 1, Premier League, LaLiga, Serie A, Ligue 1, NBA, EuroLeague, MLB postseason, NFL, NHL, ATP/WTA and UFC current rankings until the specific verification gaps below are closed. Their routes, manual publication support and catalog records do not count as datasets. Remaining catalog competitions retain the individual limitations in `LIVASPORTS_V3_SPORTS_COVERAGE.json`; its Production integration flags stay false.
+- **Owner acceptance still required:** actual mobile Light/Dark and desktop review, editorial selection/translation/image quality, agreed coverage scope, and the staged release authorization below. A green test suite does not close these acceptance items.
+
+### Bounded source audit and conflicts
+
+The manual `scripts/v3-audit-wikimedia.ts` tool makes at most eight explicitly selected requests, deduplicates shared ATP/WTA pages, stops on transport failure, saves provenance only under ignored output and never imports/publishes to a database. Four new free requests on 21 October produced NHL, EuroLeague, ATP/WTA and UFC source evidence. UFC's narrowly allowed numeric `nowrap` records and already-prefixed women's divisions were repaired against retained evidence, without a retry. All remain unpublished. Four further read-only OpenLigaDB calls inspected table + fixtures for two observed league IDs. No paid provider or retired job was contacted.
+
+| Competition | Evidence available | Exact current release limitation |
+| --- | --- | --- |
+| Bundesliga | OpenLigaDB ODbL snapshot, independently checked, locally published | Explicit 18 Oct data cutoff; not a real-time feed; current refresh/review required before launch |
+| Liga MX | 18-row Apertura importer and retained Wikimedia revision | Club official table disagrees with Wikimedia. No publication; resolve edition/date and all rows first |
+| Colombia Primera A | Finalización Wikimedia table through 19 Oct compared with current DIMAYOR | Lower-table changes differ: DIMAYOR has Pereira 13 points/14 played, Wikipedia 10/13; Boyacá Chicó played/GA also differ. Do not merge rows or stamp the old snapshot current |
+| Peru Liga 1 | Official league discovery; Wikimedia aggregate table through 18 Oct | Aggregate vs Clausura stage and four point deductions require independent validation and source-specific normalization; not an operational table |
+| Premier League | OpenLigaDB `pl/2026`, 20 rows/380 events | Latest completed event 12 Oct; no independent current table confirmation. Unpublished |
+| LaLiga | OpenLigaDB `la1/2026`, 20 rows/380 events | Community Barcelona 24 points/8 played vs official LaLiga 27/9; outdated, unpublished |
+| Serie A / Ligue 1 | Existing historical openfootball support and official discovery | No verified current eligible snapshot. football-data.co.uk personal/academic terms are not commercial permission; mirrors do not solve licensing |
+| NBA | Sport-specific table model/manual workflow; official newsroom source | No source-verified current standings dataset retained; no operational coverage claim |
+| EuroLeague | 20-row Wikimedia canary, explicit 16 Oct cutoff | Official comparison inaccessible in this audit; outdated cutoff, unpublished |
+| MLB | 30-team completed regular-season snapshot in historical mode | Not postseason/live coverage; postseason requires separate verified dataset |
+| NFL | 32-team/eight-division retained snapshot | Revision time is not match cutoff; date/accuracy confirmation outstanding |
+| NHL | 32-team/four-division retained canary, 20 Oct cutoff | Not independently verified against all current official rows, unpublished |
+| ATP | Top 20, 19 Oct ranking date | Official comparison inaccessible; partial ranking, not full tour/tournament coverage |
+| WTA | Top 20, 19 Oct ranking date | Pegula points conflict: community 6265 vs official 6235. Unpublished; no silent correction |
+| UFC | 173 entities, 11 weight-class tables, 175 rows; 17 Oct cutoff | Meta ranking system, not automatically the official media-panel ranking; independent check remains blocked. No cards/results inferred |
+
+Primary comparison links: [DIMAYOR](https://www.dimayor.com.co/liga-betplay-dimayor/), [Colombia source](https://en.wikipedia.org/wiki/2026_Liga_DIMAYOR), [LaLiga](https://www.laliga.com/en-GB/laliga-easports/standing), [WTA](https://www.wtatennis.com/rankings/singles), [Chivas](https://www.chivasdecorazon.com.mx/es/estadisticas/tabla_general/Apertura-2026), [OpenLigaDB licence and service](https://www.openligadb.de/). These comparisons are evidence, not permission to redistribute protected articles, badges or images. Retained raw/normalized audit files remain local, not production seeds.
+
+### Sustainable daily newsroom operation
+
+`/owner/news` now has a seven-sport Daily Desk. It separates research, draft review, reviewed readiness and actual publication; source dates, not republishing dates, determine today's count. It offers primary-source discovery links and opens a private draft with the correct sport/topic. It makes **no automatic source requests and performs no automatic publication**. Counts are explicitly scoped to the loaded collection.
+
+Daily human/editor steps: open the official sources; choose a genuinely new story; verify facts and original date; write original copy; check each available translation; select only cleared imagery with accurate archive/event captions; Save; confirm review of the saved revision; Publish. Inspect the public story/homepage and source links. If no verified story exists for a sport, leave the gap visible. Correct through a new draft/review; unpublish without deleting history. An editor must reload the desk to refresh the collection/date after leaving it open overnight. Authenticated HTTP acceptance proves persistent publication and revalidation without a build. Controlled seven-sport publication was done only at localhost:3351 using generated local credentials; the Owner has not yet approved these as launch content.
+
+### Staged deployment proposal — requires a later explicit authorization
+
+1. **Owner product acceptance first:** agree the exact coverage/news/visual scope above. Keep #75 Draft and the feature-branch Vercel deployment guard off until then. Preserve CI's existing PostgreSQL 18 service, synthetic-only rows, no repository production secrets and the current test/gate workflow. No Neon branch or new project.
+2. **Read-only preflight after release approval:** fetch/reconcile latest main; inspect pending migrations 072/073, exact existing Vercel project `nikapopkha3-4447s-projects/livasports`, deployment SHA, environment scopes, existing backup/restore capability and resource limits. Record before-counts/schema and a usable restore point without logging credentials. If a safe restore point requires new cost or is unavailable, stop before migration and ask about that specific risk. Do not export all secrets or use a Production database for Preview tests.
+3. **Approval must explicitly cover** the pending additive Production migration(s), staged Production deployment, domain promotion, any temporary change to Git auto-assignment, and the initial reviewed content publications. None of those approvals is implied by this preparation request. Existing-plan deploy/compute usage is not promised to be zero; no purchase/plan change or paid branch is proposed.
+4. **Control the release boundary:** the existing project currently lacks an authorized isolated hosted Preview database. A fully functional database-backed Preview is therefore still blocked. Local real PostgreSQL + hosted synthetic CI are the approved acceptance environments. Do not quietly point Preview at Production. An optional database-free Preview could demonstrate the empty-state UI only, not replace full acceptance.
+5. **Apply only verified pending additive migrations** through the established runner, transactionally, after backup/preflight and explicit Production approval. The CI evidence covers repeated 073 application, constraints/indexes, unchanged existing rows and atomic failure rollback. Do not invoke a blanket data-sync/backfill job. Preserve previous app compatibility and all account/editorial/sports rows.
+6. **Stage in the existing project:** after approved auto-assignment control, deploy the reviewed commit with Vercel's documented `--prod --skip-domain` flow, verify the staged SHA and read-only routes, then promote that exact ready deployment. This is a Production-configured build, **not a database sandbox**: domain skipping does not isolate its DB or guarantee background jobs cannot run. Keep source automation, retired providers, social rendering and automatic publishing disabled; verify cron/integration effects before creation. Never run synthetic write tests against this staged deployment.
+7. **Post-promotion:** verify apex SHA, anonymous/private boundaries, ES/EN/PT, themes, canonicals, snapshots and news dates/licences, zero navigation provider requests, retired-job shutdown and inactive affiliate placeholders. Publish only explicitly accepted real content through Owner review, then verify cache/SEO visibility. No automatic daily-publication claim.
+8. **Rollback:** reassign the domain to the recorded previous ready deployment if application QA fails. Preserve additive tables and content/audit rows; no destructive down migration. Vercel rollback does not revert database changes, credentials or environment configuration. Use the separately verified restore procedure only under a new explicit data-recovery decision, never as routine rollback.
+
+Vercel references: [staged CLI deployments](https://vercel.com/docs/cli/deploying-from-cli), [promotion](https://vercel.com/docs/deployments/promoting-a-deployment). This is a proposal, not an executed Production plan.
+
+## Historical release evidence — 19 October 2026
 
 Delivery is limited to a **draft PR for review**. This work has not deployed the application, applied a production migration, imported or published production sports/news data, activated automatic publication, purchased a provider, or changed production credentials. Code and local previews are not operational coverage.
 

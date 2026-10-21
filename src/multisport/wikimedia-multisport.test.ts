@@ -81,6 +81,22 @@ describe('bounded Wikimedia multisport normalization', () => {
     expect(result.snapshot.entities.some(entity => entity.name.includes('media'))).toBe(false);
     expect(result.snapshot.tables[8]).toMatchObject({ rankingCategory: 'weight-class', weightClass: "Women's Bantamweight" });
   });
+  it('accepts a numeric nowrap record with an external NC suffix without losing the draw or NC', () => {
+    const result = normalizeWikimediaMultisport(batch('ufc', mma().replace('12–2', '{{nowrap|24–9–1}}<br>(1 NC)')), now);
+    expect(result.snapshot.tables[0].rows[0]).toMatchObject({ wins: 24, losses: 9, draws: 1, noContests: 1 });
+  });
+  it('does not interpret arbitrary or nested templates as fighter records', () => {
+    for (const record of ['{{nowrap|unknown}}', '{{unsafe|12–2}}', '{{nowrap|{{nowrap|12–2}}}}', '{{nowrap|12–2}} forged']) {
+      expect(() => normalizeWikimediaMultisport(batch('ufc', mma().replace('12–2', record)), now)).toThrow('WIKIMEDIA_MULTISPORT_MMA_RECORD');
+    }
+  });
+  it('accepts the explicit women’s prefix only in its matching Meta section', () => {
+    const source = mma().split("==Women's Meta rankings==");
+    source[1] = source[1].replace(/=== (Bantamweight|Flyweight|Strawweight) ===/g, "=== Women's $1 ===");
+    const result = normalizeWikimediaMultisport(batch('ufc', source.join("==Women's Meta rankings==")), now);
+    expect(result.snapshot.tables[8]).toMatchObject({ weightClass: "Women's Bantamweight" });
+    expect(() => normalizeWikimediaMultisport(batch('ufc', mma().replace('=== Heavyweight ===', "=== Women's Heavyweight ===")), now)).toThrow('WIKIMEDIA_MULTISPORT_MMA_CLASS');
+  });
   it.each([
     ['tennis missing row', 'atp-rankings', () => tennis().replace('|20\n', '|21\n')],
     ['tennis duplicate player', 'atp-rankings', () => tennis().replace('[[TEST Player 19]]', '[[TEST Player 0]]')],

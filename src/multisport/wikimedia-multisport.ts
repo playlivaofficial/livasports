@@ -126,7 +126,7 @@ function mma(source: string, entities: Map<string, SportsEntity>): { tables: Mma
     const classes = [...section.matchAll(/^===\s*([^=]+?)\s*===\s*$/gm)];
     if (classes.length !== mmaClasses[gender].length) fail('MMA_CLASSES');
     for (let index = 0; index < classes.length; index++) {
-      const weightClass = classes[index][1].trim();
+      const weightClass = classes[index][1].trim().replace(new RegExp(`^${gender}'s\\s+`, 'i'), '');
       if (weightClass.toLowerCase() !== mmaClasses[gender][index].toLowerCase()) fail('MMA_CLASS');
       const content = section.slice(classes[index].index! + classes[index][0].length, classes[index + 1]?.index ?? section.length);
       const released = content.match(/Rankings released on ([A-Za-z]+ \d{1,2}, \d{4}),/);
@@ -139,7 +139,10 @@ function mma(source: string, entities: Map<string, SportsEntity>): { tables: Mma
         const cells = raw.split(/\n\|/), rankCell = cells[0], champion = rankCell.includes('{{Tooltip|C|Champion}}');
         if (cells.length < 4) fail('MMA_ROW');
         const rank = champion ? 0 : integer(rankCell.replace(/^!\s*/, ''), 15);
-        const record = cells[3].replace(/^\s*align\s*=\s*"?center"?\s*\|/, '').replace(/<br\s*\/?\s*>/gi, ' ').trim().replace(/^\{\{nowrap\|([\s\S]+)\}\}$/, '$1').trim();
+        const record = cells[3].replace(/^\s*align\s*=\s*"?center"?\s*\|/, '').replace(/<br\s*\/?\s*>/gi, ' ').trim()
+          // The audited page wraps either the full record or just W-L-D.
+          // Unwrap only this numeric grammar, never execute arbitrary templates.
+          .replace(/\{\{nowrap\|(\d+[–-]\d+(?:[–-]\d+)?(?:\s*\(\d+ NC\))?)\}\}/g, '$1').trim();
         const numbers = record.match(/^(\d+)[–-](\d+)(?:[–-](\d+))?(?:\s*\((\d+) NC\))?$/);
         if (!numbers) fail('MMA_RECORD');
         rows.push({ entityId: participant(entities, cells[2], 'fighter'), rank, ...(champion ? { champion: true } : {}), wins: integer(numbers![1], 200), losses: integer(numbers![2], 200), draws: numbers![3] ? integer(numbers![3], 100) : 0, noContests: numbers![4] ? integer(numbers![4], 100) : 0 });
