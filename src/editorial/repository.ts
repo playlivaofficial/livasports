@@ -2,9 +2,13 @@ import type {DatabaseClient,QueryExecutor} from '@/database/client';
 import {transitionNews,safeNewsDraft,resetTranslationReviews,canonicalSourceUrl,type NewsDraft,type NewsRecord,type PublishedNews} from './model';
 
 const columns='slug,draft,published,revision,reviewed_revision AS "reviewedRevision",reviewed_at::text AS "reviewedAt",archived';
+/** PostgreSQL timestamptz text differs from the ISO stamps held in JSONB translations. */
+export function normalizeNewsRecord(row:NewsRecord):NewsRecord{
+  return {...row,reviewedAt:row.reviewedAt?new Date(row.reviewedAt).toISOString():null};
+}
 export class NewsRepository {
   constructor(private db:DatabaseClient){}
-  async listOwner(){return (await this.db.query<NewsRecord>(`SELECT ${columns} FROM editorial_news ORDER BY edited_at DESC LIMIT 200`)).rows;}
+  async listOwner(){return (await this.db.query<NewsRecord>(`SELECT ${columns} FROM editorial_news ORDER BY edited_at DESC LIMIT 200`)).rows.map(normalizeNewsRecord);}
   async listPublished():Promise<PublishedNews[]>{return (await this.db.query<{published:PublishedNews}>(`SELECT published FROM editorial_news WHERE published IS NOT NULL AND NOT archived ORDER BY published->>'sourcePublishedOn' DESC,slug LIMIT 120`)).rows.map(row=>row.published);}
   async findPublished(slug:string):Promise<PublishedNews|null>{return (await this.db.query<{published:PublishedNews}>('SELECT published FROM editorial_news WHERE slug=$1 AND published IS NOT NULL AND NOT archived',[slug])).rows[0]?.published??null;}
   async sitemap():Promise<PublishedNews[]>{return (await this.db.query<{published:PublishedNews}>('SELECT published FROM editorial_news WHERE published IS NOT NULL AND NOT archived ORDER BY slug LIMIT 5000')).rows.map(row=>row.published);}
@@ -15,6 +19,7 @@ export class NewsRepository {
       const recent=await db.query<{count:string}>("SELECT count(*) FROM editorial_news_audit WHERE recorded_at>now()-interval '10 minutes'");
       if(Number(recent.rows[0]?.count)>100)throw new Error('RATE_LIMITED');
       let row=(await db.query<NewsRecord>(`SELECT ${columns} FROM editorial_news WHERE slug=$1 FOR UPDATE`,[input.slug])).rows[0];
+      if(row)row=normalizeNewsRecord(row);
       if(input.action==='create'){
         if(row)throw new Error('REVISION_CONFLICT');
         if(!input.draft||input.draft.slug!==input.slug||!safeNewsDraft(input.draft))throw new Error('INVALID_DRAFT');

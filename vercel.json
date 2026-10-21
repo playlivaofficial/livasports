@@ -8,7 +8,8 @@
   ],
   "git": {
     "deploymentEnabled": {
-      "codex/g1-betsson-br-visual-refresh": false
+      "codex/g1-betsson-br-visual-refresh": false,
+      "codex/v3-multisport-editorial": false
     }
   }
 }

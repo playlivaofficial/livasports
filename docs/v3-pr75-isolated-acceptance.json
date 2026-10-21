@@ -1,0 +1,63 @@
+{
+  "date": "2026-10-21",
+  "pullRequest": 75,
+  "releaseApproved": false,
+  "productionChanged": false,
+  "paidResourcesCreated": false,
+  "hostedPreview": {
+    "status": "BLOCKED",
+    "previousDeployment": "dpl_Gh3NJ1SxR2QHfWM2gqe7ZJLYxKdB",
+    "failure": "Prerender failed because sports_snapshots did not exist in the configured Preview database.",
+    "safeResolution": "Do not migrate or test against that unverified database. Owner declined a potentially billable Neon branch. Branch auto-deployment is disabled pending an authorized isolated hosted database and running-result review."
+  },
+  "databaseAcceptance": {
+    "localEngine": "PostgreSQL 18.6, separate loopback-only WSL cluster and database",
+    "ciEngine": "postgres:18 service in the existing standard ubuntu-latest quality-gates job; synthetic data only; no repository secrets passed",
+    "migration": "073_v3_sports_snapshots.sql",
+    "localResult": "PASS",
+    "applications": 3,
+    "indexesIncludingPrimaryAndUnique": 7,
+    "negativeConstraintAndPrivilegeChecks": 13,
+    "fixedDefect": "SQL CHECK permitted missing JSON identities through NULL. Required draft and publication identity checks now use IS TRUE.",
+    "checks": ["Repeatability preserves existing rows", "Injected failure atomically rolls back migration DDL", "Existing unrelated data preserved", "Runtime role cannot create schema objects", "Anonymous and cross-origin Owner writes blocked", "Real signed-cookie Owner authentication", "Save, review, publish, unpublish", "Concurrent edit returns conflict without changing the published revision", "Exact durable audit sequence", "Transaction rollback", "Public server-rendered cache invalidation", "Logout"],
+    "rollbackScope": "Additive compatibility and transactional rollback verified; no destructive down migration and no old production binary was run.",
+    "productionConnections": 0,
+    "entryPoint": "node scripts/v3-isolated-qa.mjs --ci-service",
+    "localEntryPoint": "node scripts/v3-isolated-qa.mjs --serve",
+    "isolation": "Fixed loopback endpoint; env-file-free checkout required; application inherits only basic OS environment and generated disposable secrets."
+  },
+  "editorialAcceptance": {
+    "fixedDefect": "Normalize PostgreSQL review timestamps to ISO at the repository boundary so language-review JSON stamps still match after persistence.",
+    "genuineLocalPublication": "liga-betplay-jornada-15-television",
+    "source": "https://www.dimayor.com.co/2026/10/17/asi-se-jugara-la-fecha-15-de-la-liga-betplay-dimayor-ii-2026/",
+    "sourceDate": "2026-10-17",
+    "languages": ["en", "es", "pt"],
+    "image": "Licensed local El Campin archive photograph with visible archive context and attribution",
+    "browserWorkflow": "Saved, reviewed, published, unpublished and re-reviewed/re-published through the authenticated Owner newsroom in the isolated local application. Public homepage changes verified.",
+    "automatedDailyPublication": false,
+    "ciData": "Synthetic article with explicit originalLanguage and all three translation review states; no real news or source requests in CI."
+  },
+  "sourceAcceptance": {
+    "bundesliga": {"status": "LOCALLY_PUBLISHED", "source": "OpenLigaDB", "license": "ODbL-1.0", "observedAt": "2026-10-18T15:30:00Z", "retrievedOn": "2026-10-21", "teams": 18, "fixtures": 306, "completed": 54, "independentCheck": "Top five places, played games and points matched the official Bundesliga table", "publication": "Authenticated Owner import, review and publish; public standings/results/team routes and source attribution visible", "freshness": "Explicitly labelled older snapshot; retrieval does not change the data date"},
+    "ligaMx": {"status": "NOT_PUBLISHED", "source": "Wikimedia", "license": "CC-BY-SA-4.0", "rows": 18, "dataDate": "2026-10-20", "revision": 1381269787, "blocker": "Official league table unavailable through the audit tool; the official club table and community table differ on Toluca. Independent reconciliation is incomplete; no claim of current reliable coverage."},
+    "allCompetitions": "See LIVASPORTS_V3_SPORTS_COVERAGE.json for all 64 competition-specific access, licence, source capability and blocker records. Catalog entries are not operational coverage. Production publication flags remain false."
+  },
+  "visualAcceptance": {
+    "changes": ["Photo-led mobile story hero", "Clearer mobile typography and hierarchy", "Compact sport-specific homepage standings", "Preserved explicit source dates and expandable source/licence details", "Standings and competitions ahead of the long news feed"],
+    "cases": 30,
+    "darkWidths": [320, 390, 430, 1440],
+    "lightWidths": [320, 390, 430, 768, 1024, 1440],
+    "languages": ["en", "es", "pt"],
+    "horizontalOverflow": 0,
+    "publicOwnerGeoSelectors": 0,
+    "evidenceDirectory": "output/v3-qa/acceptance-2026-10-21",
+    "ownerDesignApproval": "PENDING"
+  },
+  "remainingReleaseBlockers": [
+    "Hosted PostgreSQL CI acceptance result must be verified on the final pushed commit",
+    "No authorized zero-incremental-cost isolated hosted database for a functioning Vercel Preview",
+    "Owner review of the actual running visual result is pending",
+    "Current independently verified coverage remains partial; Liga MX reconciliation and most requested sports publications are incomplete",
+    "Daily news is an Owner-reviewed workflow, not a verified autonomous daily publication service"
+  ]
+}

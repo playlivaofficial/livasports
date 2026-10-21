@@ -5,10 +5,26 @@ on:
     branches: [main]
 permissions:
   contents: read
+concurrency:
+  group: quality-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: livasports_v3_qa
+          POSTGRES_PASSWORD: disposable-ci-service-only
+          POSTGRES_DB: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U livasports_v3_qa -d postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -21,7 +37,19 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm test
-      - run: pnpm build
+      - name: Isolated PostgreSQL migration, production build and authenticated publishing acceptance
+        run: node scripts/v3-isolated-qa.mjs --ci-service
+        env:
+          V3_QA_SERVICE_PASSWORD: disposable-ci-service-only
+      - name: Upload credential-free database acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v3-database-acceptance
+          path: |
+            output/v3-qa/acceptance-2026-10-21/migration.json
+            output/v3-qa/acceptance-2026-10-21/owner-workflow.json
+          retention-days: 7
       - run: pnpm qa:seo:growth
       - run: pnpm typecheck
       - run: pnpm secret:scan

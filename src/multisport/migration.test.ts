@@ -20,4 +20,11 @@ describe('V3 snapshot migration static safety audit (no database execution)',()=
   it('identifies both public collectors as LivaSports',()=>{
     for(const file of ['src/multisport/openligadb.ts','src/multisport/openfootball.ts'])expect(readFileSync(file,'utf8')).toContain("'User-Agent':'LivaSports-DataCollector/3.0 (+https://livasports.com)'");
   });
+  it('rejects absent JSON identities and non-positive review/audit revisions at the database boundary',()=>{
+    expect(sql.match(/IS TRUE/g)).toHaveLength(2);
+    expect(sql).toContain("jsonb_typeof(draft->'competitionId')='string'");
+    expect(sql).toContain("jsonb_typeof(published->'season')='string'");
+    expect(sql).toContain('reviewed_revision BETWEEN 1 AND revision');
+    expect(sql.match(/revision integer NOT NULL(?: DEFAULT 1)? CHECK \(revision>0\)/g)).toHaveLength(2);
+  });
 });

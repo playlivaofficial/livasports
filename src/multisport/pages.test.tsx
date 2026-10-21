@@ -12,7 +12,8 @@ vi.mock('@/v2/pages', () => ({ V2Shell: ({ children }: { children: ReactNode }) 
 vi.mock('@/editorial/NewsCards', () => ({ NewsCard: () => null }));
 vi.mock('next/navigation', () => ({ notFound: () => { throw new Error('TEST_NOT_FOUND'); } }));
 import { CompetitionPage, EntityPage, SportsDirectory, resolveSportsRoute } from './pages';
-import { StandingsHighlights } from './HomeModules';
+import { StandingsHighlights,highlightSnapshots } from './HomeModules';
+import { StandingsTable } from './components';
 
 /** Renderer-only synthetic fixtures, never source data or publication inputs. */
 function nbaSnapshot(season: string, mode: 'manual' | 'historical', name: string, observedAt: string): SportsSnapshot {
@@ -21,6 +22,18 @@ function nbaSnapshot(season: string, mode: 'manual' | 'historical', name: string
 
 beforeEach(() => { state.snapshots = []; state.preview = false; });
 describe('competition page publication boundaries', () => {
+  it('keeps recent dated tables useful between rounds without claiming freshness or including unknown cutoffs',()=>{
+    const now=new Date('2026-10-21T12:00:00Z');
+    const dated={...nbaSnapshot('2026/27','manual','TEST-dated','2026-10-18T12:00:00Z'),observationBasis:'data-date' as const};
+    expect(highlightSnapshots([dated],now)).toHaveLength(1);
+    expect(highlightSnapshots([{...dated,observedAt:'2026-10-01'}],now)).toHaveLength(0);
+    expect(highlightSnapshots([{...dated,observationBasis:'source-revision'}],now)).toHaveLength(0);
+    expect(highlightSnapshots([{...dated,mode:'historical'}],now)).toHaveLength(0);
+    expect(highlightSnapshots([dated,{...dated,observedAt:'2026-10-20'}],now)).toHaveLength(1);
+    expect(highlightSnapshots([dated,{...dated,observedAt:'2026-10-20'}],now)[0].observedAt).toBe('2026-10-20');
+    const html=renderToStaticMarkup(<StandingsTable table={dated.tables[0]} snapshot={dated} locale="en" compact/>);
+    expect(html).toContain('Older snapshot — not a current table');
+  });
   it('hides unpublished preview downloads on directory, competition, entity and home views without hiding attribution', async () => {
     state.preview = true;
     const snapshot = nbaSnapshot('2026/27', 'manual', 'TEST-preview', new Date().toISOString());

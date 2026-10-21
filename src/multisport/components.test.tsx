@@ -28,6 +28,12 @@ function rendererSnapshot(table: SportsTable = testTables[0]): SportsSnapshot {
 afterEach(() => { vi.restoreAllMocks(); });
 
 describe('server-rendered sport-specific tables using unpublished TEST fixtures', () => {
+  it.each(testTables)('offers a compact $type preview without removing source dates or full-page columns',table=>{
+    const html=renderToStaticMarkup(<StandingsTable table={table} snapshot={rendererSnapshot(table)} locale="en" compact limit={5}/>);
+    expect(html).toContain('ms-table-preview');expect(html).toContain('Data through');
+    expect(html).toContain('Synthetic Alpha');expect(html).not.toContain('ms-table-legend');
+    expect(html).not.toContain('>GF<');
+  });
   it.each(testTables)('renders $type identities and accessible table structure without remote media', table => {
     const html = renderToStaticMarkup(<StandingsTable table={table} snapshot={rendererSnapshot(table)} locale="en" />);
     expect(html).toContain(`ms-table-${table.type}`);
