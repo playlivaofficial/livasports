@@ -14,6 +14,12 @@ assert.ok(localSettings.every(line=>/^OPENAI_API_KEY\s*=/.test(line))&&localSett
 function sql(text){const r=spawnSync('wsl.exe',['-d','Ubuntu','--','/usr/lib/postgresql/18/bin/psql','-h',record.cluster,'-p','55475','-U','livasports_v3_qa','-d','livasports_v3_qa','-X','-At','-v','ON_ERROR_STOP=1'],{input:text,encoding:'utf8',windowsHide:true,timeout:20000});if(r.status!==0)throw Error('ISOLATED_SQL_FAILED');return r.stdout.trim();}
 assert.equal(sql("SELECT epoch||':'||historical_reserved_microusd FROM local_validation_epoch"),'local-rebuild-2026-10-22:80000','Recovery accounting must exist before local validation');
 assert.equal(sql("SELECT count(*) FROM pg_trigger WHERE tgname='local_validation_budget' AND tgenabled='O'"),'1','Recovery budget trigger must be active');
+// Public session reads use the shared request limiter even when OAuth is disabled.
+// Reuse only 027's independent limiter DDL; its later analytics indexes require unrelated schemas.
+const limiterMigration=await readFile('db/migrations/027_launch_request_limits.sql','utf8');
+assert.ok(limiterMigration.includes('-- Internal alert drills'));
+sql(limiterMigration.split('-- Internal alert drills')[0]+'COMMIT;');
+sql("DO $$ BEGIN IF EXISTS (SELECT FROM pg_roles WHERE rolname='livasports_news_runtime_qa') THEN GRANT SELECT,INSERT,UPDATE,DELETE ON request_rate_limits TO livasports_news_runtime_qa; END IF; END $$;");
 function backup(){const result=spawnSync('wsl.exe',['-d','Ubuntu','--','bash','scripts/v3-local-postgres.sh','backup'],{encoding:'utf8',windowsHide:true,timeout:30000});if(result.status!==0)throw Error('LOCAL_BACKUP_FAILED');}
 const before=sql("SELECT json_build_object('sports',count(*),'hash',md5(string_agg(row_to_json(s)::text,'' ORDER BY snapshot_key))) FROM sports_snapshots s; SELECT json_build_object('news',count(*),'hash',md5(string_agg(row_to_json(n)::text,'' ORDER BY slug))) FROM editorial_news n;");
 const migration=await readFile('db/migrations/074_v3_news_automation.sql','utf8');sql(migration);sql(migration);sql(migration);

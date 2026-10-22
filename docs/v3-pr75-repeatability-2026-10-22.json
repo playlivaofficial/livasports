@@ -1,0 +1,49 @@
+{
+  "scope": "Local only; Production unchanged; Draft PR 75",
+  "status": "partial milestone, not seven-sport acceptance",
+  "scheduler": {
+    "isolatedPostgresChecks": 29,
+    "acceleratedCycles": 3,
+    "simulatedOffsetsHours": [7, 25, 49],
+    "syntheticSourceResponses": true,
+    "workerReconstruction": true,
+    "duplicateInvocationSuppressed": true,
+    "pausedPreventsSourceRequests": true,
+    "realElapsedDailyCyclesProven": false,
+    "additionalRealModelCalls": 0,
+    "nextNormalRealCycleNotBefore": "2026-10-22T14:01:24.468Z"
+  },
+  "visual": {
+    "driver": "isolated existing Chrome CDP QA driver, no user profile",
+    "readinessFix": "Wait for V3 main content, not the retired slip trigger",
+    "routes": ["/en", "/en/news/announcement-7d5e8ce810e3fb0372ae7765"],
+    "captures": ["390 light", "390 dark", "1440 light"],
+    "screenshots": 6,
+    "overflow": 0,
+    "brokenImages": 0,
+    "runtimeErrors": 0,
+    "failedRequests": 0,
+    "providerRequests": 0,
+    "directory": "output/v3-qa/acceptance-2026-10-22/news-visual",
+    "remainingVisualGap": "Homepage has only one current story and lacks the reference imagery/density; premium acceptance is not claimed"
+  },
+  "localRepair": "Shared request-rate-limit table absent from rebuilt local prerequisites caused session-read 503. Harness now reuses the independent limiter DDL from migration 027 without importing unrelated production schemas.",
+  "budget": {"historicalReservationUsd":0.08,"newEpochReservedUsd":0.02,"newEpochMeasuredUsd":0.000644,"remainingAuthorizedUsd":0.90,"paused":true},
+  "sourceInvestigation": {
+    "source": "Arizona Cardinals official NFL club RSS",
+    "advertisedFeedEvidence": "https://www.azcardinals.com/news/rss-feeds",
+    "robots": "https://www.azcardinals.com/robots.txt",
+    "feed": "https://www.azcardinals.com/rss/news",
+    "directReadOnlyRequests": 2,
+    "httpStatus": 200,
+    "latestObservedItem": "2026-10-21T23:20:00Z",
+    "automaticPublicationEnabled": false,
+    "limitation": "Current headlines and short summaries exist; no source-specific corroborated factual contract or article/image reuse permission inferred. Not counted as operational publication."
+  },
+  "coverage": {
+    "currentLocalPublishedStories": {"football":1,"basketball":0,"baseball":0,"american-football":0,"ice-hockey":0,"mma":0,"tennis":0},
+    "preservedStory": "announcement-7d5e8ce810e3fb0372ae7765",
+    "historicalBundesligaAndNbaEvidence": "Previously measured successful publications, not recovered database rows",
+    "newStandingsPublished": 0
+  }
+}

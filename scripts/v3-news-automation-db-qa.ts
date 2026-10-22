@@ -9,6 +9,7 @@ import {normalizeOpenLigaSnapshot} from '../src/multisport/openligadb';
 import {snapshotHash} from '../src/multisport/repository';
 import {extractAnnouncement} from '../src/editorial/automation/announcements';
 import {candidateDraft} from '../src/editorial/discovery';
+import {runNewsAutomation} from '../src/editorial/automation/runner';
 
 async function main(){
  const url=new URL(process.env.V3_QA_DATABASE_URL??'');
@@ -91,6 +92,31 @@ async function main(){
   await repo.finish(run.id,{synthetic:true},{calls:0,inputTokens:0,outputTokens:0,microUsd:0});assert.equal((await repo.dashboard()).usage.lifetimeReservedMicroUsd,20000);checks.push('unknown/failed usage reservation is not refunded');
   await repo.control({paused:false});
   // Isolated clock simulation, NOT a claim of observing a second real day.
+  await db.query("UPDATE editorial_discovery_state SET disabled=true WHERE source_id NOT IN ('dimayor-releases','nba-releases')");
+  let syntheticRequests=0;
+  const emptyFeed:typeof fetch=async input=>{
+    syntheticRequests++;
+    assert.match(String(input),/^https:\/\/(?:pr\.nba\.com|dimayor\.com\.co)\/(?:robots\.txt|feed\/)$/);
+    return new Response(String(input).endsWith('robots.txt')?'User-agent: *\nAllow: /':'<rss><channel></channel></rss>');
+  };
+  const cycles=[];
+  for(const hours of [7,25,49]){
+    const clock=new Date(+now+hours*3600000);
+    // New repository object simulates a worker restart against the SAME durable tables.
+    const worker=new AutomationRepository(db);
+    const cycle=await runNewsAutomation(worker,{validationOnly:true,fetcher:emptyFeed,now:clock});
+    assert.equal(cycle.status,'completed');assert.deepEqual(cycle.published,[]);
+    assert.equal((await runNewsAutomation(new AutomationRepository(db),{validationOnly:true,fetcher:emptyFeed,now:clock})).status,'not-due');
+    cycles.push(cycle);
+  }
+  assert.ok(syntheticRequests>0);assert.ok(cycles.every(c=>c.requests<=4));
+  assert.equal((await repo.dashboard()).usage.lifetimeReservedMicroUsd,20000);
+  checks.push('three accelerated scheduler cycles across worker reconstruction: empty RSS, durable cadence deduplication, bounded discovery, no model calls');
+  await repo.control({paused:true});
+  const beforePaused=syntheticRequests;
+  assert.equal((await runNewsAutomation(new AutomationRepository(db),{validationOnly:true,fetcher:emptyFeed,now:new Date(+now+73*3600000)})).status,'paused');
+  assert.equal(syntheticRequests,beforePaused);checks.push('scheduled pause prevents even source requests after worker reconstruction');
+  await repo.control({paused:false});
   await db.query("UPDATE editorial_automation_runs SET started_at=now()-interval '2 days'");
   for(let i=0;i<49;i++)await db.query("INSERT INTO editorial_automation_runs(id,started_at,lease_until,status,model_microusd_reserved) VALUES($1,now()-interval '2 days',now()-interval '2 days','abandoned',20000)",[randomUUID()]);
   assert.deepEqual(await repo.claim(true,true,now),{reason:'model-budget'});checks.push('$1 lifetime validation hard stop including abandoned calls');
