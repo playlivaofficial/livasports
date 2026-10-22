@@ -23,7 +23,7 @@ export function isDiscoveryArticleUrl(id:string,value:unknown){
   const path=new URL(url).pathname.replace(/\/$/,'');
   if(url===canonicalSourceUrl(desk.url)||/\/(?:video|videos|tickets|shop|standings|rankings|category|tag|author|privacy|terms|info|lost-password|login|register|comision-de-licencias|tribunal-apelaciones|reglamentos)(?:\/|$)/i.test(path)||!path.split('/').at(-1)?.includes('-'))return false;
   if(id==='dimayor'||id==='dimayor-releases')return /^\/\d{4}\/\d{2}\/\d{2}\//.test(path);
-  if(['mlb','nhl','nfl','ufc'].includes(id))return path.startsWith('/news/');
+  if(['mlb','nhl','nfl','ufc','nfl-cardinals'].includes(id))return path.startsWith('/news/');
   if(id==='wta')return /^\/news\/\d+\//.test(path);
   return true;
 }

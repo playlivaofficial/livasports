@@ -34,11 +34,13 @@
     "advertisedFeedEvidence": "https://www.azcardinals.com/news/rss-feeds",
     "robots": "https://www.azcardinals.com/robots.txt",
     "feed": "https://www.azcardinals.com/rss/news",
-    "directReadOnlyRequests": 2,
+    "directReadOnlyRequests": 7,
     "httpStatus": 200,
     "latestObservedItem": "2026-10-21T23:20:00Z",
     "automaticPublicationEnabled": false,
-    "limitation": "Current headlines and short summaries exist; no source-specific corroborated factual contract or article/image reuse permission inferred. Not counted as operational publication."
+    "typedExtractionCanary": {"observedAt":"2026-10-22T08:45:32.752Z","requests":3,"facts":1,"recipient":"Chad Ryland","award":"NFC Special Teams Player of the Week","sport":"american-football","competition":"nfl","modelCalls":0},
+    "implementation": "Official RSS and one exact matching article, robots checked for both paths. Narrow corroborated award contract; unknown events remain private. Per-source maximum three reads; scheduler defers another source rather than exceeding its four-read reservation.",
+    "limitation": "Real discovery and typed fact extraction verified, but no NFL AI publication yet. No article prose, photography or logo reuse authorized. Existing PAUSED control and six-hour paid cadence remain unchanged."
   },
   "coverage": {
     "currentLocalPublishedStories": {"football":1,"basketball":0,"baseball":0,"american-football":0,"ice-hockey":0,"mma":0,"tennis":0},

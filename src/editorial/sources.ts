@@ -1,6 +1,7 @@
 /** Approved for manual primary-source citation only, not syndication or data ingestion. */
 export const editorialSourcePolicy={mode:'manual-original-summaries-only',automaticFetching:false,fullArticleCopying:false,sourceStatus:'Source not checked'} as const;
 export const officialSourceHosts=[
+  'azcardinals.com',
   'fmf.mx','miseleccion.mx','ligamx.net','ligabbvaexpansion.mx','leaguescup.com','dimayor.com.co','fpf.org.pe','liga1.pe','liga2.pe','lfpp.pe',
   'fifa.com','inside.fifa.com','conmebol.com','gol.conmebol.com','concacaf.com','uefa.com','premierleague.com','laliga.com','legaseriea.it','bundesliga.com','ligue1.com','cafonline.com','oceaniafootball.com','copaamerica.com','theifab.com',
   'nba.com','pr.nba.com','euroleaguebasketball.net','mlb.com','nfl.com','houstontexans.com','nhl.com','ufc.com','atptour.com','wtatennis.com','ausopen.com','rolandgarros.com','wimbledon.com','usopen.org','daviscup.com','billiejeankingcup.com',

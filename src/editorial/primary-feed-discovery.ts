@@ -62,7 +62,8 @@ async function text(url:string,fetcher:typeof fetch,max:number){
  try{while(true){const {done,value}=await reader.read();if(done)break;bytes+=value.length;if(bytes>max){await reader.cancel();throw Error('SIZE_LIMIT');}parts.push(value);}}finally{reader.releaseLock();}
  return Buffer.concat(parts).toString('utf8');
 }
-/** Fixed publisher feed + robots only; no article fetch, redirects, pagination or retries. */
+/** Fixed feed + robots; Cardinals permits one matching award article within a three-read cap.
+ * No pagination, retries, images or publisher prose persisted or sent to the model. */
 export async function collectPrimaryFeed(id:string,fetcher:typeof fetch=fetch,now=new Date()){
  const desk=primaryFeedDesks.find(d=>d.id===id);if(!desk)throw Error('DESK_NOT_ALLOWED');
  let requests=0;
@@ -72,6 +73,20 @@ export async function collectPrimaryFeed(id:string,fetcher:typeof fetch=fetch,no
   if(robotsParser(robotsUrl,robots).isAllowed(desk.url,agent)!==true)return {desk:id,requests,status:'ROBOTS_BLOCKED',candidates:[]};
   requests++;const xml=await text(desk.url,fetcher,512000);
   const candidates=primaryFeedCandidates(xml,id,now);
-  return {desk:id,requests,status:candidates.length?'CANDIDATES_REQUIRE_REVIEW':'NO_CURRENT_VERIFIED_CANDIDATES',candidates,announcements:primaryFeedAnnouncements(xml,id,now)};
+  const announcements=primaryFeedAnnouncements(xml,id,now);
+  if(id==='nfl-cardinals'){
+   const candidate=candidates.find(c=>/ Named NFC Special Teams Player Of The Week(?: After |$)/.test(c.headline));
+   if(candidate){
+    const articleUrl=new URL(new URL(candidate.url).pathname,desk.url).href;
+    if(robotsParser(robotsUrl,robots).isAllowed(articleUrl,agent)!==true)return {desk:id,requests,status:'ROBOTS_BLOCKED',candidates:[]};
+    requests++;
+    const article=load(await text(articleUrl,fetcher,2500000));
+    const matchingHeadline=article('h1').toArray().some(el=>article(el).text().replace(/\s+/g,' ').trim()===candidate.headline);
+    const body=article('article .nfl-c-body-part--text p').toArray().map(el=>article(el).text()).join(' ').replace(/\s+/g,' ').trim();
+    const facts=matchingHeadline?extractAnnouncement(candidate,body,now):null;
+    if(facts&&!announcements.some(f=>f.eventKey===facts.eventKey))announcements.push(facts);
+   }
+  }
+  return {desk:id,requests,status:candidates.length?'CANDIDATES_REQUIRE_REVIEW':'NO_CURRENT_VERIFIED_CANDIDATES',candidates,announcements};
  }catch(error){return {desk:id,requests,status:error instanceof Error&&/^(HTTP_\d{3}|SIZE_LIMIT)$/.test(error.message)?error.message:'SOURCE_UNAVAILABLE_NO_RETRY',candidates:[]};}
 }

@@ -5,7 +5,7 @@ import {collectWikinews} from '../wikinews-discovery';
 import {discoveryDesks} from '../discovery';
 import {AutomationRepository,type SourceState} from './repository';
 import {generateBriefing,type ModelUsage} from './generation';
-import {resultsFromSnapshot,toNewsDraft,factErrors} from './policy';
+import {resultsFromSnapshot,toNewsDraft,factErrors,automationSources} from './policy';
 import type {AnnouncementFacts} from './announcements';
 
 /** Cache validators apply to a fixed, approved index only. Never persist raw article bodies. */
@@ -50,6 +50,9 @@ export async function runNewsAutomation(repo:AutomationRepository,options:{key?:
       }catch{await repo.finishSource(claim.id,'openliga-results','RESULT_VALIDATION_FAILED',0,{},now);}
     }
     for(const source of await repo.dueSources(now)){
+      // An article-backed source costs three reads. Never exceed the four reads reserved by claim.
+      const requestLimit=automationSources.find(s=>s.id===source.sourceId)?.requestLimit;
+      if(requestLimit===undefined||result.requests+requestLimit>4)continue;
       if(!await repo.sourceEnabled(source.sourceId))continue;
       const found=await collectScheduledDiscovery(source,options.fetcher,now);result.requests+=found.requests;
       await repo.finishSource(claim.id,source.sourceId,found.status,found.requests,found.cursor,now);

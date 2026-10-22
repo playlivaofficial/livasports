@@ -16,7 +16,7 @@ export type AnnouncementDetail=
  | {type:'roster-announcement';season:string;scope:'opening-night';internationalPlayers:number;countries:number;continents:number}
  | {type:'award';recipient:string;award:string;period:string};
 export interface AnnouncementFacts {
- kind:'announcement';eventKey:string;sourceId:'nba-releases'|'dimayor-releases';sourceUrl:string;
+ kind:'announcement';eventKey:string;sourceId:'nba-releases'|'dimayor-releases'|'nfl-cardinals';sourceUrl:string;
  sourceName:string;eventDate:string;observedAt:string;competition:NewsCompetition;sport:NewsSport;
  country:'international'|'co';detail:AnnouncementDetail;
  provenance:{method:'primary-feed-facts-v1';headlineCorroborated:true;bodyCorroborated:true;factsHash:string;rights:'independent-facts-only'};
@@ -25,7 +25,8 @@ export interface AnnouncementFacts {
 const hash=(value:AnnouncementDetail)=>{
  const normalized=value.type==='roster-announcement'?{type:value.type,season:value.season,scope:value.scope,internationalPlayers:value.internationalPlayers,countries:value.countries,continents:value.continents}
   :value.type==='fixture-announcement'?{type:value.type,participants:value.participants,stage:value.stage,action:value.action,referee:value.referee}
-  :value.type==='qualification'?{type:value.type,participant:value.participant,stage:value.stage,season:value.season}:value;
+  :value.type==='qualification'?{type:value.type,participant:value.participant,stage:value.stage,season:value.season}
+  :value.type==='award'?{type:value.type,recipient:value.recipient,award:value.award,period:value.period}:value;
  return createHash('sha256').update(JSON.stringify(normalized)).digest('hex');
 };
 export const announcementKey=(url:string)=>`citation:${createHash('sha256').update(url).digest('hex')}`;
@@ -47,15 +48,25 @@ export function announcementErrors(f:AnnouncementFacts,now=new Date()):string[]{
  }else if(f.sourceId==='dimayor-releases'&&url.hostname==='dimayor.com.co'&&f.competition==='copa-colombia'&&f.sport==='football'&&f.country==='co'&&f.sourceName==='DIMAYOR'&&f.detail.type==='qualification'){
   const d=f.detail;
   if(d.stage!=='semi-final'||!/^20\d{2}$/.test(d.season)||d.season!==f.eventDate.slice(0,4)||!d.participant||d.participant.length>80||/[<>\d{}\r\n]/.test(d.participant))errors.push('CONTRADICTORY_QUALIFICATION_FACTS');
+ }else if(f.sourceId==='nfl-cardinals'&&url.hostname==='azcardinals.com'&&url.pathname.startsWith('/news/')&&f.competition==='nfl'&&f.sport==='american-football'&&f.country==='international'&&f.sourceName==='Arizona Cardinals'&&f.detail.type==='award'){
+  const d=f.detail;
+  if(!/^[A-Z][a-z]+(?: [A-Z][a-z]+){1,3}$/.test(d.recipient)||d.award!=='NFC Special Teams Player of the Week'||d.period!=='weekly')errors.push('CONTRADICTORY_AWARD_FACTS');
  }else errors.push('ANNOUNCEMENT_TYPE_REQUIRES_SOURCE_ADAPTER');
  return errors;
 }
-/** Receives only the publisher-advertised RSS item's in-memory text. Never returns prose.
+/** Receives approved RSS or source-specific article text transiently. Never returns prose.
  * Headline and body must independently establish the same facts. Unknown shapes remain metadata. */
 export function extractAnnouncement(candidate:DiscoveryCandidate,body:string,now=new Date()):AnnouncementFacts|null{
  if(!candidate.sourceDate||body.length>50000)return null;
  let detail:AnnouncementDetail|undefined;
- if(candidate.desk==='nba-releases'){
+ if(candidate.desk==='nfl-cardinals'){
+  const headline=/^([A-Z][a-z]+(?: [A-Z][a-z]+){1,3}) Named NFC Special Teams Player Of The Week(?: After [A-Za-z ]+)?$/.exec(candidate.headline);
+  if(headline){
+   const surname=headline[1].split(' ').at(-1)!;
+   const corroboration=`NFC Special Teams Player of the Week, which the NFL bestowed upon ${surname} on `;
+   if(body.includes(headline[1])&&body.includes(corroboration)&&!new RegExp(`(?:not|never) (?:named|awarded|bestowed)`, 'i').test(body))detail={type:'award',recipient:headline[1],award:'NFC Special Teams Player of the Week',period:'weekly'};
+  }
+ }else if(candidate.desk==='nba-releases'){
   const h=/NBA rosters feature (\d+) international players from (?:record-tying )?(\d+) countries across (\w+) continents/i.exec(candidate.headline);
   const b=/(\d+) international players from (?:a record-tying )?(\d+) countries across (\w+) continents are on opening-night rosters for the (20\d{2}-\d{2}) season/i.exec(body);
   const numbers:Record<string,number>={one:1,two:2,three:3,four:4,five:5,six:6,seven:7};
@@ -72,12 +83,16 @@ export function extractAnnouncement(candidate:DiscoveryCandidate,body:string,now
  }
  if(!detail)return null;
  const nba=candidate.desk==='nba-releases';
+ if(candidate.desk==='nfl-cardinals'){
+  const facts:AnnouncementFacts={kind:'announcement',eventKey:announcementKey(candidate.url),sourceId:'nfl-cardinals',sourceUrl:candidate.url,sourceName:'Arizona Cardinals',eventDate:candidate.sourceDate+'T00:00:00Z',observedAt:now.toISOString(),competition:'nfl',sport:'american-football',country:'international',detail,provenance:{method:'primary-feed-facts-v1',headlineCorroborated:true,bodyCorroborated:true,factsHash:hash(detail),rights:'independent-facts-only'}};
+  return announcementErrors(facts,now).length?null:facts;
+ }
  const facts:AnnouncementFacts={kind:'announcement',eventKey:announcementKey(candidate.url),sourceId:nba?'nba-releases':'dimayor-releases',sourceUrl:candidate.url,sourceName:nba?'NBA Communications':'DIMAYOR',eventDate:candidate.sourceDate+'T00:00:00Z',observedAt:now.toISOString(),competition:nba?'nba':'copa-colombia',sport:nba?'basketball':'football',country:nba?'international':'co',detail,provenance:{method:'primary-feed-facts-v1',headlineCorroborated:true,bodyCorroborated:true,factsHash:hash(detail),rights:'independent-facts-only'}};
  return announcementErrors(facts,now).length?null:facts;
 }
 export function announcementCopyErrors(copy:Record<'en'|'es'|'pt',{title:string;summary:string;body:string}>,facts:AnnouncementFacts){
  const errors:string[]=[],numbers=new Set(JSON.stringify(facts.detail).match(/\d+/g)??[]);
- const entities=facts.detail.type==='fixture-announcement'?[...facts.detail.participants,facts.detail.referee]:facts.detail.type==='qualification'?[facts.detail.participant]:['NBA'];
+ const entities=facts.detail.type==='fixture-announcement'?[...facts.detail.participants,facts.detail.referee]:facts.detail.type==='qualification'?[facts.detail.participant]:facts.detail.type==='award'?[facts.detail.recipient]:['NBA'];
  for(const lang of ['en','es','pt'] as const){
   const part=copy?.[lang];
   if(!part||Object.keys(part).sort().join(',')!=='body,summary,title'||Object.values(part).some(v=>typeof v!=='string')){errors.push(`${lang}:INVALID_COPY`);continue;}
