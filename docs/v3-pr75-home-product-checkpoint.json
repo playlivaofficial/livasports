@@ -1,0 +1,27 @@
+{
+  "date":"2026-10-22",
+  "productionChanged":false,
+  "implemented":[
+    "Published source-verified story leads the homepage when no approved photographic lead exists",
+    "Visible source date, sport, competition, summary and reading action in ES/EN/PT, Light and Dark",
+    "Current lead excluded from latest-news grid rather than repeated to inflate news density",
+    "Reusable source-qualified team-versus-team component with exact participant links, season, source cutoff and completed-result-only scores",
+    "NFL category rendering tested without inserting an unpublished candidate into public content"
+  ],
+  "visualEvidenceDirectory":"output/v3-qa/acceptance-2026-10-22/news-visual-article-refresh",
+  "visualChecks":{"captures":6,"mobileWidth":390,"desktopWidth":1440,"overflow":0,"runtimeErrors":0,"brokenImages":0,"providerRequests":0},
+  "schedulerObservation":{
+    "checkedAt":"2026-10-22T14:18:31+04:00",
+    "executed":false,
+    "dueAt":"2026-10-22T18:01:24.468+04:00",
+    "pausedWhileWaiting":true,
+    "semantics":"Explicitly authorized local harness temporarily enables one existing cron run at its durable due time, checks immediate deduplication, then pauses and backs up. This is not evidence that a run has already occurred.",
+    "hourlyBackupTimer":"active"
+  },
+  "limits":[
+    "No newly licensed crests or photography acquired; no fabricated assets",
+    "No new verified standings publication; matchup component tests are not operational coverage",
+    "No NFL AI publication yet and no additional paid model requests",
+    "Seven-sport autonomy remains incomplete"
+  ]
+}

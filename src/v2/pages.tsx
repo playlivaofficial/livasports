@@ -24,6 +24,7 @@ import {EditorialSearch} from './Search';
 import {ToolPreview} from './tools/ToolPreview';
 import {publishedNews} from '@/editorial/server';
 import {FeaturedNews,FeaturedStoryHero,HomeBriefing,selectFeaturedStory} from '@/editorial/NewsCards';
+import {HomeTextLead,selectTextLead} from '@/editorial/HomeLead';
 import {NewsFeed} from '@/editorial/NewsFeed';
 import {newsCopy} from '@/editorial/copy';
 import {EditorialPolicy} from '@/editorial/EditorialPolicy';
@@ -41,14 +42,14 @@ export function ArticleCard({article,locale,featured=false}:{article:Article;loc
 function SectionHeading({locale,title,section}:{locale:InterfaceLocale;title:string;section:Section}){return <div className="v2-section-heading"><h2>{title}</h2><Link className="v2-text-link" href={v2Path(locale,section)}>{v2Copy(locale).viewAll}<Icon name="arrow"/></Link></div>;}
 export function ToolCards({locale}:{locale:InterfaceLocale}){const text=v2Copy(locale);const cards=[{id:toolIds[0],title:text.lineup,lead:text.lineupLead,art:'pitch'},{id:toolIds[1],title:text.tactics,lead:text.tacticsLead,art:'pitch'},{id:toolIds[2],title:text.calculator,lead:text.calculatorLead,art:'numbers'},{id:toolIds[3],title:text.quiz,lead:text.quizLead,art:'ball'}] as const;return <div className="v2-tool-grid">{cards.map(card=><Link className="v2-tool-card" href={v2Path(locale,'tools',card.id)} key={card.id}><ToolPreview id={card.id}/><div><h3>{card.title}<span aria-hidden="true">↗</span></h3><p>{card.lead}</p></div></Link>)}</div>;}
 function ReviewCards({locale}:{locale:InterfaceLocale}){const text=v2Copy(locale);return <div className="v2-review-grid">{reviewIdentities.map(book=><Link key={book.id} className="v2-review-card" href={v2Path(locale,'bookmakers',book.id)}><OperatorLogoSlot name={book.name} asset={book.logo}/><strong>{book.name}</strong><span>{text.review}<span aria-hidden="true"> ↗</span></span></Link>)}</div>;}
-export async function V2Home({locale}:{locale:InterfaceLocale}){const text=v2Copy(locale),copy=newsCopy(locale),news=await publishedNews(),lead=selectFeaturedStory(news,locale);return <V2Shell locale={locale}>
+export async function V2Home({locale}:{locale:InterfaceLocale}){const text=v2Copy(locale),copy=newsCopy(locale),news=await publishedNews(),photoLead=selectFeaturedStory(news,locale),lead=photoLead??selectTextLead(news,locale);return <V2Shell locale={locale}>
   <SportsNav locale={locale}/>
-  {lead?<FeaturedStoryHero items={news} locale={locale}/>:<Heading title={locale==='en'?'Your world of sport':locale==='br'?'Seu mundo de esporte':'Tu mundo del deporte'} lead={copy.lead}/>}
+  {photoLead?<FeaturedStoryHero items={news} locale={locale}/>:lead?<HomeTextLead item={lead} locale={locale}/>:<Heading title={locale==='en'?'Your world of sport':locale==='br'?'Seu mundo de esporte':'Tu mundo del deporte'} lead={copy.lead}/>}
   <HomeBriefing items={news} locale={locale} exclude={lead?.slug}/>
   <FeaturedNews items={news.filter(item=>item.slug!==lead?.slug)} locale={locale}/>
   <section className="v2-section"><div className="v2-section-heading"><h2>{locale==='en'?'Popular competitions':locale==='br'?'Competições populares':'Competiciones populares'}</h2><Link className="v2-text-link" href={sportsPath(locale)}>{text.viewAll} ↗</Link></div><LeagueRail locale={locale}/></section>
   <StandingsHighlights locale={locale}/>
-  <NewsFeed items={news} locale={locale} initialTime={new Date().toISOString()}/>
+  {news.some(item=>item.slug!==lead?.slug)?<NewsFeed items={news.filter(item=>item.slug!==lead?.slug)} locale={locale} initialTime={new Date().toISOString()}/>:null}
   <RegionalNews items={news} locale={locale}/>
   <section className="v2-section ed-analysis"><SectionHeading locale={locale} title={copy.analysis} section="analysis"/><div className="v2-story-grid">{articles.filter(article=>article.category==='analysis').slice(0,3).map(article=><ArticleCard key={article.id} article={article} locale={locale}/>)}</div></section>
   <section className="v2-section"><SectionHeading locale={locale} title={text.fanTools} section="tools"/><p className="v2-section-lead">{text.toolsLead}</p><ToolCards locale={locale}/></section>
