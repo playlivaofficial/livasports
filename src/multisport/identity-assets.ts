@@ -20,5 +20,7 @@ export type IdentityAsset = typeof identityAssets[number];
 export const identityRights = {reviewedOn:'2026-10-22',copyrightBasis:'Commons PD-textlogo declaration',use:'editorial-identification-only',trademarkRights:'not-granted',transformation:'Rasterized without recoloring; natural aspect ratio preserved'} as const;
 /** Exact aliases only: no fuzzy matching or arbitrary provider image URLs. */
 export function identityAsset(competitionId:string,teamName?:string):IdentityAsset|undefined {
+ // The same club participates in the domestic league and cup; no fuzzy matching.
+ if(competitionId==='colombia-primera-a'&&teamName==='América de Cali')return identityAssets.find(asset=>asset.id==='america-cali-wordmark');
  return identityAssets.find(asset=>asset.competitionId===competitionId&&(teamName===undefined?asset.kind==='competition':asset.kind==='team'&&asset.names.some(name=>name===teamName)));
 }

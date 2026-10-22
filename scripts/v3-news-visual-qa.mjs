@@ -2,12 +2,12 @@
 import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {browserQA,delay} from './browser-qa-driver.mjs';
-const directory='output/v3-qa/acceptance-2026-10-22/sports-app';
+const directory='output/v3-qa/acceptance-2026-10-22/complete-journey';
 const slug='announcement-7d5e8ce810e3fb0372ae7765';
 const browser=await browserQA(),evidence=[];
 try{
  const page=await browser.newPage();
- for(const [name,path] of [['home','/en'],['dimayor','/en/news/'+slug],['bundesliga','/en/sports/football/bundesliga']]){
+ for(const [name,path] of [['home','/en'],['dimayor','/en/news/'+slug],['bundesliga','/en/sports/football/bundesliga'],['colombia','/en/sports/football/colombia-primera-a']]){
   for(const [width,theme] of [[390,'light'],[390,'dark'],[1440,'light'],[1440,'dark']]){
    await page.viewport(width,width===1440?1000:844);
    // V3 has no retired My Slip trigger: wait for the actual page document.

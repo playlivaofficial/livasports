@@ -10,6 +10,11 @@ export interface WikimediaDataset {
 
 export const WIKIMEDIA_DATASETS: readonly Readonly<WikimediaDataset>[] = Object.freeze([
   {
+    competitionId: 'colombia-primera-a', sport: 'football', season: '2026 Finalizacion',
+    sourceUrl: 'https://en.wikipedia.org/wiki/2026_Liga_DIMAYOR',
+    titles: Object.freeze(['2026 Liga DIMAYOR']),
+  },
+  {
     competitionId: 'liga-mx', sport: 'football', season: 'Apertura 2026 (2026-2027)',
     sourceUrl: 'https://en.wikipedia.org/wiki/Template:Apertura_2026_Liga_MX_table',
     titles: Object.freeze(['Template:Apertura 2026 Liga MX table']),

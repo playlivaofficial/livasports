@@ -33,7 +33,7 @@ function dateLabel(value: string): string {
 /** Numeric factual rows only. No article prose, crests, image URLs or copied presentation. */
 export function normalizeWikimediaSports(batch: WikimediaBatch, now = new Date()): WikimediaPreview {
   const { dataset, pages } = batch;
-  if (!['liga-mx', 'nfl', 'mlb'].includes(dataset.competitionId)) return invalid('ADAPTER_NOT_APPROVED');
+  if (!['liga-mx', 'colombia-primera-a', 'nfl', 'mlb'].includes(dataset.competitionId)) return invalid('ADAPTER_NOT_APPROVED');
   if (pages.length !== dataset.titles.length || pages.some((page, index) => page.title !== dataset.titles[index])) return invalid('INCOMPLETE_PAGES');
   const entities: SportsEntity[] = [], ids = new Set<string>();
   const participant = (value: string, country?: string) => {
@@ -46,23 +46,29 @@ export function normalizeWikimediaSports(batch: WikimediaBatch, now = new Date()
   let observedAt = [...provenance].sort((a, b) => a.revisionTimestamp.localeCompare(b.revisionTimestamp))[0].revisionTimestamp;
   let observationBasis: 'data-date' | 'source-revision' = 'source-revision';
   const tables: SportsSnapshot['tables'] = [];
-  if (dataset.competitionId === 'liga-mx') {
-    const text = withoutComments(pages[0].wikitext);
+  if (dataset.competitionId === 'liga-mx' || dataset.competitionId === 'colombia-primera-a') {
+    const colombia=dataset.competitionId==='colombia-primera-a',expectedTeams=colombia?20:18,maxPlayed=expectedTeams-1;
+    let text = withoutComments(pages[0].wikitext);
+    if(colombia){
+      const blocks=[...text.matchAll(/<section begin="Finalización"\s*\/>\s*([\s\S]*?)<section end="Finalización"\s*\/>/g)];
+      if(blocks.length!==1)return invalid('UNREVIEWED_FORMAT');text=blocks[0][1];
+      if(field(text,'section')!=='Finalización')return invalid('UNREVIEWED_FORMAT');
+    }
     if (!text.includes('{{#invoke:Sports table|main|style=WDL') || /\|\s*(?:adjust_points|points_adjustment|deduct_points|winpoints|drawpoints)(?:_[A-Z]+)?\s*=/i.test(text)) return invalid('UNREVIEWED_FORMAT');
     observedAt = dateLabel(field(text, 'update')); observationBasis = 'data-date';
     if (observedAt > pages[0].revisionTimestamp.slice(0, 10)) return invalid('DATA_DATE');
     const order = field(text, 'team_order').split(',').map(code => code.trim());
-    if (order.length !== 18 || new Set(order).size !== 18 || order.some(code => !/^[A-Z]{2,4}$/.test(code))) return invalid('PARTIAL_TABLE');
+    if (order.length !== expectedTeams || new Set(order).size !== expectedTeams || order.some(code => !/^[A-Z]{2,4}$/.test(code))) return invalid('PARTIAL_TABLE');
     const present = [...text.matchAll(/\|\s*win_([A-Z]{2,4})\s*=/g)].map(match => match[1]);
-    if (present.length !== 18 || present.some(code => !order.includes(code))) return invalid('PARTIAL_TABLE');
+    if (present.length !== expectedTeams || present.some(code => !order.includes(code))) return invalid('PARTIAL_TABLE');
     const rows: FootballRow[] = order.map((code, index) => {
-      const won = count(field(text, `win_${code}`), 17), drawn = count(field(text, `draw_${code}`), 17), lost = count(field(text, `loss_${code}`), 17);
+      const won = count(field(text, `win_${code}`), maxPlayed), drawn = count(field(text, `draw_${code}`), maxPlayed), lost = count(field(text, `loss_${code}`), maxPlayed);
       const goalsFor = count(field(text, `gf_${code}`), 200), goalsAgainst = count(field(text, `ga_${code}`), 200);
-      if (won + drawn + lost > 17) return invalid('INVALID_PLAYED');
-      return { entityId: participant(field(text, `name_${code}`), 'Mexico'), rank: index + 1, played: won + drawn + lost, won, drawn, lost, goalsFor, goalsAgainst, goalDifference: goalsFor - goalsAgainst, points: 3 * won + drawn };
+      if (won + drawn + lost > maxPlayed) return invalid('INVALID_PLAYED');
+      return { entityId: participant(field(text, `name_${code}`), colombia?'Colombia':'Mexico'), rank: index + 1, played: won + drawn + lost, won, drawn, lost, goalsFor, goalsAgainst, goalDifference: goalsFor - goalsAgainst, points: 3 * won + drawn };
     });
     if (rows.reduce((sum, row) => sum + row.won - row.lost, 0) || rows.reduce((sum, row) => sum + row.goalsFor - row.goalsAgainst, 0) || rows.reduce((sum, row) => sum + row.drawn, 0) % 2 || rows.some((row, index) => index > 0 && row.points > rows[index - 1].points)) return invalid('INCONSISTENT_TABLE');
-    tables.push({ type: 'football', id: 'apertura', name: 'Apertura — community-maintained standings', stage: 'Torneo Apertura', rows });
+    tables.push({ type: 'football', id: colombia?'finalizacion':'apertura', name: colombia?'Finalización — community-maintained standings':'Apertura — community-maintained standings', stage: colombia?'Torneo Finalización':'Torneo Apertura', rows });
   } else if (dataset.competitionId === 'nfl') {
     for (const page of pages) {
       const division = /^Template:2026 (AFC|NFC) (East|North|South|West) standings$/.exec(page.title);
@@ -104,7 +110,7 @@ export function normalizeWikimediaSports(batch: WikimediaBatch, now = new Date()
   }
   const snapshot: SportsSnapshot = {
     schemaVersion: 1, competitionId: dataset.competitionId, sport: dataset.sport, season: dataset.season,
-    stage: dataset.competitionId === 'liga-mx' ? 'Torneo Apertura' : dataset.historical ? 'Completed regular season' : 'Regular season',
+    stage: dataset.competitionId==='colombia-primera-a'?'Torneo Finalización':dataset.competitionId === 'liga-mx' ? 'Torneo Apertura' : dataset.historical ? 'Completed regular season' : 'Regular season',
     sourceId: 'wikimedia', sourceUrl: dataset.sourceUrl, observedAt, retrievedAt: batch.retrievedAt,
     mode: dataset.historical ? 'historical' : 'manual', observationBasis,
     provenance: provenance.map(item => observationBasis === 'data-date' ? { ...item, dataAsOf: observedAt } : item),
