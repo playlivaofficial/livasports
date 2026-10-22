@@ -7,7 +7,7 @@ import {identityAsset,identityAssets,identityRights} from './identity-assets';
 import {IdentityLogo} from './IdentityLogo';
 describe('reviewed sports identity registry',()=>{
  it('pins locally hosted bytes and source provenance',()=>{
-  for(const asset of identityAssets){expect(asset.path).toMatch(/^\/sports-identities\/[a-z-]+\.png$/);expect(createHash('sha256').update(readFileSync('public'+asset.path)).digest('hex')).toBe(asset.sha256);expect(asset.source).toMatch(/^https:\/\/commons.wikimedia.org\/wiki\/File:/);}
+  for(const asset of identityAssets){expect(asset.path).toMatch(/^\/sports-identities\/[a-z0-9-]+\.png$/);expect(createHash('sha256').update(readFileSync('public'+asset.path)).digest('hex')).toBe(asset.sha256);expect(asset.source).toMatch(/^https:\/\/commons.wikimedia.org\/wiki\/File:/);}
   expect(identityRights.trademarkRights).toBe('not-granted');expect(identityRights.use).toBe('editorial-identification-only');
  });
  it('matches only exact identities within their competition',()=>{

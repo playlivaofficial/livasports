@@ -11,3 +11,4 @@ import '@/v2/v2.css';
 import '@/editorial/premium.css';
 import '@/multisport/multisport.css';
 import '@/editorial/briefing.css';
+import '@/editorial/product.css';

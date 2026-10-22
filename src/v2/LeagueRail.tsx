@@ -1,6 +1,8 @@
 'use client';
 import Link from 'next/link';
 import {IdentityLogo} from '@/multisport/IdentityLogo';
+import {identityAsset} from '@/multisport/identity-assets';
+import {SportGlyph} from '@/multisport/SportGlyph';
 import type {InterfaceLocale} from '@/localization/interface';
 import {competitionPath,competitionById,sportName,type CatalogSport} from '@/multisport/catalog';
 import {publicLanguage} from '@/localization/interface';
@@ -23,5 +25,5 @@ const railIdentity=[
 ];
 export function LeagueRail({locale}:{locale:InterfaceLocale}){
   const languageIndex=['en','es','pt'].indexOf(publicLanguage(locale));
-  return <div className="v2-league-rail">{railIdentity.map(({id,name,region})=>{const competition=competitionById(id)!;return <Link className="v2-league-tile ms-league-tile" data-sport={competition.sport} title={competition.officialName} key={id} href={competitionPath(locale,id)}><span className="ms-league-sport">{sportName(competition.sport as CatalogSport,locale)}</span><IdentityLogo competitionId={id}/><strong>{name}</strong><span>{region[languageIndex]}</span></Link>;})}</div>;
+  return <div className="v2-league-rail">{railIdentity.map(({id,name,region})=>{const competition=competitionById(id)!;return <Link className="v2-league-tile ms-league-tile" data-sport={competition.sport} title={competition.officialName} key={id} href={competitionPath(locale,id)}><span className="ms-league-sport">{sportName(competition.sport as CatalogSport,locale)}</span>{identityAsset(id)?<IdentityLogo competitionId={id}/>:<span className="v3-identity-pending" title="Sport navigation symbol — official identity pending rights review"><SportGlyph sport={competition.sport as CatalogSport}/></span>}<strong>{name}</strong><span>{region[languageIndex]}</span></Link>;})}</div>;
 }

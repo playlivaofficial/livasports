@@ -2,13 +2,13 @@
 import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {browserQA,delay} from './browser-qa-driver.mjs';
-const directory='output/v3-qa/acceptance-2026-10-22/news-visual-identities';
+const directory='output/v3-qa/acceptance-2026-10-22/product-correction';
 const slug='announcement-7d5e8ce810e3fb0372ae7765';
 const browser=await browserQA(),evidence=[];
 try{
  const page=await browser.newPage();
  for(const [name,path] of [['home','/en'],['dimayor','/en/news/'+slug],['bundesliga','/en/sports/football/bundesliga']]){
-  for(const [width,theme] of [[390,'light'],[390,'dark'],[1440,'light']]){
+  for(const [width,theme] of [[390,'light'],[390,'dark'],[1440,'light'],[1440,'dark']]){
    await page.viewport(width,width===1440?1000:844);
    // V3 has no retired My Slip trigger: wait for the actual page document.
    await page.evaluate('window.__qaOldDocument=true');
@@ -22,6 +22,15 @@ try{
    const layout=await page.screenshot(file);
    assert.equal(layout.overflow,false);assert.equal(layout.brokenImages,0);
    evidence.push({name,path,width,theme,file,layout});
+   const selector=name==='home'?'.ms-league-tile':name==='bundesliga'?'table':null;
+   if(selector){
+    await page.evaluate(`document.querySelector(${JSON.stringify(selector)})?.scrollIntoView({block:'start'})`);
+    await delay(200);
+    const detailFile=`${directory}/${name}-detail-${theme}-${width}.png`;
+    const detailLayout=await page.screenshot(detailFile);
+    assert.equal(detailLayout.overflow,false);assert.equal(detailLayout.brokenImages,0);
+    evidence.push({name:name+'-detail',path,width,theme,file:detailFile,layout:detailLayout});
+   }
   }
  }
  assert.equal(page.metrics.providers,0);assert.deepEqual(page.metrics.errors,[]);assert.deepEqual(page.metrics.failed,[]);

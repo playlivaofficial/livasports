@@ -28,7 +28,9 @@ import {HomeTextLead,selectTextLead} from '@/editorial/HomeLead';
 import {NewsFeed} from '@/editorial/NewsFeed';
 import {newsCopy} from '@/editorial/copy';
 import {EditorialPolicy} from '@/editorial/EditorialPolicy';
-import {SportsNav} from '@/multisport/components';
+import {HomeSportsNav} from '@/editorial/HomeSportsNav';
+import {LocalReviewNotice} from '@/editorial/LocalReviewNotice';
+import {SportDesks} from '@/editorial/SportDesks';
 import {StandingsHighlights} from '@/multisport/HomeModules';
 import {RegionalNews} from '@/multisport/RegionalNews';
 import {localDataPreviewEnabled} from '@/multisport/local-preview';
@@ -36,14 +38,14 @@ import {sportsCopy} from '@/multisport/copy';
 
 import {competitionById,competitionPath,sportsPath} from '@/multisport/catalog';
 
-export function V2Shell({locale,children}:{locale:InterfaceLocale;children:ReactNode}){return <div className="v2-shell"><V2Header locale={locale}/>{localDataPreviewEnabled()?<aside className="ms-local-preview" role="note">{locale==='en'?'Local data review · Unpublished source snapshots. No production data or publishing changes.':locale==='br'?'Revisão local · Registros de fontes não publicados. Sem alterações nos dados de produção ou na publicação.':'Revisión local · Registros de fuentes sin publicar. Sin cambios en datos de producción ni en la publicación.'}</aside>:null}<main id="main-content" className="v2-main">{children}</main></div>;}
+export function V2Shell({locale,children}:{locale:InterfaceLocale;children:ReactNode}){return <div className="v2-shell"><LocalReviewNotice locale={locale}/><V2Header locale={locale}/>{localDataPreviewEnabled()?<aside className="ms-local-preview" role="note">{locale==='en'?'Local data review · Unpublished source snapshots. No production data or publishing changes.':locale==='br'?'Revisão local · Registros de fontes não publicados. Sem alterações nos dados de produção ou na publicação.':'Revisión local · Registros de fuentes sin publicar. Sin cambios en datos de producción ni en la publicación.'}</aside>:null}<main id="main-content" className="v2-main">{children}</main></div>;}
 function Heading({title,lead,eyebrow}:{title:string;lead?:string;eyebrow?:string}){return <div className="v2-page-heading">{eyebrow?<span className="v2-eyebrow">{eyebrow}</span>:null}<h1>{title}</h1>{lead?<p>{lead}</p>:null}</div>;}
 export function ArticleCard({article,locale,featured=false}:{article:Article;locale:InterfaceLocale;featured?:boolean}){const text=v2Copy(locale);return <Link className={`v2-article-card ${featured?'v2-featured-card':''}`} href={v2Path(locale,article.category,article.id)}><EditorialArt kind={article.art}/><div className="v2-article-card-body"><span className="v2-eyebrow">{text[article.category]}</span><h3>{translated(article.title,locale)}</h3>{featured?<p>{translated(article.summary,locale)}</p>:null}<span className="v2-reading">{text.editorial} <b>·</b> {readingMinutes(article,locale)} {text.minutes}</span></div></Link>;}
 function SectionHeading({locale,title,section}:{locale:InterfaceLocale;title:string;section:Section}){return <div className="v2-section-heading"><h2>{title}</h2><Link className="v2-text-link" href={v2Path(locale,section)}>{v2Copy(locale).viewAll}<Icon name="arrow"/></Link></div>;}
 export function ToolCards({locale}:{locale:InterfaceLocale}){const text=v2Copy(locale);const cards=[{id:toolIds[0],title:text.lineup,lead:text.lineupLead,art:'pitch'},{id:toolIds[1],title:text.tactics,lead:text.tacticsLead,art:'pitch'},{id:toolIds[2],title:text.calculator,lead:text.calculatorLead,art:'numbers'},{id:toolIds[3],title:text.quiz,lead:text.quizLead,art:'ball'}] as const;return <div className="v2-tool-grid">{cards.map(card=><Link className="v2-tool-card" href={v2Path(locale,'tools',card.id)} key={card.id}><ToolPreview id={card.id}/><div><h3>{card.title}<span aria-hidden="true">↗</span></h3><p>{card.lead}</p></div></Link>)}</div>;}
 function ReviewCards({locale}:{locale:InterfaceLocale}){const text=v2Copy(locale);return <div className="v2-review-grid">{reviewIdentities.map(book=><Link key={book.id} className="v2-review-card" href={v2Path(locale,'bookmakers',book.id)}><OperatorLogoSlot name={book.name} asset={book.logo}/><strong>{book.name}</strong><span>{text.review}<span aria-hidden="true"> ↗</span></span></Link>)}</div>;}
 export async function V2Home({locale}:{locale:InterfaceLocale}){const text=v2Copy(locale),copy=newsCopy(locale),news=await publishedNews(),photoLead=selectFeaturedStory(news,locale),lead=photoLead??selectTextLead(news,locale);return <V2Shell locale={locale}>
-  <SportsNav locale={locale}/>
+  <HomeSportsNav locale={locale}/>
   {photoLead?<FeaturedStoryHero items={news} locale={locale}/>:lead?<HomeTextLead item={lead} locale={locale}/>:<Heading title={locale==='en'?'Your world of sport':locale==='br'?'Seu mundo de esporte':'Tu mundo del deporte'} lead={copy.lead}/>}
   <HomeBriefing items={news} locale={locale} exclude={lead?.slug}/>
   <FeaturedNews items={news.filter(item=>item.slug!==lead?.slug)} locale={locale}/>
@@ -51,6 +53,7 @@ export async function V2Home({locale}:{locale:InterfaceLocale}){const text=v2Cop
   <StandingsHighlights locale={locale}/>
   {news.some(item=>item.slug!==lead?.slug)?<NewsFeed items={news.filter(item=>item.slug!==lead?.slug)} locale={locale} initialTime={new Date().toISOString()}/>:null}
   <RegionalNews items={news} locale={locale}/>
+  <SportDesks items={news} locale={locale}/>
   <section className="v2-section ed-analysis"><SectionHeading locale={locale} title={copy.analysis} section="analysis"/><div className="v2-story-grid">{articles.filter(article=>article.category==='analysis').slice(0,3).map(article=><ArticleCard key={article.id} article={article} locale={locale}/>)}</div></section>
   <section className="v2-section"><SectionHeading locale={locale} title={text.fanTools} section="tools"/><p className="v2-section-lead">{text.toolsLead}</p><ToolCards locale={locale}/></section>
   <GeoCommercialSection locale={locale}/>
