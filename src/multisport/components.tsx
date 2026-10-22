@@ -21,7 +21,7 @@ type Column={key:string;label:string;full:string};
 function columns(table:SportsTable,locale:InterfaceLocale):Column[]{
  const c=sportsCopy(locale),field=(key:string,label:string,full=label)=>({key,label,full});
  switch(table.type){
-  case 'football':return [field('played',c.played),field('won',c.won),field('drawn',c.drawn),field('lost',c.lost),field('goalsFor',c.goalsFor),field('goalsAgainst',c.goalsAgainst),field('goalDifference',c.goalDifference),field('points',c.points)];
+  case 'football':return [field('points',c.points),field('played',c.played),field('won',c.won),field('drawn',c.drawn),field('lost',c.lost),field('goalsFor',c.goalsFor),field('goalsAgainst',c.goalsAgainst),field('goalDifference',c.goalDifference)];
   case 'basketball':return [field('played',c.played),field('wins',c.won),field('losses',c.lost),field('winPercentage',c.percentage),...(table.rows.some(row=>row.gamesBehind!==undefined)?[field('gamesBehind',c.gamesBehind)]:[]),...(['pointsFor','pointsAgainst'] as const).filter(key=>table.rows.some(row=>row[key]!==undefined)).map(key=>field(key,key==='pointsFor'?'PF':'PA'))];
   case 'baseball':return [field('played',c.played),field('wins',c.won),field('losses',c.lost),field('winPercentage',c.percentage),field('gamesBehind',c.gamesBehind),...(['runsFor','runsAgainst'] as const).filter(key=>table.rows.some(row=>row[key]!==undefined)).map(key=>field(key,key==='runsFor'?'RF':'RA'))];
   case 'american-football':return [field('played',c.played),field('wins',c.won),field('losses',c.lost),field('ties',c.ties),field('winPercentage',c.percentage),field('pointsFor','PF'),field('pointsAgainst','PA')];

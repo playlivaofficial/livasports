@@ -52,8 +52,8 @@ export async function V2Home({locale}:{locale:InterfaceLocale}){const text=v2Cop
   <section className="v2-section"><div className="v2-section-heading"><h2>{locale==='en'?'Popular competitions':locale==='br'?'Competições populares':'Competiciones populares'}</h2><Link className="v2-text-link" href={sportsPath(locale)}>{text.viewAll} ↗</Link></div><LeagueRail locale={locale}/></section>
   <StandingsHighlights locale={locale}/>
   {news.some(item=>item.slug!==lead?.slug)?<NewsFeed items={news.filter(item=>item.slug!==lead?.slug)} locale={locale} initialTime={new Date().toISOString()}/>:null}
-  <RegionalNews items={news} locale={locale}/>
-  <SportDesks items={news} locale={locale}/>
+  <RegionalNews items={news.filter(item=>item.slug!==lead?.slug)} locale={locale}/>
+  <SportDesks items={news.filter(item=>item.slug!==lead?.slug)} locale={locale}/>
   <section className="v2-section ed-analysis"><SectionHeading locale={locale} title={copy.analysis} section="analysis"/><div className="v2-story-grid">{articles.filter(article=>article.category==='analysis').slice(0,3).map(article=><ArticleCard key={article.id} article={article} locale={locale}/>)}</div></section>
   <section className="v2-section"><SectionHeading locale={locale} title={text.fanTools} section="tools"/><p className="v2-section-lead">{text.toolsLead}</p><ToolCards locale={locale}/></section>
   <GeoCommercialSection locale={locale}/>

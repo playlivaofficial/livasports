@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {browserQA,delay} from './browser-qa-driver.mjs';
-const directory='output/v3-qa/acceptance-2026-10-22/product-correction';
+const directory='output/v3-qa/acceptance-2026-10-22/focused-experience';
 const slug='announcement-7d5e8ce810e3fb0372ae7765';
 const browser=await browserQA(),evidence=[];
 try{
@@ -22,6 +22,9 @@ try{
    const layout=await page.screenshot(file);
    assert.equal(layout.overflow,false);assert.equal(layout.brokenImages,0);
    evidence.push({name,path,width,theme,file,layout});
+   const bounds=await page.c.send('Page.getLayoutMetrics');
+   const full=await page.c.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:true,clip:{x:0,y:0,width,height:Math.min(16000,Math.ceil(bounds.cssContentSize.height)),scale:1}});
+   await writeFile(`${directory}/${name}-full-${theme}-${width}.png`,Buffer.from(full.data,'base64'));
    const selector=name==='home'?'.ms-league-tile':name==='bundesliga'?'table':null;
    if(selector){
     await page.evaluate(`document.querySelector(${JSON.stringify(selector)})?.scrollIntoView({block:'start'})`);
