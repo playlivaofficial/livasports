@@ -1,0 +1,28 @@
+{
+  "scope": "Local Draft PR 75, Production unchanged",
+  "observedAtUtc": "2026-10-22T09:41:15Z",
+  "nfl": {"status":"not run; durable due time not reached","dueUtc":"2026-10-22T14:01:24.468Z","publication":null,"audit":null,"additionalCostUsd":0},
+  "preservedDimayor": {"slug":"announcement-7d5e8ce810e3fb0372ae7765","calls":3,"inputTokens":1898,"outputTokens":906,"microUsd":644,"audit":{"grounded":true,"translations":true,"original":true,"quality":true}},
+  "changes": [
+    "Shared ES/EN/PT article header with linked sport and competition taxonomy, source date, editorial signature and source-panel navigation",
+    "Responsive mobile header and desktop two-column reading/source layout using existing Light/Dark tokens",
+    "Removed empty duplicate competition identity panel; retained verified snapshot-derived entities and events",
+    "Related stories limited to distinct reviewed same-sport publications, prioritized by competition and real source date",
+    "No new team crest, athlete photo, matchup, score or sporting fact invented"
+  ],
+  "visualEvidence": {
+    "directory":"output/v3-qa/acceptance-2026-10-22/news-visual-article-refresh",
+    "captures":6,
+    "widths":[390,1440],
+    "mobileThemes":["light","dark"],
+    "overflow":0,"brokenImages":0,"runtimeErrors":0,"providerRequests":0
+  },
+  "tests":{"vitest":3873,"node":17,"total":3890,"lint":"PASS","typecheck":"PASS","secretScan":"PASS"},
+  "remaining": [
+    "NFL publication and real elapsed-time cycle result pending due time",
+    "No new operational sport/source coverage in this presentation change",
+    "No approved matching team/competition logos or story photography added",
+    "No verified local standings snapshot; entity panels cannot be represented as complete",
+    "Only actual related publications render; one current story does not create an artificial related feed"
+  ]
+}

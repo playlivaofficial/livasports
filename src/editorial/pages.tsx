@@ -7,9 +7,10 @@ import {serializeJsonLd} from '@/seo/json-ld';
 import {V2Shell} from '@/v2/pages';
 import {v2Path} from '@/v2/routes';
 import {publishedNews,publishedStory} from './server';
-import {newsCopy,newsDate,newsPath,countryName,topicName} from './copy';
+import {newsCopy,newsDate,newsPath} from './copy';
 import {NewsFeed} from './NewsFeed';
-import {NewsPhoto,PhotoCredit,NewsLanguageNotice} from './NewsCards';
+import {NewsPhoto,PhotoCredit} from './NewsCards';
+import {ArticleHeader,RelatedStories} from './ArticleHeader';
 import {editorialAssets} from './assets';
 import {newsTranslationRoutes,usablePublishedNews} from './presentation';
 import {publishedSnapshots} from '@/multisport/server';
@@ -24,10 +25,10 @@ export async function NewsArticlePage({locale,slug}:{locale:InterfaceLocale;slug
   const snapshots=await publishedSnapshots().catch(()=>[]);
   const text=newsCopy(locale),image=item.image==='none'?null:editorialAssets[item.image];
   return <V2Shell locale={locale}><nav className="v2-breadcrumb" aria-label={text.back}><Link href={newsPath(locale)}>← {text.back}</Link></nav>
-    <article className="ed-article"><header className="ed-article-header"><span className="ed-kicker">{countryName(item.country,locale)} · {topicName(item.competition,locale)}</span><NewsLanguageNotice translation={translation} locale={locale}/><h1 lang={translation.language}>{translation.title}</h1><p className="ed-standfirst" lang={translation.language}>{translation.summary}</p><div className="ed-article-byline"><span>{text.editorial}</span><span>{text.sourceDate}: <time dateTime={item.sourcePublishedOn}>{newsDate(item.sourcePublishedOn,locale)}</time></span></div></header>
+    <article className="ed-article"><ArticleHeader item={item} locale={locale}/>
     {image&&item.image!=='none'?<figure><NewsPhoto id={item.image} locale={locale} priority/><figcaption><span lang={translation.language}>{translation.imageCaption}</span><PhotoCredit id={item.image} locale={locale}/></figcaption></figure>:null}
     <StoryContext story={item} snapshots={snapshots} locale={locale}/>
-    <div className="ed-article-body"><span className="ed-kicker">{text.brief}</span><div className="ed-story-text" lang={translation.language}>{translation.body.split(/\n\s*\n/).map((paragraph,index)=><p key={index}>{paragraph}</p>)}</div><aside className="ed-source"><strong>{text.source}</strong><a href={item.sourceUrl} rel="noopener noreferrer">{item.sourceName} ↗</a><p>{text.original}</p><AutomatedBriefDisclosure item={item} locale={locale}/><dl><div><dt>{text.published}</dt><dd><time dateTime={item.publishedAt}>{newsDate(item.publishedAt,locale)}</time></dd></div>{item.updatedAt!==item.publishedAt?<div><dt>{text.updated}</dt><dd><time dateTime={item.updatedAt}>{newsDate(item.updatedAt,locale)}</time></dd></div>:null}<div><dt>{text.verified}</dt><dd><time dateTime={item.verifiedAt}>{newsDate(item.verifiedAt,locale)}</time></dd></div></dl></aside><Link className="v2-button v2-button-outline" href={newsPath(locale)}>{text.back} →</Link></div></article>
+    <div className="ed-article-body"><span className="ed-kicker">{text.brief}</span><div className="ed-story-text" lang={translation.language}>{translation.body.split(/\n\s*\n/).map((paragraph,index)=><p key={index}>{paragraph}</p>)}</div><aside className="ed-source" id="article-source"><strong>{text.source}</strong><a href={item.sourceUrl} rel="noopener noreferrer">{item.sourceName} ↗</a><p>{text.original}</p><AutomatedBriefDisclosure item={item} locale={locale}/><dl><div><dt>{text.published}</dt><dd><time dateTime={item.publishedAt}>{newsDate(item.publishedAt,locale)}</time></dd></div>{item.updatedAt!==item.publishedAt?<div><dt>{text.updated}</dt><dd><time dateTime={item.updatedAt}>{newsDate(item.updatedAt,locale)}</time></dd></div>:null}<div><dt>{text.verified}</dt><dd><time dateTime={item.verifiedAt}>{newsDate(item.verifiedAt,locale)}</time></dd></div></dl></aside><Link className="v2-button v2-button-outline" href={newsPath(locale)}>{text.back} →</Link></div><RelatedStories item={item} items={await publishedNews()} locale={locale}/></article>
     <script type="application/ld+json" dangerouslySetInnerHTML={{__html:serializeJsonLd({'@context':'https://schema.org','@type':'NewsArticle',headline:translation.title,description:translation.summary,datePublished:item.publishedAt,dateModified:item.updatedAt,inLanguage:presentation.contentLanguage,mainEntityOfPage:siteOrigin+presentation.canonical,citation:item.sourceUrl,author:{'@type':'Organization',name:'LivaSports editorial',url:siteOrigin+v2Path(locale,'about')},publisher:{'@type':'Organization',name:'LivaSports'},...(image?{image:siteOrigin+image.base+'-1280.webp'}:{})})}}/>
   </V2Shell>;
 }
