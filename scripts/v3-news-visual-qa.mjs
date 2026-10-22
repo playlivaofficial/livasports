@@ -2,12 +2,12 @@
 import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {browserQA,delay} from './browser-qa-driver.mjs';
-const directory='output/v3-qa/acceptance-2026-10-22/news-visual-article-refresh';
+const directory='output/v3-qa/acceptance-2026-10-22/news-visual-identities';
 const slug='announcement-7d5e8ce810e3fb0372ae7765';
 const browser=await browserQA(),evidence=[];
 try{
  const page=await browser.newPage();
- for(const [name,path] of [['home','/en'],['dimayor','/en/news/'+slug]]){
+ for(const [name,path] of [['home','/en'],['dimayor','/en/news/'+slug],['bundesliga','/en/sports/football/bundesliga']]){
   for(const [width,theme] of [[390,'light'],[390,'dark'],[1440,'light']]){
    await page.viewport(width,width===1440?1000:844);
    // V3 has no retired My Slip trigger: wait for the actual page document.
@@ -16,7 +16,8 @@ try{
    await page.wait('!window.__qaOldDocument && document.readyState==="complete" && !!document.querySelector("main")',60000);
    await page.evaluate(`document.documentElement.setAttribute('data-theme',${JSON.stringify(theme)})`);
    await delay(800);
-   assert.ok(await page.evaluate(`document.body.innerText.includes('América de Cali')`));
+   assert.ok(await page.evaluate(`document.body.innerText.includes(${JSON.stringify(name==='bundesliga'?'Bundesliga':'América de Cali')})`));
+   if(name==='bundesliga')assert.ok(await page.evaluate(`!!document.querySelector('[data-identity="bundesliga-wordmark"] img')`));
    const file=`${directory}/${name}-${theme}-${width}.png`;
    const layout=await page.screenshot(file);
    assert.equal(layout.overflow,false);assert.equal(layout.brokenImages,0);

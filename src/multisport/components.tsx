@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import {IdentityLogo} from './IdentityLogo';
 import type {InterfaceLocale} from '@/localization/interface';
 import {newsDate} from '@/editorial/copy';
 import {sportsPath,competitionPath,sportName,snapshotEntityPath,type CatalogSport} from './catalog';
@@ -14,7 +15,7 @@ export function SportsNav({locale,active}:{locale:InterfaceLocale;active?:string
 }
 
 export function EntityIdentity({entity,locale,snapshot}:{entity:SportsEntity;locale:InterfaceLocale;snapshot:SportsSnapshot}){
- return <Link className="ms-entity" href={snapshotEntityPath(locale,snapshot,entity.id)}><span className="ms-initial" aria-hidden="true">{entity.name.split(/\s+/).slice(0,2).map(word=>word[0]).join('')}</span><span>{entity.name}{entity.country?<small>{entity.country}</small>:null}</span></Link>;
+ return <Link className="ms-entity" href={snapshotEntityPath(locale,snapshot,entity.id)}><IdentityLogo competitionId={snapshot.competitionId} teamName={entity.name}/><span>{entity.name}{entity.country?<small>{entity.country}</small>:null}</span></Link>;
 }
 type Column={key:string;label:string;full:string};
 function columns(table:SportsTable,locale:InterfaceLocale):Column[]{
