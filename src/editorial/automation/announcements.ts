@@ -6,6 +6,7 @@ import type {DiscoveryCandidate} from '../discovery';
  * Only a source-specific extractor with corroborating primary evidence can create one.
  * Quotes, photographs, article prose and comprehensive proprietary datasets are excluded. */
 export type AnnouncementDetail=
+ | {type:'qualification';participant:string;stage:'semi-final';season:string}
  | {type:'league-announcement';authority:string;action:string;subject:string}
  | {type:'competition-decision';authority:string;decision:string;effectiveOn:string}
  | {type:'fixture-announcement';participants:[string,string];stage:string;action:'referee-appointments';referee:string}
@@ -23,7 +24,8 @@ export interface AnnouncementFacts {
 /** Fixed field order survives PostgreSQL jsonb normalization; never hash insertion order. */
 const hash=(value:AnnouncementDetail)=>{
  const normalized=value.type==='roster-announcement'?{type:value.type,season:value.season,scope:value.scope,internationalPlayers:value.internationalPlayers,countries:value.countries,continents:value.continents}
-  :value.type==='fixture-announcement'?{type:value.type,participants:value.participants,stage:value.stage,action:value.action,referee:value.referee}:value;
+  :value.type==='fixture-announcement'?{type:value.type,participants:value.participants,stage:value.stage,action:value.action,referee:value.referee}
+  :value.type==='qualification'?{type:value.type,participant:value.participant,stage:value.stage,season:value.season}:value;
  return createHash('sha256').update(JSON.stringify(normalized)).digest('hex');
 };
 export const announcementKey=(url:string)=>`citation:${createHash('sha256').update(url).digest('hex')}`;
@@ -42,6 +44,9 @@ export function announcementErrors(f:AnnouncementFacts,now=new Date()):string[]{
  }else if(f.sourceId==='dimayor-releases'&&url.hostname==='dimayor.com.co'&&f.competition==='copa-colombia'&&f.sport==='football'&&f.country==='co'&&f.sourceName==='DIMAYOR'&&f.detail.type==='fixture-announcement'){
   const d=f.detail;
   if(d.action!=='referee-appointments'||d.stage!=='quarter-final'||d.participants.length!==2||d.participants[0]===d.participants[1]||[...d.participants,d.referee].some(s=>!s||s.length>80||/[<>\d{}\r\n]/.test(s)))errors.push('CONTRADICTORY_FIXTURE_FACTS');
+ }else if(f.sourceId==='dimayor-releases'&&url.hostname==='dimayor.com.co'&&f.competition==='copa-colombia'&&f.sport==='football'&&f.country==='co'&&f.sourceName==='DIMAYOR'&&f.detail.type==='qualification'){
+  const d=f.detail;
+  if(d.stage!=='semi-final'||!/^20\d{2}$/.test(d.season)||d.season!==f.eventDate.slice(0,4)||!d.participant||d.participant.length>80||/[<>\d{}\r\n]/.test(d.participant))errors.push('CONTRADICTORY_QUALIFICATION_FACTS');
  }else errors.push('ANNOUNCEMENT_TYPE_REQUIRES_SOURCE_ADAPTER');
  return errors;
 }
@@ -56,6 +61,11 @@ export function extractAnnouncement(candidate:DiscoveryCandidate,body:string,now
   const numbers:Record<string,number>={one:1,two:2,three:3,four:4,five:5,six:6,seven:7};
   if(h&&b&&h[1]===b[1]&&h[2]===b[2]&&h[3].toLowerCase()===b[3].toLowerCase())detail={type:'roster-announcement',season:b[4],scope:'opening-night',internationalPlayers:Number(b[1]),countries:Number(b[2]),continents:numbers[b[3].toLowerCase()]??Number(b[3])};
  }else if(candidate.desk==='dimayor-releases'){
+  // Qualification only: do not infer score, opponent, venue or a played-match date.
+  // Require the same team, round and edition in separate headline/body assertions.
+  const qualification=/^(.+?) clasificado a las Semifinales de la Copa BetPlay DIMAYOR (20\d{2})$/i.exec(candidate.headline);
+  const confirmation=/^(.+?) consiguió su clasificación a las semifinales de la Copa BetPlay DIMAYOR (20\d{2})(?:,|\.)/i.exec(body);
+  if(qualification&&confirmation&&qualification[1]===confirmation[1]&&qualification[2]===confirmation[2])detail={type:'qualification',participant:qualification[1],stage:'semi-final',season:qualification[2]};
   const h=/^Designaciones arbitrales (.+?) vs\. (.+?) Copa BetPlay DIMAYOR 20\d{2}$/i.exec(candidate.headline);
   const referee=/(?:^|\s)Árbitro\s+([\p{L} .'-]+?)\s+(?:Tolima|Caldas|Antioquia|Atlántico|Bogotá|Valle|Santander)(?:\s|$)/u.exec(body);
   if(h&&referee&&/Copa BetPlay DIMAYOR/i.test(body)&&/Cuartos de Final/i.test(body)&&body.toLocaleLowerCase().includes(`${h[1]} vs. ${h[2]}`.toLocaleLowerCase()))detail={type:'fixture-announcement',participants:[h[1],h[2]],stage:'quarter-final',action:'referee-appointments',referee:referee[1].trim()};
@@ -67,7 +77,7 @@ export function extractAnnouncement(candidate:DiscoveryCandidate,body:string,now
 }
 export function announcementCopyErrors(copy:Record<'en'|'es'|'pt',{title:string;summary:string;body:string}>,facts:AnnouncementFacts){
  const errors:string[]=[],numbers=new Set(JSON.stringify(facts.detail).match(/\d+/g)??[]);
- const entities=facts.detail.type==='fixture-announcement'?[...facts.detail.participants,facts.detail.referee]:['NBA'];
+ const entities=facts.detail.type==='fixture-announcement'?[...facts.detail.participants,facts.detail.referee]:facts.detail.type==='qualification'?[facts.detail.participant]:['NBA'];
  for(const lang of ['en','es','pt'] as const){
   const part=copy?.[lang];
   if(!part||Object.keys(part).sort().join(',')!=='body,summary,title'||Object.values(part).some(v=>typeof v!=='string')){errors.push(`${lang}:INVALID_COPY`);continue;}

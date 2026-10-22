@@ -1,0 +1,57 @@
+{
+  "date": "2026-10-22",
+  "baseline": "199b180a941ec45e6a4734ac03eeefa13e98f90f",
+  "branch": "codex/v3-multisport-editorial",
+  "productionChanged": false,
+  "paidRequests": 0,
+  "localGates": {
+    "vitest": {"passed": 3854, "files": 345},
+    "nodeTestsPassed": 17,
+    "typecheck": "PASS",
+    "lint": "PASS",
+    "secretScan": "PASS",
+    "build": "PASS; existing metadataBase localhost warnings remain",
+    "routeCrawl": {"requests": 271, "findings": 0, "providerRequestsByCrawler": 0},
+    "databaseAcceptance": "NOT RERUN: missing original isolated database; no replacement initialized"
+  },
+  "recovery": {
+    "recordedIsolatedCluster": "/tmp/livasports-v3-pr75-1tI3Tc",
+    "recordedPort": 55475,
+    "clusterDirectoryExists": false,
+    "localApplicationListening": false,
+    "tmpFilesystem": "tmpfs",
+    "causeAssessment": "The recorded cluster was placed on volatile /tmp. It is absent after the prior WSL session; tmpfs loss on shutdown is consistent with the evidence, not a proven deletion event.",
+    "searched": [
+      "Both registered Git worktrees and ignored QA/output directories",
+      "Ubuntu /tmp, /var/tmp, /var/lib/postgresql, /home, /root, /opt, /srv and /var/backups, including privileged read-only inspection",
+      "Windows PostgreSQL installation/data locations and LivaSports temporary directories",
+      "Workspace database dump, backup, PG_VERSION and postgresql.conf filenames",
+      "Backup-producing references in existing QA scripts",
+      "Existing local environment files: key-presence checks only",
+      "Process, user, machine and WSL OpenAI key-presence checks",
+      "Docker daemon availability and existing Docker disk file inventory"
+    ],
+    "persistentPostgres": {
+      "directory": "/var/lib/postgresql/18/main",
+      "port": 5432,
+      "databases": ["postgres", "runx_m12_test"],
+      "containsExpectedDatabase": false,
+      "unrelatedDataInspected": false
+    },
+    "docker": "Daemon unavailable; volumes could not be enumerated. Existing disk files last modified 2026-09-09, before this validation. No daemon or container started.",
+    "credentialAvailable": false,
+    "preservedArtifacts": ["Git implementation and migrations 072–075", "Sanitized prior run reports and screenshots", "Local Owner login key file"],
+    "notRecovered": ["Live editorial publications and drafts", "Private audit evidence", "Database migration execution history", "Durable usage ledger and reservations", "Previous runtime session secret"],
+    "safety": "No database recreated, no records reconstructed, no cost ledger reset, no credential values emitted. Runtime is stopped; persisted PAUSED state cannot be verified without the missing database.",
+    "nextRequirement": "Recover an actual database backup if available. Otherwise obtain explicit recovery direction and reconcile original durable accounting before any further paid calls. Privately restore the local API credential. Never use Production as a replacement test database."
+  },
+  "independentProductWork": {
+    "source": "https://dimayor.com.co/2026/10/21/america-de-cali-clasificado-a-las-semifinales-de-la-copa-betplay-dimayor-2026",
+    "feedPublicationDate": "2026-10-22",
+    "change": "Source-specific Copa BetPlay semifinal qualification facts; independently corroborated headline and body. Only team, round and edition retained. No score, opponent, venue or match-date inference.",
+    "rightsBoundary": "Independent normalized facts only; no publisher prose, images or logos stored as article content.",
+    "liveExtraction": "PASS: 2 bounded free discovery requests returned the corroborated qualification facts from the actual feed; zero model calls and database writes",
+    "publicationStatus": "NOT RUN: database and credential recovery blocked",
+    "scopeLimit": "Not evidence of a new AI article, unattended publication, new standings or seven-sport autonomy. Existing editorial gates and spending caps remain unchanged."
+  }
+}
