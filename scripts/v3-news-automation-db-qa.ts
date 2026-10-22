@@ -23,7 +23,8 @@ async function main(){
   await db.query("INSERT INTO editorial_news(slug,draft) VALUES('preserved-owner-draft','{}')");
   await db.query(migration);await db.query(migration);
   assert.equal((await db.query('SELECT count(*) FROM editorial_news')).rows[0].count,'1');checks.push('074 repeatability and existing record preservation');
-  const repo=new AutomationRepository(db);await repo.initialize();assert.deepEqual(await repo.claim(true,true,now),{reason:'paused'});checks.push('default paused');
+  const repo=new AutomationRepository(db);await repo.initialize(now);assert.deepEqual(await repo.claim(true,true,now),{reason:'paused'});checks.push('default paused');
+  assert.equal((await repo.dueSources(now)).length,2);checks.push('newly registered sources are due in the first cycle, without a six-hour bootstrap delay');
   await repo.control({paused:false});
   const competing=await Promise.all([repo.claim(true,true,now),repo.claim(true,true,now)]),claimed=competing.filter(x=>'id' in x);assert.equal(claimed.length,1);checks.push('concurrent run exclusion');
   const run=claimed[0] as {id:string};

@@ -30,7 +30,7 @@ async function active(db:QueryExecutor,runId:string){
 }
 export class AutomationRepository {
   constructor(readonly db:DatabaseClient){}
-  async initialize(){await this.cleanupEvidence();for(const s of automationSources)await this.db.query('INSERT INTO editorial_discovery_state(source_id,disabled) VALUES ($1,$2) ON CONFLICT DO NOTHING',[s.id,!s.automaticAccess]);}
+  async initialize(now=new Date()){await this.cleanupEvidence();for(const s of automationSources)await this.db.query('INSERT INTO editorial_discovery_state(source_id,disabled,next_allowed_at) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING',[s.id,!s.automaticAccess,now.toISOString()]);}
   async cleanupEvidence(){await this.db.query('DELETE FROM editorial_generation_evidence WHERE expires_at<=now()');}
   async saveEvidence(runId:string,key:string,checkpoint:number,payload:ReviewEvidence){
     if(!Number.isInteger(checkpoint)||checkpoint<0||checkpoint>12||Buffer.byteLength(JSON.stringify(payload))>90000)throw Error('PRIVATE_EVIDENCE_LIMIT');

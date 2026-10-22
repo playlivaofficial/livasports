@@ -8,6 +8,13 @@ vi.mock('./policy',()=>({resultsFromSnapshot:()=>[],factErrors:()=>[],toNewsDraf
 import {runNewsAutomation} from './runner';
 beforeEach(()=>{vi.clearAllMocks();mocks.snapshot.mockResolvedValue({events:[],season:'synthetic'});});
 describe('news scheduler failure reporting — no real model requests',()=>{
+ it('registers new sources at the same clock used for the first discovery cycle',async()=>{
+  const now=new Date('2026-10-22T08:00:00Z');
+  const repo={initialize:vi.fn(),claim:vi.fn().mockResolvedValue({reason:'paused'})};
+  await runNewsAutomation(repo as unknown as AutomationRepository,{validationOnly:true,now});
+  expect(repo.initialize).toHaveBeenCalledWith(now);
+  expect(repo.claim).toHaveBeenCalledWith(false,true,now);
+ });
  it.each(['MODEL_RATE_LIMITED','MODEL_QUOTA_EXCEEDED','MODEL_LIMIT_UNCLASSIFIED','MODEL_UNAVAILABLE'])('marks %s failed in both result and durable run',async status=>{
   const repo={db:{},initialize:vi.fn(),claim:vi.fn().mockResolvedValue({id:'synthetic-run'}),sourceEnabled:vi.fn().mockResolvedValue(true),reconcile:vi.fn().mockResolvedValue(0),finishSource:vi.fn(),dueSources:vi.fn().mockResolvedValue([]),pending:vi.fn().mockResolvedValue({eventKey:'synthetic',facts:{kind:'result'}}),markAttempt:vi.fn(),fail:vi.fn(),finish:vi.fn(),publish:vi.fn()};
   mocks.generate.mockResolvedValue({copy:null,status,usage:{calls:1,inputTokens:0,outputTokens:0,microUsd:0}});

@@ -3,12 +3,18 @@ import assert from 'node:assert/strict';
 import {readFile,access,mkdir,writeFile} from 'node:fs/promises';
 import {spawnSync,spawn} from 'node:child_process';
 import {randomBytes,createHash,createHmac} from 'node:crypto';
-import {resolve} from 'node:path';
-const directory='output/v3-qa/acceptance-2026-10-21';
-const record=JSON.parse(await readFile(directory+'/migration.json','utf8'));
-assert.equal(record.isolated,true);assert.equal(record.port,55475);assert.match(record.cluster,/^\/tmp\/livasports-v3-pr75-[A-Za-z0-9]+$/);
-for(const path of ['.env','.env.local','.env.development.local','.env.production.local'])assert.equal(await access(path).then(()=>true,()=>false),false,'Use the env-file-free worktree');
+const directory='output/v3-qa/acceptance-2026-10-22';
+const record={isolated:true,port:55475,cluster:'/home/nika1578/.local/share/livasports-pr75/socket'};
+// No volatile cluster fallback and no Production connection configuration.
+assert.equal(record.cluster,'/home/nika1578/.local/share/livasports-pr75/socket');
+for(const path of ['.env','.env.development.local','.env.production.local'])assert.equal(await access(path).then(()=>true,()=>false),false,'No ambient database or Production configuration');
+const privateLocal=await readFile('.env.local','utf8').catch(()=> '');
+const localSettings=privateLocal.split(/\r?\n/).map(line=>line.trim()).filter(line=>line&&!line.startsWith('#'));
+assert.ok(localSettings.every(line=>/^OPENAI_API_KEY\s*=/.test(line))&&localSettings.length<=1,'Only OPENAI_API_KEY is permitted in this isolated worktree env file');
 function sql(text){const r=spawnSync('wsl.exe',['-d','Ubuntu','--','/usr/lib/postgresql/18/bin/psql','-h',record.cluster,'-p','55475','-U','livasports_v3_qa','-d','livasports_v3_qa','-X','-At','-v','ON_ERROR_STOP=1'],{input:text,encoding:'utf8',windowsHide:true,timeout:20000});if(r.status!==0)throw Error('ISOLATED_SQL_FAILED');return r.stdout.trim();}
+assert.equal(sql("SELECT epoch||':'||historical_reserved_microusd FROM local_validation_epoch"),'local-rebuild-2026-10-22:80000','Recovery accounting must exist before local validation');
+assert.equal(sql("SELECT count(*) FROM pg_trigger WHERE tgname='local_validation_budget' AND tgenabled='O'"),'1','Recovery budget trigger must be active');
+function backup(){const result=spawnSync('wsl.exe',['-d','Ubuntu','--','bash','scripts/v3-local-postgres.sh','backup'],{encoding:'utf8',windowsHide:true,timeout:30000});if(result.status!==0)throw Error('LOCAL_BACKUP_FAILED');}
 const before=sql("SELECT json_build_object('sports',count(*),'hash',md5(string_agg(row_to_json(s)::text,'' ORDER BY snapshot_key))) FROM sports_snapshots s; SELECT json_build_object('news',count(*),'hash',md5(string_agg(row_to_json(n)::text,'' ORDER BY slug))) FROM editorial_news n;");
 const migration=await readFile('db/migrations/074_v3_news_automation.sql','utf8');sql(migration);sql(migration);sql(migration);
 const reviewMigration=await readFile('db/migrations/075_v3_news_review_evidence.sql','utf8');sql(reviewMigration);sql(reviewMigration);
@@ -28,9 +34,9 @@ let key=process.env.OPENAI_API_KEY?.trim()??'';
 if(process.argv.includes('--key-stdin')&&process.stdin.isTTY)process.stdin.setRawMode(true);
 if(process.argv.includes('--key-stdin'))key=await new Promise((resolve,reject)=>{let incoming='';const onData=chunk=>{incoming+=chunk;if(incoming.length>1024){process.stdin.off('data',onData);process.stdin.pause();reject(Error('PRIVATE_CREDENTIAL_INPUT_TOO_LARGE'));return;}if(/[\r\n]/.test(incoming)){process.stdin.off('data',onData);process.stdin.pause();resolve(incoming.trim());incoming='';}};process.stdin.on('data',onData);process.stdin.once('end',()=>{if(incoming.trim())resolve(incoming.trim());else reject(Error('PRIVATE_CREDENTIAL_INPUT_MISSING'));});});
 if(process.argv.includes('--key-stdin')&&process.stdin.isTTY)process.stdin.setRawMode(false);
-if(!key)try{const text=await readFile(resolve('../..','.env.local'),'utf8');const raw=text.split(/\r?\n/).find(line=>line.startsWith('OPENAI_API_KEY='))?.slice('OPENAI_API_KEY='.length).trim()??'';key=raw.replace(/^(["'])(.*)\1$/,'$2');}catch{}
+if(!key){const raw=localSettings[0]?.slice(localSettings[0].indexOf('=')+1).trim()??'';key=raw.replace(/^(["'])(.*)\1$/,'$2');}
 if(process.argv.includes('--run-cycle')&&!key)throw Error('PRIVATE_MODEL_CREDENTIAL_MISSING_NO_CYCLE_EXECUTED');
-const ownerKey=(await readFile(directory+'/local-owner-key.txt','utf8')).trim(),cron=randomBytes(48).toString('base64url');
+const ownerKey=(await readFile('output/v3-qa/acceptance-2026-10-21/local-owner-key.txt','utf8')).trim(),cron=randomBytes(48).toString('base64url');
 const env={...os,DATABASE_URL:url.href,DATABASE_POSTGRES_URL:'',POSTGRES_URL:'',OWNER_QA_ACCESS_HASH:createHash('sha256').update(ownerKey).digest('hex'),OWNER_QA_SESSION_SECRET:randomBytes(48).toString('base64url'),CRON_SECRET:cron,OPENAI_API_KEY:key,V3_NEWS_AUTOMATION_ENABLED:'true',V3_NEWS_MODEL_ENABLED:key?'true':'false',V3_NEWS_BUDGET_MODE:'validation',V3_OPENLIGA_AUTOMATION_ENABLED:'false',V3_LOCAL_DATA_PREVIEW:'false',NEXT_TELEMETRY_DISABLED:'1',VERCEL:'',VERCEL_ENV:'',NODE_ENV:'development'};
 const child=spawn(process.execPath,['node_modules/next/dist/bin/next','dev','--hostname','127.0.0.1','--port','3351'],{env,windowsHide:true,stdio:['ignore','pipe','pipe']});
 const redact=text=>[key,password,cron,ownerKey,env.OWNER_QA_SESSION_SECRET].filter(Boolean).reduce((s,secret)=>s.replaceAll(secret,'[REDACTED]'),String(text));
@@ -39,6 +45,7 @@ process.on('SIGINT',()=>child.kill());
 for(let i=0;i<60;i++){try{const response=await fetch('http://localhost:3351/api/owner/preview');if(response.ok)break;}catch{}if(i===59)throw Error('LOCAL_APP_UNAVAILABLE');await new Promise(r=>setTimeout(r,1000));}
 console.log(JSON.stringify({localServer:'http://localhost:3351',keyConfigured:!!key,modelMode:env.V3_NEWS_MODEL_ENABLED,budgetMode:'validation',lifetimeCeilingUsd:1,productionConnections:0}));
 if(process.argv.includes('--run-cycle')){
+ backup();
  const session=Buffer.from(JSON.stringify({v:1,id:randomBytes(24).toString('base64url'),expiresAt:Date.now()+3600000,preview:false})).toString('base64url');
  const signature=createHmac('sha256',env.OWNER_QA_SESSION_SECRET).update('livasports:owner:v1:'+env.OWNER_QA_ACCESS_HASH+':'+session).digest('base64url');
  const response=await fetch('http://localhost:3351/api/owner/news/automation',{headers:{Cookie:`__Host-livasports_owner=${session}.${signature}`}});
@@ -52,6 +59,7 @@ if(process.argv.includes('--run-cycle')){
  }catch{evidence.failure='LOCAL_CANARY_FAILED';}
  finally{
   sql('UPDATE editorial_automation_control SET paused=true');
+  backup();
   evidence.paused=sql('SELECT paused FROM editorial_automation_control')==='t';
   evidence.usage=JSON.parse(sql("SELECT coalesce(json_agg(r ORDER BY started_at),'[]') FROM (SELECT started_at,status,model_microusd_reserved,model_microusd_used,input_tokens,output_tokens,result FROM editorial_automation_runs) r"));
   await writeFile(directory+'/news-live-cycle.json',JSON.stringify(evidence,null,2));console.log(JSON.stringify(evidence));

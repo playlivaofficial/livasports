@@ -28,7 +28,7 @@ export async function collectScheduledDiscovery(source:SourceState,fetcher:typeo
 }
 export async function runNewsAutomation(repo:AutomationRepository,options:{key?:string;validationOnly:boolean;fetcher?:typeof fetch;now?:Date}){
   const now=options.now??new Date(),usage:ModelUsage={calls:0,inputTokens:0,outputTokens:0,microUsd:0};
-  await repo.initialize();
+  await repo.initialize(now);
   const claim=await repo.claim(!!options.key?.trim(),options.validationOnly,now);
   if(!('id' in claim))return {status:claim.reason,requests:0,published:[],changed:false};
   const result={status:'completed',requests:0,discovered:0,corrections:0,withdrawn:0,published:[] as string[],changed:false,generation:options.key?'no-eligible-event':'MODEL_CREDENTIAL_MISSING'};
