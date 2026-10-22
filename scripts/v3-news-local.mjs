@@ -57,6 +57,22 @@ process.on('SIGINT',()=>child.kill());
 for(let i=0;i<60;i++){try{const response=await fetch('http://localhost:3351/api/owner/preview');if(response.ok)break;}catch{}if(i===59)throw Error('LOCAL_APP_UNAVAILABLE');await new Promise(r=>setTimeout(r,1000));}
 console.log(JSON.stringify({localServer:'http://localhost:3351',keyConfigured:!!key,modelMode:env.V3_NEWS_MODEL_ENABLED,budgetMode:'validation',lifetimeCeilingUsd:1,productionConnections:0}));
 if(process.argv.includes('--run-cycle')){
+ if(process.argv.includes('--wait-until-due')){
+  // Real elapsed time only: never rewrite the durable run clock or reservations.
+  // Keep publication PAUSED while waiting; the existing cycle gate remains authoritative.
+  const waitingStartedAt=new Date().toISOString(),deadline=Date.now()+8*3600000;
+  let checks=0;
+  while(true){
+   assert.equal(sql('SELECT paused FROM editorial_automation_control'),'t','Local validation must remain paused while waiting');
+   const due=JSON.parse(sql("SELECT json_build_object('now',now(),'due',coalesce(max(started_at)+interval '6 hours',now()),'waitMs',greatest(0,extract(epoch from (coalesce(max(started_at)+interval '6 hours',now())-now()))*1000)) FROM editorial_automation_runs"));
+   checks++;
+   await writeFile(directory+'/news-real-time-wait.json',JSON.stringify({waitingStartedAt,checkedAt:due.now,dueAt:due.due,checks,realElapsedTime:true,paused:true,productionConnections:0},null,2));
+   if(due.waitMs<=0)break;
+   if(Date.now()>deadline)throw Error('LOCAL_WAIT_DEADLINE_REACHED_NO_CYCLE');
+   if(checks===1)console.log(JSON.stringify({waitingForDurableDueTime:due.due,paused:true,paidCallsWhileWaiting:0}));
+   await new Promise(resolve=>setTimeout(resolve,Math.min(30000,Math.ceil(due.waitMs)+250)));
+  }
+ }
  backup();
  const session=Buffer.from(JSON.stringify({v:1,id:randomBytes(24).toString('base64url'),expiresAt:Date.now()+3600000,preview:false})).toString('base64url');
  const signature=createHmac('sha256',env.OWNER_QA_SESSION_SECRET).update('livasports:owner:v1:'+env.OWNER_QA_ACCESS_HASH+':'+session).digest('base64url');
@@ -74,7 +90,7 @@ if(process.argv.includes('--run-cycle')){
   backup();
   evidence.paused=sql('SELECT paused FROM editorial_automation_control')==='t';
   evidence.usage=JSON.parse(sql("SELECT coalesce(json_agg(r ORDER BY started_at),'[]') FROM (SELECT started_at,status,model_microusd_reserved,model_microusd_used,input_tokens,output_tokens,result FROM editorial_automation_runs) r"));
-  await writeFile(directory+'/news-live-cycle.json',JSON.stringify(evidence,null,2));console.log(JSON.stringify(evidence));
+  await writeFile(directory+'/news-live-cycle-'+evidence.at.replace(/[:.]/g,'-')+'.json',JSON.stringify(evidence,null,2));console.log(JSON.stringify(evidence));
  }
 }
 await new Promise(r=>child.once('exit',r));

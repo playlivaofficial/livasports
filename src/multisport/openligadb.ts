@@ -1,7 +1,7 @@
 import {validateSnapshot,type FootballRow,type SportsEvent,type SportsSnapshot} from './model';
 
 export const OPENLIGA_CONFIG=Object.freeze({sourceKey:'openligadb:bl1:2026',competitionId:'bundesliga',league:'bl1',upstreamSeason:2026,season:'2026/27',teams:18,matches:306,from:'2026-08-01T00:00:00Z',until:'2027-06-02T00:00:00Z'});
-export const OPENLIGA_URLS=Object.freeze({changed:'https://api.openligadb.de/getlastchangedate/bl1/2026',table:'https://api.openligadb.de/getbltable/bl1/2026',matches:'https://api.openligadb.de/getmatchdata/bl1/2026'});
+export const OPENLIGA_URLS=Object.freeze({table:'https://api.openligadb.de/getbltable/bl1/2026',matches:'https://api.openligadb.de/getmatchdata/bl1/2026'});
 type JsonObject=Record<string,unknown>;
 function object(value:unknown):JsonObject{if(!value||typeof value!=='object'||Array.isArray(value))throw new Error('UPSTREAM_SHAPE');return value as JsonObject;}
 function integer(value:unknown,min=0,max=100000):number{if(typeof value!=='number'||!Number.isSafeInteger(value)||value<min||value>max)throw new Error('UPSTREAM_NUMBER');return value;}
@@ -73,14 +73,14 @@ export function normalizeOpenLigaSnapshot(tableValue:unknown,matchesValue:unknow
   assertOpenLigaSnapshot(snapshot,now);return snapshot;
 }
 
-export class OpenLigaHttpError extends Error {constructor(readonly code:string){super(code);}}
+export class OpenLigaHttpError extends Error {constructor(readonly code:string,readonly httpStatus?:number){super(code);}}
 /** Fixed URL allowlist, streaming size bound, timeout and zero retries. Never downloads graphics. */
 export async function fetchOpenLigaJson(url:string,fetcher:typeof fetch=fetch):Promise<unknown>{
   if(!(Object.values(OPENLIGA_URLS) as readonly string[]).includes(url))throw new OpenLigaHttpError('SOURCE_NOT_APPROVED');
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),12000);
   try{
     const response=await fetcher(url,{signal:controller.signal,redirect:'error',cache:'no-store',headers:{Accept:'application/json','User-Agent':'LivaSports-DataCollector/3.0 (+https://livasports.com)'}});
-    if(!response.ok)throw new OpenLigaHttpError(response.status===429?'UPSTREAM_RATE_LIMITED':response.status>=500?'UPSTREAM_UNAVAILABLE':'UPSTREAM_HTTP_REJECTED');
+    if(!response.ok)throw new OpenLigaHttpError(response.status===429?'UPSTREAM_RATE_LIMITED':response.status>=500?'UPSTREAM_UNAVAILABLE':'UPSTREAM_HTTP_REJECTED',response.status);
     if(!/\bapplication\/json\b/i.test(response.headers.get('content-type')??''))throw new OpenLigaHttpError('UPSTREAM_CONTENT_TYPE');
     const maxBytes=2*1024*1024,declared=Number(response.headers.get('content-length')??0);
     if(declared>maxBytes)throw new OpenLigaHttpError('UPSTREAM_TOO_LARGE');

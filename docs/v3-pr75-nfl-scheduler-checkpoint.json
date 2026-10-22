@@ -1,0 +1,29 @@
+{
+  "date": "2026-10-22",
+  "productionChanged": false,
+  "draftPr": 75,
+  "nflPublication": "pending legitimate six-hour eligibility; no model request made by this checkpoint",
+  "newsNextEligibleUtc": "2026-10-22T14:01:24.468Z",
+  "bundesligaBackoffUntilUtc": "2026-10-22T14:54:58.696Z",
+  "bundesligaDiagnosis": {
+    "officialContract": "https://api.openligadb.de/swagger/v1/swagger.json",
+    "defect": "Configured /getlastchangedate/bl1/2026 omits the documented required groupOrderId. No season-wide change-marker route is documented.",
+    "historicalHttpStatus": "unknown: previous code retained only UPSTREAM_HTTP_REJECTED",
+    "correction": "Use the two documented fixed-season table/results routes under the existing six-hour durable claim. Reconcile all 306 results and 18 table rows; compare normalized content hashes without retrieval time. No guessed matchday and no missed older-round corrections.",
+    "diagnostics": "Persist sanitized numeric HTTP status with error category; never store response bodies or headers.",
+    "liveRetest": "Not attempted before existing backoff expires"
+  },
+  "realTimeHarness": {
+    "command": "node scripts/v3-news-local.mjs --serve --run-cycle --wait-until-due",
+    "clock": "actual PostgreSQL now(); never adjust prior run timestamps",
+    "maximumWaitHours": 8,
+    "waitingState": "PAUSED",
+    "execution": "existing authorized local cron endpoint once, followed by immediate dedup check; finally pause and back up",
+    "evidence": "timestamped cycle reports preserve earlier canary evidence"
+  },
+  "limitations": [
+    "No NFL publication or elapsed-time scheduler acceptance claimed yet",
+    "No new mobile visual acceptance claimed",
+    "No new sport coverage claimed from registration alone"
+  ]
+}
