@@ -46,6 +46,7 @@
     "currentLocalPublishedStories": {"football":1,"basketball":0,"baseball":0,"american-football":0,"ice-hockey":0,"mma":0,"tennis":0},
     "preservedStory": "announcement-7d5e8ce810e3fb0372ae7765",
     "historicalBundesligaAndNbaEvidence": "Previously measured successful publications, not recovered database rows",
-    "newStandingsPublished": 0
+    "newStandingsPublished": 0,
+    "bundesligaCanary": {"at":"2026-10-22T08:51:21.431Z","requests":1,"result":"UPSTREAM_HTTP_REJECTED","retried":false,"published":false,"durableBackoff":true}
   }
 }

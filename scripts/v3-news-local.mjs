@@ -31,6 +31,12 @@ const url=new URL('postgresql://127.0.0.1:55475/livasports_v3_qa');url.username=
 const os=Object.fromEntries(Object.entries(process.env).filter(([key])=>['path','systemroot','windir','comspec','pathext','temp','tmp','home','userprofile','appdata','localappdata','lang','tz'].includes(key.toLowerCase())));
 const qa=spawnSync(process.execPath,['--require','./scripts/tsx-windows-preload.cjs','--import','tsx','scripts/v3-news-automation-db-qa.ts'],{env:{...os,V3_QA_DATABASE_URL:url.href},encoding:'utf8',windowsHide:true,timeout:60000});process.stdout.write(qa.stdout);if(qa.status!==0){process.stderr.write(qa.stderr.replaceAll(password,'[REDACTED]'));throw Error('DB_ACCEPTANCE_FAILED');}
 await mkdir(directory,{recursive:true});await writeFile(directory+'/074-preserved-data.json',JSON.stringify({at:new Date().toISOString(),applications:3,preserved:JSON.parse('['+before.replaceAll('\n',',')+']'),productionConnections:0},null,2));
+if(process.argv.includes('--refresh-sports')){
+ backup();
+ const sports=spawnSync(process.execPath,['--require','./scripts/tsx-windows-preload.cjs','--import','tsx','scripts/v3-local-sports.ts'],{env:{...os,V3_QA_DATABASE_URL:url.href},encoding:'utf8',windowsHide:true,timeout:60000});
+ process.stdout.write(sports.stdout);backup();
+ if(sports.status!==0)throw Error('ISOLATED_SPORTS_ACCEPTANCE_FAILED');
+}
 if(!process.argv.includes('--serve'))process.exit(0);
 // The running application has no schema-creation privilege. Acceptance uses a separate local role.
 sql(`DO $$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname='livasports_news_runtime_qa') THEN CREATE ROLE livasports_news_runtime_qa LOGIN; END IF; END $$; ALTER ROLE livasports_news_runtime_qa PASSWORD '${password}'; GRANT USAGE ON SCHEMA public TO livasports_news_runtime_qa; GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO livasports_news_runtime_qa; GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO livasports_news_runtime_qa;`);
