@@ -43,8 +43,12 @@ export function selectFeaturedStory(items:readonly PublishedNews[],locale:Interf
   return items.filter(item=>item.featured&&item.image!=='none'&&Object.hasOwn(editorialAssets,item.image)&&usablePublishedNews(item,now)&&resolveNewsTranslation(item,publicLanguage(locale))).sort((a,b)=>b.sourcePublishedOn.localeCompare(a.sourcePublishedOn)||b.publishedAt.localeCompare(a.publishedAt)||a.slug.localeCompare(b.slug))[0]??null;
 }
 /** Real, dated headlines close to the first fold; no mock breaking-news feed. */
+export function briefingStories(items:readonly PublishedNews[],locale:InterfaceLocale,exclude?:string,now=new Date()){
+ const language=publicLanguage(locale),seen=new Set<string>();
+ return items.filter(item=>item.slug!==exclude&&usablePublishedNews(item,now)&&resolveNewsTranslation(item,language)).sort((a,b)=>b.sourcePublishedOn.localeCompare(a.sourcePublishedOn)||b.publishedAt.localeCompare(a.publishedAt)).filter(item=>{if(seen.has(item.slug))return false;seen.add(item.slug);return true;}).slice(0,3);
+}
 export function HomeBriefing({items,locale,exclude,now=new Date()}:{items:readonly PublishedNews[];locale:InterfaceLocale;exclude?:string;now?:Date}){
-  const language=publicLanguage(locale),chosen=items.filter(item=>item.slug!==exclude&&usablePublishedNews(item,now)&&resolveNewsTranslation(item,language)).sort((a,b)=>b.sourcePublishedOn.localeCompare(a.sourcePublishedOn)||b.publishedAt.localeCompare(a.publishedAt)).slice(0,3);
+  const language=publicLanguage(locale),chosen=briefingStories(items,locale,exclude,now);
   if(!chosen.length)return null;
   const heading={en:'On the sports desk',es:'En la redacción',pt:'Na redação'}[language];
   return <section className="ed-home-briefing" aria-label={heading}><div className="ed-briefing-heading"><h2>{heading}</h2><Link href={newsPath(locale)}>{newsCopy(locale).view} ↗</Link></div><ol>{chosen.map(item=>{const text=resolveNewsTranslation(item,language)!;return <li key={item.slug}><Link href={newsPath(locale,item.slug)}><span className="ed-kicker">{sportName(newsSport(item),locale)} <time dateTime={item.sourcePublishedOn}>{newsDate(item.sourcePublishedOn,locale)}</time></span><strong lang={text.language}>{text.title}</strong><NewsLanguageNotice translation={text} locale={locale}/></Link></li>;})}</ol></section>;

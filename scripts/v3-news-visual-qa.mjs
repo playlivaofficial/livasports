@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {browserQA,delay} from './browser-qa-driver.mjs';
-const directory='output/v3-qa/acceptance-2026-10-22/focused-experience';
+const directory='output/v3-qa/acceptance-2026-10-22/sports-app';
 const slug='announcement-7d5e8ce810e3fb0372ae7765';
 const browser=await browserQA(),evidence=[];
 try{

@@ -13,3 +13,4 @@ import '@/multisport/multisport.css';
 import '@/editorial/briefing.css';
 import '@/editorial/product.css';
 import '@/editorial/focused.css';
+import '@/editorial/sports-app.css';
