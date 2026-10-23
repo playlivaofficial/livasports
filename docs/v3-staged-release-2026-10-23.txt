@@ -1,0 +1,38 @@
+Current staged release status, 23 October 2026
+
+Candidate 16e6a7603292bb52b79dcae9389e07a63b57977d passed hosted Quality gates
+https://github.com/playlivaofficial/livasports/actions/runs/39960600459
+Staged deployment dpl_D8sLxATic9JUQQ3zhBNQiRsWY7xc is READY:
+https://livasports-knln9ncvn-nikapopkha3-4447s-projects.vercel.app
+Public domain promotion and merge remain pending authenticated Owner acceptance.
+
+Neon recovery: official CLI/API verified six-hour rolling history and a readable
+pre-migration schema at 13:00 UTC. This was not an actual restore drill. No paid
+branch/project, restore, billing or retention change. See migration gate evidence.
+Production migrations 073-075 applied; repeat applied zero. Existing user,
+affiliate and editorial records preserved. No invalid indexes; default PAUSED.
+
+Reviewed Production tables: Bundesliga 18 teams (Oct 18 cutoff), Colombia Primera
+A 20 teams (Oct 21), NHL 32 teams/four divisions (Oct 20). Dated, not live feeds.
+Reverified DIMAYOR article published in EN/ES/PT alongside nine preserved stories.
+No synthetic QA rows, private drafts, local spending ledger or credentials imported.
+
+The first stage was withheld: empty build-time HTML despite live API data, and
+missing release SHA. Fixed request-time published-content rendering and validated
+SHA fallback; replacement stage serves actual published records.
+Responsive 56-case ES/EN/PT Light/Dark checks cover mobile 320/360/375/390/430 and
+1440 desktop. Screenshot harness now waits for fonts and decoded visible images,
+excluding off-screen lazy-loaded rail items. No product CSS changed for this fix.
+Screenshots retained under output/v3-qa/acceptance-2026-10-23/staged (ignored).
+
+Anonymous Owner APIs reject access. Sign-in providers/CSRF and localized sign-in
+routes work. Disabled automation endpoints return zero requests. User reports
+staged Owner signed in; connector timeouts prevent independent session observation
+so that acceptance gate remains open. Do not claim live authenticated QA passed.
+
+AI PAUSED/disabled, affiliate campaigns inactive, retired providers disabled.
+Zero new model calls. NFL remains unpublished after its retained rejected canary.
+Seven-sport autonomous daily publication and complete current standings are NOT
+claimed. Missing competition data and event-image permissions remain documented.
+Apex still serves prior main 3a57cb1fd7d3f597666ff58a8984cf601d1cfdb7.
+Database/content steps above HAVE occurred; Production is not wholly unchanged.

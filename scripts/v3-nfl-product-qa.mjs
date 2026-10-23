@@ -8,6 +8,13 @@ assert.ok(origin==='http://localhost:3351'||origin==='https://livasports.com'||/
 const dir=`output/v3-qa/acceptance-2026-10-23/${origin.includes('localhost')?'nfl-editorial':origin==='https://livasports.com'?'production':'staged'}`;
 await mkdir(dir,{recursive:true});
 const browser=await browserQA(),evidence=[];
+async function settlePaint(page,theme){
+ await page.evaluate(`document.documentElement.setAttribute('data-theme','${theme}')`);
+ await page.evaluate('document.fonts.ready.then(()=>true)');
+ await page.wait('[...document.images].filter(i=>{const r=i.getBoundingClientRect();return r.top<innerHeight&&r.bottom>0&&r.left<innerWidth&&r.right>0}).every(i=>i.complete&&i.naturalWidth>0)',30000);
+ await page.evaluate('Promise.all([...document.images].filter(i=>i.complete&&i.naturalWidth).map(i=>i.decode().catch(()=>{}))).then(()=>true)');
+ await delay(1000);
+}
 try{
  const page=await browser.newPage();
  if(origin.endsWith('.vercel.app')){
@@ -26,7 +33,7 @@ try{
     await page.viewport(390,844);await page.evaluate('window.__oldDocument=true');
     await page.c.send('Page.navigate',{url:origin+path});
     await page.wait('!window.__oldDocument && document.readyState==="complete" && !!document.querySelector("main")',60000);
-    await page.evaluate(`document.documentElement.setAttribute('data-theme','${theme}')`);await delay(250);
+    await settlePaint(page,theme);
     if(name==='colombia'){assert.equal(await page.evaluate('document.querySelectorAll(".ms-table tbody tr").length'),20);assert.ok(await page.evaluate('!!document.querySelector(".sw-table-help")'));}
     if(name==='nhl'){assert.equal(await page.evaluate('document.querySelectorAll(".ms-table tbody tr").length'),32);assert.equal(await page.evaluate('document.querySelectorAll(".ms-table").length'),4);assert.ok(await page.evaluate('document.body.innerText.includes("2026-10-20")'));}
     if(name==='article')assert.ok(await page.evaluate('document.querySelector(".ed-article-byline").innerText.includes("DIMAYOR")'));
@@ -39,14 +46,14 @@ try{
   await page.viewport(width,844);await page.evaluate('window.__oldDocument=true');
   await page.c.send('Page.navigate',{url:origin+'/'+locale});
   await page.wait('!window.__oldDocument && document.readyState==="complete" && !!document.querySelector("main")',60000);
-  await page.evaluate(`document.documentElement.setAttribute('data-theme','${theme}')`);await delay(250);
+  await settlePaint(page,theme);
   const file=`${dir}/home-${locale}-${theme}-${width}.png`,layout=await page.screenshot(file);
   assert.equal(layout.overflow,false);assert.equal(layout.brokenImages,0);evidence.push({path:'/'+locale,theme,width,file,layout});
  }
  for(const theme of ['light','dark']){
   await page.viewport(1440,1000);await page.evaluate('window.__oldDocument=true');await page.c.send('Page.navigate',{url:origin+'/en'});
   await page.wait('!window.__oldDocument && document.readyState==="complete" && !!document.querySelector("main")',60000);
-  await page.evaluate(`document.documentElement.setAttribute('data-theme','${theme}')`);await delay(250);
+  await settlePaint(page,theme);
   const file=`${dir}/home-en-${theme}-1440.png`,layout=await page.screenshot(file);assert.equal(layout.overflow,false);evidence.push({path:'/en',theme,width:1440,file,layout});
  }
  assert.deepEqual(page.metrics.errors,[]);assert.equal(page.metrics.providers,0);
