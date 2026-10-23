@@ -23,7 +23,7 @@ export function ArticleHeader({item,locale}:{item:PublishedNews;locale:Interface
   <NewsLanguageNotice translation={translation} locale={locale}/>
   <h1 lang={translation.language}>{translation.title}</h1>
   <p className="ed-standfirst" lang={translation.language}>{translation.summary}</p>
-  <div className="ed-article-byline"><span className="ed-editorial-signature"><span aria-hidden="true">L</span>{text.editorial}</span><span>{text.sourceDate}<time dateTime={item.sourcePublishedOn}>{newsDate(item.sourcePublishedOn,locale)}</time></span><a href="#article-source">{text.source} <span aria-hidden="true">↘</span></a></div>
+  <div className="ed-article-byline"><span className="ed-editorial-signature"><span aria-hidden="true">L</span>{text.editorial}</span><span>{text.sourceDate}<time dateTime={item.sourcePublishedOn}>{newsDate(item.sourcePublishedOn,locale)}</time></span><a href="#article-source" aria-label={`${text.source}: ${item.sourceName}`}>{item.sourceName} <span aria-hidden="true">↘</span></a></div>
  </header>;
 }
 

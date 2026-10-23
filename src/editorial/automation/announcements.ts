@@ -97,6 +97,8 @@ export function announcementCopyErrors(copy:Record<'en'|'es'|'pt',{title:string;
   const part=copy?.[lang];
   if(!part||Object.keys(part).sort().join(',')!=='body,summary,title'||Object.values(part).some(v=>typeof v!=='string')){errors.push(`${lang}:INVALID_COPY`);continue;}
   const text=[part.title,part.summary,part.body].join(' ');
+  if(part.title.trim().length<10||part.title.length>160)errors.push(`${lang}:TITLE_LENGTH`);
+  if(part.summary.trim().length<30||part.summary.length>500)errors.push(`${lang}:SUMMARY_LENGTH`);
   if(part.body.length<40||part.body.length>1800||/[<>]|https?:|["“”]|\b(?:bet|odds|apuesta|cuota|aposte|exclusive|exclusiv\w*)\b/i.test(text))errors.push(`${lang}:UNSUPPORTED_CLAIM_OR_FORMAT`);
   if(!part.body.includes(facts.sourceName)||entities.some(e=>!part.body.includes(e)))errors.push(`${lang}:MISSING_SOURCE_OR_ENTITY`);
   if((text.match(/\d+/g)??[]).some(n=>!numbers.has(n)))errors.push(`${lang}:UNSUPPORTED_NUMBER`);
