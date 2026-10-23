@@ -23,12 +23,24 @@ Verified gates: 3930 Vitest + 17 Node tests, lint, typecheck, build, secret scan
 SEO crawl passed locally. Previous head d080c11 hosted Quality gates passed run39926834979.
 Latest changed-head hosted result must be checked separately, never inherited.
 
+Restored access and observed Production state:
+- Owner completed CLI OAuth. whoami nikapopkha3-4447; existing Pro team
+  nikapopkha3-4447s-projects; linked only existing livasports project
+  prj_AWVpxaSj2mI7RI7MlwmrnMW6Ogvr. No new project or billing changes.
+- Active livasports.com deployment dpl_DwLzXMk9PDXFZRy9kAKhduN4MKo7 is READY,
+  production SHA 3a57cb1fd7d3f597666ff58a8984cf601d1cfdb7, matching origin/main.
+- Production DB inspected in explicit BEGIN READ ONLY / ROLLBACK: approximately 12 GB,
+  latest migration 072. Migrations 073/074/075 remain unapplied. No production writes.
+- Existing Owner/authentication/database configuration present. OpenAI key and V3
+  automation settings absent; no Production AI activation attempted.
+- CLI link unexpectedly added a temporary OIDC token to .env.local; removed without
+  displaying it. Only the existing OPENAI_API_KEY entry remains. No secret committed.
+- V3 commit 5ad1a33 hosted Quality gates PASSED, run39952678686. 56 local browser cases
+  passed across languages, themes and requested widths, including 32 NHL rows/four tables.
+
 Unresolved release gates:
-- Existing Vercel credential returns 403 on account-auth AND existing project metadata.
-  Browser connector timed out twice. Cannot verify active deployment SHA, resource limits,
-  production DB configuration, backup readiness or stage a release with this access.
-- Git origin/main observed 3a57cb1fd7d3f597666ff58a8984cf601d1cfdb7; this is NOT asserted
-  to be the deployed SHA. No secrets exported or saved while diagnosing access.
+- Production backup/restore readiness and resource limits still require verification.
+  Authenticated metadata access is restored; the earlier 403 is no longer a blocker.
 - Current local public newsroom contains DIMAYOR only. Archived Owner QA NBA record is
   explicitly excluded from real-publication counts and any proposed Production seed.
 - NFL one-run authorization unused; source next_allowed_at Oct23 18:01:25.987 Tbilisi.
