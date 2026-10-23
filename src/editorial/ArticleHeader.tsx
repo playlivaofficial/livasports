@@ -5,21 +5,21 @@ import {newsSport,resolveNewsTranslation,type PublishedNews} from './model';
 import {countryName,newsCopy,newsDate,newsPath,sportName,topicName} from './copy';
 import {NewsCard,NewsLanguageNotice} from './NewsCards';
 import {usablePublishedNews} from './presentation';
-import {identityAssets} from '@/multisport/identity-assets';
-import {IdentityLogo} from '@/multisport/IdentityLogo';
+import {StoryIdentities} from './StoryIdentities';
+
 
 /** Links describe the verified taxonomy, never a guessed matchup or a decorative crest. */
 export function ArticleHeader({item,locale}:{item:PublishedNews;locale:InterfaceLocale}){
  const translation=resolveNewsTranslation(item,publicLanguage(locale));if(!translation)return null;
  const text=newsCopy(locale),sport=newsSport(item),competition=competitionById(item.competition);
- const namedTeams=identityAssets.filter(asset=>asset.kind==='team'&&asset.competitionId===item.competition&&asset.names.some(name=>item.title.en.includes(name)));
+
  return <header className="ed-article-header ed-premium-header">
   <nav className="ed-article-topics" aria-label={sportName(sport,locale)}>
    <Link href={sportsPath(locale,sport)}>{sportName(sport,locale)}</Link>
    {competition?<Link href={competitionPath(locale,competition.id)}>{topicName(item.competition,locale)} <span aria-hidden="true">↗</span></Link>:<span>{topicName(item.competition,locale)}</span>}
    <span>{countryName(item.country,locale)}</span>
   </nav>
-  {namedTeams.length>0?<div className="ed-reported-identities">{namedTeams.map(asset=><span key={asset.id}><IdentityLogo competitionId={asset.competitionId} teamName={asset.names[0]}/><strong>{asset.names[0]}</strong></span>)}</div>:null}
+  <StoryIdentities item={item}/>
   <NewsLanguageNotice translation={translation} locale={locale}/>
   <h1 lang={translation.language}>{translation.title}</h1>
   <p className="ed-standfirst" lang={translation.language}>{translation.summary}</p>

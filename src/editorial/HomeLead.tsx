@@ -6,10 +6,18 @@ import {newsCopy,newsDate,newsPath,sportName,topicName} from './copy';
 import {NewsLanguageNotice,NewsPhoto,PhotoCredit} from './NewsCards';
 import {usablePublishedNews} from './presentation';
 import {contextScene} from './ContextScene';
+import {StoryIdentities} from './StoryIdentities';
+import {selectFeaturedStory} from './NewsCards';
 
 export function selectTextLead(items:readonly PublishedNews[],locale:InterfaceLocale,now=new Date()){
  return items.filter(item=>usablePublishedNews(item,now)&&resolveNewsTranslation(item,publicLanguage(locale)))
   .sort((a,b)=>b.sourcePublishedOn.localeCompare(a.sourcePublishedOn)||b.publishedAt.localeCompare(a.publishedAt)||a.slug.localeCompare(b.slug))[0]??null;
+}
+/** Freshness wins over decoration; a photo hero may represent only the selected story. */
+export function selectHomeLead(items:readonly PublishedNews[],locale:InterfaceLocale,now=new Date()){
+ const lead=selectTextLead(items,locale,now);
+ const photoLead=lead&&selectFeaturedStory([lead],locale,now);
+ return {lead,photoLead:photoLead??null};
 }
 /** A real published headline, not generic marketing copy or a pretend event photograph. */
 export function HomeTextLead({item,locale}:{item:PublishedNews;locale:InterfaceLocale}){
@@ -19,6 +27,7 @@ export function HomeTextLead({item,locale}:{item:PublishedNews;locale:InterfaceL
   <div className="lp-hero-visual">
   {scene?<NewsPhoto id={scene.id} locale={locale} priority/>:null}
   <div className="lp-hero-headline">
+   <StoryIdentities item={item}/>
    <div className="ed-home-lead-meta"><Link href={sportsPath(locale,sport)}>{sportName(sport,locale)}</Link><span>{topicName(item.competition,locale)}</span><time dateTime={item.sourcePublishedOn}>{newsDate(item.sourcePublishedOn,locale)}</time></div>
    <NewsLanguageNotice translation={translation} locale={locale}/>
    <h1 id="home-lead-title" lang={translation.language}><Link href={newsPath(locale,item.slug)}>{translation.title}</Link></h1>
