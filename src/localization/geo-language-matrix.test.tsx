@@ -11,7 +11,6 @@ import {requestEffectiveGeo,requestCommercialGeo} from '@/odds/commercial-geo';
 import {geoProfile,isCoreGeo,type Geo} from '@/config/geo';
 import {accessKeyHash,newOwnerSession,ownerCookie,signOwnerSession} from '@/owner/session';
 import {ownerAction} from '@/owner/server';
-import {previewRouteMismatch} from '@/owner/PreviewControls';
 import {SportsRepository} from '@/sports/repository';
 import type {QueryExecutor} from '@/database/client';
 import {CANONICAL_COMPETITION_TARGETS} from '@/config/footballCompetitions';
@@ -94,7 +93,11 @@ describe('public language × trusted GEO matrix',()=>{
     headers.set('cookie',`${ownerCookie}=${signOwnerSession(session)}`);headers.set('origin','https://livasports.com');
     const locale=defaultLanguage(language,geo),response=await POST(new NextRequest('https://livasports.com/language',{method:'POST',headers,body:new URLSearchParams({locale:language,returnTo:'/en'})}));
     expect(response.headers.get('location')).toBe('https://livasports.com/'+locale);expect(response.headers.get('set-cookie')).not.toContain(ownerCookie);
-    expect(requestEffectiveGeo(headers)).toBe(geo);expect(previewRouteMismatch('/'+locale,session.preview,session.previewGeo)).toBeNull();
+    expect(requestEffectiveGeo(headers)).toBe(geo);
+    for(const route of ['/mx','/co','/pe','/en','/br']){
+      const publicRead=await presentation(new NextRequest('https://livasports.com/api/presentation?path='+route,{headers})).json();
+      expect(publicRead.productGeo).toBe(geo);
+    }
   });
   it('direct country paths and forged owner state cannot change a ROW visitor',async()=>{
     for(const path of ['/mx','/co','/pe','/br']){
