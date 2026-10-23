@@ -1,4 +1,6 @@
 BEGIN;
+SET LOCAL lock_timeout = '5s';
+SET LOCAL statement_timeout = '30s';
 -- Additive and repeatable. Existing newsroom review semantics and prior data are unchanged.
 CREATE TABLE IF NOT EXISTS editorial_automation_control (
   id boolean PRIMARY KEY DEFAULT true CHECK (id),

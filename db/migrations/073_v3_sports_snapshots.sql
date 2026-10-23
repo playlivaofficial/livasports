@@ -1,4 +1,6 @@
 BEGIN;
+SET LOCAL lock_timeout = '5s';
+SET LOCAL statement_timeout = '30s';
 -- Additive storage only. Migration does not ingest data or change existing publications.
 CREATE TABLE IF NOT EXISTS sports_snapshots (
   snapshot_key text PRIMARY KEY CHECK (length(snapshot_key)<=160),

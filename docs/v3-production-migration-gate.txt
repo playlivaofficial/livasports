@@ -1,0 +1,43 @@
+V3 release safety preflight — 2026-10-23
+
+Observed through the authorized existing Vercel project, with a single database
+connection inside BEGIN READ ONLY / ROLLBACK. No production writes or deployment.
+Production is migration 072 and approximately 12 GB. All ten tables introduced by
+073–075 are absent. Existing editorial_news is 155648 bytes; editorial_news_audit
+is 131072 bytes. Neither has an invalid index. Other active transactions: zero at
+inspection, not a guarantee about the later release window.
+
+073 creates three tables and three indexes; 074 creates six tables and three
+indexes, inserts the default PAUSED control, and replaces a constraint only on its
+new automation-runs table; 075 creates one private evidence table and one index.
+No existing user, odds, affiliate or editorial rows are rewritten/deleted. 074's
+news_slug foreign key references existing editorial_news and can briefly lock it.
+Every migration now has transaction-local 5s lock and 30s statement limits.
+Timeout means abort/rollback and investigate; never automatically retry in a loop.
+Initial table/index storage should be small because new tables are empty. Exact
+production duration, WAL and cost have NOT been measured; no numeric guarantee.
+
+REQUIRED BEFORE EXECUTION:
+Verify existing Neon recovery retention, a restore timestamp covering the release,
+and the existing project's supported restore procedure and cost implications.
+Both browser connectors failed; no Neon management credential is configured in
+the project. SQL read access does not prove PITR availability. No 12GB copy or new
+paid branch is authorized. Recovery gate remains BLOCKED pending actual evidence.
+
+After recovery verification: record current READY deployment and main SHA; require
+green changed-head isolated PostgreSQL acceptance (including repeatability/data
+preservation/Owner workflow), final build/auth/GEO checks, and a bounded release
+window. Recheck production schema and contention immediately before applying only
+073–075 through the existing migration workflow. Stop on unexpected schema drift.
+Verify resulting constraints/indexes and default PAUSED state. Do not import local
+QA records, private rejection drafts, local accounting epoch or local credentials.
+
+Stage the validated build in the EXISTING Vercel project without promotion; prove
+Owner/public routes before promotion. Keep AI and retired providers disabled.
+Initial content requires an explicit reviewed, source-attributed allowlist with
+exact source dates; local publication is not evidence of production publication.
+
+Application rollback: restore prior READY deployment, retain additive tables and
+all new publications/audit records, leave automation PAUSED. Do not DROP tables or
+restore the whole database merely to roll back application code. Actual database
+recovery is a separately verified incident procedure and must protect newer data.

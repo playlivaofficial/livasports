@@ -1,4 +1,6 @@
 BEGIN;
+SET LOCAL lock_timeout = '5s';
+SET LOCAL statement_timeout = '30s';
 -- Private, short-lived diagnostic drafts. Never joined by public article queries.
 CREATE TABLE IF NOT EXISTS editorial_generation_evidence (
  run_id uuid NOT NULL REFERENCES editorial_automation_runs(id),
