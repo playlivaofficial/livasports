@@ -1,0 +1,92 @@
+import {load} from 'cheerio';
+import robotsParser from 'robots-parser';
+import {primaryFeedDesks} from './primary-feeds';
+import {canonicalSourceUrl} from './sources';
+import {isDiscoveryArticleUrl,type DiscoveryCandidate} from './discovery';
+import {extractAnnouncement} from './automation/announcements';
+
+const agent='LivaSports-EditorialDiscovery';
+function citationUrl(raw:string){
+ try{
+  const url=new URL(raw);
+  // Strip publisher analytics only, never unknown or credential-bearing query parameters.
+  if([...url.searchParams.keys()].some(key=>!['utm_source','utm_medium','utm_campaign'].includes(key)))return null;
+  url.search='';return canonicalSourceUrl(url.href);
+ }catch{return null;}
+}
+/** Parse only explicit item publication dates. Feed build dates do not make an old story fresh. */
+export function primaryFeedCandidates(xml:string,id:string,now=new Date()):DiscoveryCandidate[]{
+ if(!primaryFeedDesks.some(d=>d.id===id))throw Error('DESK_NOT_ALLOWED');
+ if(Buffer.byteLength(xml)>512000||/<!DOCTYPE|<!ENTITY/i.test(xml))return [];
+ const $=load(xml,{xmlMode:true}),seen=new Set<string>(),out:DiscoveryCandidate[]=[];
+ if($('rss > channel').length!==1)return [];
+ for(const el of $('rss > channel > item').toArray().slice(0,30)){
+  const item=$(el),headline=item.children('title').text().replace(/\s+/g,' ').trim();
+  const url=citationUrl(item.children('link').text().trim());
+  const rawDate=item.children('pubDate').text().trim();
+  // Require an RFC 822 date with timezone, not permissive JS parsing of arbitrary numbers.
+  if(!/^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun), \d{1,2} [A-Z][a-z]{2} \d{4} \d{2}:\d{2}:\d{2} (?:[+-]\d{4}|GMT)$/.test(rawDate))continue;
+  const date=new Date(rawDate);
+  const localDay=Number(rawDate.split(' ')[1]),month=rawDate.split(' ')[2],year=Number(rawDate.split(' ')[3]);
+  const calendar=new Date(`${month} ${localDay}, ${year} 00:00:00 GMT`);
+  if(!Number.isFinite(+calendar)||calendar.getUTCDate()!==localDay||calendar.getUTCFullYear()!==year)continue;
+  if(!Number.isFinite(+date)||+date>+now||+now-+date>7*86400000)continue;
+  if(!url||!isDiscoveryArticleUrl(id,url)||seen.has(url)||headline.length<10||headline.length>160||/[<>\u0000-\u001f{}]/.test(headline))continue;
+  // NBA Communications also carries other leagues. Classification must be explicit.
+  if(id==='nba-releases'&&(!/\bNBA\b/.test(headline)||/\b(?:WNBA|G League|2K|Basketball Africa League)\b/i.test(headline)))continue;
+  // Photo-gallery fixture titles are not independently usable announcements.
+  if(id==='dimayor-releases'&&(/galer[ií]a|fotograf/i.test(item.children('category').text())||headline===headline.toLocaleUpperCase()))continue;
+  seen.add(url);out.push({desk:id,url,headline,sourceDate:date.toISOString().slice(0,10)});
+  if(out.length===3)break;
+ }
+ return out;
+}
+/** Retain normalized facts only. Feed article text exists only transiently in memory. */
+export function primaryFeedAnnouncements(xml:string,id:string,now=new Date()){
+ const candidates=primaryFeedCandidates(xml,id,now);if(!candidates.length)return [];
+ const $=load(xml,{xmlMode:true});
+ return candidates.flatMap(candidate=>{
+  const item=$('rss > channel > item').toArray().find(el=>citationUrl($(el).children('link').text().trim())===candidate.url);
+  if(!item)return [];
+  const raw=$(item).children('content\\:encoded').text()||$(item).children('description').text();
+  const document=load(raw);document('td,th,p,br').append(' ');
+  const body=document.root().text().replace(/\s+/g,' ').trim();
+  const facts=extractAnnouncement(candidate,body,now);return facts?[facts]:[];
+ });
+}
+async function text(url:string,fetcher:typeof fetch,max:number){
+ const r=await fetcher(url,{redirect:'error',signal:AbortSignal.timeout(12000),headers:{'User-Agent':`${agent}/1.0 (+https://livasports.com)`,Accept:'application/rss+xml,application/xml,text/plain;q=0.9'},cache:'no-store'});
+ if(!r.ok)throw Error(`HTTP_${r.status}`);
+ if(!r.body||Number(r.headers.get('content-length')??0)>max)throw Error('SIZE_LIMIT');
+ const reader=r.body.getReader(),parts:Uint8Array[]=[];let bytes=0;
+ try{while(true){const {done,value}=await reader.read();if(done)break;bytes+=value.length;if(bytes>max){await reader.cancel();throw Error('SIZE_LIMIT');}parts.push(value);}}finally{reader.releaseLock();}
+ return Buffer.concat(parts).toString('utf8');
+}
+/** Fixed feed + robots; Cardinals permits one matching award article within a three-read cap.
+ * No pagination, retries, images or publisher prose persisted or sent to the model. */
+export async function collectPrimaryFeed(id:string,fetcher:typeof fetch=fetch,now=new Date()){
+ const desk=primaryFeedDesks.find(d=>d.id===id);if(!desk)throw Error('DESK_NOT_ALLOWED');
+ let requests=0;
+ try{
+  const robotsUrl=new URL('/robots.txt',desk.url).href;requests++;
+  const robots=await text(robotsUrl,fetcher,256000);
+  if(robotsParser(robotsUrl,robots).isAllowed(desk.url,agent)!==true)return {desk:id,requests,status:'ROBOTS_BLOCKED',candidates:[]};
+  requests++;const xml=await text(desk.url,fetcher,512000);
+  const candidates=primaryFeedCandidates(xml,id,now);
+  const announcements=primaryFeedAnnouncements(xml,id,now);
+  if(id==='nfl-cardinals'){
+   const candidate=candidates.find(c=>/ Named NFC Special Teams Player Of The Week(?: After |$)/.test(c.headline));
+   if(candidate){
+    const articleUrl=new URL(new URL(candidate.url).pathname,desk.url).href;
+    if(robotsParser(robotsUrl,robots).isAllowed(articleUrl,agent)!==true)return {desk:id,requests,status:'ROBOTS_BLOCKED',candidates:[]};
+    requests++;
+    const article=load(await text(articleUrl,fetcher,2500000));
+    const matchingHeadline=article('h1').toArray().some(el=>article(el).text().replace(/\s+/g,' ').trim()===candidate.headline);
+    const body=article('article .nfl-c-body-part--text p').toArray().map(el=>article(el).text()).join(' ').replace(/\s+/g,' ').trim();
+    const facts=matchingHeadline?extractAnnouncement(candidate,body,now):null;
+    if(facts&&!announcements.some(f=>f.eventKey===facts.eventKey))announcements.push(facts);
+   }
+  }
+  return {desk:id,requests,status:candidates.length?'CANDIDATES_REQUIRE_REVIEW':'NO_CURRENT_VERIFIED_CANDIDATES',candidates,announcements};
+ }catch(error){return {desk:id,requests,status:error instanceof Error&&/^(HTTP_\d{3}|SIZE_LIMIT)$/.test(error.message)?error.message:'SOURCE_UNAVAILABLE_NO_RETRY',candidates:[]};}
+}

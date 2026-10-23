@@ -1,10 +1,11 @@
 import type {InterfaceLocale} from '@/localization/interface';
 import {leagues} from './leagues';
 import {v2Path} from './routes';
+import {competitionPath} from '@/multisport/catalog';
 export function competitionDisposition(locale:InterfaceLocale,slug:string,tab:string|null){
   if(tab&&tab!=='fixtures')return {status:410 as const,path:null};
   const league=leagues.find(item=>item.id===slug);
-  return league?{status:301 as const,path:v2Path(locale,'leagues',league.id)}:{status:410 as const,path:null};
+  return league?{status:301 as const,path:competitionPath(locale,league.id)}:{status:410 as const,path:null};
 }
 export function retiredHtml(locale:InterfaceLocale){
   const text=locale==='en'?{title:'Live coverage has been retired',body:'LivaSports now focuses on football stories, guides and browser tools. Historical records remain available at their original addresses.',link:'Explore football'}:locale==='br'?{title:'A cobertura ao vivo foi encerrada',body:'A LivaSports agora oferece histórias, guias e ferramentas de futebol. Os registros históricos continuam em seus endereços originais.',link:'Explorar futebol'}:{title:'La cobertura en vivo se ha retirado',body:'LivaSports ahora ofrece historias, guías y herramientas de fútbol. Los registros históricos siguen disponibles en sus direcciones originales.',link:'Explorar fútbol'};

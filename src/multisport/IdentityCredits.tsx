@@ -1,0 +1,7 @@
+import type {InterfaceLocale} from '@/localization/interface';
+import {publicLanguage} from '@/localization/interface';
+import {identityAssets,identityRights} from './identity-assets';
+export function IdentityCredits({locale}:{locale:InterfaceLocale}){
+ const language=publicLanguage(locale);
+ return <section><h3>{{en:'Sports identity credits',es:'Créditos de identidades deportivas',pt:'Créditos de identidades esportivas'}[language]}</h3><p>{{en:'The assets below have public-domain copyright declarations on Wikimedia Commons. Trademarks remain with their owners. Use is limited to independent editorial identification, not endorsement or sponsorship. Other identities remain text-only.',es:'Los siguientes archivos tienen declaraciones de dominio público en Wikimedia Commons. Las marcas siguen perteneciendo a sus titulares. Se utilizan para identificación editorial independiente, no como respaldo o patrocinio. Las demás identidades se muestran como texto.',pt:'Os arquivos abaixo têm declarações de domínio público no Wikimedia Commons. As marcas pertencem aos seus titulares. O uso é limitado à identificação editorial independente, não a endosso ou patrocínio. As demais identidades aparecem em texto.'}[language]}</p><ul>{identityAssets.map(asset=><li key={asset.id}><a href={asset.source} rel="noopener noreferrer">{asset.names[0]} — {asset.author}</a> · PD-textlogo · {identityRights.reviewedOn}</li>)}</ul></section>;
+}

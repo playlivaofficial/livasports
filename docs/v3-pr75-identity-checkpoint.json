@@ -1,0 +1,46 @@
+{
+  "date": "2026-10-22",
+  "scope": "Local-only Draft PR 75 progress; not release acceptance",
+  "identityAssets": {
+    "reviewed": ["Bundesliga wordmark", "Club de Fútbol Cruz Azul crest"],
+    "copyrightEvidence": "Asset-specific Wikimedia Commons PD-textlogo declarations; source links and byte hashes in identity-assets.ts",
+    "trademarks": "Not licensed or claimed; independent editorial identification only, never sponsorship or affiliate artwork",
+    "matching": "Exact competition and reviewed name aliases; unknown identities stay text-only",
+    "surfaces": ["Competition heading", "Homepage competition rail", "Source-backed standings and team lists", "Source-backed matchups"],
+    "coverageLimitation": "Two reviewed assets are not full league/team branding coverage. Cruz Azul requires a genuine corresponding snapshot entity; no fixture or table was fabricated to display it."
+  },
+  "browserQA": {
+    "directory": "output/v3-qa/acceptance-2026-10-22/news-visual-identities",
+    "pages": ["Populated EN homepage", "Published DIMAYOR article", "Bundesliga competition"],
+    "viewports": ["390 Light", "390 Dark", "1440 Light"],
+    "screenshots": 9,
+    "overflow": false,
+    "brokenImages": 0,
+    "runtimeErrors": 0,
+    "providerRequests": 0
+  },
+  "databaseObservation": {
+    "checkedOn": "2026-10-22, before NFL eligibility",
+    "publishedSportsSnapshots": 0,
+    "automationPaused": true,
+    "completedAIRuns": 1,
+    "measuredMicroUsd": 644,
+    "reservedMicroUsd": 20000,
+    "historicalUnavailableMicroUsd": 80000,
+    "newPaidCalls": 0
+  },
+  "nfl": {
+    "dueAt": "2026-10-22T18:01:24.468+04:00",
+    "statusAtCheckpoint": "Waiting, not executed; no publication or audit outcome claimed",
+    "execution": "Existing single authorized local harness; no competing attempt. PAUSED during wait, bounded one-cycle authorization at due time, finally PAUSED and backup."
+  },
+  "remaining": [
+    "NFL real execution, audit and publication evidence after legitimate due time",
+    "Current validated standings publication; existing OpenLiga backoff preserved",
+    "Broader authentic logo rights review",
+    "Operational seven-sport publications and premium content density"
+  ],
+  "productionChanges": false,
+  "localGates": {"vitest":3883,"nodeTests":17,"typecheck":"pass","lint":"pass","productionBuild":"pass","backupTimer":"active; last observed run 2026-10-22 14:18 Tbilisi"},
+  "affiliateActivation": false
+}

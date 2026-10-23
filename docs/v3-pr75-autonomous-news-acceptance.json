@@ -1,0 +1,176 @@
+{
+  "checkedOn": "2026-10-21",
+  "baseline": "9b95b4c2e370cc505fe5906a5daa13992e02cb86",
+  "pr": 75,
+  "draft": true,
+  "status": "PARTIAL_NOT_RELEASE_APPROVED",
+  "environment": "Preserved isolated localhost:3351 PostgreSQL only",
+  "productionWrites": 0,
+  "deployments": 0,
+  "newSubscriptions": 0,
+  "authorization": {
+    "localValidationMaximumUsd": 1,
+    "initialMonthlyModelTargetUsd": 3,
+    "totalAdditionalMonthlyCeilingUsd": 20,
+    "productionActivation": false
+  },
+  "implemented": [
+    "Protected scheduled route with durable six-hour lease and four-run/day gate",
+    "Canonical structured-event deduplication; source changes withdraw public copy and preserve private drafts/history",
+    "Original English generation, separate ES/PT translation and separate model audit through Responses API",
+    "Deterministic source, result, identity, numeric-claim, freshness and publication checks",
+    "Atomic conditional publication with source recheck immediately before commit",
+    "Homepage/news/sport cache invalidation and disclosed machine provenance",
+    "Durable pre-call budget reservations, actual token fields, phase cost estimates, budget alerts, authentication circuit breaker and Owner emergency pause",
+    "6/12-hour transient-failure backoff, three-attempt ceiling, no immediate HTTP retries",
+    "Source-qualified sports identity/context links; no fabricated logos",
+    "Unverified source permissions fail closed even if a source's stored enable flag is changed"
+  ],
+  "actualModelValidation": {
+    "keyAvailable": true,
+    "authenticatedRequests": 5,
+    "tokens": 5486,
+    "spentUsd": 0.001289,
+    "realAiPublications": 1,
+    "translationCost": 0.000256,
+    "perArticleCost": 0.001289,
+    "reason": "Real local canary published after one targeted correction and fresh independent audit; see v3-pr75-ai-publication.json. Credentials remain local process-only."
+  },
+  "automaticSourceScope": {
+    "enabledByPolicy": [
+      "Published, validated OpenLigaDB Bundesliga results no older than seven days"
+    ],
+    "metadataDesks": [
+      "DIMAYOR",
+      "Liga1",
+      "NBA",
+      "MLB",
+      "NFL",
+      "NHL",
+      "WTA",
+      "UFC"
+    ],
+    "metadataScheduledAccess": "DISABLED_PENDING_VERIFIED_PERMISSION",
+    "sevenSportAutonomy": "NOT_COMPLETE",
+    "unsafeCandidates": "Private review only; no automatic images, prose reuse or unsupported claim extraction"
+  },
+  "cadenceAndBudget": {
+    "cronUtc": "43 */6 * * *",
+    "runsPerDayMaximum": 4,
+    "articlesPerRunMaximum": 1,
+    "modelCallsPerArticleMaximum": 5,
+    "sourceRequestsPerRunMaximum": 4,
+    "sourceRequestsPerDayMaximum": 16,
+    "inputBytesPerModelCallMaximum": 18000,
+    "outputTokensPerModelCallMaximum": 2200,
+    "reservedUsdPerRun": 0.02,
+    "dailyHardCapUsd": 0.1,
+    "monthlyHardCapUsd": 3,
+    "validationLifetimeHardCapUsd": 1,
+    "reservationsRefunded": false,
+    "maximum31DayReservationsUsd": 2.48,
+    "provider": "OpenAI Responses API",
+    "candidateModel": "gpt-6-luna",
+    "qualityApproved": "Short attributed result brief passed independent audit; not approval of premium seven-sport reporting",
+    "inputUsdPerMillion": 0.1,
+    "outputUsdPerMillion": 0.5,
+    "pricingSource": "https://developers.openai.com/api/docs/models/gpt-6-luna",
+    "costCaveat": "Token-based estimates are not invoices; cached writes/taxes/hosting are separate. Conservative reservations enforce the cap, including interrupted calls. The full $20 total-cost ceiling still needs deployment-meter verification before activation."
+  },
+  "database": {
+    "migration": "074 + 075 (local only)",
+    "applications": 3,
+    "realPostgresChecks": 21,
+    "syntheticPublications": 1,
+    "realAiPublications": 1,
+    "preservedPublicSchemaRows": {
+      "sports": 3,
+      "news": 15
+    },
+    "rollback": "Pause, disable deployment flags, revert application; keep additive tables, drafts and audit history. No destructive down migration.",
+    "evidence": "output/v3-qa/acceptance-2026-10-21/automation-db.json"
+  },
+  "existingProductCoverage": {
+    "changedThisContinuation": false,
+    "publishedVerifiedDatedCompetitions": 2,
+    "competitions": [
+      "Bundesliga: 18 clubs, 306 fixtures, cutoff 2026-10-18T15:30:00Z, ODbL",
+      "NHL: 32 teams, four divisions, cutoff 2026-10-20, independently checked dated CC BY-SA snapshot"
+    ],
+    "publishedNews": 9,
+    "newsWithSourceDateToday": 1,
+    "newsWithSourceDateOctober20or21": 4,
+    "allSevenSportsHaveAnExistingReviewedBrief": true,
+    "currentTablesForAllRequiredCompetitions": false,
+    "priorityBlockers": "See docs/v3-pr75-product-gains.json; conflicts and licensing/access blockers unchanged, not reclassified as operational coverage."
+  },
+  "additionalSourceAudit": [
+    {
+      "source": "OpenLigaDB",
+      "status": "ODbL structured data permitted; logo rights excluded",
+      "url": "https://www.openligadb.de/Privacy"
+    },
+    {
+      "source": "NBA",
+      "status": "No blanket automated commercial feed or logo reuse authorization established",
+      "url": "https://api-hub.nba.com/termsofuse"
+    },
+    {
+      "source": "Reuters",
+      "status": "Licensed sports content; quote/permission required, not purchased",
+      "url": "https://reutersagency.com/content/coverage-expertise/sports"
+    },
+    {
+      "source": "BBC",
+      "status": "Business RSS/metadata use may need permission; not enabled",
+      "url": "https://downloads.bbc.co.uk/usingthebbc/bbc_terms_of_use_31March2022english.pdf"
+    },
+    {
+      "source": "Wikinews",
+      "status": "Post-2024 text CC BY 4.0; one bounded live category request returned 10 entries with no verified current October sports story. Not a guaranteed daily sports feed; not enabled.",
+      "url": "https://en.wikinews.org/wiki/Wikinews:Copyright",
+      "liveReadRequests": 1
+    }
+  ],
+  "gates": {
+    "fullTests": 3832,
+    "nodeTests": 17,
+    "vitestTests": 3815,
+    "vitestFiles": 342,
+    "typecheck": "PASS",
+    "lint": "PASS",
+    "build": "PASS",
+    "secretScan": "PASS",
+    "seoRequests": 271,
+    "seoFindings": 0,
+    "providerRequestsByCrawler": 0,
+    "latestDiffRecheck": "PASS: final local full-suite/build/typecheck/lint/secret/SEO rerun; hosted CI pending push"
+  },
+  "browserAcceptance": {
+    "localOnly": true,
+    "ownerEmergencyPauseResumePause": "PASS; restored paused state",
+    "publicOwnerSession": "Signed out after controlled test",
+    "mobileWidth": 390,
+    "desktopWidth": 1440,
+    "horizontalOverflowPx": 0,
+    "themes": ["light", "dark"],
+    "publicGeoSelector": false,
+    "screenshots": [
+      "output/v3-qa/acceptance-2026-10-21/automation-owner-paused.jpg",
+      "output/v3-qa/acceptance-2026-10-21/automation-mobile-light.jpg",
+      "output/v3-qa/acceptance-2026-10-21/automation-mobile-dark.jpg",
+      "output/v3-qa/acceptance-2026-10-21/automation-desktop-light.jpg"
+    ],
+    "liveAiStoryVisible": true,
+    "ownerVisualApproval": "PENDING"
+  },
+  "remainingReleaseBlockers": [
+    "First real local source-to-homepage canary achieved; second source and repeated unattended operation remain unproven",
+    "Editorial quality review of real model output and subsequent real publication cycle; model-only validation is risk reduction, not independent fact confirmation",
+    "Approved sustainable automatic source coverage beyond Bundesliga; LATAM and other priority data conflicts remain",
+    "Authentic licensed identity/photo library remains limited; text labels are not branded logo coverage",
+    "Hosted Preview isolation at zero additional database cost remains unavailable",
+    "Owner visual/product-scope acceptance and explicit authorization for migration/deployment/Production API activation",
+    "Existing Vercel/Neon meters must substantiate the <=$20 total additional monthly ceiling; the AI budget alone cannot guarantee infrastructure billing"
+  ]
+}

@@ -1,9 +1,19 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "crons": [],
+  "crons": [
+    {
+      "path": "/api/internal/editorial/sports-refresh",
+      "schedule": "17 7 * * *"
+    },
+    {
+      "path": "/api/internal/editorial/news-cycle",
+      "schedule": "43 */6 * * *"
+    }
+  ],
   "git": {
     "deploymentEnabled": {
-      "codex/g1-betsson-br-visual-refresh": false
+      "codex/g1-betsson-br-visual-refresh": false,
+      "codex/v3-multisport-editorial": false
     }
   }
 }

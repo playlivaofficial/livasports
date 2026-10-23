@@ -1,0 +1,15 @@
+V3 PRODUCT CORRECTION — DRAFT, LOCAL ONLY
+
+Implemented: compact seven-sport navigation; isolated V3 notice; editorial lead with licensed archive-photo disclaimer; compact competition cards; exact reviewed club identity in article headers; populated local dated Bundesliga table.
+
+Identity inventory: Bundesliga, LaLiga, Ligue 1, Peru Liga 1, EuroLeague and UFC. Club assets: Cruz Azul, Borussia Dortmund, Schalke, Hamburg, América de Cali wordmark (not crest). Asset-specific source URLs and byte hashes are pinned in identity-assets.ts. PD-textlogo copyright declarations do not grant trademark endorsement rights. No fictional substitute crests.
+
+Rights pending / not represented by official artwork: Liga MX, BetPlay, Premier League, Serie A, Champions League, Europa League, Conference League, Libertadores, Sudamericana, NBA, MLB, NFL, NHL, ATP and WTA. Generic sport glyphs are deliberately distinguishable from official identities. Cheapest remedy: a verifiable reusable original or rights-holder permission; no paid subscription authorized.
+
+Published local sports data: Bundesliga 2026, 18 teams, source cutoff 2026-10-18T15:30:00Z, retrieved 2026-10-21T06:14:26.974Z. All totals reconciled against 54 completed fixtures in the retained OpenLiga source (306 total fixtures). Explicitly stale, not live. Create/review/publish audit and pre/post backups verified. Other competition routes are not claimed as published verified datasets.
+
+News: preserve the genuine DIMAYOR EN/ES/PT article. No unarchiving of Owner QA stories to manufacture density. No new NBA/NFL publication claimed. NFL run retains legitimate due time; no duplicate model calls. Local review work uses zero additional paid AI requests.
+
+Review artifacts (ignored local output): output/v3-qa/acceptance-2026-10-22/product-correction/review.html, evidence.json and 390/1440 Light/Dark screenshots. Retained table audit: dated-table-publication.json. These contain public rendered output, not private rejected drafts or credentials.
+
+Release blockers: insufficient current seven-sport content, live LATAM data, incomplete identity-rights coverage and Owner visual acceptance. Production unchanged; PR #75 must remain Draft. This increment is not completion of the full product-quality brief.

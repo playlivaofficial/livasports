@@ -1,0 +1,53 @@
+{
+  "checkedAt": "2026-10-21T11:02:37.956Z",
+  "scope": "Isolated local PostgreSQL and localhost:3351 only; not production",
+  "pr": 75,
+  "draft": true,
+  "automationPaused": true,
+  "migration075": "Additive, repeatable; local PostgreSQL acceptance passed; no production application",
+  "article": "result-b1056fe213913e7f23de5b4c",
+  "urls": [
+    "http://localhost:3351/en/news/result-b1056fe213913e7f23de5b4c",
+    "http://localhost:3351/mx/noticias/result-b1056fe213913e7f23de5b4c",
+    "http://localhost:3351/br/noticias/result-b1056fe213913e7f23de5b4c"
+  ],
+  "source": "Verified stored OpenLigaDB Bundesliga snapshot, source cutoff 2026-10-18; no additional external source requests",
+  "checks": {
+    "threeRoutesHttp200": true,
+    "threeHomepageLinks": true,
+    "sourceAttribution": true,
+    "teamIdentityAndCompetitionLinks": true,
+    "independentFinalAudit": {"grounded": true, "translations": true, "original": true, "quality": true, "issues": []},
+    "initialAudit": "Facts, translations and originality passed; three body fields flagged FORMAT for short length",
+    "correction": "Only en.body/es.body/pt.body; one correction and one new independent audit",
+    "deterministicErrors": [],
+    "immediateRerun": "not-due; zero additional model calls and zero publication",
+    "publicationAuditEntries": 1,
+    "anonymousPrivateEvidenceStatus": 401,
+    "ownerPrivateEvidenceStatus": 200,
+    "privateEvidenceRetentionDays": 7,
+    "oldDiscardedDraftRecoverable": false
+  },
+  "usage": {
+    "model": "gpt-6-luna",
+    "calls": 5,
+    "inputTokens": 3643,
+    "outputTokens": 1843,
+    "microUsd": 1289,
+    "stages": {
+      "original": {"inputTokens": 413, "outputTokens": 108, "microUsd": 96},
+      "translation": {"inputTokens": 523, "outputTokens": 406, "microUsd": 256},
+      "audit": {"inputTokens": 946, "outputTokens": 549, "microUsd": 370},
+      "correction": {"inputTokens": 776, "outputTokens": 561, "microUsd": 359},
+      "reaudit": {"inputTokens": 985, "outputTokens": 219, "microUsd": 208}
+    },
+    "lifetimeRecordedMicroUsd": 2058,
+    "lifetimeReservedMicroUsd": 60000,
+    "validationCapMicroUsd": 1000000,
+    "note": "Token-based configured-rate estimates, not provider invoices; unknown calls retain reservations"
+  },
+  "gates": {"vitest": 3815, "node": 17, "isolatedPostgres": 21, "lint": "PASS", "typecheck": "PASS", "build": "PASS", "secretScan": "PASS"},
+  "sevenSportAutonomy": "NOT_COMPLETE",
+  "privateDraftsIncluded": false,
+  "productionChanges": 0
+}

@@ -1,0 +1,64 @@
+NFL editorial failure repair / PR 75 Draft / local only
+
+Observed retained evidence, NOT reconstructed response:
+- Audit targets en.body, es.body, pt.body; flags grounded/translations/original true,
+  quality false. English FORMAT reason simultaneously described compliant wording.
+- Actual retained body lengths EN 96 / ES 116 / PT 107 characters. All three contain
+  the exact Arizona Cardinals source name. The audit's counts and missing-name claims
+  were inconsistent with the retained text. Existing deterministic checks passed.
+- Original correction response was NOT retained. The exact old failing branch cannot
+  be recovered. Old schema allowed empty arrays, duplicate targets and all nine fields,
+  while runtime rejected empty/duplicate/untargeted corrections. This mismatch is fixed,
+  not falsely presented as proof of which malformed output the model returned.
+
+Implemented:
+- Required keyed correction object scoped to exactly the authorized fields; no array or
+  outside edits. Per-field length/type validation and allowlisted code/field diagnostics.
+- Diagnostics and targets visible only in the authenticated private evidence viewer.
+- Explicit concise-announcement rubric: characters, not word minimums; attribution vs
+  FORMAT distinguished; compliant fields cannot be reported as failures.
+- Contradictory announcement FORMAT findings receive ONE independent re-audit with
+  measured lengths/source-presence checks. No automatic dismissal or self-approval.
+  If it still fails, keep private. Grounding/originality failure does not use this path.
+- Ordinary targeted corrections still require deterministic validation and independent
+  re-audit. Five-call ceiling, existing model, prices, budgets and pause unchanged.
+- Deterministic headline/summary limits now match the stated 10–160 / 30–500 contract.
+
+Evidence:
+- Real private draft replayed in memory with a network-free test adapter. Repeated
+  contradictory audit remains rejected; no database publication or ledger mutation.
+- Synthetic regression cases cover passing concise copy, conflicting audit, repeat
+  rejection, grounding failure, target/schema violations, private diagnostics and limits.
+- 3928 Vitest + 17 Node checks passed. Typecheck/lint/build/SEO audit/secret scan passed.
+- ES/EN/PT homepage, actual DIMAYOR article, Colombia and NFL pages captured at 390px
+  Light/Dark; desktop homepage captured in both themes. No overflow/broken images or
+  JS exceptions, provider requests 0. One local /api/events 503 remains: isolated DB has
+  no analytics tables. Not claimed as an error-free production-equivalent analytics test.
+- Rejected NFL slug announcement-5f37cb99b94aed894e27c050 returns 404 in all three languages.
+- Source name is now explicit in article bylines; mobile standings expose horizontal
+  navigation guidance and keyboard focus. Colombia snapshot exactly matches its retained
+  reviewed payload, cutoff 2026-10-21, 20 clubs; review/publish audit history untouched.
+
+Retry assessment on October 23:
+- Stored October 21 facts remain within seven days. Cadence elapsed at October 23
+  00:01:25.987 Tbilisi. Event is in REVIEW after one attempt, no news_slug/publication.
+- Owner authorized one explicit source re-review and one bounded local validation:
+  at most five model calls, $0.02 reservation within the existing lifetime ceiling,
+  no automatic retry, restore PAUSED. Authorization has NOT been consumed.
+- Preflight at 12:43 Tbilisi found the Cardinals source next_allowed_at is October 23
+  18:01:25.987 Tbilisi. The model-run interval has elapsed, but source polling is not due.
+  No source request, paid call, clock change or REVIEW-to-pending transition was made.
+  Fresh source verification and normal eligibility checks are still required after that
+  time; authorization is not permission to bypass cadence or force publication.
+- New paid calls this work: 0. Existing NFL cost remains $0.000603 (2709 input/661 output).
+- Rebuilt ledger measured $0.001247 total; $0.04 reservations plus historical $0.08 deduction
+  leave $0.88 conservative validation headroom. Historical reported $0.003950 is separate,
+  not recovered transactions. $3 monthly cap unchanged. Newsroom remains PAUSED.
+
+Local screenshots: output/v3-qa/acceptance-2026-10-23/nfl-editorial/
+Offline proof: node --require ./scripts/tsx-windows-preload.cjs --import tsx scripts/v3-nfl-offline-review.ts
+No NFL publication claimed. Remaining product gaps: verified multi-sport article volume,
+rights-cleared event imagery, incomplete team art and datasets beyond the published tables.
+Production unchanged; affiliates inactive; no new schedule or follow-up created.
+
+Schema reference used: https://developers.openai.com/api/docs/guides/structured-outputs

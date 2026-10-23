@@ -1,6 +1,8 @@
 import 'server-only';
+import {connection} from 'next/server';
 import {unstable_cache} from 'next/cache';
 import {databaseUrl,PostgresDatabaseClient} from '@/database/client';
+import {localDataPreviewEnabled} from '@/multisport/local-preview';
 import {NewsRepository} from './repository';
 import {previewNews} from './seed';
 
@@ -10,12 +12,13 @@ export async function withNewsRepository<T>(work:(repo:NewsRepository)=>Promise<
   const db=new PostgresDatabaseClient(url,undefined,{statementTimeoutMs:5000});
   try{return await work(new NewsRepository(db));}finally{await db.close();}
 }
-function localPreview(){return !databaseUrl()&&process.env.VERCEL_ENV!=='production';}
-// Local/CI fixtures are the same source-reviewed release collection. Production never
-// substitutes seed content for the database or resurrects an archived publication.
+// Only explicitly opted-in, unhosted development may show the existing preview collection.
+// Missing storage is honestly empty elsewhere; configured storage failures never fall back.
 const cachedNews=unstable_cache(()=>withNewsRepository(repo=>repo.listPublished()),['editorial-published-v1'],{tags:[newsCacheTag],revalidate:3600});
 const cachedStory=unstable_cache((slug:string)=>withNewsRepository(repo=>repo.findPublished(slug)),['editorial-story-v1'],{tags:[newsCacheTag],revalidate:3600});
 const cachedSitemap=unstable_cache(()=>withNewsRepository(repo=>repo.sitemap()),['editorial-sitemap-v1'],{tags:[newsCacheTag],revalidate:3600});
-export async function publishedNews(){return localPreview()?previewNews:cachedNews();}
-export async function publishedStory(slug:string){return localPreview()?previewNews.find(item=>item.slug===slug)??null:cachedStory(slug);}
-export async function publishedSitemap(){return localPreview()?previewNews:cachedSitemap();}
+// Resolve hosted storage at request time, not into an empty build-time HTML shell.
+// Explicit tagged data caches still bound database reads and publication invalidation.
+export async function publishedNews(){await connection();return databaseUrl()?cachedNews():localDataPreviewEnabled()?previewNews:[];}
+export async function publishedStory(slug:string){await connection();return databaseUrl()?cachedStory(slug):localDataPreviewEnabled()?previewNews.find(item=>item.slug===slug)??null:null;}
+export async function publishedSitemap(){await connection();return databaseUrl()?cachedSitemap():localDataPreviewEnabled()?previewNews:[];}

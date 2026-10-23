@@ -1,0 +1,65 @@
+{
+  "checkedAt": "2026-10-21T13:17:34Z",
+  "scope": "Draft PR 75; isolated localhost:3351 and PostgreSQL only; no Production changes",
+  "outcome": "NBA announcement published automatically after model audit; DIMAYOR kept private after final quality rejection",
+  "publication": {
+    "slug": "announcement-cb2638604db678ed2458146b",
+    "urls": ["http://localhost:3351/en/news/announcement-cb2638604db678ed2458146b", "http://localhost:3351/mx/noticias/announcement-cb2638604db678ed2458146b", "http://localhost:3351/br/noticias/announcement-cb2638604db678ed2458146b"],
+    "facts": {"competition":"NBA","eventType":"roster-announcement","season":"2026-27","scope":"opening-night","internationalPlayers":125,"countries":43,"continents":6},
+    "source": "https://pr.nba.com/international-players-2026-27-nba-rosters",
+    "sourcePublishedOn": "2026-10-20",
+    "verification": "Publisher-advertised RSS headline and body corroboration plus bounded primary-page inspection; no publisher prose retained or supplied to the model",
+    "audit": {"grounded":true,"translations":true,"original":true,"quality":true,"issues":[]},
+    "checks": {"threeRoutesHttp200":true,"threeHomepageLinks":true,"nbaCompetitionLink":true,"sourceAttribution":true,"mobile390LightDarkOverflow":false,"privateEvidenceAnonymousStatus":401},
+    "identity": "NBA competition link only. Aggregate announcement has no individual team/player claims; no fabricated franchise associations or crests.",
+    "usage": {"calls":5,"inputTokens":3564,"outputTokens":1148,"microUsd":933,"translationMicroUsd":150}
+  },
+  "dimayor": {
+    "source": "https://dimayor.com.co/2026/10/20/designaciones-arbitrales-barranquilla-fc-vs-america-de-cali-copa-betplay-dimayor-2026",
+    "facts": {"competition":"Copa BetPlay","eventType":"referee appointment","participants":["Barranquilla FC","América de Cali"],"stage":"quarter-final","referee":"Jairo Mayorga"},
+    "decision": "Eligible facts; generated article requires editorial review and remains private",
+    "finalAudit": {"grounded":true,"translations":true,"original":true,"quality":false,"reason":"Repetition in all three body fields after the single bounded correction"},
+    "diagnosis": "Initial auditor incorrectly interpreted the body character minimum as a word minimum. Correction added repetition, which the final independent audit rejected. Rubric now explicitly says CHARACTERS, NOT words, no word minimum, no padding. That prompt fix has not received a further real model canary.",
+    "usage": {"calls":5,"inputTokens":3946,"outputTokens":1125,"microUsd":959,"translationMicroUsd":192},
+    "publications":0,
+    "privateDraftsIncludedInRepository":false
+  },
+  "sixCandidateDecisions": [
+    {"item":"NBA international opening-night roster summary","decision":"Eligible for factual auto-publication","result":"Published in EN/ES/PT"},
+    {"item":"NBA new digital experiences","decision":"Editorial review required","reason":"Product feature/availability claims need a bounded feature contract and region/platform qualifications; marketing language must not become verified sporting fact."},
+    {"item":"Trae Young NBA Cares offseason award","decision":"Requires additional verification","reason":"Primary headline and page identify recipient and award. An award-specific extractor, period/team corroboration and audited publication are not yet operational; do not treat it as a game result."},
+    {"item":"DIMAYOR Barranquilla–América referee appointments","decision":"Eligible for factual auto-publication","result":"Facts accepted; prose rejected for repetition. Private editorial review required, no more calls this batch."},
+    {"item":"DIMAYOR postponed matchday 9 referee appointments","decision":"Outdated or duplicate","reason":"Existing local published Llaneros–Cali story research-dimayor-46651e96 already cites this exact source. Preserved; not republished."},
+    {"item":"DIMAYOR Colombian Libertadores Femenina history","decision":"Editorial review required","reason":"Historical retrospective, not a new Primera A result or low-ambiguity event. Requires historical result verification and appropriate women's competition classification."}
+  ],
+  "contracts": {
+    "common": "Mandatory primary identity, clean canonical URL, source publication date, observedAt, sport, competition, source-specific corroboration and facts hash. Current within seven days. Unknown source/type adapters fail closed. No quotes, images, article copying, invented context or statistical database reuse.",
+    "league-announcement": "Authority, action and subject; only that confirmed action may be asserted; source adapter still required.",
+    "competition-decision": "Authority, decision and effective date; no inferred reasons or effects; source adapter still required.",
+    "fixture-announcement": "Two distinct participants, stage, action and named referee for current adapter; no score, date or venue inference.",
+    "draw": "Stage and exact confirmed pairings; no invented bracket path or fixtures; source adapter still required.",
+    "schedule-change": "Participants, old/new start and timezone; contradictory times block; source adapter still required.",
+    "ranking": "Named ranking, effective date and named ranked entries; no proprietary ranking feed permission inferred; source adapter still required.",
+    "roster-announcement": "Explicit season, opening-night scope and reconciled aggregate player/country/continent counts; no individual affiliations inferred.",
+    "award": "Recipient, award and period; no unsupported achievements, donation amounts or team affiliation; source adapter still required."
+  },
+  "safety": {
+    "rawMetadataAutoEligible":false,"automaticAccessIsNotSyndicationPermission":true,"photosAndLogosReused":false,
+    "maxModelCallsPerArticle":5,"lifetimeValidationCapUsd":1,"monthlyCapUsd":3,
+    "batchCalls":10,"batchInputTokens":7510,"batchOutputTokens":2273,"batchMeasuredUsd":0.001892,
+    "lifetimeRecordedUsd":0.003950,"lifetimeConservativelyReservedUsd":0.08,
+    "batchReservationUsd":0.02,"batchInputByteCeilingPerCall":8000,
+    "execution":"One explicitly Owner-authorized local batch, not evidence of unattended daily operation. Daily run/request/cost ceilings retained. Earlier preflight failures made no model calls. One approved NBA draft reused after JSONB hash-order bug fix, without regeneration. Reservations were not refunded or erased.",
+    "pausedAfterValidation":true,"productionModelCalls":0,"newSubscriptions":0,"temporaryCanaryRouteRemoved":true,
+    "deduplication":"Isolated PostgreSQL repeated observation unchanged, second publication rejected. NBA public record appears once. Existing private metadata placeholders preserved; edited/reviewed/archived Owner drafts still block publication.",
+    "corrections":"Changed source facts withdraw the public claim and quarantine revision; history retained."
+  },
+  "gates": {"vitest":3853,"node":17,"isolatedDatabaseChecks":26,"typecheck":"PASS","lint":"PASS","secretScan":"PASS","productionBuild":"PASS","hostedCI":"Check final commit run"},
+  "remaining": [
+    "DIMAYOR has no new AI publication. Its retained private draft and rejection evidence remain inspectable for seven days; a future bounded run must independently validate the clarified rubric.",
+    "No demonstrated autonomous publications for MLB, NFL, NHL, UFC, tennis or EuroLeague in this change. Typed contracts do not equal operational source coverage.",
+    "No repeated unattended daily publication claim. Existing scheduler integration is tested, but live batch was Owner-directed and local automation is paused.",
+    "Broader primary-source adapters and reuse/access reviews remain necessary; restricted sources are not bypassed.",
+    "Source verification and model audits reduce risk; they do not guarantee factual perfection, copyright clearance or platform approval."
+  ]
+}

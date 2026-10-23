@@ -13,7 +13,8 @@ import {competitionHubSchema,siteSchema} from './structured-data';
 import {robotsForEnvironment} from '@/app/robots';
 import {validateSitemapUrls,sitemapEntriesXml,sitemapIndexXml,sitemapXmlProblems} from '@/sports/sitemap';
 import {competitionPath,competitionTabs,resolveDefaultSeason} from '@/sports/policy';
-import {translatedPath} from '@/localization/interface';
+import {interfaceLocales,interfaceRoutes,translatedPath} from '@/localization/interface';
+import {sportsPath} from '@/multisport/catalog';
 import {myMatchesMetadata} from '@/favorites/pages';
 import {authPageMetadata} from '@/auth/pages';
 import {documentMetadata} from '@/localization/DocumentPage';
@@ -90,11 +91,13 @@ describe('P2 route policy',()=>{
 describe('P2 unknown competition identity',()=>{
   it('answers a real 404 at the proxy for slugs outside the registry and passes retired registry tabs with 410',async()=>{
     const {NextRequest}=await import('next/server');const {proxy}=await import('@/proxy');
-    for(const [locale,path] of [['br','/br/futebol'],['mx','/mx/futbol'],['en','/en/football']] as const){
+    for(const locale of interfaceLocales){
+      const path=interfaceRoutes[locale].football;
       const missing=await proxy(new NextRequest(`https://livasports.com${path}?competition=not-a-league`));
       expect(missing.status).toBe(404);expect(await missing.text()).toContain('noindex');expect(missing.headers.get('content-type')).toContain('text/html');
       expect((await proxy(new NextRequest(`https://livasports.com${path}?competition=${slugs[0]}&tab=results`))).status).toBe(410);
-      expect((await proxy(new NextRequest(`https://livasports.com${path}?date=2026-09-17`))).status).toBe(200);
+      const hub=await proxy(new NextRequest(`https://livasports.com${path}?date=2026-09-17`));
+      expect(hub.status).toBe(308);expect(hub.headers.get('location')).toBe('https://livasports.com'+sportsPath(locale,'football'));
       expect((await proxy(new NextRequest(`https://livasports.com/${locale}?competition=not-a-league`))).status).toBe(200);
     }
   });

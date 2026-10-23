@@ -1,0 +1,49 @@
+LivaSports V3 focused experience — local acceptance evidence, 22 October 2026
+
+Base: 769997e9fdc6608181a7aa78536e618022adb008. PR #75 remains Draft.
+No Production changes, migrations, new model requests or scheduler changes.
+
+Visible implementation:
+- Homepage: licensed Cali archive photograph with explicit non-event disclosure,
+  compact editorial hierarchy, real single lead without duplicate story panels.
+- Bundesliga: points visible on mobile, dated 18-team table, source-backed notebook
+  (54 completed fixtures, 199 goals), latest recorded results and linked identities.
+  Data cutoff remains October 18 at 15:30 UTC; explicitly not a current/live table.
+  Full fixture list is expandable, not hundreds of unavoidable rows.
+- Real DIMAYOR article: América de Cali wordmark, competition link, licensed Cali
+  context photograph and original evergreen reading links. No new sporting claims.
+- Bayern and Mainz genuine artwork added to exact-name registry. 13 asset records
+  total; missing artwork stays a plain fallback, never an invented crest.
+- Cali photo: Dh (DAVIDHC0520), 10 October 2023, CC BY-SA 4.0; attribution, source,
+  derivative license and resize/crop disclosure shipped with responsive WebPs.
+  Commons copyright declarations do not grant trademark/sponsorship permission.
+
+Observed checks:
+- 3,889 Vitest tests passed in full run; 5 added archive-context tests passed separately.
+- 17 Node tests passed. Typecheck, lint, production build, secret scan passed.
+- 20 actual local viewport captures: homepage, article and Bundesliga, 390/1440,
+  Light/Dark, including scrolled detail. Zero overflow, broken images, runtime
+  errors and retired-provider requests. Full-page captures also retained.
+- Side-by-side reference review: output/v3-qa/acceptance-2026-10-22/focused-experience/review.html
+- Local pages: /en, /en/sports/football/bundesliga,
+  /en/news/announcement-7d5e8ce810e3fb0372ae7765 on localhost:3351.
+
+Source reconciliation:
+- Colombia Finalización: 20 rows / 180 numeric fields match community and DIMAYOR
+  at the retained October 21 data cutoff; name aliases checked explicitly.
+  Aggregate goals 364 for and against; row identities/arithmetic checked.
+  No table published: revision-bound approved importer/provenance and normal
+  review still required. This comparison does not enable automatic publication.
+- Mexico remains conflicted (including América and Guadalajara); no publication.
+- Peru was not cleared by this work; no claim of verified live coverage.
+
+NFL at 16:54 Tbilisi: existing single harness waiting, 404 real elapsed checks,
+PAUSED, due 18:01:24.468. No early or competing attempt. A later result must be
+read from its timestamped report and database; this file does not claim execution.
+
+Remaining visible/product gaps:
+Only one actual published news story; no new publication claimed. The reference
+has substantially more editorial content and action photography. Many LATAM/UEFA
+identities remain unapproved. Bundesliga is useful dated data, not live coverage.
+No claim of Owner acceptance or seven-sport completeness. Hosted CI status must
+be read against the resulting commit, not inferred from these local gates.

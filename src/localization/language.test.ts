@@ -1,11 +1,13 @@
 import {afterEach,describe,expect,it,vi} from 'vitest';
 import {readFileSync} from 'node:fs';
 import {NextRequest} from 'next/server';
-import {defaultLanguage,interfaceRoutes,languageCookie,translatedPath,languageAlternates} from './interface';
+import {unstable_doesMiddlewareMatch as unstable_doesProxyMatch} from 'next/experimental/testing/server';
+import {defaultLanguage,interfaceLocales,interfaceRoutes,languageCookie,translatedPath,languageAlternates} from './interface';
 import {englishSportsData} from './sports-copy';
 import {routeMetadata} from '@/config/metadata';
 import {POST} from '@/app/language/route';
-import {proxy} from '@/proxy';
+import {config,proxy} from '@/proxy';
+import {sportsPath} from '@/multisport/catalog';
 import {FOOTBALL_COMPETITION_TARGETS} from '@/config/footballCompetitions';
 
 afterEach(()=>vi.unstubAllEnvs());
@@ -23,11 +25,23 @@ describe('interface language defaults and commercial isolation',()=>{
     vi.stubEnv('VERCEL','1');const result=await proxy(new NextRequest('https://livasports.com/',{headers:{'x-vercel-ip-country':'BR',cookie:`${languageCookie}=mx`}}));
     expect(result.headers.get('location')).toBe('https://livasports.com/mx');
   });
-  it('explicit URLs win and forwarding never rewrites commercial GEO',async()=>{
+  it('explicit legacy language wins over GEO/cookies when redirecting to its canonical sports URL',async()=>{
     const response=await proxy(new NextRequest('https://livasports.com/en/football',{headers:{'x-vercel-ip-country':'BR','x-livasports-interface-language':'mx',cookie:`${languageCookie}=br`}}));
-    expect(response.headers.get('x-middleware-request-x-livasports-interface-language')).toBe('en');
-    expect(response.headers.get('x-middleware-request-x-vercel-ip-country')).toBe('BR');
+    expect(response.status).toBe(308);expect(response.headers.get('location')).toBe('https://livasports.com/en/sports/football');
+    expect(response.headers.has('x-middleware-request-x-livasports-interface-language')).toBe(false);
+    expect(response.headers.has('x-middleware-request-x-vercel-ip-country')).toBe(false);
     expect(response.headers.has('set-cookie')).toBe(false);
+  });
+  it.each(interfaceLocales)('canonical %s sports routes bypass proxy and its fallback forwarding never rewrites commercial GEO',async locale=>{
+    const url='https://livasports.com'+sportsPath(locale,'football');
+    expect(unstable_doesProxyMatch({config,nextConfig:{},url})).toBe(false);
+    // Exercise forwarding directly as a unit boundary; the real matcher skips these cached routes.
+    const request=new NextRequest(url,{headers:{'x-vercel-ip-country':'BR','x-livasports-interface-language':'mx',cookie:`${languageCookie}=br`}});
+    const response=await proxy(request);
+    expect(response.status).toBe(200);expect(response.headers.has('location')).toBe(false);
+    expect(response.headers.get('x-middleware-request-x-livasports-interface-language')).toBe(locale);
+    expect(response.headers.get('x-middleware-request-x-vercel-ip-country')).toBe('BR');
+    expect(request.headers.get('x-vercel-ip-country')).toBe('BR');expect(response.headers.has('set-cookie')).toBe(false);
   });
   it('English listing keeps the Odds column and does not treat /en as commercial GEO',()=>{
     const source=readFileSync(new URL('../components/sports/SportsBoardPage.tsx',import.meta.url),'utf8');

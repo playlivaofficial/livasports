@@ -1,0 +1,70 @@
+{
+  "date": "2026-10-22",
+  "productionChanged": false,
+  "prMustRemainDraft": true,
+  "localDatabase": {
+    "dataDirectory": "/home/nika1578/.local/share/livasports-pr75/data",
+    "socketDirectory": "/home/nika1578/.local/share/livasports-pr75/socket",
+    "port": 55475,
+    "database": "livasports_v3_qa",
+    "migrations": ["021", "072", "073", "074", "075"],
+    "oldPublicationsRecovered": false,
+    "wslStopRestartPersistence": "PASS",
+    "backupDirectory": "/home/nika1578/.local/share/livasports-pr75/backups",
+    "automaticBackup": "Local systemd timer: two minutes after WSL boot, then hourly while WSL runs; no cloud resource",
+    "retention": "Keep all complete dumps for 14 days and at least the newest seven; mode 0700 directories / 0600 dump files",
+    "restoreVerification": "Actual custom-format pg_dump restored into a new isolated database. New article, 4 private evidence checkpoints, tokens, usage, reservation and PAUSED state verified.",
+    "backupAfterPublication": "20261022T080447-1144.dump",
+    "restoreDatabase": "livasports_restore_20261022080447",
+    "maintenance": {
+      "start": "wsl.exe -d Ubuntu -- bash scripts/v3-local-postgres.sh start",
+      "backup": "wsl.exe -d Ubuntu -- bash scripts/v3-local-postgres.sh backup",
+      "restoreProof": "wsl.exe -d Ubuntu -- bash scripts/v3-local-postgres.sh verify-restore",
+      "restoreSafety": "Run from the PR worktree. Restore creates a new isolated database, never overwrites an existing one, and forces PAUSED. Do not switch runtime to an older dump without reconciling newer reservations; never restore into Production."
+    }
+  },
+  "accounting": {
+    "epoch": "local-rebuild-2026-10-22",
+    "historicalMeasuredUsd": 0.003950,
+    "historicalEvidence": "Reported prior evidence, NOT recovered database transactions",
+    "historicalReservationsUnavailableUsd": 0.08,
+    "newEpochReservationUsd": 0.02,
+    "remainingAuthorizationAfterReservationUsd": 0.90,
+    "newEpochMeasuredUsd": 0.000644,
+    "monthlyApplicationCapUsd": 3,
+    "lifetimeAuthorizationUsd": 1,
+    "hardStopTest": "Rolled-back synthetic test accepted $0.92 of new reservations and rejected the next reservation; original $0.08 remained unavailable.",
+    "credentials": "Ignored local environment file, presence verified inside actual process; no values in reports, Git or backups"
+  },
+  "dimayor": {
+    "source": "https://dimayor.com.co/2026/10/21/america-de-cali-clasificado-a-las-semifinales-de-la-copa-betplay-dimayor-2026",
+    "sourceFeedDate": "2026-10-22",
+    "urlDateIsNotMatchDate": true,
+    "slug": "announcement-7d5e8ce810e3fb0372ae7765",
+    "verifiedFacts": ["América de Cali", "Copa BetPlay DIMAYOR", "2026 edition", "semifinal qualification"],
+    "excludedClaims": ["score", "opponent", "venue", "match date"],
+    "status": "VALIDATED and locally published",
+    "audit": {"grounded": true, "translations": true, "original": true, "quality": true},
+    "modelCalls": 3,
+    "inputTokens": 1898,
+    "outputTokens": 906,
+    "costMicroUsd": 644,
+    "stagesMicroUsd": {"original": 112, "translation": 143, "audit": 389},
+    "correctionCalls": 0,
+    "urls": [
+      "http://localhost:3351/en/news/announcement-7d5e8ce810e3fb0372ae7765",
+      "http://localhost:3351/mx/noticias/announcement-7d5e8ce810e3fb0372ae7765",
+      "http://localhost:3351/br/noticias/announcement-7d5e8ce810e3fb0372ae7765"
+    ],
+    "publicChecks": "All three HTTP 200, source attribution and homepage links verified",
+    "startupDefect": "Sources initially received a due timestamp after the cycle clock. Fixed initialization to use the same explicit clock; added regression test.",
+    "recovery": "Initial cycle made zero model/source calls. A single audited local continuation reused its existing reservation. No budget reset or new reservation; temporary recovery route removed and verified HTTP 404.",
+    "unattendedLimit": "This is a controlled local scheduler-pipeline validation, not proof of repeated daily autonomous publication.",
+    "screenshots": "Not captured: browser automation timed out twice. Do not reuse old screenshots as evidence of this article."
+  },
+  "ownerChecks": ["authenticated login", "anonymous 401", "create/save", "unreviewed publication rejected", "review/publish", "EN/ES/PT routes", "homepage invalidation", "archive removes public page"],
+  "databaseChecks": 27,
+  "localGates": {"vitest": 3855, "nodeTests": 17, "typecheck": "PASS", "lint": "PASS", "build": "PASS with existing metadataBase warnings", "secretScan": "PASS"},
+  "finalAutomationState": "PAUSED",
+  "remainingScope": ["Seven-sport live publication expansion", "Current verified tables and permitted visual identities", "New mobile/browser screenshot acceptance", "Repeated scheduled operation"]
+}

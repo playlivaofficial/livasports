@@ -12,9 +12,9 @@ import {refreshGrowthDiscovery} from './discovery-refresh';
 beforeEach(()=>{vi.clearAllMocks();vi.stubEnv('CRON_SECRET','s'.repeat(32));vi.stubEnv('VERCEL_ENV','production');});
 
 describe('Traffic Engine V1 automatic generation',()=>{
-  it('has no deployed V2 sports schedule; historical service remains archived',()=>{
+  it('has no deployed V2 schedule and permits only the bounded V3 data/editorial schedules',()=>{
     const config=JSON.parse(readFileSync(resolve(process.cwd(),'vercel.json'),'utf8')) as {crons:Array<{path:string;schedule:string}>};
-    expect(config.crons).toEqual([]);
+    expect(config.crons).toEqual([{path:'/api/internal/editorial/sports-refresh',schedule:'17 7 * * *'},{path:'/api/internal/editorial/news-cycle',schedule:'43 */6 * * *'}]);
   });
   it('reuses the protected cron bearer boundary',()=>{
     expect(authorizedScheduler(new Request('https://livasports.com/api/internal/growth-refresh',{headers:{authorization:'Bearer '+ 's'.repeat(32)}}),'s'.repeat(32))).toBe(true);

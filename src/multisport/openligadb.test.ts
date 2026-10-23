@@ -1,0 +1,41 @@
+import {describe,it,expect,vi} from 'vitest';
+import {assertOpenLigaSnapshot,fetchOpenLigaJson,normalizeOpenLigaSnapshot,openLigaVersion,OPENLIGA_URLS} from './openligadb';
+import {runOpenLigaDbRefresh} from './refresh';
+import {snapshotHash} from './repository';
+
+// Artificial unit-test fixtures only. They are never exported to seeds or production storage.
+const now=new Date('2026-10-19T12:00:00Z');
+function fixture(){
+  const ids=[1,...Array.from({length:16},(_,i)=>i+3),2];
+  const table=ids.map(id=>({teamInfoId:id,teamName:`Test club ${id}`,matches:id<=2?1:0,won:id===1?1:0,draw:0,lost:id===2?1:0,goals:id===1?1:0,opponentGoals:id===2?1:0,goalDiff:id===1?1:id===2?-1:0,points:id===1?3:0,teamIconUrl:'https://unsafe.example/badge.svg'}));
+  const matches=Array.from({length:18},(_,i)=>i+1).flatMap(home=>Array.from({length:18},(_,i)=>i+1).filter(away=>away!==home).map(away=>({matchID:home*100+away,matchDateTimeUTC:home===1&&away===2?'2026-10-18T15:30:00Z':'2026-10-25T15:30:00Z',team1:{teamId:home,teamName:`Test club ${home}`,teamIconUrl:'https://unsafe.example/1.png'},team2:{teamId:away,teamName:`Test club ${away}`},matchIsFinished:home===1&&away===2,matchResults:home===1&&away===2?[{resultTypeID:2,pointsTeam1:1,pointsTeam2:0}]:[],group:{groupName:'Test matchday'}})));
+  return {table,matches};
+}
+const json=(value:unknown,status=200)=>new Response(JSON.stringify(value),{status,headers:{'content-type':'application/json'}});
+describe('OpenLigaDB strict fixed-season adapter',()=>{
+  it('keeps source age and strips every unlicensed image field',()=>{const f=fixture(),snapshot=normalizeOpenLigaSnapshot(f.table,f.matches,now);expect(snapshot.entities).toHaveLength(18);expect(snapshot.events).toHaveLength(306);expect(snapshot.observedAt).toBe('2026-10-18T15:30:00.000Z');expect(snapshot.retrievedAt).toBe(now.toISOString());expect(JSON.stringify(snapshot)).not.toMatch(/Icon|unsafe\.example/);});
+  it('rejects partial tables and fixture lists',()=>{const f=fixture();expect(()=>normalizeOpenLigaSnapshot(f.table.slice(1),f.matches,now)).toThrow('UPSTREAM_INCOMPLETE');expect(()=>normalizeOpenLigaSnapshot(f.table,f.matches.slice(1),now)).toThrow('UPSTREAM_INCOMPLETE');});
+  it('rejects duplicate clubs and duplicate event identifiers',()=>{const f=fixture();f.table[1]={...f.table[0]};expect(()=>normalizeOpenLigaSnapshot(f.table,f.matches,now)).toThrow('UPSTREAM_DUPLICATE_TEAM');const g=fixture();g.matches[1]={...g.matches[0]};expect(()=>normalizeOpenLigaSnapshot(g.table,g.matches,now)).toThrow();});
+  it('rejects internally valid table math that disagrees with scores',()=>{const f=fixture();f.table[0].goals=2;f.table[0].goalDiff=2;expect(()=>normalizeOpenLigaSnapshot(f.table,f.matches,now)).toThrow('UPSTREAM_TABLE_CONFLICT');});
+  it('rejects unknown points deductions and missing final result',()=>{const f=fixture();f.table[0].points=2;expect(()=>normalizeOpenLigaSnapshot(f.table,f.matches,now)).toThrow('INVALID_SNAPSHOT');const g=fixture();g.matches[0].matchResults=[];expect(()=>normalizeOpenLigaSnapshot(g.table,g.matches,now)).toThrow('UPSTREAM_RESULT_MISSING');});
+  it('refuses a guessed next season and manufactured source age',()=>{const f=fixture();expect(()=>normalizeOpenLigaSnapshot(f.table,f.matches,new Date('2027-08-01T00:00:00Z'))).toThrow('SOURCE_NOT_APPROVED');const s=normalizeOpenLigaSnapshot(f.table,f.matches,now);s.observedAt=now.toISOString();expect(()=>assertOpenLigaSnapshot(s,now)).toThrow('UPSTREAM_OBSERVATION_CONFLICT');});
+  it('compares the unzoned change marker without pretending it is UTC',()=>{expect(openLigaVersion('2026-10-18T19:23:40.75')).toBe('2026-10-18T19:23:40.75');expect(()=>openLigaVersion('https://evil.example')).toThrow();});
+});
+describe('bounded HTTP and refresh orchestration',()=>{
+  it.each([401,403,404,429,500,503])('persists sanitized HTTP %i with one attempt and no response data',async status=>{
+    const fetcher=vi.fn(async()=>json({private:'must-not-be-recorded'},status));
+    const repo={claimRefresh:vi.fn(async()=>({claimed:true as const,token:'lease',previousVersion:null})),finishRefresh:vi.fn(),failRefresh:vi.fn(async()=>undefined)};
+    const category=status===429?'UPSTREAM_RATE_LIMITED':status>=500?'UPSTREAM_UNAVAILABLE':'UPSTREAM_HTTP_REJECTED';
+    const code=`${category}_HTTP_${status}`;
+    expect(await runOpenLigaDbRefresh(repo,{now,fetcher})).toEqual({status:'failed',requests:1,error:code});
+    expect(repo.failRefresh).toHaveBeenCalledWith('openligadb:bl1:2026','lease',code,now);
+    expect(fetcher).toHaveBeenCalledTimes(1);expect(repo.finishRefresh).not.toHaveBeenCalled();
+    expect(JSON.stringify(repo.failRefresh.mock.calls)).not.toContain('must-not-be-recorded');
+  });
+  it('rejects redirects/arbitrary hosts, oversize responses and HTTP429 without retry',async()=>{const fetcher=vi.fn(async()=>json({},429));await expect(fetchOpenLigaJson(OPENLIGA_URLS.table,fetcher)).rejects.toThrow('UPSTREAM_RATE_LIMITED');expect(fetcher).toHaveBeenCalledTimes(1);expect((fetcher.mock.calls as unknown as [unknown,RequestInit][])[0]?.[1]).toMatchObject({redirect:'error',cache:'no-store'});await expect(fetchOpenLigaJson('https://evil.example',fetcher)).rejects.toThrow('SOURCE_NOT_APPROVED');const big=vi.fn(async()=>new Response('{}',{headers:{'content-type':'application/json','content-length':'3000000'}}));await expect(fetchOpenLigaJson(OPENLIGA_URLS.table,big)).rejects.toThrow('UPSTREAM_TOO_LARGE');});
+  it('makes no request when the persistent gate denies a claim',async()=>{const fetcher=vi.fn(),repo={claimRefresh:vi.fn(async()=>({claimed:false as const,reason:'not-due' as const})),finishRefresh:vi.fn(),failRefresh:vi.fn()};expect(await runOpenLigaDbRefresh(repo,{now,fetcher})).toMatchObject({status:'not-due',requests:0});expect(fetcher).not.toHaveBeenCalled();});
+  it('validates the full season and suppresses unchanged content',async()=>{const f=fixture(),version=snapshotHash(normalizeOpenLigaSnapshot(f.table,f.matches,now)),fetcher=vi.fn(async(url:unknown)=>json(url===OPENLIGA_URLS.table?f.table:f.matches)),repo={claimRefresh:vi.fn(async()=>({claimed:true as const,token:'lease',previousVersion:version})),finishRefresh:vi.fn(async()=>null),failRefresh:vi.fn()};expect(await runOpenLigaDbRefresh(repo,{now,fetcher,publishAutomatically:false})).toMatchObject({status:'unchanged',requests:2});expect(fetcher).toHaveBeenCalledTimes(2);expect(repo.finishRefresh).toHaveBeenCalledWith(expect.not.objectContaining({snapshot:expect.anything()}),now);});
+  it('reserves first then uses exactly two requests and stages by default',async()=>{const f=fixture(),fetcher=vi.fn(async(url:unknown)=>json(url===OPENLIGA_URLS.table?f.table:f.matches)),repo={claimRefresh:vi.fn(async()=>({claimed:true as const,token:'lease',previousVersion:null})),finishRefresh:vi.fn(async()=>null),failRefresh:vi.fn()};const result=await runOpenLigaDbRefresh(repo,{now,fetcher,publishAutomatically:false});expect(result).toMatchObject({status:'staged',requests:2});expect(fetcher).toHaveBeenCalledTimes(2);expect(repo.claimRefresh.mock.invocationCallOrder[0]).toBeLessThan(fetcher.mock.invocationCallOrder[0]);expect((repo.finishRefresh.mock.calls as unknown as [unknown][])[0]?.[0]).toMatchObject({publishAutomatically:false});});
+  it('persists a sanitized failure and does not fetch table/matches after marker failure',async()=>{const fetcher=vi.fn(async()=>{throw new Error('secret-token-and-url');}),repo={claimRefresh:vi.fn(async()=>({claimed:true as const,token:'lease',previousVersion:null})),finishRefresh:vi.fn(),failRefresh:vi.fn(async()=>undefined)};expect(await runOpenLigaDbRefresh(repo,{now,fetcher})).toEqual({status:'failed',requests:1,error:'UPSTREAM_NETWORK'});expect(repo.failRefresh).toHaveBeenCalledWith('openligadb:bl1:2026','lease','UPSTREAM_NETWORK',now);expect(repo.finishRefresh).not.toHaveBeenCalled();});
+  it('stops before a claim when the fixed season expires',async()=>{const repo={claimRefresh:vi.fn(),finishRefresh:vi.fn(),failRefresh:vi.fn()};expect(await runOpenLigaDbRefresh(repo,{now:new Date('2027-07-01T00:00:00Z')})).toEqual({status:'season-expired',requests:0});expect(repo.claimRefresh).not.toHaveBeenCalled();});
+});

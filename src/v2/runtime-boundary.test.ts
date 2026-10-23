@@ -21,10 +21,21 @@ describe('V2 active deployment dependency boundary',()=>{
   for(const file of reachable)expect(file).not.toMatch(/providers\/.*Adapter|ingestion\/FootballIngestionService|odds\/scheduler(?:-server)?\.ts|growth\/(?:service|.*renderer|scheduler-server)\.ts|seo-autopilot\/runner/);
   expect(reachable).toContain('src/v2/pages.tsx');expect(reachable).toContain('src/auth/config.ts');
  });
- it('has no active deployment cron or paid refresh package command',()=>{
-  expect(JSON.parse(readFileSync('vercel.json','utf8')).crons).toEqual([]);
+ it('allows only bounded V3 data/editorial schedules behind disabled deployment flags and keeps paid refresh commands retired',()=>{
+  expect(JSON.parse(readFileSync('vercel.json','utf8')).crons).toEqual([{path:'/api/internal/editorial/sports-refresh',schedule:'17 7 * * *'},{path:'/api/internal/editorial/news-cycle',schedule:'43 */6 * * *'}]);
+  const route=readFileSync('src/app/api/internal/editorial/sports-refresh/route.ts','utf8');
+  expect(route).toContain('CRON_SECRET');expect(route).toContain('timingSafeEqual');
+  expect(route).toContain("V3_OPENLIGA_AUTOMATION_ENABLED!=='true'");expect(route).toContain('runOpenLigaDbRefresh');
+  expect(route.indexOf('CRON_SECRET')).toBeLessThan(route.indexOf("V3_OPENLIGA_AUTOMATION_ENABLED!=='true'"));
+  expect(route.indexOf("V3_OPENLIGA_AUTOMATION_ENABLED!=='true'")).toBeLessThan(route.indexOf('repo=>runOpenLigaDbRefresh'));
   expect(existsSync('.github/workflows/odds-refresh.yml')).toBe(false);
   const scripts=JSON.parse(readFileSync('package.json','utf8')).scripts;
   for(const command of ['sync:football','sync:sports','m5:refresh','m5:scheduled-refresh','growth:render-top5','growth:audio-library','cache:warm'])expect(scripts[command]).toBe('node scripts/v2-retired-command.mjs');
+ });
+ it('keeps the V3 automation example off and never exposes server secrets publicly',()=>{
+  const example=readFileSync('.env.example','utf8');
+  expect(example).toMatch(/^V3_OPENLIGA_AUTOMATION_ENABLED=false$/m);
+  expect(example).toMatch(/^ODDS_AUTOMATION_ENABLED=false$/m);
+  expect(example).not.toMatch(/^NEXT_PUBLIC_(?:CRON_SECRET|V3_OPENLIGA_AUTOMATION_ENABLED)=/m);
  });
 });

@@ -1,0 +1,4 @@
+# WSL maintenance scripts must remain executable after Windows checkouts.
+scripts/*.sh text eol=lf
+scripts/*.service text eol=lf
+scripts/*.timer text eol=lf

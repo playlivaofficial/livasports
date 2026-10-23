@@ -1,0 +1,37 @@
+{
+  "observedAt": "2026-10-21T12:35:57Z",
+  "status": "DISCOVERY_IMPROVED_PUBLICATION_BLOCKER_REMAINS",
+  "productionChanged": false,
+  "pr": 75,
+  "draft": true,
+  "independentLiveFeedProvidersTested": 3,
+  "liveTests": [
+    {"provider": "NBA Communications", "endpoint": "https://pr.nba.com/feed/", "freshCandidates": 3, "dates": ["2026-10-20", "2026-10-19"], "result": "Bounded RSS intake operational. HTML index had only client-rendered placeholders. No description/body/image retained."},
+    {"provider": "DIMAYOR", "endpoint": "https://dimayor.com.co/feed/", "freshCandidates": 3, "dates": ["2026-10-20"], "result": "Bounded RSS intake operational after stripping only utm_source/utm_medium/utm_campaign. Unknown query parameters still rejected. Photo-only entries excluded; cup/women stories not forced into Primera A."},
+    {"provider": "GDELT", "endpoint": "https://api.gdeltproject.org/api/v2/doc/doc", "freshCandidates": 0, "result": "One bounded request timed out; no retry or operational claim."}
+  ],
+  "freshCandidateCounts": {"football": 3, "basketball": 3, "baseball": 0, "american-football": 0, "ice-hockey": 0, "mma": 0, "tennis": 0},
+  "newAiPublications": 0,
+  "preservedAiPublications": {"football": 1, "basketball": 0, "baseball": 0, "american-football": 0, "ice-hockey": 0, "mma": 0, "tennis": 0},
+  "localOwnerIntake": {"newPrivateDrafts": 5, "existingPublishedSourcePreserved": 1, "duplicateCreationHttpStatus": 409, "privateDraftPublicRouteHttpStatus": 404, "scheduledRun": false},
+  "scheduler": {"newSources": ["nba-releases", "dimayor-releases"], "scope": "Private metadata only, existing scheduler dispatch; due primary feeds precede supplementary Wikinews", "maxFeedsPerRun": 2, "maxRequestsPerRun": 4, "maxRequestsPerDay": 16, "primarySuccessCooldownHours": 24, "emptySupplementaryWikinewsCooldownHours": 168, "actualRepeatedScheduledPublicationDemonstrated": false, "localPaused": true},
+  "cost": {"newModelCalls": 0, "newTokens": 0, "newCostUsd": 0, "lifetimeRecordedUsd": 0.002058, "lifetimeReservedUsd": 0.06, "validationCeilingUsd": 1, "monthlyAiCapUsd": 3},
+  "rights": {
+    "feedDiscovery": "Publisher-advertised RSS consumed only for private titles, links and dates, with robots checks. Feed availability is not treated as syndication permission.",
+    "publicationBlocker": "No approved structured fact/rights contract for the new announcements. Existing independent model pipeline only accepts reconciled Bundesliga result facts. New RSS candidates intentionally fail SOURCE_RIGHTS_AND_FACT_REVIEW; neither original generation nor publication was attempted.",
+    "nba": "https://www.nba.com/termsofuse — legitimate news-reporting provision is distinct from a broad commercial database or automated republication licence. Applicability to the proposed automated commercial newsroom must be resolved, not silently assumed.",
+    "dimayor": "https://dimayor.com.co/ — no affirmative automated publication or image licence established. Existing manually reviewed story is preserved, not counted as a new AI publication.",
+    "images": "No feed image imported. Need a specific editorial reproduction grant for each NBA/DIMAYOR photograph or crest; RSS delivery alone grants none. Existing approved archive imagery unchanged."
+  },
+  "paidEvaluation": [
+    {"provider": "The News API", "plan": "Basic", "monthlyUsd": 19, "annualMonthlyEquivalentUsd": 16, "annualUpfrontUsd": 192, "quota": "2500 requests/day; 25 articles/request", "freshness": "real time", "sports": "Keyword/source discovery, no verified competition SLA", "rights": "Snippets/links only; public terms do not establish a publisher-content/image sublicence or this commercial AI publication use. Written API-specific confirmation required.", "totalWithAiMonthlyCapUsd": 22, "annualEquivalentWithAiMonthlyCapUsd": 19, "solvesBlocker": "Not established. Annual payment requires explicit approval; do not subscribe based only on price.", "urls": ["https://www.thenewsapi.com/pricing", "https://www.thenewsapi.com/faq", "https://www.thenewsapi.com/tos"]},
+    {"provider": "Mediastack", "plan": "Standard", "monthlyUsd": 24.99, "quota": "10000 calls/month, paid overages advertised", "freshness": "live", "sports": "General news discovery; specific sports untested", "rights": "Commercial API use advertised; publisher/image reuse not verified", "totalWithAiMonthlyCapUsd": 27.99, "solvesBlocker": "Over budget; no trial or purchase", "urls": ["https://mediastack.com/pricing/"]},
+    {"provider": "GNews", "plan": "Essential", "monthlyEur": 49.99, "quota": "1000 requests/day; 25 articles/request", "freshness": "real time", "sports": "General news, not verified per competition", "rights": "Commercial API use advertised; no image licence established", "solvesBlocker": "Over budget; free plan non-commercial", "urls": ["https://gnews.io/pricing"]},
+    {"provider": "NewsData.io", "plan": "Basic", "monthlyUsd": 199.99, "quota": "20000 credits/month", "freshness": "real time", "rights": "Publisher and image sublicensing not established", "solvesBlocker": "Over budget; free pricing describes testing/personal projects", "urls": ["https://newsdata.io/pricing"]},
+    {"provider": "NewsAPI.org", "plan": "Business", "monthlyUsd": 449, "quota": "250000 requests/month plus billed overages", "freshness": "real time", "rights": "Production API access, not blanket article/image rights", "solvesBlocker": "Over budget; Developer plan local development only", "urls": ["https://newsapi.org/pricing"]},
+    {"provider": "Reuters / AP", "plan": "Negotiated content licensing", "monthlyUsd": null, "quota": "Contract specific", "freshness": "Breaking news offered", "sports": "Sports coverage offered; exact package unverified", "rights": "Specific licensed text/photo package required; no verified sub-$20 offer", "solvesBlocker": "No price/permission confirmed; no purchase", "urls": ["https://reutersagency.com/who-we-serve/media/", "https://www.ap.org/content/subscriptions/"]}
+  ],
+  "publisherResearch": {"ESPN": "RSS page presented robot-verification gate; no bypass and no licence asserted", "BBC": "Applicable commercial feed permission not established; not enabled", "CONMEBOL": "403; no bypass", "ATP": "403; no bypass", "UEFA": "Published terms restrict platform use; not enabled"},
+  "verification": {"vitest": 3847, "nodeTests": 17, "total": 3864, "typecheck": "PASS", "lint": "PASS", "build": "PASS", "secretScan": "PASS", "hostedCi": "Pending pushed commit", "mobile390Overflow": false, "screenshots": ["output/v3-qa/acceptance-2026-10-21/primary-feeds-home-light.png", "output/v3-qa/acceptance-2026-10-21/primary-feeds-home-dark.png"]},
+  "nextAction": "Resolve a source-specific automated original-reporting permission and verified announcement fact schema before spending model budget on these candidates. Continue source coverage; do not label six discovered candidates as six published articles or seven-sport autonomy."
+}

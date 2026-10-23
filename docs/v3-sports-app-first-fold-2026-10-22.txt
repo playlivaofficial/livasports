@@ -1,0 +1,49 @@
+LivaSports V3 — sports-app first-fold revision
+Base cb7de094cab9ca142c6094d11a97ffa5b6dd5a5f; PR #75 remains Draft.
+
+Actual product changes
+- 390px: compact sports tabs, 215px licensed archive lead, source attribution,
+  then a real three-position Bundesliga table with authentic available crests,
+  played/points, exact cutoff and team/full-table links. No giant icon grid.
+- The full table card ends at 765.38px, before bottom navigation at 777.20px,
+  in EN/ES/PT and both themes. Previously the fold showed one story and heading.
+- Desktop: lead and useful standings sit alongside one another, rather than a
+  full-width blog hero pushing every useful table below the fold.
+- System UI typography, compact competition chips, consistent borders/contrast.
+- Liga MX logo and Premier League wordmark integrated into competition navigation
+  and shared headers. Sixteen destinations, eight genuine identity images in rail.
+  Fifteen registry assets total. Missing art remains text, not invented artwork.
+- Secondary stories selected once for the compact briefing; remaining stories
+  go to the feed. Removed repetitive homepage displays of the same publications.
+  No story manufactured or prematurely published to fill these slots.
+
+Rights evidence
+Liga MX: https://commons.wikimedia.org/wiki/File:MX_logo.png
+Premier League wordmark: https://commons.wikimedia.org/wiki/File:Premier_League_wordmark.svg
+Both carry Commons PD-textlogo declarations; reviewed images rasterized without
+recoloring and exact hashes recorded. This does not grant trademark/sponsorship
+rights. Existing Cali CC BY-SA archive credit/disclosure remains accessible.
+
+Verification
+- 3,901 Vitest tests; 17 Node tests pass.
+- Typecheck, lint, production build, secret scan and local preview SEO crawl pass.
+- 18 functional viewport/theme/language cases (320/390/430, EN/ES/PT, Light/Dark),
+  no overflow or broken images; table row/navigation targets >=44px.
+- Clicked full-table navigation opens the actual 18-team published local table.
+- 390 Light/Dark and 1440 Light/Dark homepage/article/league screenshot matrix
+  has no runtime errors, broken images or retired-provider requests.
+- Matching comparisons at output/v3-qa/acceptance-2026-10-22/sports-app/review.html.
+  Light phone vs Light, Dark phone vs Dark, Dark desktop vs Dark desktop.
+  Approved montage was cropped with CSS, not redrawn. No Light desktop reference
+  was supplied; actual Light desktop is offered separately.
+
+Honest limitations and preserved controls
+One actual DIMAYOR news publication remains. No multi-sport news volume claimed.
+Bundesliga cutoff October 18 remains dated, not current/live. Colombia's earlier
+20-row reconciliation is retained but not yet a published approved snapshot.
+Mexico/Peru tables are not represented as newly resolved by this UI work.
+No model calls, DB publication, Production changes, affiliate activation or
+scheduler modifications. Existing NFL single harness at 17:30 Tbilisi remained
+PAUSED and waiting for 18:01:24.468; no execution result claimed before due time.
+Database/backups, budgets, ES/EN/PT, internal GEO, authentication and Owner intact.
+This is a visual revision for Owner review, not release/visual acceptance.

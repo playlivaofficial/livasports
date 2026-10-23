@@ -1,0 +1,57 @@
+LivaSports V3 / Draft PR 75 / complete sports journey
+2026-10-22, isolated localhost:3351 only. No Production writes or deployment.
+
+PRODUCT DELTA
+- Explicit seven-sport mobile discovery menu, keyboard-accessible native disclosure.
+- Whole-homepage composition: genuine lead, dated compact table, authentic competition navigation,
+  tabbed sourced standings with results where available, varied analysis cards and compact tools.
+- The newest Colombia table is the first-fold preview; Bundesliga opens in the standings room
+  to avoid showing the same table twice by default. Both remain directly accessible.
+- Correct America de Cali identity and dated domestic-league context on the real Copa BetPlay
+  article. Explicitly separate domestic points from the cup announcement. No match facts inferred.
+- No fabricated stories, crests or event photography. No new paid calls in this implementation.
+
+COLOMBIA PUBLICATION — ACTUAL LOCAL OWNER WORKFLOW
+- Exact reviewed Wikipedia revision 1381387526, 2026 Liga DIMAYOR, 2026-10-22T03:13:36Z.
+- Import only the unique Finalizacion section, not Apertura or aggregate standings.
+- Data cutoff 2026-10-21; 20 clubs; 180 numeric fields matched retained reconciled evidence.
+- Numeric consistency and strict schema checks. CC BY-SA 4.0 source/revision attribution retained.
+- Anonymous access 401. Authenticated create 200 / save 200 / unreviewed publish 409 /
+  confirmed review 200 / publish 200. Existing records and scheduler preserved.
+- Backup before and after; persistent local PostgreSQL only; hourly backup timer active.
+- Key colombia-primera-a:2026 Finalizacion. Published at 2026-10-22T13:42:26.714Z.
+- EN /en/sports/football/colombia-primera-a
+  ES /mx/deportes/football/colombia-primera-a
+  PT /br/esportes/football/colombia-primera-a
+- All three routes returned 200 and exposed all 20 teams and the pinned revision.
+- This is a manually reviewed dated community-data publication, NOT a live official feed.
+
+VISUAL AND FUNCTIONAL EVIDENCE (ignored local output, not committed)
+output/v3-qa/acceptance-2026-10-22/complete-journey/review.html
+Full pages: homepage, actual DIMAYOR article, Colombia and Bundesliga competition pages.
+390px Light/Dark and 1440px Light/Dark, plus reference pairs using untouched montage crops.
+No supplied Light desktop reference; Dark desktop is compared with Dark desktop.
+24 viewport/detail captures plus full pages: no horizontal page overflow, broken images,
+browser exceptions or retired-provider requests. Navigation and table interaction evidence
+includes seven >=44px sport links, mouse/keyboard tab switching and source disclosure.
+colombia-owner-publication.json records the real local publishing acceptance.
+
+GATES
+3912 Vitest tests / 356 files and 17 Node tests passed.
+Typecheck, lint, production build, SEO route audit and secret scan passed.
+Secret scan: 0 credential leaks, 0 unignored env files, 0 client secret references.
+
+REMAINING DIFFERENCES / NO OWNER ACCEPTANCE CLAIM
+- Verified local news inventory at capture: one DIMAYOR AI brief, not seven-sport daily coverage.
+- Licensed Cali stadium archive image is clearly disclosed, not represented as this event.
+- Approved team art is incomplete; absent identities remain text, not invented crests.
+- Colombia cutoff October 21 and Bundesliga cutoff October 18 are explicitly dated.
+- Other sports' navigation and catalog entries are not claimed as working data feeds.
+- Active commercial offer cards from the design reference are intentionally absent.
+- Production release and Owner visual approval remain outstanding; PR must stay Draft.
+
+NFL / FINANCIAL SAFETY
+Existing single authorized real-time harness is unchanged. Last observed waiting at 17:52
+Tbilisi, due 18:01:24.468. PAUSED while waiting; no competing runs started.
+This report does not claim an NFL publication before its actual result.
+Historical deduction, validation allowance and model limits unchanged.

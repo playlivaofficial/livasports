@@ -1,0 +1,7 @@
+[Unit]
+Description=LivaSports isolated local PostgreSQL backup
+[Service]
+Type=oneshot
+User=nika1578
+ExecStart=/bin/bash /home/nika1578/.local/share/livasports-pr75/maintenance.sh backup
+UMask=0077

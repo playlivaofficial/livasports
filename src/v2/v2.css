@@ -65,3 +65,16 @@ body[data-app="v2"] .v2-interactive-pitch:focus-visible{outline:3px solid var(--
 /* Do not inherit the legacy dark-header language colors in light V2 menus. */
 .v2-menu-panel .language-picker button{color:var(--v2-text);background:transparent;min-height:44px}
 .v2-menu-panel .language-picker button:hover,.v2-menu-panel .language-picker button[aria-current=true]{color:var(--v2-green);background:var(--v2-soft)}
+/* Public V3 navigation: language is independent of country and account state. */
+.v2-header-actions>.language-picker{margin-left:0;z-index:60}
+.v2-header .language-picker summary{min-height:44px;min-width:62px;justify-content:center;border-color:var(--v2-border);background:var(--v2-surface);color:var(--v2-text);font-weight:750}
+.v2-header .language-picker-compact summary>svg{display:none}
+.v2-header .language-picker form{background:var(--v2-surface);border-color:var(--v2-border);color:var(--v2-text);width:194px;max-width:calc(100vw - 24px);box-shadow:0 12px 35px #00150b20}
+.v2-header .language-picker button{color:var(--v2-text);min-height:44px}
+.v2-header .language-picker button:hover,.v2-header .language-picker button[aria-current=true]{background:var(--v2-soft);color:var(--v2-green)}
+.v2-header .language-option-code{font-size:11px;color:var(--v2-muted)}
+.v2-header-theme{display:flex}.v2-header-session{max-width:150px}.v2-header-session .auth-header-link{display:flex;align-items:center;min-height:44px;max-width:150px;padding:0 14px;border:1px solid var(--v2-border);border-radius:8px;color:var(--v2-text);background:var(--v2-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.v2-menu-appearance{display:flex;align-items:center;justify-content:space-between;gap:14px;color:var(--v2-text)}
+@media(min-width:901px){.v2-header .v2-search-link,.v2-header .v2-menu{display:none}.v2-desktop-nav a:last-child{display:flex}}
+@media(max-width:900px){.v2-header-theme,.v2-header-session{display:none}.v2-header .v2-search-link{display:inline-flex}.v2-header-actions{gap:2px}.v2-header .language-picker summary{padding:0 7px;gap:5px;min-width:57px}.v2-header .v2-icon-button{width:44px;min-width:44px;height:44px}.v2-header .v2-menu-panel .theme-toggle{width:44px;min-width:44px;height:44px}}
+@media(max-width:359px){.v2-header .language-picker summary{min-width:52px;font-size:12px}.v2-header-actions{gap:0}.v2-header-inner{gap:3px}}

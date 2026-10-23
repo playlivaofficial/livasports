@@ -24,6 +24,15 @@ beforeEach(()=>{
 afterEach(()=>{vi.unstubAllEnvs();vi.restoreAllMocks();});
 
 describe('private presentation endpoint',()=>{
+  it('remains available without a database during an unpublished local data preview',async()=>{
+    vi.stubEnv('NODE_ENV','development');vi.stubEnv('V3_LOCAL_DATA_PREVIEW','true');
+    for(const key of ['DATABASE_URL','DATABASE_POSTGRES_URL','POSTGRES_URL'])vi.stubEnv(key,undefined);
+    const fetch=vi.spyOn(globalThis,'fetch');
+    const response=GET(request());
+    expect(response.status).toBe(200);expect(response.headers.get('cache-control')).toBe('private, no-store');
+    expect((await response.json()).owner).toEqual({authorized:false,preview:false,previewGeo:null});
+    expect(fetch).not.toHaveBeenCalled();
+  });
   it('never puts account state in a public cache or sets a cookie',async()=>{
     const response=GET(request());
     expect(response.status).toBe(200);expect(response.headers.get('cache-control')).toBe('private, no-store');

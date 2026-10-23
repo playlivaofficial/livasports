@@ -1,0 +1,18 @@
+{
+  "checkedOn": "2026-10-21",
+  "pr": 75,
+  "state": "DRAFT_OWNER_ACCEPTANCE_PENDING",
+  "productionModified": false,
+  "newPaidResources": 0,
+  "isolatedDatabaseBaseline": "PASS; see v3-pr75-isolated-acceptance.json and CI 39557365994",
+  "newImplementation": ["Preserved seven-sport Daily Desk and database acceptance", "Bounded private citation discovery and duplicate-safe Owner import", "Two further original EN/ES/PT briefs and actual publication cycles", "Dated homepage briefing and compact text-only story cards", "Stadium-focused mobile crop of the existing licensed photograph", "Competition headings and NHL points visible earlier"],
+  "localGates": {"nodeTests":17,"vitestTests":3742,"vitestFiles":336,"totalTests":3759,"failed":0,"lint":"PASS","typecheck":"PASS","productionBuild":"PASS","existingMetadataBaseWarnings":11,"secretScan":"PASS","seoRequests":271,"seoFindings":0,"providerRequestsByCrawler":0},
+  "responsive": {"cases":24,"lightWidths":[320,390,430,1440],"darkWidths":[320,390,430,1440],"languages":["en","es","pt"],"pageOverflow":0,"brokenImages":0,"publicGeoSelection":false},
+  "localPublications": {"sportsSnapshots":[{"competition":"bundesliga","dataCutoff":"2026-10-18T15:30:00Z","teams":18,"events":306,"completedEvents":54,"currentDataClaim":false},{"competition":"nhl","dataCutoff":"2026-10-20","teams":32,"divisionTables":4,"independentlyMatchedFieldsPerTeam":8,"currentDataClaim":false}],"newsSports":["football","basketball","baseball","american-football","ice-hockey","mma","tennis"],"newsCount":9,"newsSourceDateRange":["2026-10-14","2026-10-21"],"todaySourceDateCount":1,"sourceDatesOctober20or21":4,"newPublicationCycles":2,"cyclesOnSeparateDays":false,"mlbNhlTranslations":"English originals only; ES/PT fallback is explicit","autoPublishing":false,"ownerLaunchContentApproval":false},
+  "sourceAudit": {"baselineWikimediaRequests":4,"baselineOpenLigaDbRequests":4,"publicationFromRetainedCanaries":1,"conflictingSources":["Liga MX","Colombia Primera A","Peru Liga 1","LaLiga","WTA"],"neverInferCurrentFromSuccessfulParsing":true},
+  "newsDiscovery": {"requests":16,"sameDayRepeatRequests":0,"validLinks":9,"newPrivateCandidates":7,"remainingPrivateDrafts":5,"browserRepeatImportNewLinks":0,"requiresManualInvocationAndReview":true},
+  "perCompetitionReport":"v3-pr75-product-gains.json",
+  "evidenceDirectory": "output/v3-qa/acceptance-2026-10-21",
+  "visualPackage": "output/v3-qa/acceptance-2026-10-21/visual-review.html",
+  "releaseBlockers": ["Only dated Bundesliga and NHL are locally published; other priority datasets remain unapproved or incomplete", "Owner acceptance of actual visual and editorial result", "Missing licensed event imagery for several sports and cleared league logos", "Daily editorial operation requires manual research/review; seven current daily publications are not proven", "No authorized zero-incremental-cost isolated hosted Preview database", "Production migration, staged deployment, promotion and initial content publication require later explicit approval"]
+}

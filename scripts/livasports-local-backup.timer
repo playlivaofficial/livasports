@@ -1,0 +1,9 @@
+[Unit]
+Description=LivaSports local backup hourly and after boot
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=1h
+Persistent=true
+Unit=livasports-local-backup.service
+[Install]
+WantedBy=timers.target
