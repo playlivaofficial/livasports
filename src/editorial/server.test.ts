@@ -5,6 +5,7 @@ const storage=vi.hoisted(()=>({
   list:vi.fn(async()=>[] as unknown[]),story:vi.fn(async()=>null as unknown),sitemap:vi.fn(async()=>[] as unknown[]),
 }));
 vi.mock('server-only',()=>({}));
+vi.mock('next/server',()=>({connection:vi.fn(async()=>{})}));
 vi.mock('next/cache',()=>({unstable_cache:(work:unknown)=>work}));
 vi.mock('@/database/client',()=>({databaseUrl:storage.url,PostgresDatabaseClient:class{
   constructor(...args:unknown[]){storage.opened(...args);}

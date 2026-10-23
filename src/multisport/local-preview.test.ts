@@ -5,6 +5,7 @@ import { WIKIMEDIA_DATASETS } from './wikimedia-datasets';
 
 const io = vi.hoisted(() => ({ files: new Map<string, string>(), escaped: new Set<string>(), symlinks: new Set<string>(), opened: [] as string[], closed: 0 }));
 vi.mock('server-only', () => ({}));
+vi.mock('next/server',()=>({connection:vi.fn(async()=>{})}));
 vi.mock('next/cache', () => ({ unstable_cache: (work: unknown) => work }));
 vi.mock('@/database/client', () => ({ databaseUrl: () => null, PostgresDatabaseClient: vi.fn(() => { throw new Error('TEST_MUST_NOT_OPEN_DB'); }) }));
 vi.mock('node:fs/promises', () => ({

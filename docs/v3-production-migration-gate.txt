@@ -25,12 +25,29 @@ remained three and real public articles one; active newsroom remained PAUSED.
 No model requests. A fresh persistent backup completed afterward. This local
 repeatability check does not substitute for production recovery verification.
 
-REQUIRED BEFORE EXECUTION:
+Recovery gate resolved 2026-10-23 through official Neon CLI OAuth and read-only API:
+- Existing project polished-hall-26832454 / branch br-frosty-boat-awqp2a57 (main),
+  matched to Vercel's actual Production endpoint, READY, primary/default root branch.
+- history_retention_seconds=21600 (six hours); protected=false; retained snapshots=0.
+- Historical schema successfully read at 2026-10-23T13:00:00Z, 258602 characters,
+  SHA256 c15a5d9e987379e173dd34f468d435d9fb433d45157f0068898326a510030207.
+  No restore, branch creation, retention/billing change or whole-database copy.
+  This is historical-state access evidence, not a completed recovery drill.
+- 073–075 applied at 13:11 UTC; repeat applied zero migrations; existing user,
+  affiliate and editorial records unchanged; zero invalid indexes; PAUSED default.
+- Three reviewed dated tables and the reverified DIMAYOR article published through
+  repository review/audit gates; nine existing articles unchanged. No QA/private data.
+- First unpromoted deployment dpl_6GeeotTqarb8WGG4UXSBeCL1cY4F READY. Browser gate
+  caught empty pre-rendered pages despite functioning live snapshot API, plus null
+  release SHA. Not promoted. Request-time rendering and SHA fallback corrections
+  require fresh CI/build/browser acceptance before release. Apex remains prior SHA.
+
+Pre-execution checklist (retain for subsequent releases):
 Verify existing Neon recovery retention, a restore timestamp covering the release,
 and the existing project's supported restore procedure and cost implications.
-Both browser connectors failed; no Neon management credential is configured in
-the project. SQL read access does not prove PITR availability. No 12GB copy or new
-paid branch is authorized. Recovery gate remains BLOCKED pending actual evidence.
+SQL read access alone does not prove PITR availability. No 12GB copy or new paid
+branch is authorized. Recheck the historical point before any later migration;
+the observed six-hour window is rolling, not permanent backup retention.
 
 After recovery verification: record current READY deployment and main SHA; require
 green changed-head isolated PostgreSQL acceptance (including repeatability/data

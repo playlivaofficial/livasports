@@ -1,4 +1,5 @@
 import 'server-only';
+import {connection} from 'next/server';
 import {unstable_cache} from 'next/cache';
 import {databaseUrl,PostgresDatabaseClient} from '@/database/client';
 import {localDataPreviewEnabled} from '@/multisport/local-preview';
@@ -16,6 +17,8 @@ export async function withNewsRepository<T>(work:(repo:NewsRepository)=>Promise<
 const cachedNews=unstable_cache(()=>withNewsRepository(repo=>repo.listPublished()),['editorial-published-v1'],{tags:[newsCacheTag],revalidate:3600});
 const cachedStory=unstable_cache((slug:string)=>withNewsRepository(repo=>repo.findPublished(slug)),['editorial-story-v1'],{tags:[newsCacheTag],revalidate:3600});
 const cachedSitemap=unstable_cache(()=>withNewsRepository(repo=>repo.sitemap()),['editorial-sitemap-v1'],{tags:[newsCacheTag],revalidate:3600});
-export async function publishedNews(){return databaseUrl()?cachedNews():localDataPreviewEnabled()?previewNews:[];}
-export async function publishedStory(slug:string){return databaseUrl()?cachedStory(slug):localDataPreviewEnabled()?previewNews.find(item=>item.slug===slug)??null:null;}
-export async function publishedSitemap(){return databaseUrl()?cachedSitemap():localDataPreviewEnabled()?previewNews:[];}
+// Resolve hosted storage at request time, not into an empty build-time HTML shell.
+// Explicit tagged data caches still bound database reads and publication invalidation.
+export async function publishedNews(){await connection();return databaseUrl()?cachedNews():localDataPreviewEnabled()?previewNews:[];}
+export async function publishedStory(slug:string){await connection();return databaseUrl()?cachedStory(slug):localDataPreviewEnabled()?previewNews.find(item=>item.slug===slug)??null:null;}
+export async function publishedSitemap(){await connection();return databaseUrl()?cachedSitemap():localDataPreviewEnabled()?previewNews:[];}

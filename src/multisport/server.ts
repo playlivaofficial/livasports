@@ -1,4 +1,5 @@
 import 'server-only';
+import {connection} from 'next/server';
 import {unstable_cache} from 'next/cache';
 import {databaseUrl,PostgresDatabaseClient} from '@/database/client';
 import {SportsRepository} from './repository';
@@ -14,10 +15,12 @@ export async function withSportsRepository<T>(work:(repo:SportsRepository)=>Prom
 // Missing production storage means honest empty coverage, never a synthetic or seed table.
 // Configured-database errors propagate so callers can show a distinct unavailable state.
 export async function publishedSnapshots(){
+  await connection();
   if(!databaseUrl())return localPreviewSnapshots();
   return cachedSnapshots();
 }
 export async function publishedSnapshot(competitionId:string,season?:string){
+  await connection();
   // Public downloads use this DB-only path. Local preview artifacts must never be exported here.
   if(!databaseUrl())return null;
   return cachedSnapshot(competitionId,season);

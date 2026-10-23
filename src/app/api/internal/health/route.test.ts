@@ -1,4 +1,5 @@
 import {afterEach,describe,expect,it,vi} from 'vitest';
+vi.mock('next/server',()=>({connection:vi.fn(async()=>{})}));
 import {GET} from './route';
 afterEach(()=>vi.unstubAllEnvs());
 describe('release health identity',()=>{
