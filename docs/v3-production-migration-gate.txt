@@ -2,12 +2,12 @@ V3 release safety preflight — 2026-10-23
 
 Observed through the authorized existing Vercel project, with a single database
 connection inside BEGIN READ ONLY / ROLLBACK. No production writes or deployment.
-Production is migration 072 and approximately 12 GB. All ten tables introduced by
+Production is migration 072 and approximately 12 GB. All nine tables introduced by
 073–075 are absent. Existing editorial_news is 155648 bytes; editorial_news_audit
 is 131072 bytes. Neither has an invalid index. Other active transactions: zero at
 inspection, not a guarantee about the later release window.
 
-073 creates three tables and three indexes; 074 creates six tables and three
+073 creates three tables and three indexes; 074 creates five tables and three
 indexes, inserts the default PAUSED control, and replaces a constraint only on its
 new automation-runs table; 075 creates one private evidence table and one index.
 No existing user, odds, affiliate or editorial rows are rewritten/deleted. 074's
@@ -16,6 +16,14 @@ Every migration now has transaction-local 5s lock and 30s statement limits.
 Timeout means abort/rollback and investigate; never automatically retry in a loop.
 Initial table/index storage should be small because new tables are empty. Exact
 production duration, WAL and cost have NOT been measured; no numeric guarantee.
+
+Local execution: all three modified migrations applied twice in a new isolated
+schema v3_release_timeout_20261023_1654 within the persistent LOCAL database.
+Eleven tables including prerequisite 072; control PAUSED; both session timeouts
+reset to zero after commit (SET LOCAL did not leak). Existing public datasets
+remained three and real public articles one; active newsroom remained PAUSED.
+No model requests. A fresh persistent backup completed afterward. This local
+repeatability check does not substitute for production recovery verification.
 
 REQUIRED BEFORE EXECUTION:
 Verify existing Neon recovery retention, a restore timestamp covering the release,
