@@ -1,4 +1,5 @@
 import {describe,it,expect,vi} from 'vitest';
+import {readFileSync} from 'node:fs';
 import {renderToStaticMarkup} from 'react-dom/server';
 import {load} from 'cheerio';
 import type {SportsSnapshot} from './model';
@@ -40,6 +41,7 @@ describe('Batch 1 source-bound competition experiences',()=>{
   const hockey:SportsSnapshot={...snapshot,competitionId:'nhl',sport:'ice-hockey',stage:'Regular season',tables:['Eastern','Western'].map((conference,index)=>({id:String(index),name:conference,conference,division:index?'Pacific':'Atlantic',stage:'Regular season',type:'ice-hockey',rows:[{entityId:index?'club-b':'club-a',rank:1,played:5,wins:3,losses:1,overtimeLosses:1,points:7,goalsFor:15,goalsAgainst:12}]}))};
   const $=load(renderToStaticMarkup(<CompetitionExperience snapshot={hockey} competition={competitionById('nhl')!} locale="en" news={[]}/>));
   expect($('.cx-conference')).toHaveLength(2);expect($('.ms-table-ice-hockey')).toHaveLength(2);
+  expect($('.cx-header-art .cx-nameplate').text()).toBe('NHL');
   expect($('.cx-filters button').map((_,n)=>$(n).text()).get()).toEqual(['All divisions','Eastern','Western']);
   expect($('thead').text()).toContain('OTL');expect($('thead').text()).not.toContain('RW');
  });
@@ -48,5 +50,11 @@ describe('Batch 1 source-bound competition experiences',()=>{
   expect($('h1').text()).toBe('América de Cali');expect($('.cx-record').text()).toContain('PTS28');expect($('.ms-table tbody tr')).toHaveLength(1);
   expect($('.cx-full-table').attr('href')).toContain('/season/2026-finalizacion#standings');expect($('#coverage').text()).toContain('semi-finals');
   expect(tableMemberships(snapshot,'absent')).toEqual([]);
+ });
+ it('preserves theme-aware selected filters and 44px source controls',()=>{
+  const css=readFileSync(new URL('./competition-experience.css',import.meta.url),'utf8');
+  expect(css).toContain('.cx-filters button[aria-pressed=true]{background:var(--cx-accent);color:var(--v2-surface);');
+  expect(css).toContain('.cx-header-foot .cx-date a{min-height:44px}');
+  expect(css).not.toContain('min-height:40px');
  });
 });

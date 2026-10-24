@@ -17,7 +17,8 @@ import {localDataPreviewEnabled} from './local-preview';
 const words=(locale:InterfaceLocale)=>(en:string,es:string,pt:string)=>({en,es,pt})[publicLanguage(locale)];
 export function ExperienceIdentity({competitionId,name}:{competitionId:string;name?:string}){
  const asset=identityAsset(competitionId,name);
- return asset?<IdentityLogo competitionId={competitionId} teamName={name}/>:<span className="cx-nameplate" aria-hidden="true">{(name??competitionById(competitionId)?.officialName??'').split(/\s+/).filter(x=>!['de','FC','deutsche','National','Association'].includes(x)).slice(0,2).map(x=>x[0]).join('')}</span>;
+ const letters=!name&&competitionId==='nhl'?'NHL':(name??competitionById(competitionId)?.officialName??'').split(/\s+/).filter(x=>!['de','FC'].includes(x)).slice(0,2).map(x=>x[0]).join('');
+ return asset?<IdentityLogo competitionId={competitionId} teamName={name}/>:<span className="cx-nameplate" aria-hidden="true">{letters}</span>;
 }
 function DateLine({snapshot,locale}:{snapshot:SportsSnapshot;locale:InterfaceLocale}){const t=words(locale);return <p className="cx-date"><span aria-hidden="true">◷</span> {t('Dated snapshot · not live','Registro fechado · no en vivo','Registro datado · não ao vivo')} <time dateTime={snapshot.observedAt}>{snapshot.observedAt.slice(0,10)}</time><a href="#source">{t('Source','Fuente','Fonte')} ↗</a></p>;}
 export function CompetitionHeader({snapshot,competition,locale}:{snapshot:SportsSnapshot;competition:Competition;locale:InterfaceLocale}){
@@ -41,7 +42,7 @@ function TeamDirectory({snapshot,locale}:{snapshot:SportsSnapshot;locale:Interfa
  return <div className="cx-team-grid">{snapshot.entities.map(entity=>{const member=tableMemberships(snapshot,entity.id)[0];return <Link className="cx-team-card" href={snapshotEntityPath(locale,snapshot,entity.id)} key={entity.id}><ExperienceIdentity competitionId={snapshot.competitionId} name={entity.name}/><div><strong>{entity.name}</strong><small>{member?.table.division?tableLabel(member.table.division,locale):entity.country??snapshot.season}</small></div><span className="cx-team-rank">{member?`#${member.row.rank}`:'↗'}<small>{member?t('position','posición','posição'):''}</small></span></Link>;})}</div>;
 }
 function Related({competition,locale}:{competition:Competition;locale:InterfaceLocale}){
- const t=words(locale),ids=competition.id==='colombia-primera-a'?['copa-colombia','colombia-primera-b','libertadores']:competition.id==='bundesliga'?['premier-league','la-liga','serie-a','ligue-1']:['nba','mlb','nfl'];
+ const t=words(locale),ids=competition.id==='colombia-primera-a'?['copa-colombia','colombia-primera-b','copa-libertadores']:competition.id==='bundesliga'?['premier-league','la-liga','serie-a','ligue-1']:['nba','mlb','nfl'];
  const related=ids.map(competitionById).filter((x):x is Competition=>!!x);
  const items=related.length?related:sportCompetitions(competition.sport).filter(x=>x.id!==competition.id).slice(0,3);
  return items.length?<aside className="cx-related"><h2>{t('Explore more competitions','Explora otras competiciones','Explore outras competições')}</h2><div>{items.map(item=><Link href={competitionPath(locale,item.id)} key={item.id}><ExperienceIdentity competitionId={item.id}/><strong>{item.officialName}</strong><span>↗</span></Link>)}</div></aside>:null;
