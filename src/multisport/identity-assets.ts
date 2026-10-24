@@ -1,5 +1,9 @@
+import {reviewedClubIdentity} from './experience-model';
 /** Asset-specific copyright provenance does not grant trademark or sponsorship rights. */
 export const identityAssets = [
+ {"id":"serie-a","kind":"competition","competitionId":"serie-a","names":["Serie A"],"path":"/sports-identities/serie-a.png","width":240,"height":298,"author":"Lega Nazionale Professionisti Serie A","source":"https://commons.wikimedia.org/wiki/File:Serie_A.svg","sha256":"d167c423b8965ebd0f3c38fc4f36bfe7996e6a8ce5961c858d9af855285ff745","reviewedOn":"2026-10-24"},
+ {"id":"inter","kind":"team","competitionId":"serie-a","names":["FC Internazionale Milano","Inter"],"path":"/sports-identities/inter.png","width":512,"height":512,"author":"FC Internazionale Milano / Bureau Borsche","source":"https://commons.wikimedia.org/wiki/File:FC_Internazionale_Milano_2021.svg","sha256":"cb9db0e5819aea374b2ce24d98eee380131484d76b584aa34a63a50702f87fc3","reviewedOn":"2026-10-24"},
+ {"id":"juventus","kind":"team","competitionId":"serie-a","names":["Juventus FC","Juventus"],"path":"/sports-identities/juventus.png","width":164,"height":259,"author":"Interbrand / Juventus Football Club","source":"https://commons.wikimedia.org/wiki/File:Juventus_FC_-_logo_black_(Italy%2C_2020).svg","sha256":"7790911393561fc1d53b469d3832f1c10c8ae6603dfc33df1e83d0051c68e268","reviewedOn":"2026-10-24"},
  {id:'liga-mx',kind:'competition',competitionId:'liga-mx',names:['Liga MX'],path:'/sports-identities/liga-mx.png',width:512,height:404,author:'Liga MX',source:'https://commons.wikimedia.org/wiki/File:MX_logo.png',sha256:'005dac98cd82a342672a31dd639c38e31a686df3af4c169d62c5b117fdf2f75c'},
  {id:'premier-league-wordmark',kind:'competition',competitionId:'premier-league',names:['Premier League'],path:'/sports-identities/premier-league-wordmark.png',width:512,height:284,author:'Premier League',source:'https://commons.wikimedia.org/wiki/File:Premier_League_wordmark.svg',sha256:'9f3c253a99a6064fb58f270a8e677bb434903427a1c5271d1a82329b9b404850'},
  {id:'bayern',kind:'team',competitionId:'bundesliga',names:['FC Bayern München'],path:'/sports-identities/bayern.png',width:512,height:512,author:'FC Bayern München',source:'https://commons.wikimedia.org/wiki/File:FC_Bayern_M%C3%BCnchen_logo_(2024).svg',sha256:'f2d5b59c8b068c39ecd33c21d85d52c6d9cee426089ddc8a93f243e3287fa408'},
@@ -20,6 +24,7 @@ export type IdentityAsset = typeof identityAssets[number];
 export const identityRights = {reviewedOn:'2026-10-22',copyrightBasis:'Commons PD-textlogo declaration',use:'editorial-identification-only',trademarkRights:'not-granted',transformation:'Rasterized without recoloring; natural aspect ratio preserved'} as const;
 /** Exact aliases only: no fuzzy matching or arbitrary provider image URLs. */
 export function identityAsset(competitionId:string,teamName?:string):IdentityAsset|undefined {
+ if(teamName){const canonical=reviewedClubIdentity(competitionId,teamName);if(canonical){const asset=identityAssets.find(asset=>asset.kind==='team'&&asset.id===canonical);if(asset)return asset;}}
  // The same club participates in the domestic league and cup; no fuzzy matching.
  if(competitionId==='colombia-primera-a'&&teamName==='América de Cali')return identityAssets.find(asset=>asset.id==='america-cali-wordmark');
  return identityAssets.find(asset=>asset.competitionId===competitionId&&(teamName===undefined?asset.kind==='competition':asset.kind==='team'&&asset.names.some(name=>name===teamName)));

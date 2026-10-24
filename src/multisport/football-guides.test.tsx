@@ -1,0 +1,24 @@
+import React from 'react';
+import {renderToStaticMarkup} from 'react-dom/server';
+import {load} from 'cheerio';
+import {describe,it,expect,vi} from 'vitest';
+vi.mock('./local-preview',()=>({localDataPreviewEnabled:()=>false}));
+import {footballGuide,footballGuides} from './football-guides';
+import {FootballGuidePage} from './FootballGuide';
+import {competitionById} from './catalog';
+import {recordedResults} from './experience-model';
+import {CompetitionExperience,EntityExperience} from './CompetitionExperience';
+import type {SportsSnapshot} from './model';
+const primary=['liga-mx','peru-liga-1','premier-league','la-liga','serie-a','ligue-1','champions-league','europa-league','conference-league'];
+const snapshot:SportsSnapshot={schemaVersion:1,competitionId:'premier-league',sport:'football',season:'2026/27',stage:'League',sourceId:'openfootball',sourceUrl:'https://raw.githubusercontent.com/openfootball/football.json/master/2026-27/en.1.json',mode:'historical',observedAt:'2026-09-20',retrievedAt:'2026-10-24T08:00:00Z',entities:[{id:'test-a',name:'TEST A',kind:'club'},{id:'test-b',name:'TEST B',kind:'club'}],tables:[],events:[{id:'test-result',homeId:'test-a',awayId:'test-b',date:'2026-09-20',start:null,stage:'League',status:'completed',scores:{home:2,away:1}}]};
+describe('Batch 2 competition experiences',()=>{
+ it('covers all nine primary competitions and only valid related routes',()=>{for(const id of primary)expect(footballGuide(id)?.phases.length).toBeGreaterThan(0);expect(new Set(footballGuides.map(g=>g.id)).size).toBe(footballGuides.length);for(const guide of footballGuides){expect(competitionById(guide.id)).toBeTruthy();expect(guide.source).toMatch(/^https:\/\//);for(const id of guide.related)expect(competitionById(id)).toBeTruthy();}});
+ it.each(['en','mx','br'] as const)('keeps guides navigable in %s without fabricated data, affiliate CTAs or placeholder fixtures',locale=>{
+  for(const id of primary){const $=load(renderToStaticMarkup(<FootballGuidePage competition={competitionById(id)!} locale={locale} news={[]}/>));expect($('h1').text()).toBe(competitionById(id)!.officialName);expect($('.ms-table')).toHaveLength(0);expect($('.cx-result')).toHaveLength(0);expect($('a[href^="/go/"]')).toHaveLength(0);expect($('#coverage')).toHaveLength(0);expect($('#availability').text().length).toBeGreaterThan(100);for(const a of $('a[href^="#"]').toArray())expect($($(a).attr('href')!).length).toBe(1);for(const a of $('.fx-connections a').toArray())expect($(a).attr('href')).toMatch(new RegExp('^/'+locale+'/'));}
+ });
+ it('separates short tournaments and accumulated rankings without importing old play-in rules',()=>{expect(footballGuide('liga-mx')!.phases.map(p=>p.id)).toEqual(['apertura','clausura','liguilla']);expect(footballGuide('peru-liga-1')!.phases.map(p=>p.id)).toEqual(['apertura','clausura','accumulated','playoffs']);expect(footballGuide('liga-mx')!.phases[2].detail.en).toContain('must be confirmed');});
+ it('uses UEFA phase progression, never a fabricated bracket or domestic double round robin',()=>{for(const id of primary.slice(6)){const g=footballGuide(id)!;expect(g.phases.filter(p=>p.kind==='knockout')).toHaveLength(5);expect(g.phases[0].detail.en).toContain(id==='conference-league'?'six different':'eight different');expect(g.phases[1].detail.en).toContain('9–24');}});
+ it('preserves historical and inactive domestic cup identities',()=>{expect(competitionById('copa-mx')!.status).toBe('historical');expect(footballGuide('copa-mx')!.intro.en).toContain('no active edition');expect(footballGuide('copa-bicentenario')!.intro.en).toContain('Historical');expect(footballGuide('peru-copa-de-la-liga')!.intro.en).toContain('not a renamed archive');});
+ it('shows source date-only results without inventing a kickoff time, table or live status',()=>{expect(recordedResults(snapshot)).toHaveLength(1);expect(recordedResults({...snapshot,events:[{...snapshot.events[0],date:'2026-09-21'}]})).toHaveLength(0);const $=load(renderToStaticMarkup(<CompetitionExperience snapshot={snapshot} competition={competitionById('premier-league')!} locale="en" news={[]}/>));expect($('.cx-result')).toHaveLength(1);expect($('.cx-result time').attr('datetime')).toBe('2026-09-20');expect($('.ms-table')).toHaveLength(0);expect($('#standings').text()).toContain('not a complete season record');expect($('.cx-team-card')).toHaveLength(2);expect($('.fx-format')).toHaveLength(1);});
+ it('keeps results-only club profiles functional without invented position or points',()=>{const $=load(renderToStaticMarkup(<EntityExperience snapshot={snapshot} competition={competitionById('premier-league')!} entity={snapshot.entities[0]} locale="br" news={[]} allSnapshots={[snapshot]}/>));expect($('.cx-result')).toHaveLength(1);expect($('.cx-record dd')).toHaveLength(0);expect($('h1').text()).toBe('TEST A');expect($('.cx-score a').first().attr('href')).toContain('/br/esportes/');});
+});
