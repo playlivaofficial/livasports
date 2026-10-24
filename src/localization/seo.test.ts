@@ -50,7 +50,7 @@ it('a thin (noindex) profile keeps its canonical but emits no hreflang cluster',
 it('/sitemap.xml is served as well-formed, escaped XML with the correct content type (Search Console parsing error regression)',async()=>{
   const response=await sitemapRoute();
   expect(response.headers.get('content-type')).toBe('application/xml; charset=utf-8');
-  expect(response.headers.get('cache-control')).toContain('s-maxage');
+  expect(response.headers.get('cache-control')).toBe('no-store');
   const body=await response.text();
   expect(sitemapXmlProblems(body)).toEqual([]);
   expect(body).toContain('/en/sports/football</loc>');
