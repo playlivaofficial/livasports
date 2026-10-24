@@ -43,3 +43,4 @@
  .v2-bottom-nav a{min-height:52px}.v2-bottom-nav a[aria-current=page]{background:var(--v2-soft);border-radius:9px}
 }
 @media(max-width:359px){.ed-story-hero{min-height:345px}.ed-story-hero h1{font-size:25px}}
+.ed-single-identity .ed-match-identities{grid-template-columns:1fr}.ed-single-identity .ed-match-identities>a{min-height:44px;flex-direction:row;text-align:left}.ed-single-identity>.v2-text-link{justify-self:start;text-align:left}
