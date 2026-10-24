@@ -17,8 +17,8 @@ export function tableLabel(value: string, locale: InterfaceLocale): string {
   if (Object.hasOwn(labels, value)) return labels[value][index];
   const division = /^(AFC|NFC|AL|NL) (East|North|South|West|Central)$/.exec(value);
   if (division) return `${division[1]} ${labels[division[2]][index]}`;
-  const hockey = /^(Atlantic|Metropolitan|Central|Pacific) Division — (\d{4}-\d{2}-\d{2})$/.exec(value);
-  if (hockey) return `${locale === 'br' ? 'Divisão' : 'División'} ${labels[hockey[1]][index]} — ${hockey[2]}`;
+  const hockey = /^(Atlantic|Metropolitan|Central|Pacific) Division(?: — (\d{4}-\d{2}-\d{2}))?$/.exec(value);
+  if (hockey) return `${locale === 'br' ? 'Divisão' : 'División'} ${labels[hockey[1]][index]}${hockey[2] ? ' — '+hockey[2] : ''}`;
   const tennis = /^(ATP|WTA) singles rankings — published top 20$/.exec(value);
   if (tennis) return locale === 'br' ? `${tennis[1]} — ranking de simples: 20 primeiros publicados` : `${tennis[1]} — ranking individual: 20 primeros publicados`;
   return value;

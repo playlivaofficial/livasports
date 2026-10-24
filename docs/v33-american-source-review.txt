@@ -1,0 +1,34 @@
+V3.3 American sports review — 24 October 2026
+
+NFL: 32 named teams, eight divisions, AFC/NFC. All W/L/T, rounded percentage,
+points for and points against independently matched the official league page:
+https://www.nfl.com/standings/league/2026/reg
+The published adaptation is from the fixed Wikipedia templates, not a copied
+official feed. Eight revision times span 18–23 October; they do NOT establish
+a verified result cutoff. Keep source-revision / cutoff unconfirmed visible.
+Do not calculate conference playoff seeding from the divisional source order.
+
+MLB: 30 teams, six divisions, AL/NL. W/L and rounded percentage independently
+match https://www.mlb.com/standings/league?tableType=regularSeasonExpanded
+All six divisions also corroborated against the final regular-season table.
+The Yankees and Orioles have 161 games, not 162. Preserve those actual values.
+Games behind are computed from source W/L; missing runs remain absent, not zero.
+Completed regular-season archive only: no postseason results or participants.
+Earliest retained source revision: 27 September 2026; not today's table date.
+
+NHL: existing 32-team, four-division 20 October 2026 snapshot is unchanged.
+Retain W/L/OTL, points, GF/GA and source division positions. Do not invent RW,
+conference seeds or results. UI filters only; no source refresh or replacement.
+
+Rights: fixed Wikimedia factual-table adaptations under CC BY-SA 4.0. Keep
+source/revision links and same-license downloadable adaptations. Official pages
+are bounded independent verification, not imported feeds or licensed artwork.
+No new franchise logos: plain text identifiers are not official crests.
+No subscriptions, paid-provider calls, AI model calls or recurring tasks added.
+Production AI publication stays paused; affiliate destinations remain inactive.
+
+Postseason sections describe official format only, not fabricated brackets:
+https://www.mlb.com/news/mlb-playoff-format-faq
+https://www.nfl.com/standings/playoff-picture
+https://www.nhl.com/info/standings-info/playoff-format
+No event or thin profile is generated without an approved snapshot record.
