@@ -1,0 +1,38 @@
+V3.3 individual-sports review — 24 October 2026
+
+ATP: approved dated singles top 20, ranking date 19 October 2026. All 20 ranks
+and points checked against TennisLive and Flashscore's dated singles table.
+Movement follows the attributed source and TennisLive, not an intraday live list.
+Wikipedia revision 1381194367, 20 October 16:18:27 UTC, CC BY-SA 4.0 adaptation.
+Source country tokens are preserved, not inferred from names. The noflag athlete
+remains Neutral, not a nationality or representation claim. No photos are copied.
+https://www.tennislive.net/atp/ranking/
+https://www.flashscore.com/tennis/rankings/atp/
+The separate TennisMajors week-43 page exposes a different previous-week table;
+it is not substituted for the explicit 19 October cutoff.
+
+WTA: candidate withheld. Jessica Pegula has 6265 points in the retained Wikipedia
+revision, versus 6235 in the independently dated TennisTemple, WTA Schedule and
+Eurosport tables. No silent correction, publication or claim of verified coverage.
+The cheapest remedy is source correction plus another bounded independent review,
+not a subscription. All other 19 ranks/point totals agree in the reviewed tables.
+https://en.tennistemple.com/rankings/wta
+https://www.wtaschedule.com/wta-rankings (third-party, not WTA's official site)
+
+UFC: retained candidate is 17 October Meta weight-class rankings, not media-panel
+or pound-for-pound rankings. 173 identities/175 entries parsed, NOT approved for
+publication. Women's flyweight lacks a champion row; official indexed information
+names Natalia Silva. Official page access returned 403, and panel-specific rankings
+also differ. Do not infer a vacant title or advertise the candidate as current.
+No official-feed reuse permission, verified bout dataset or event cards acquired.
+Existing approved UFC wordmark is reused; no fighter portrait or fabricated crest.
+
+UX: tennis rankings and points, source-linked player profiles, source-country/Neutral
+labels, searchable list, separate tournament references and cross-tour navigation.
+MMA supports explicit champions, weight-class filters and ranking-system labels only
+when approved records exist. No fake widgets, brackets, seeds or thin profiles.
+Tournament links remain official references until an independently verified draw,
+seed or event dataset is published. World rankings never generate tournament seeds.
+
+No provider subscription, model call, per-visitor upstream fetch, schema change,
+new infrastructure, affiliate activation or automatic publication is introduced.

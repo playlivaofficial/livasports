@@ -29,6 +29,11 @@ function mma(): string {
 }
 
 describe('bounded Wikimedia multisport normalization', () => {
+  it('preserves source country codes while keeping noflag players neutral',()=>{
+    const source=tennis('ATP').replace('{{flagathlete|[[TEST Player 1]]|ITA}}','{{noflag}} [[TEST Player 1]]');
+    const s=normalizeWikimediaMultisport(batch('atp-rankings',source),now).snapshot;
+    expect(s.entities[0].country).toBe('ITA');expect(s.entities[1].country).toBe('Neutral');
+  });
   it.each(['ATP', 'WTA'])('rejects relabelling a reviewed %s singles ranking as another tour, doubles or race', tour => {
     const valid = normalizeWikimediaMultisport(batch(`${tour.toLowerCase()}-rankings`, tennis(tour)), now).snapshot;
     for (const patch of [{ tour: tour === 'ATP' ? 'WTA' : 'ATP' }, { tour: 'ITF' }, { discipline: 'doubles' }, { rankingSystem: 'race' }]) {

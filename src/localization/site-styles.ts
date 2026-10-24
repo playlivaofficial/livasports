@@ -19,3 +19,4 @@ import '@/multisport/competition-experience.css';
 import '@/multisport/football-experience.css';
 import '@/multisport/basketball.css';
 import '@/multisport/american.css';
+import '@/multisport/individual.css';
