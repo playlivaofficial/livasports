@@ -9,6 +9,7 @@ const labels: Record<string, readonly [string, string]> = {
   'American League': ['Liga Americana', 'Liga Americana'], 'National League': ['Liga Nacional', 'Liga Nacional'],
   East: ['Este', 'Leste'], North: ['Norte', 'Norte'], South: ['Sur', 'Sul'], West: ['Oeste', 'Oeste'], Central: ['Central', 'Central'],
   Eastern: ['Este', 'Leste'], Western: ['Oeste', 'Oeste'], Atlantic: ['Atlántico', 'Atlântico'], Metropolitan: ['Metropolitana', 'Metropolitana'], Pacific: ['Pacífico', 'Pacífico'],
+  Southeast: ['Sureste', 'Sudeste'], Southwest: ['Suroeste', 'Sudoeste'], Northwest: ['Noroeste', 'Noroeste'],
 };
 export function tableLabel(value: string, locale: InterfaceLocale): string {
   if (locale === 'en') return value;

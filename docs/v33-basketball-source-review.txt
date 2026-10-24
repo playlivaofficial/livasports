@@ -1,0 +1,35 @@
+V3.3 basketball source review — 24 October 2026
+
+EuroLeague: approved for a dated, community-maintained snapshot, not an official live feed.
+Wikipedia revision 1381650227 (23 October 2026 22:03:23 UTC) explicitly states
+23 October as the data date. All 20 participant names, source ordering, W/L
+records and point differences were reviewed against the independent table at
+https://basketscore.net/standings (24 October, after Round 7): all 20 agree.
+Seven games per team; 70 total wins and 70 losses; net point difference zero.
+PF/PA are retained from the attributed source and explicitly exclude overtime.
+The older Basketball Reference view contains incomplete Round 7 records; it is
+not used to advance or replace the explicit source cutoff.
+
+Format: EuroLeague media centre communication 24407 confirms 20 clubs, 38 rounds,
+play-in, best-of-five playoffs and Final Four. No qualified playoff participants,
+draw, event schedule, live status or official-feed claim is imported.
+Rights: fixed Wikimedia factual table, CC BY-SA 4.0, source revision attribution
+and same-license downloadable adaptation. No source photography or club logos.
+Official EuroLeague live-feed reuse rights remain unapproved.
+
+NBA: two parsed conference templates contain 30 franchises. The template edit
+times are NOT result cutoffs. Independent standings disagree about Detroit's
+record and tied-team ordering. Candidate remains unpublished pending resolution.
+The public directory uses names/divisions checked against NBA About; it does not
+grant artwork rights or establish a current rank. No thin team profiles are
+created without published sporting records. Bounded parser is available for
+future reviewed snapshots; no automatic fetch or publication is enabled.
+
+NBA format sources: https://www.nba.com/news/about and
+https://www.nba.com/news/nba-adopts-play-in-tournament-on-full-time-basis
+No dates for the 2027 postseason or invented brackets are supplied.
+
+Cost: free bounded source requests; no API subscriptions, model calls or
+per-visitor provider traffic. Existing automatic publication remains PAUSED.
+Private audit artifacts are ignored; no credentials or rejected articles belong
+in this review or PR.
