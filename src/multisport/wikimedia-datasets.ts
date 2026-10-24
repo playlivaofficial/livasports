@@ -10,6 +10,11 @@ export interface WikimediaDataset {
 
 export const WIKIMEDIA_DATASETS: readonly Readonly<WikimediaDataset>[] = Object.freeze([
   {
+    competitionId: 'nba', sport: 'basketball', season: '2026/27',
+    sourceUrl: 'https://en.wikipedia.org/wiki/2026%E2%80%9327_NBA_season',
+    titles: Object.freeze(['Template:2026–27 NBA East standings', 'Template:2026–27 NBA West standings']),
+  },
+  {
     competitionId: 'colombia-primera-a', sport: 'football', season: '2026 Finalizacion',
     sourceUrl: 'https://en.wikipedia.org/wiki/2026_Liga_DIMAYOR',
     titles: Object.freeze(['2026 Liga DIMAYOR']),

@@ -63,11 +63,11 @@ describe('competition page publication boundaries', () => {
   it.each(['en', 'br', 'mx', 'co', 'pe'] as const)('does not invent NBA tables or player identities when no snapshot is published in %s', async locale => {
     // Resolve the async data loader first; the rendered tree contains synchronous test shell/components.
     const html = renderToStaticMarkup(await CompetitionPage({ locale, competitionId: 'nba' })), $ = load(html);
-    expect($('h1').text()).toBe('National Basketball Association');
-    expect($('.ms-unavailable')).toHaveLength(1);
+    expect($('h1').text()).toBe('NBA');
+    expect($('.bk-coverage')).toHaveLength(1);
     expect($('.ms-table')).toHaveLength(0); expect($('.ms-entity')).toHaveLength(0);
     expect($('.ms-season-picker')).toHaveLength(0); expect($('script[type="application/ld+json"]')).toHaveLength(0);
-    expect($('.ms-unavailable a').attr('href')).toContain('nba.com');
+    expect($('#source a').attr('href')).toContain('nba.com'); expect($('.bk-club[href]')).toHaveLength(0);
     expect(html).not.toContain('Synthetic'); expect(html).not.toContain('<strong>0</strong>');
   });
   it('does not let an unrequested or nonexistent archive masquerade as a published season', async () => {
@@ -76,9 +76,9 @@ describe('competition page publication boundaries', () => {
   it('labels an available historical NBA edition as historical instead of the upcoming catalog season', async () => {
     state.snapshots = [nbaSnapshot('2025/26', 'historical', 'TEST-old', '2026-04-18T05:01:00Z')];
     const $ = load(renderToStaticMarkup(await CompetitionPage({ locale: 'en', competitionId: 'nba' })));
-    expect($('.ms-competition-heading').text()).toContain('2025/26');
-    expect($('.ms-competition-heading .ms-status').text()).toBe('Historical snapshot');
-    expect($('.ms-competition-heading').text()).not.toContain('Upcoming');
+    expect($('.bk-header').text()).toContain('2025/26');
+    expect($('.bk-season span').text()).toBe('Historical snapshot');
+    expect($('.bk-header').text()).not.toContain('Upcoming');
     expect($('.ms-source').hasClass('ms-source-historical')).toBe(true);
     expect($('.ms-table th').toArray().map(node => $(node).text())).not.toContain('PF');
     expect($('.ms-table th').toArray().map(node => $(node).text())).not.toContain('PA');
@@ -86,7 +86,7 @@ describe('competition page publication boundaries', () => {
   it('prefers the current edition over a historical snapshot with a newer revision', async () => {
     state.snapshots = [nbaSnapshot('2025/26', 'historical', 'TEST-old', '2026-10-19T10:00:00Z'), nbaSnapshot('2026/27', 'manual', 'TEST-current', '2026-10-18T10:00:00Z')];
     const $ = load(renderToStaticMarkup(await CompetitionPage({ locale: 'en', competitionId: 'nba' })));
-    expect($('.ms-competition-heading').text()).toContain('2026/27');
+    expect($('.bk-header').text()).toContain('2026/27');
     expect($('.ms-table').text()).toContain('TEST-current'); expect($('.ms-table').text()).not.toContain('TEST-old');
   });
   it('never describes a revision timestamp as result temporal coverage in Dataset metadata', async () => {
