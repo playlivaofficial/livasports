@@ -1,0 +1,36 @@
+LivaSports V3.1 — Batch 1: source-backed competition and team experiences
+
+Scope
+- Colombia Primera A: 20-team Finalización record, linked season-specific club profiles, exact league/cup association for América de Cali's reviewed DIMAYOR announcement.
+- Bundesliga: 18-team record, source-recorded completed results, club profiles, exact existing approved artwork.
+- NHL: 32 teams, source-defined Eastern/Western conferences and four divisions, hockey columns and division-bound rankings, linked franchise profiles.
+- Shared mobile-first header, local conference filter, standings, source-aware results, participants, relevant news, source rights and related competitions.
+- No changes to the accepted homepage, authentication, GEO, providers, database schema, newsroom publication controls or budgets.
+
+Source evidence (public database snapshots inspected 24 October 2026)
+Colombia: Wikimedia, 2026 Finalizacion, Torneo Finalización, 20 teams; cutoff 2026-10-21. CC BY-SA 4.0 adaptation with exact source revisions and contributor links retained.
+Bundesliga: OpenLigaDB, 2026/27, 18 teams; cutoff 2026-10-18T15:30:00Z. Existing approved OpenLigaDB licence/attribution retained. Only completed scored events before that cutoff are promoted as recorded results.
+NHL: Wikimedia, 2026/27, 32 teams; cutoff 2026-10-20. Four divisions, source-defined conferences. No inferred overall rank, playoff qualification, regulation wins or unverified fixtures.
+These are dated snapshots, not live coverage. Source cutoffs, underlying values and publication records are not modified by this batch.
+
+Identity and rights
+Uses the existing locally hosted identity registry with reviewed Commons PD-textlogo declarations, provenance hashes and editorial-only use. Trademark rights are not claimed.
+Bundesliga and approved team artwork are integrated into headers, standings, team directory and recorded matchups. América de Cali's approved wordmark is reused for its exact league/cup identity.
+Missing approved artwork remains explicitly typographic; no invented crest, graphic hotlink or new asset-rights assumption. NHL artwork and most Colombian club crests remain a rights/asset coverage gap, not falsely marked complete.
+Exact league/cup aliases connect América without matching similarly named clubs or other sports. Existing source IDs, season-scoped URLs and canonical metadata remain stable.
+
+Route audit
+The read-only baseline covers all 64 English competition routes, with HTTP status, canonical, robots policy, language, real published records, entity count, artwork coverage, source date, related stories and missing work.
+Machine-readable evidence: output/v3-qa/v31/batch1/route-audit-before.json (ignored local artifact, no credentials).
+All 64 baseline routes returned 200; only the three competitions above had published datasets. HTTP existence does not count as operational coverage. The other 61 were not individually browser-accepted in Batch 1.
+Batch 1 browser script covers competition and sampled team pages in EN/ES/PT, Light/Dark, at 390/1440; English competition pages additionally cover 320/360/375/430/768. It verifies source dates, row counts, canonical/language, overflow/images/runtime errors, real NHL filtering and team navigation.
+QA uses Do Not Track; it does not count its visits as audience growth. No paid provider/model requests are needed.
+
+Release gate
+Full regression suite, lint, typecheck, isolated PostgreSQL CI, production build, SEO crawl and secret scan must pass. Actual responsive screenshots must be reviewed. No new migration is needed. Production release uses the existing Vercel project and existing database; retain the previous READY application artifact for rollback.
+
+Remaining / next batches
+No new data publication or current-data claim is made. Colombia/NHL published snapshots contain no match results; their pages disclose that limitation. Reviewed news is shown only where it actually exists; empty NHL news does not count as autonomous reporting.
+Batch 2: Liga MX, Peru Liga 1, remaining top-five European and UEFA competition experiences, with independently approved data where available.
+Batch 3: sport-specific NBA/EuroLeague/MLB/NFL/UFC/tennis experiences; do not apply football standings to fighters/rankings.
+Batch 4: secondary/international competitions and deeper approved entity/asset coverage.
