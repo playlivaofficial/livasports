@@ -15,3 +15,4 @@ import '@/editorial/product.css';
 import '@/editorial/focused.css';
 import '@/editorial/sports-app.css';
 import '@/editorial/journey.css';
+import '@/multisport/competition-experience.css';
