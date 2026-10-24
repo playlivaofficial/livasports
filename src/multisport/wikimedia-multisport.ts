@@ -70,6 +70,11 @@ function tennis(source: string, tour: 'ATP' | 'WTA', entities: Map<string, Sport
     const move = cells[3].trim().match(/^\{\{(steady|up|down)\}\}(?:\s+(\d+))?$/);
     if (!move || (move[1] === 'steady' ? move[2] !== undefined : move[2] === undefined)) fail('TENNIS_MOVEMENT');
     const entityId = participant(entities, cells[1], 'player');
+    // Country-of-representation tokens are source facts, not flags inferred from names.
+    // A noflag athlete stays Neutral; do not infer Russian/Belarusian nationality.
+    const code=cells[1].match(/^\s*\{\{flagathlete\|\[\[[^\]]+\]\]\|([A-Z]{3})\}\}\s*$/)?.[1];
+    if(code) entities.get(entityId)!.country=code;
+    else if(/^\s*\{\{noflag\}\}\s*\[\[[^\]]+\]\]\s*$/.test(cells[1])) entities.get(entityId)!.country='Neutral';
     rows.push({ entityId, rank, points: integer(cells[2]), movement: move![1] === 'steady' ? 0 : integer(move![2]) * (move![1] === 'up' ? 1 : -1) });
   }
   if (rows.length !== 20 || rows.some((row, i) => row.rank !== i + 1)) fail('TENNIS_INCOMPLETE');
