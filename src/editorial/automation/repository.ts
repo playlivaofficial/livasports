@@ -2,6 +2,7 @@ import {randomUUID} from 'node:crypto';
 import {isDeepStrictEqual} from 'node:util';
 import type {DatabaseClient,QueryExecutor} from '@/database/client';
 import type {NewsDraft,NewsRecord,PublishedNews} from '../model';
+import {usablePublishedNews} from '../presentation';
 import {automationLimits as limits,automationSources,eventKey,fingerprint,stableFacts,factErrors,resultsFromSnapshot,type EventFacts,type ResultFacts} from './policy';
 import type {SportsSnapshot} from '@/multisport/model';
 import type {ModelUsage} from './generation';
@@ -143,6 +144,10 @@ export class AutomationRepository {
     if(['MODEL_AUTH_REJECTED','MODEL_CONFIGURATION_REJECTED','MODEL_QUOTA_EXCEEDED','MODEL_LIMIT_UNCLASSIFIED'].includes(reason))await this.db.transaction(async db=>{await db.query('UPDATE editorial_automation_control SET paused=true,edited_at=now()');await audit(db,key,'model-circuit-breaker',{reason});});
   }
   async publish(runId:string,event:AutomationEvent,draft:NewsDraft,now=new Date()){
+    const stamp=now.toISOString(),published:PublishedNews={...draft,publishedAt:stamp,updatedAt:stamp,verifiedAt:stamp};
+    // Never persist a "published" record that the public language/metadata gate rejects.
+    // Callers must use the same clock sample for toNewsDraft and publish; do not restamp audit evidence.
+    if(!usablePublishedNews(published,now))throw Error('PUBLICATION_PRESENTATION_INVALID');
     return this.db.transaction(async db=>{
       await db.query('SELECT pg_advisory_xact_lock(724219)');await active(db,runId);
       const stored=(await db.query<AutomationEvent>(`SELECT ${eventColumns} FROM editorial_automation_events WHERE event_key=$1 FOR UPDATE`,[event.eventKey])).rows[0];
@@ -156,7 +161,6 @@ export class AutomationRepository {
       }
       const duplicates=(await db.query<NewsRecord>('SELECT slug,draft,published,revision,reviewed_revision AS "reviewedRevision",reviewed_at AS "reviewedAt",archived FROM editorial_news WHERE slug=$1 OR draft->>\'sourceUrl\'=$2 OR published->>\'sourceUrl\'=$2 FOR UPDATE',[draft.slug,draft.sourceUrl])).rows;
       if(duplicates.some(row=>row.slug===draft.slug||!pristineDiscoveryRecord(row,facts)))throw Error('OWNER_OR_DUPLICATE_RECORD');
-      const stamp=now.toISOString(),published:PublishedNews={...draft,publishedAt:stamp,updatedAt:stamp,verifiedAt:stamp};
       const record:NewsRecord={slug:draft.slug,draft,published,revision:1,reviewedRevision:null,reviewedAt:null,archived:false};
       // No forged human review stamp. Machine policy provenance lives in the separate audit table.
       await db.query('INSERT INTO editorial_news(slug,draft,published) VALUES ($1,$2,$3)',[draft.slug,JSON.stringify(draft),JSON.stringify(published)]);

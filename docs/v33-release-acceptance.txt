@@ -1,0 +1,86 @@
+LivaSports V3.3 release acceptance — 24 October 2026
+
+Scope and releases
+PR79 basketball: merge 87cb8d0b907212d68514435172b7332fdd0841c3.
+PR80 American sports: merge ca97adef9111ba17805b857372cb06e6821af8bd.
+PR81 individual sports: merge 7d9586ebfade8c2182181bc3aa14a43937b02590.
+All three passed hosted CI and Preview before merge. Git integration deployed
+each to the EXISTING LivaSports project; no duplicate CLI deployment was started.
+Production browser acceptance: basketball 30 cases, American sports 54,
+individual sports 42. EN/ES/PT, Light/Dark, 320/390/430/1440, source-based profiles,
+search/filter behavior, canonical URLs, no overflow/broken images/runtime errors.
+The final acceptance patch also prevents saving a publication that its own public
+translation/metadata gate would reject and fixes article source-revision labeling.
+
+Actual public coverage — not a route/catalog coverage claim
+NBA /en/sports/basketball/nba: 30 named franchises, 2 conferences, 6 divisions.
+No approved standings or team record profiles: Detroit and ordering conflict.
+EuroLeague /en/sports/basketball/euroleague: 20 published clubs with profiles,
+reviewed 23 October W/L and point difference. No fabricated playoff participants.
+MLB /en/sports/baseball/mlb: 30 published team records, AL/NL, 6 divisions.
+Final regular-season archive, earliest source revision 27 September. Not current
+postseason data. Missing runs stay absent. No invented postseason bracket.
+NFL /en/sports/american-football/nfl: 32 published team records, AFC/NFC,
+8 divisions. Independently matched official W/L/T/PCT/PF/PA. Source revisions
+18–23 October do not establish a result cutoff; label remains unconfirmed.
+NHL /en/sports/ice-hockey/nhl: existing 32-team/4-division 20 October snapshot
+preserved exactly; improved conference navigation and source-bound profiles.
+ATP /en/sports/tennis/atp-rankings: published 19 October singles top 20 with
+points and profiles. Source country tokens retained; Neutral is not nationality.
+WTA /en/sports/tennis/wta-rankings: genuine interface, candidate WITHHELD because
+Pegula's 6265 source points conflict with independently dated 6235. Not coverage.
+UFC /en/sports/mma/ufc: distinct MMA interface and approved wordmark, but rankings,
+champions, fighters and event cards remain unavailable until source review clears.
+No fake rankings, thin fighter pages, event cards, tournament seeds or brackets.
+
+Rights, source freshness and economics
+Detailed evidence and exact source boundaries are in v33-basketball-source-review,
+v33-american-source-review and v33-individual-source-review (all .txt).
+New factual adaptations retain fixed Wikimedia revisions, CC BY-SA 4.0 attribution
+and same-license downloads. Official pages were independent verification, not
+copied feeds. These dated datasets require another source-bound review to refresh.
+No automatic live standings claim. No per-visitor upstream/provider requests.
+Existing reviewed EuroLeague/UFC artwork is used. Other new identity surfaces use
+real names/plain letters, explicitly not official crests. No new franchise artwork
+rights, athlete photography or likeness assets were acquired. This remains a
+visible difference from the premium design reference, not a completed asset goal.
+No paid sports subscription, new project, database branch, migration or scheduled
+task. No additional recurring infrastructure service. Existing hosting/database
+traffic still has its ordinary platform usage cost; it is not claimed to be free.
+
+NFL local real-source canary — NOT a Production publication or daily-autonomy claim
+Existing authorized one-run re-review used the Cardinals 21 October Chad Ryland
+NFC Special Teams Player of the Week announcement. Fresh source facts matched.
+No invented score, opponent, venue or sporting context. Five model calls including
+bounded correction and re-audit: 3908 input / 1185 output tokens; $0.000986 measured.
+Original $0.000096; translations $0.000164; audit $0.000384; correction $0.000155;
+re-audit $0.000187. All grounded/translations/original/quality flags passed.
+One persisted article, no duplicate. The one-run harness initially sampled its
+draft and publication clocks 3ms apart; public validation correctly rejected it.
+An audited LOCAL metadata-only repair retained the existing machine-validation
+timestamp, unchanged copy and previous publication evidence. No model re-run or
+forged human review. A regression now rejects this contract before database writes.
+Normal authenticated cache invalidation was exercised on an already archived
+LOCAL QA record; actual EN/ES/PT article and homepage then passed browser checks.
+This direct repository canary is not proof of an unattended scheduled cycle.
+Local URL suffix /news/announcement-5f37cb99b94aed894e27c050 under /en;
+/mx/noticias/ and /br/noticias/ use the same slug. Source and AI disclosure visible.
+The public text is a concise award brief, not a full feature or on-site reporting.
+Private evidence and credentials remain out of Git/PR. Local backups completed.
+$0.02 reservation remains charged; $0.86 validation capacity remains after the
+historical $0.08 deduction and all conservative reservations. $3 monthly cap intact.
+Local and Production automation PAUSED; Production model enablement remains off.
+
+Remaining product limitations
+NBA, WTA and UFC need resolved, permitted, independently verified datasets.
+The lowest-cost NBA/WTA remedy is corrected source records and bounded review,
+not a subscription. UFC needs authorized access and a fully corroborated ranking
+system/event dataset; no paid option is being purchased or implied approved.
+No operational new draws, tournament seeds, postseason brackets or live event feed.
+Published news association is working, but empty categories are not filled with
+fiction and all-sport automatic daily publication is NOT established by this work.
+Production NFL AI publication remains off; the successful NFL story is LOCAL only.
+Owner visual approval is not inferred from passing automated browser checks.
+Retain previous READY application deployments for rollback; do not roll back data
+destructively. Existing Owner, users, SEO, GEO, paused AI and inactive affiliates
+are release invariants, not new functionality.

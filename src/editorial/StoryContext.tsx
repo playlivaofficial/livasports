@@ -22,10 +22,10 @@ export function StoryContext({story,snapshots,locale}:{story:PublishedNews;snaps
   // The header already links the competition. Do not repeat an empty identity panel.
   if(!competition||!context)return null;
   if(context.event)return <MatchupCard snapshot={context.snapshot} event={context.event} locale={locale}/>;
-  return <aside className="ed-sports-context" aria-label={label('Sports context','Contexto deportivo','Contexto esportivo')}>
+  return <aside className={`ed-sports-context${context.entities.length===1?' ed-single-identity':''}`} aria-label={label('Sports context','Contexto deportivo','Contexto esportivo')}>
     <Link className="ed-kicker" href={competitionPath(locale,competition.id)}>{competition.officialName} ↗</Link>
     {context.entities.length>0?<div className="ed-match-identities">{context.entities.slice(0,4).map(entity=><Link key={entity.id} href={snapshotEntityPath(locale,context.snapshot,entity.id)}><strong>{entity.name}</strong></Link>)}</div>:null}
     <Link className="v2-text-link" href={competitionPath(locale,competition.id)+'#standings'}>{label('View sourced records','Ver registros con fuentes','Ver registros com fontes')} →</Link>
-    <small>{label('Data cutoff','Fecha de los datos','Data de referência')}: {context.snapshot.observedAt.slice(0,10)} · {context.snapshot.sourceId}</small>
+    <small>{context.snapshot.observationBasis==='source-revision'?label('Source revision; results cutoff unconfirmed','Revisión de fuente; corte de resultados sin confirmar','Revisão da fonte; corte dos resultados não confirmado'):label('Data cutoff','Fecha de los datos','Data de referência')}: {context.snapshot.observedAt.slice(0,10)} · {context.snapshot.sourceId}</small>
   </aside>;
 }
