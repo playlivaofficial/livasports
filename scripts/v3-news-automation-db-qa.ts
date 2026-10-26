@@ -30,6 +30,15 @@ async function main(){
   const competing=await Promise.all([repo.claim(true,true,now),repo.claim(true,true,now)]),claimed=competing.filter(x=>'id' in x);assert.equal(claimed.length,1);checks.push('concurrent run exclusion');
   const run=claimed[0] as {id:string};
   assert.equal((await repo.dashboard()).usage.lifetimeReservedMicroUsd,20000);checks.push('durable pre-call budget reservation');
+  // A new physical pool, not just a new repository around the same connection.
+  const reconnected=new PostgresDatabaseClient(url.href);
+  try{
+   const restarted=new AutomationRepository(reconnected);
+   assert.deepEqual(await restarted.claim(true,true,now),{reason:'not-due'});
+   assert.equal((await restarted.dashboard()).usage.lifetimeReservedMicroUsd,20000);
+   await restarted.assertActive(run.id);
+   checks.push('independent database reconnect preserves active lease, due time and atomic reservation');
+  }finally{await reconnected.close();}
   const yesterday=new Date(+now-86400000).toISOString(),nextWeek=new Date(+now+7*86400000).toISOString();
   const ids=[1,...Array.from({length:16},(_,i)=>i+3),2];
   const table=ids.map(id=>({teamInfoId:id,teamName:`Synthetic Club ${id}`,matches:id<=2?1:0,won:id===1?1:0,draw:0,lost:id===2?1:0,goals:id===1?1:0,opponentGoals:id===2?1:0,goalDiff:id===1?1:id===2?-1:0,points:id===1?3:0}));
@@ -39,6 +48,13 @@ async function main(){
   assert.equal(await repo.observe(run.id,facts,now),'new');assert.equal(await repo.observe(run.id,facts,now),'unchanged');checks.push('durable event deduplication');
   const text:GeneratedCopy={en:{title:'Synthetic Club 1 records a victory',summary:'Synthetic Club 1 has a recorded win over Synthetic Club 2.',body:'OpenLigaDB records Synthetic Club 1 against Synthetic Club 2 at 1–0. The recorded result places Synthetic Club 1 on the winning side.'},es:{title:'Victoria de Synthetic Club 1 registrada',summary:'Synthetic Club 1 registra una victoria sobre Synthetic Club 2.',body:'OpenLigaDB registra a Synthetic Club 1 frente a Synthetic Club 2 con 1–0. El resultado registrado corresponde a una victoria de Synthetic Club 1.'},pt:{title:'Vitória registrada de Synthetic Club 1',summary:'Synthetic Club 1 registra uma vitória sobre Synthetic Club 2.',body:'OpenLigaDB registra Synthetic Club 1 contra Synthetic Club 2 com 1–0. O resultado registrado corresponde a uma vitória de Synthetic Club 1.'}};
   const event=await repo.pending();assert.ok(event);await repo.markAttempt(run.id,event.eventKey);
+  const protectedDraft=toNewsDraft(text,facts,now);
+  await db.query('INSERT INTO editorial_news(slug,draft,archived) VALUES($1,$2,true)',['synthetic-owner-archive',JSON.stringify(protectedDraft)]);
+  assert.equal(await repo.publicationBlocker(event),'OWNER_OR_DUPLICATE_RECORD');
+  await assert.rejects(repo.publish(run.id,event,protectedDraft,now),/OWNER_OR_DUPLICATE_RECORD/);
+  assert.equal((await db.query("SELECT archived FROM editorial_news WHERE slug='synthetic-owner-archive'")).rows[0].archived,true);
+  await db.query("DELETE FROM editorial_news WHERE slug='synthetic-owner-archive'");
+  checks.push('archived Owner source blocks pre-generation and atomic publication; archive remains unchanged');
   const privateMigration=await readFile('db/migrations/075_v3_news_review_evidence.sql','utf8');await db.query(privateMigration);await db.query(privateMigration);checks.push('075 additive migration repeatability');
   await repo.saveEvidence(run.id,event.eventKey,0,{model:'synthetic',rubric:'test',facts,draft:text,deterministic:[],audit:{grounded:false,translations:true,original:true,quality:true,issues:[{field:'en.body',code:'UNSUPPORTED_FACT',reason:'Synthetic rejection'}]},status:'EDITORIAL_REVIEW_REQUIRED',usage:{calls:0,inputTokens:0,outputTokens:0,microUsd:0},correctedFields:[]});
   assert.equal((await repo.reviewEvidence()).length,1);assert.equal((await db.query('SELECT count(*) FROM editorial_news WHERE published IS NOT NULL')).rows[0].count,'0');checks.push('rejected draft retained privately without public publication');
