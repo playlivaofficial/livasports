@@ -15,18 +15,21 @@ export type AnnouncementDetail=
  | {type:'ranking';rankingName:string;effectiveOn:string;entries:{name:string;rank:number}[]}
  | {type:'roster-announcement';season:string;scope:'opening-night';internationalPlayers:number;countries:number;continents:number}
  | {type:'award';recipient:string;award:string;period:string};
+// Source-specific team recognition, not a sporting result or player ranking.
+export type TeamHonor={type:'team-honor';recipient:string;team:'Arizona Cardinals';honor:'Ring of Honor';status:'inducted'};
 export interface AnnouncementFacts {
  kind:'announcement';eventKey:string;sourceId:'nba-releases'|'dimayor-releases'|'nfl-cardinals';sourceUrl:string;
  sourceName:string;eventDate:string;observedAt:string;competition:NewsCompetition;sport:NewsSport;
- country:'international'|'co';detail:AnnouncementDetail;
+ country:'international'|'co';detail:AnnouncementDetail|TeamHonor;
  provenance:{method:'primary-feed-facts-v1';headlineCorroborated:true;bodyCorroborated:true;factsHash:string;rights:'independent-facts-only'};
 }
 /** Fixed field order survives PostgreSQL jsonb normalization; never hash insertion order. */
-const hash=(value:AnnouncementDetail)=>{
+const hash=(value:AnnouncementDetail|TeamHonor)=>{
  const normalized=value.type==='roster-announcement'?{type:value.type,season:value.season,scope:value.scope,internationalPlayers:value.internationalPlayers,countries:value.countries,continents:value.continents}
   :value.type==='fixture-announcement'?{type:value.type,participants:value.participants,stage:value.stage,action:value.action,referee:value.referee}
   :value.type==='qualification'?{type:value.type,participant:value.participant,stage:value.stage,season:value.season}
-  :value.type==='award'?{type:value.type,recipient:value.recipient,award:value.award,period:value.period}:value;
+  :value.type==='award'?{type:value.type,recipient:value.recipient,award:value.award,period:value.period}
+  :value.type==='team-honor'?{type:value.type,recipient:value.recipient,team:value.team,honor:value.honor,status:value.status}:value;
  return createHash('sha256').update(JSON.stringify(normalized)).digest('hex');
 };
 export const announcementKey=(url:string)=>`citation:${createHash('sha256').update(url).digest('hex')}`;
@@ -51,6 +54,8 @@ export function announcementErrors(f:AnnouncementFacts,now=new Date()):string[]{
  }else if(f.sourceId==='nfl-cardinals'&&url.hostname==='azcardinals.com'&&url.pathname.startsWith('/news/')&&f.competition==='nfl'&&f.sport==='american-football'&&f.country==='international'&&f.sourceName==='Arizona Cardinals'&&f.detail.type==='award'){
   const d=f.detail;
   if(!/^[A-Z][a-z]+(?: [A-Z][a-z]+){1,3}$/.test(d.recipient)||d.award!=='NFC Special Teams Player of the Week'||d.period!=='weekly')errors.push('CONTRADICTORY_AWARD_FACTS');
+ }else if(f.sourceId==='nfl-cardinals'&&url.hostname==='azcardinals.com'&&url.pathname.startsWith('/news/')&&f.competition==='nfl'&&f.sport==='american-football'&&f.country==='international'&&f.sourceName==='Arizona Cardinals'&&f.detail.type==='team-honor'){
+  const d=f.detail;if(!/^[A-Z][a-z]+(?: [A-Z][a-z]+){1,3}$/.test(d.recipient)||d.team!=='Arizona Cardinals'||d.honor!=='Ring of Honor'||d.status!=='inducted')errors.push('CONTRADICTORY_HONOR_FACTS');
  }else errors.push('ANNOUNCEMENT_TYPE_REQUIRES_SOURCE_ADAPTER');
  return errors;
 }
@@ -58,8 +63,14 @@ export function announcementErrors(f:AnnouncementFacts,now=new Date()):string[]{
  * Headline and body must independently establish the same facts. Unknown shapes remain metadata. */
 export function extractAnnouncement(candidate:DiscoveryCandidate,body:string,now=new Date()):AnnouncementFacts|null{
  if(!candidate.sourceDate||body.length>50000)return null;
- let detail:AnnouncementDetail|undefined;
+ let detail:AnnouncementDetail|TeamHonor|undefined;
  if(candidate.desk==='nfl-cardinals'){
+  const honor=/^(?:'[^']{1,40}': )?([A-Z][a-z]+(?: [A-Z][a-z]+){1,3}) Inducted Into Ring Of Honor(?:, No\. \d{1,2} Retired)?$/.exec(candidate.headline);
+  if(honor){
+   const surname=honor[1].split(' ').at(-1)!;
+   // Do not infer jersey number, ceremony date, venue, match result or career stats.
+   if(body.includes(honor[1])&&body.includes('his name now officially on display within the Cardinals Ring of Honor')&&body.includes(`${surname}'s name was unveiled`)&&!/\b(?:not|never)\s+(?:inducted|unveiled|honored)\b/i.test(body))detail={type:'team-honor',recipient:honor[1],team:'Arizona Cardinals',honor:'Ring of Honor',status:'inducted'};
+  }
   const headline=/^([A-Z][a-z]+(?: [A-Z][a-z]+){1,3}) Named NFC Special Teams Player Of The Week(?: After [A-Za-z ]+)?$/.exec(candidate.headline);
   if(headline){
    const surname=headline[1].split(' ').at(-1)!;
@@ -92,7 +103,7 @@ export function extractAnnouncement(candidate:DiscoveryCandidate,body:string,now
 }
 export function announcementCopyErrors(copy:Record<'en'|'es'|'pt',{title:string;summary:string;body:string}>,facts:AnnouncementFacts){
  const errors:string[]=[],numbers=new Set(JSON.stringify(facts.detail).match(/\d+/g)??[]);
- const entities=facts.detail.type==='fixture-announcement'?[...facts.detail.participants,facts.detail.referee]:facts.detail.type==='qualification'?[facts.detail.participant]:facts.detail.type==='award'?[facts.detail.recipient]:['NBA'];
+ const entities=facts.detail.type==='fixture-announcement'?[...facts.detail.participants,facts.detail.referee]:facts.detail.type==='qualification'?[facts.detail.participant]:facts.detail.type==='award'?[facts.detail.recipient]:facts.detail.type==='team-honor'?[facts.detail.recipient,facts.detail.team]:['NBA'];
  for(const lang of ['en','es','pt'] as const){
   const part=copy?.[lang];
   if(!part||Object.keys(part).sort().join(',')!=='body,summary,title'||Object.values(part).some(v=>typeof v!=='string')){errors.push(`${lang}:INVALID_COPY`);continue;}

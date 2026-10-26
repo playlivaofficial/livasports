@@ -13,7 +13,7 @@ try{const page=await qa.newPage();
   assert.ok(await page.evaluate('document.body.innerText.includes("2026-10-26")'));assert.equal(await page.evaluate('Array.from(document.links).some(a=>a.getAttribute("href")?.startsWith("/go/"))'),false);
   const file=`${dir}/nba-${locale}-${theme}-${width}.png`,layout=await page.screenshot(file);assert.equal(layout.overflow,false);assert.equal(layout.brokenImages,0);
   cases.push({path,width,theme,file,rows:30,sourceOrderLabel:true,layout});
-  if(locale==='en'){await page.evaluate('document.querySelector(".ms-table-card").scrollIntoView({block:"start"})');const tableLayout=await page.screenshot(`${dir}/nba-table-${theme}-${width}.png`);assert.equal(tableLayout.overflow,false);}
+  if(locale==='en'){await page.evaluate('document.querySelector(".ms-table-card").scrollIntoView({block:"start",behavior:"instant"})');await delay(150);const tableLayout=await page.screenshot(`${dir}/nba-table-${theme}-${width}.png`);assert.equal(tableLayout.overflow,false);}
   if(locale==='en'&&width===390){const href=await page.evaluate('document.querySelector(".ms-entity").getAttribute("href")');await page.evaluate('document.querySelector(".ms-entity").click()');await page.wait(`location.pathname===${JSON.stringify(href)}&&!!document.querySelector('.bk-profile')`,60000);assert.ok(await page.evaluate('document.body.innerText.includes("Detroit Pistons")'));const profile=await page.screenshot(`${dir}/nba-detroit-${theme}-390.png`);assert.equal(profile.overflow,false);}
  }
  assert.deepEqual(page.metrics.errors,[]);assert.deepEqual(page.metrics.failed,[]);assert.equal(page.metrics.providers,0);
