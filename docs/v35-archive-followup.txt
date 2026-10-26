@@ -1,0 +1,47 @@
+Archive investigation — 26 October 2026, exact 25 Oct 07:00–26 Oct 07:00 UTC window
+
+Read-only official Vercel metrics confirm 80,510 / 81,320 ISR write units
+on the 15 legacy archive routes. The MX player family has 9,346 distinct paths,
+8,672 MISS requests and 1,131 HIT requests. Its top 20 write paths are tied at
+only three units each (including A. Antolin and A. Ayvazov): not a single hot
+path repeatedly regenerating thousands of times.
+
+Actual request attribution for that family: 1,610 verified ExaSearchBot,
+8 Googlebot and 8,185 unclassified requests. 9,796 requests have no referrer;
+only seven refer from livasports.com. Chrome-family user agents are not proof
+of human visits. ISR write events themselves lack bot/cache attribution, so
+these request counts cannot be converted into bot-specific billed write costs.
+81,320 units have isrAction=write; 77,792 are octet-stream stored artifacts,
+3,524 text/plain redirects and four text/plain;charset=utf-8 errors. They are
+not 81,320 page regenerations. No query strings or client identifiers retained.
+
+Search Console, final data 25 Sep–23 Oct: archive pages still earn organic
+clicks. Examples include Racing Santander–Valencia (4), Bentin Tacna–Carlos
+Mannucci (2), and several player/fixture pages (1 each). These are observed
+results, not predicted demand. Keep their legitimate pages publicly available.
+URL inspection samples: A. Antolin and A. Ayvazov are crawled/currently not
+indexed, with matching user/Google canonicals; old A. Agolli is unknown to
+Google and correctly 308-redirects to Ansi Agolli. This small sample cannot
+classify every archive as useful, indexed or obsolete.
+
+Current sitemap.xml has zero legacy archive links. sports-sitemaps.xml redirects
+to it. Player sitemap requests are already rejected; old valid match/team
+batches are retired by existing code. Current sitemap exposure is therefore
+not evidenced as the driver. Historical discovery/external enumeration remains
+plausible. No sitemap was submitted and no indexing request was made.
+
+All archive pages already use revalidate=false and on-demand static paths.
+Their read-only DB identity fetch is React-request-memoized. No clock/random
+content or blanket refresh was found. Early canonical redirect and substantive
+record noindex policies remain intact. Removing existing URLs, blocking search
+crawlers, changing GEO canonicals or blindly extending TTLs is not justified.
+
+No runtime archive fix or Production cache policy change is shipped on this
+evidence. No new write reduction or dollar saving is claimed. Matched billing
+and write measurements require a defensible intervention and comparable window.
+The independent PR90 header-request fix is separate from these archive costs.
+
+Ignored local evidence:
+output/v3-qa/v35/costs/archive-investigation.json
+output/v3-qa/v35/costs/archive-request-agents.json
+output/v3-qa/v35/costs/archive-seo.json
