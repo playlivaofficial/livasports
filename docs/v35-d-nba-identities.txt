@@ -1,0 +1,44 @@
+V3.5-D: targeted NBA identities, 26 October 2026
+
+Two reviewed editorial assets immediately enrich the newly published 30-team NBA
+table, franchise directory and canonical team profiles: Los Angeles Lakers and
+Brooklyn Nets. The remaining 28 franchises retain names/plain initials, not
+invented official crests. No league logo, player photograph or endorsement added.
+
+Asset-specific Commons PD-textlogo declarations were inspected and the artwork
+visually compared with the NBA CDN primary identifiers 1610612747 and 1610612751.
+The current Brooklyn basketball/B design is used, not the older Nets shield.
+Original shapes, colours and aspect ratios are retained. Each local PNG is pinned
+by SHA256, with source URL, creator and review date in identity-assets.ts.
+This is an editorial copyright-provenance review, not a trademark licence or
+claim of league affiliation. No commercial campaign uses these assets.
+
+Sources:
+https://commons.wikimedia.org/wiki/File:Los_Angeles_Lakers_logo.svg
+https://commons.wikimedia.org/wiki/File:Brooklyn_Nets_logo_primario_2024.png
+https://cdn.nba.com/logos/nba/1610612747/primary/L/logo.svg
+https://cdn.nba.com/logos/nba/1610612751/primary/L/logo.svg
+
+The existing fixed containment, empty decorative alt beside visible team names,
+lazy loading, local unoptimized PNG delivery, canonical links and Light/Dark
+containers are preserved. No remote runtime image fetch or image-optimizer
+charge is introduced. No database, data values, scheduler, budget, language,
+Owner/GEO, affiliate or Production automation setting is changed.
+
+Acquisition script writes only private review output, never automatically
+approves artwork. Public registration is explicit and covered by byte-hash,
+exact-name/competition, table/profile/directory and no-affiliate regressions.
+This is two useful identities, not complete NBA or seven-sport asset coverage.
+
+Actual 390px screenshot review exposed an existing 100.0%/games-behind collision
+in the four-column profile record. Basketball profiles now use two columns at
+480px and below, with readable contained values; the desktop grid is unchanged.
+Header artwork has a properly proportioned 88x64 container. Browser acceptance
+measures actual text ranges within cells (not just page overflow) at 320/390px,
+ES/EN/PT and both themes, plus 1440px desktop. No statistic is truncated/hidden.
+
+Local acceptance: 4,069 Vitest and 17 Node tests pass; typecheck, lint and secret
+scan pass. Ten actual browser cases pass with zero runtime/network errors,
+horizontal page overflow, broken images or paid-provider requests. Real profile
+navigation and 30 unchanged table rows are checked. Screenshots were inspected,
+including the corrected 100.0% layout at 320px and 390px in Light and Dark.
