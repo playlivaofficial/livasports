@@ -1,0 +1,79 @@
+V3.5-A — measured cost baseline and bounded navigation, 26 October 2026
+
+Scope: LivaSports only. No PlayLiva code, subscription, payment, compute,
+autosuspend, authentication, publication, TTL or provider configuration changes.
+
+Read-only attribution
+Official Vercel CLI/FOCUS API and Neon management API, existing authorized sessions.
+Complete Vercel charge buckets: 24 Oct 07:00–25 Oct 07:00 UTC (24h),
+18 Oct 07:00–25 Oct 07:00 UTC (7d). These are LA-midnight daily buckets,
+not UTC-midnight buckets. A full reporting day is left for ingestion lag.
+Neon daily buckets are UTC midnight, Oct 24–25 and Oct 18–25; not identical
+hourly boundaries. Never add daily storage gauges as if they were stored bytes.
+
+Vercel measured service costs, USD, 24h / 7d:
+LivaSports: 1.920458 / 24.591547.
+PlayLiva: 0.196107 / 1.364845. Read-only comparison; product untouched.
+Unattributed/shared subscription meters: 1.290323 / 9.032258.
+Three other projects: zero returned cost, not a claim of no stored resources.
+LivaSports seven-day drivers: ISR writes 10.708416; observability 4.207004;
+origin transfer 2.633839; active CPU 2.453016; invocations 1.763184;
+build CPU 0.742; provisioned memory 0.656769; remaining storage/image/cache
+services account for the balance. Breakdown retained in the private QA report.
+Project meters exclude shared subscription attribution. No settled invoice or
+available-credit balance was obtained; null credit fields mean UNKNOWN, not zero.
+FOCUS BilledCost is a charge metric, not proof of invoice payment. No projected
+dollar savings or additional-$20/month compliance claim is justified yet.
+
+Neon: the existing LivaSports-linked project used 24.209444 CU-hours / 183.743889
+CU-hours. The separate playliva-owner-growth project used 0.200556 / 1.191667.
+These are project-level meters, not per-application SQL attribution. Launch plan;
+existing active endpoint min 0.25 CU, max 8 CU, suspend_timeout_seconds=0.
+One database returned on its Production branch. No invoice/credit-dollar value
+was available through these documented Neon management endpoints.
+
+Safe code change and measurement
+Production baseline: one isolated 390px browser per NFL/Bundesliga page,
+same bounded scroll sequence before an actual canonical team-link click.
+NFL produced 49 speculative RSC requests, Bundesliga 36. Both clicks worked.
+Disable automatic prefetch on dense sports tables, franchise/team directories,
+result participant links, related competition lists and sport navigation.
+Ordinary server-rendered hrefs, Next Link navigation and all identity/SEO content
+remain unchanged. No cache TTL extension and no authentication-cache change.
+Six AST regressions require every Link in the touched components to retain an
+href and prefetch=false. Existing render/route/identity tests remain in force.
+Local dev is useful for click QA but cannot prove a prefetch saving: Next does
+not automatically prefetch in development. Compare Production before/after
+using scripts/v35-navigation-qa.mjs; report request counts, not invented dollars.
+
+Neon autosuspend assessment — PROPOSED, NOT ENABLED
+Official docs say new connections wake suspended compute; cold buffers can add
+query latency, and session-scoped state is lost. This application uses durable
+leases and transaction-scoped advisory locks, not a session-held scheduler.
+Repository operations close pools; auth uses its existing pool. Public session
+reads retain DB-backed security rate limiting; no security gate is removed to
+force idle periods. Frequent queries may prevent suspension altogether.
+The current 10s connection timeout / 5s repository statement timeout and actual
+authenticated cold-wake behavior need a controlled acceptance before any change.
+Changing autosuspend or sizing is reliability-sensitive and requires explicit
+authorization. Do not simulate cloud wakeup by stopping Production or create a
+paid test branch. Savings require measured idle intervals, not 24h minus CPU time.
+
+Evidence and remaining work
+output/v3-qa/v35/costs/baseline.json; performance/before.json; full gate logs.
+The first parallel full test run timed out a filesystem boundary test (5s).
+The unchanged serial rerun passed all 4,046 Vitest plus 17 Node tests; no timeout
+or assertions were weakened. Lint, typecheck, secret scan and build passed.
+Invoice/credit verification remains incomplete: in-app browser timed out;
+Windows input geometry failed, then active user input prevented continuation.
+No browser credentials were extracted. Continue independent implementation.
+An equivalent complete post-release 24h/7d period is still needed for financial
+comparison, with traffic/build counts and reporting delay considered separately.
+
+References:
+https://vercel.com/docs/cli/usage
+https://vercel.com/changelog/access-billing-usage-cost-data-api
+https://vercel.com/docs/pricing/understanding-my-invoice
+https://neon.com/docs/introduction/compute-lifecycle
+https://neon.com/docs/manage/endpoints/
+Installed Next 16.3.4 docs: prefetching, unstable_cache, revalidateTag.
