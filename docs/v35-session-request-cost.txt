@@ -1,0 +1,44 @@
+V3.5 independent cost fix — overlapping header session requests
+26 October 2026
+
+Observed issue
+The desktop header and responsive menu both mount AuthHeaderLink. Each instance
+independently fetched /api/auth/session even when its UI was not visible.
+Official LivaSports-only observability recorded 11,470 auth route invocations
+in the 25 Oct 07:00–26 Oct 07:00 UTC window. This aggregate includes other auth
+operations; it is NOT 11,470 proven redundant session reads.
+Matched Production browser baseline: two HTTP-200 session requests per fresh NBA
+page at both 390px and 1440px. Both visible sign-in navigation paths passed.
+No user session data, credentials or headers are saved by the measurement.
+
+Narrow correction
+Share a pending Promise between overlapping client header effects only.
+Clear it as soon as the response resolves or rejects. Do not retain a settled
+session, cache it server-side, use local storage, add a TTL or skip a later read.
+The private session endpoint, DB-backed authentication, rate limiting, cookies,
+Owner handling, GEO, OAuth/email providers and sign-in destinations are unchanged.
+Explicit same-origin/no-store fetch. No automatic retry. Component unmount
+cancellation still prevents stale state updates without cancelling the other
+header subscriber's request.
+
+Regression evidence
+Six tests cover concurrent sharing, fresh post-sign-out reads, fresh post-sign-in
+reads, HTTP failure, network failure and invalid JSON. All 4,075 Vitest + 17 Node
+tests passed on the main-based cost branch. Lint, typecheck and secret scan pass.
+The separate PR #88 newsroom branch has additional newsroom tests; neither
+branch's test count is a claim about seven-sport publication readiness.
+
+Use scripts/v35-header-session-qa.mjs before/preview/after for the same anonymous
+NBA page and visible sign-in link on each breakpoint. Acceptance requires one
+session request after the change, no runtime errors and working navigation.
+The initial QA harness used a hidden desktop menu link; corrected to use the
+visible desktop header link and the actual mobile menu button.
+
+This targets redundant invocations, origin work and associated observability
+events. It does not fix the dominant historical archive ISR write stream.
+No dollar saving is claimed before a comparable measured post-release billing
+period. No billing/Neon changes, migrations, provider calls or model calls.
+Production AI remains disabled/PAUSED; no newsroom code from PR #88 is deployed
+by this independent change. Previous READY deployments remain available.
+
+Ignored evidence: output/v3-qa/v35/performance/header-session/{before,preview,after}.json
