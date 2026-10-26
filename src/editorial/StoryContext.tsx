@@ -7,9 +7,11 @@ import type {PublishedNews} from './model';
 import {storyContext} from './context';
 import {MatchupCard} from '@/multisport/MatchupCard';
 import {IdentityLogo} from '@/multisport/IdentityLogo';
+import {identityAsset} from '@/multisport/identity-assets';
+import {orderSportsSnapshots} from '@/multisport/ordering';
 export function domesticLeagueContext(story:PublishedNews,snapshots:SportsSnapshot[]){
  if(story.competition!=='copa-colombia'||story.country!=='co'||!story.title.en.includes('América de Cali'))return null;
- const snapshot=snapshots.find(s=>s.competitionId==='colombia-primera-a'&&s.sport==='football');
+ const snapshot=orderSportsSnapshots(snapshots.filter(s=>s.competitionId==='colombia-primera-a'&&s.sport==='football'))[0];
  const entity=snapshot?.entities.find(e=>e.name==='América de Cali');
  const table=snapshot?.tables.find(t=>t.type==='football');
  const row=table?.type==='football'?table.rows.find(r=>r.entityId===entity?.id):null;
@@ -24,7 +26,10 @@ export function StoryContext({story,snapshots,locale}:{story:PublishedNews;snaps
   if(context.event)return <MatchupCard snapshot={context.snapshot} event={context.event} locale={locale}/>;
   return <aside className={`ed-sports-context${context.entities.length===1?' ed-single-identity':''}`} aria-label={label('Sports context','Contexto deportivo','Contexto esportivo')}>
     <Link className="ed-kicker" href={competitionPath(locale,competition.id)}>{competition.officialName} ↗</Link>
-    {context.entities.length>0?<div className="ed-match-identities">{context.entities.slice(0,4).map(entity=><Link key={entity.id} href={snapshotEntityPath(locale,context.snapshot,entity.id)}><strong>{entity.name}</strong></Link>)}</div>:null}
+    {context.entities.length>0?<div className="ed-match-identities">{context.entities.slice(0,4).map(entity=><Link key={entity.id} prefetch={false} href={snapshotEntityPath(locale,context.snapshot,entity.id)} data-artwork={identityAsset(competition.id,entity.name)?'reviewed-editorial':'text-only'}>
+      {identityAsset(competition.id,entity.name)?<IdentityLogo competitionId={competition.id} teamName={entity.name}/>:<span className="ed-text-identity" aria-hidden="true" title={label('Initials, not an official crest','Iniciales, no escudo oficial','Iniciais, não escudo oficial')}>{entity.name.split(/\s+/).filter(Boolean).slice(0,2).map(part=>part[0]).join('')}</span>}
+      <strong>{entity.name}</strong>
+    </Link>)}</div>:null}
     <Link className="v2-text-link" href={competitionPath(locale,competition.id)+'#standings'}>{label('View sourced records','Ver registros con fuentes','Ver registros com fontes')} →</Link>
     <small>{context.snapshot.observationBasis==='source-revision'?label('Source revision; results cutoff unconfirmed','Revisión de fuente; corte de resultados sin confirmar','Revisão da fonte; corte dos resultados não confirmado'):label('Data cutoff','Fecha de los datos','Data de referência')}: {context.snapshot.observedAt.slice(0,10)} · {context.snapshot.sourceId}</small>
   </aside>;

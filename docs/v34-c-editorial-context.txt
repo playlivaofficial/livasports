@@ -1,0 +1,15 @@
+V3.4-C targeted editorial identity integration — 26 October 2026
+
+Existing approved artwork now appears within source-qualified article participant links instead of remaining unused text-only metadata. The registry reports reviewed-editorial-artwork only when the existing asset-specific Commons provenance and exact competition/name mapping exist. Otherwise it explicitly remains text-only-rights-unverified.
+
+Unknown/unlicensed identities use neutral initials, not fabricated badges, remote image guesses, official logos or implied endorsement. Existing asset provenance, hashes, natural aspect ratio, editorial-only limitations and trademark caveats are retained. No new logo/media rights have been acquired or assumed.
+
+Links retain actual snapshot season/entity canonical URLs in EN/ES/PT. Participant article links do not prefetch extra pages. Context remains exact-name, sport and competition scoped. Two names do not create an invented matchup or score; an exact dated source event is required by the existing contract.
+
+The real DIMAYOR article's domestic league context now chooses the current verified Colombian edition using the same source ordering as the competition pages. An old archive edited more recently cannot replace it. Cup qualification remains explicitly separate from league standings. No publication dates, sporting facts or records are rewritten.
+
+The existing NFL article is LOCAL only. Its Arizona Cardinals link and neutral initials are browser-tested locally; this release does not import that article into Production or claim new NFL artwork/publication.
+
+No migrations, paid models, provider requests, affiliate activation or automation enablement. This is a focused context improvement, not completion of all requested franchise/player artwork permissions or seven-sport content.
+
+Independent data follow-through: the previously rejected OpenLigaDB endpoints returned valid JSON on 26 October with two bounded, no-retry source reads. Eighteen Bundesliga rows matched the official Bundesliga table exactly (P/W/D/L/GF/GA/GD/points/order); all 63 completed fixtures reconcile against those totals in the existing 306-fixture season validator. Source date advances from 18 to 25 October, not the retrieval date. The hash-pinned reviewed update uses the existing authenticated save/review/publish workflow, preserving prior revisions. ODbL source attribution/export remains intact. The prior HTTP rejection is not reproduced; that alone does not establish its original cause or multi-day reliability. No automatic refresh flag was enabled.

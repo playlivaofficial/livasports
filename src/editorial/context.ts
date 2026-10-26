@@ -1,11 +1,12 @@
 import type {SportsSnapshot,SportsEntity} from '@/multisport/model';
 import type {PublishedNews} from './model';
 import {orderSportsSnapshots} from '@/multisport/ordering';
+import {identityAsset,type IdentityAsset} from '@/multisport/identity-assets';
 
-export interface VerifiedIdentity {id:string;canonicalName:string;kind:SportsEntity['kind'];sport:string;competitionId:string;season:string;aliases:string[];sourceUrl:string;country:string|null;asset:null;assetStatus:'text-only-rights-unverified'}
+export interface VerifiedIdentity {id:string;canonicalName:string;kind:SportsEntity['kind'];sport:string;competitionId:string;season:string;aliases:string[];sourceUrl:string;country:string|null;asset:IdentityAsset|null;assetStatus:'reviewed-editorial-artwork'|'text-only-rights-unverified'}
 /** Source-qualified IDs prevent cross-provider/country merging. No fuzzy name guesses or fake crests. */
 export function identityRegistry(snapshots:readonly SportsSnapshot[]):VerifiedIdentity[]{
-  return snapshots.flatMap(s=>s.entities.map(e=>({id:`${s.sourceId}:${s.competitionId}:${e.id}`,canonicalName:e.name,kind:e.kind,sport:s.sport,competitionId:s.competitionId,season:s.season,aliases:[e.name],sourceUrl:s.sourceUrl,country:e.country??null,asset:null,assetStatus:'text-only-rights-unverified' as const})));
+  return snapshots.flatMap(s=>s.entities.map(e=>{const asset=identityAsset(s.competitionId,e.name)??null;return {id:`${s.sourceId}:${s.competitionId}:${e.id}`,canonicalName:e.name,kind:e.kind,sport:s.sport,competitionId:s.competitionId,season:s.season,aliases:[e.name],sourceUrl:s.sourceUrl,country:e.country??null,asset,assetStatus:asset?'reviewed-editorial-artwork' as const:'text-only-rights-unverified' as const};}));
 }
 const normalized=(s:string)=>s.normalize('NFKC').toLocaleLowerCase().replace(/\s+/g,' ').trim();
 function mentions(text:string,name:string){const escaped=normalized(name).replace(/[.*+?^${}()|[\]\\]/g,'\\$&');return new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`,'u').test(normalized(text));}
