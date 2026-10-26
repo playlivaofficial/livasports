@@ -1,4 +1,6 @@
 .bk-experience{--bk-accent:#a84614;--cx-accent:var(--bk-accent)}
+.bk-profile .bk-title>.ms-identity-logo{width:88px;height:64px;padding:8px}
+@media(max-width:480px){.bk-profile.bk-experience .cx-record{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 0}.bk-profile.bk-experience .cx-record>div{min-width:0;border-right:1px solid var(--v2-border)}.bk-profile.bk-experience .cx-record>div:nth-child(2n){border-right:0}.bk-profile.bk-experience .cx-record dd{font-size:26px;line-height:1.15}.bk-profile.bk-experience .cx-record dt{min-height:28px}}
 .bk-title h1{font-weight:850!important}.bk-title>.bk-wordmark{color:#ffae7b!important;letter-spacing:.18em!important;font-size:13px!important;margin-bottom:16px}.bk-profile .cx-record{grid-template-columns:repeat(4,minmax(0,1fr))}
 [data-theme=dark] .bk-experience{--bk-accent:#ffa56d}
 .bk-header{position:relative;isolation:isolate;display:flex;align-items:flex-end;justify-content:space-between;gap:20px;background:#172430;color:#fff;border-radius:18px 18px 0 0;padding:32px;overflow:hidden;margin-top:20px;min-height:210px}
