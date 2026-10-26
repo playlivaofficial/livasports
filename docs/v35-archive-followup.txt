@@ -24,6 +24,12 @@ indexed, with matching user/Google canonicals; old A. Agolli is unknown to
 Google and correctly 308-redirects to Ansi Agolli. This small sample cannot
 classify every archive as useful, indexed or obsolete.
 
+Additional inspection: Racing Santander–Valencia is currently crawled/not indexed
+despite historical clicks. Shevchenko is reported Submitted and indexed with a
+18 September crawl, but today's archived page emits noindex under its existing
+incomplete-record rule. Google's last known index state is not a fresh live-page
+inspection and is not proof the page will remain indexed. No policy was changed.
+
 Current sitemap.xml has zero legacy archive links. sports-sitemaps.xml redirects
 to it. Player sitemap requests are already rejected; old valid match/team
 batches are retired by existing code. Current sitemap exposure is therefore

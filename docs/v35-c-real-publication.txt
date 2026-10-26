@@ -1,0 +1,62 @@
+V3.5-C actual eligible NFL pilot — 26 October 2026
+
+Normal authenticated local /api/internal/editorial/news-cycle HTTP endpoint.
+Started 12:58:02.631 UTC, AFTER 12:57:40.139 UTC due time. Persistent isolated
+PostgreSQL, normal source discovery, lease, cadence, budget and publication gates.
+No clock override, alternate facts, archive reset, Production write or activation.
+
+Fresh preflight: three official-source reads, zero model calls/writes, no existing
+Owner record (including archives) or automation event for this source. Normal
+scheduler: four discovery requests, one new published article, generation VALIDATED.
+Only verified Larry Fitzgerald / Arizona Cardinals / completed Ring of Honor
+induction facts were supplied. No jersey number, score, venue, ceremony date or
+career statistics were invented. This is a concise announcement, not a full feature.
+
+Run f401cc4f-400e-4554-975b-3b7bb84aec60: exactly FIVE model calls.
+Stage             Input  Output  USD
+English             443      69  0.000079
+ES/PT translation   552     189  0.000150
+Independent audit   955     429  0.000310
+Bounded correction  815     157  0.000160
+Independent reaudit 946     160  0.000175
+TOTAL              3711    1004  0.000874
+
+First audit correctly retained grounded/translations/original=true but rejected
+quality: en.body REPETITION; es.body and pt.body ATTRIBUTION. Exactly these three
+body fields were corrected. Deterministic checks passed before and after.
+Final separate audit: grounded/translations/original/quality=true; zero issues.
+Private intermediate drafts remain only in the expiring Owner evidence table.
+They are not in Git or this report. No validators or audit criteria were weakened.
+
+One publication, one event attempt, atomic published state and audit history.
+Protected archived Owner records unchanged by hash. Immediate authenticated
+rerun: not-due, requests=0, published=[], changed=false. Emergency pause request:
+paused, requests=0. PAUSED survived disconnect. Persistent backup completed.
+The 0.02 USD reservation stays unavailable; remaining validation allowance is
+0.82 USD. Current-epoch measured cumulative spend is 0.003621 USD; historical
+reported 0.003950 USD remains separate evidence, not recovered transactions.
+Lifetime authorization remains 1 USD and monthly model limit remains 3 USD.
+
+Actual public local routes verified (server is intentionally stopped afterward):
+http://localhost:3351/en/news/announcement-ca75eeec71daa7d22202ce77
+http://localhost:3351/mx/noticias/announcement-ca75eeec71daa7d22202ce77
+http://localhost:3351/br/noticias/announcement-ca75eeec71daa7d22202ce77
+EN/ES/PT source attribution, canonical URLs and homepage links passed. The real
+homepage was fetched before publication and did not contain the slug; the normal
+route invalidation made it appear afterward without a server restart.
+Six actual 390px Light/Dark article screenshots plus 1440px homepage evidence:
+no overflow, broken images, browser exceptions, HTTP 5xx or paid-provider calls.
+Actual approved published text was inspected: equivalent concise reports, no
+extra sporting claims. No unlicensed story photograph was added; Cardinals
+identity uses an honest text fallback, not fabricated official artwork.
+
+Evidence (ignored local output; no private drafts):
+output/v3-qa/v35/newsroom/nfl-scheduled-pilot.json
+output/v3-qa/v35/newsroom/public/acceptance.json
+output/v3-qa/v35/newsroom/public/{en,mx,br}-{light,dark}-390.png
+output/v3-qa/v35/newsroom/public/homepage-1440.png
+
+This proves one real local scheduler publishing cycle and immediate dedup/pause,
+NOT seven-sport autonomy, repeated daily reliability or Production activation.
+Production code release remains conditional on final hosted checks. Production
+autonomous publication stays disabled/PAUSED; no local pilot record is imported.
