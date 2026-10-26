@@ -1,0 +1,69 @@
+V3.5-B — NBA factual records and truthful refresh outcomes, 26 October 2026
+
+NBA review
+Approved CC-BY-SA candidate: Wikipedia contributors, two 2026–27 conference
+templates. Eastern revision 1382029013, 2026-10-26T03:23:46Z; Western revision
+1382031329, 2026-10-26T03:41:20Z. Retrieved 06:31:36.753Z.
+Independent CBS standings checked 08:12:00.313Z: all 30 franchise identities,
+conference membership, wins, losses, percentages (published precision) and games
+behind reconcile. Seven ordering differences are permutations WITHIN identical
+win/loss records. No records or source positions were replaced with CBS values.
+The comparison does NOT certify official playoff seeding. Public ES/EN/PT copy
+explicitly identifies tied source order. Source-revision labels remain honest:
+an edit timestamp is not a confirmed sporting results cutoff or live feed.
+Only normalized licensed factual records are published; no CBS articles, images,
+projection columns or proprietary feed are redistributed. No automatic NBA access
+or update permission is inferred from this one manual review.
+
+Exact reviewed snapshot SHA256:
+eba93de14439938ff50a56e427ed4774aecb9d3dc18eb85fad91e1fb9575484e
+scripts/v35-review-nba.ts reconstructs the candidate from its source revisions
+and checks all independent records. The publishing script accepts ONLY this hash,
+requires evidence younger than 24 hours, uses normal Owner login and explicit
+create/save → review → publish, preserves unrelated records and refuses archives.
+Local audit records: create/review/publish, revision 1. Repeated execution performs
+zero mutations. Public readback matches; backups and PAUSED state are preserved.
+Initial immediate public read saw stale cached absence; bounded readback now
+allows SWR invalidation without repeating a mutation or external source request.
+
+Refresh correction
+A manually published snapshot may match the next source fetch before the refresh
+ledger has its version. Previously this was reported as published/staged even
+though no snapshot/audit write occurred, unnecessarily invalidating public caches.
+finishRefresh now returns null for actual no-ops; the runner reports unchanged.
+Lease success still persists. Changed snapshots, atomic audit writes, archive
+protection, complete score reconciliation and failure/backoff are preserved.
+No scheduler cadence or Production activation flag changed.
+
+Real isolated pilot at 2026-10-26T08:10:25Z:
+2 OpenLigaDB requests; 18 teams, 306 scheduled/completed entries, 63 completed
+results; published source date 2026-10-25T16:30:00Z. Unchanged, zero audit delta.
+Immediate repeated call: not-due, 0 requests. Next allowed 14:11:05.565Z.
+All other snapshots unchanged. Zero model calls and Production connections.
+This is ONE due execution plus gate verification, NOT repeated six-hour operation.
+Existing daily Production refresh remains disabled pending operational acceptance.
+
+Local browser acceptance
+Eight NBA page cases: ES/EN/PT, Light/Dark, 390px and EN 1440px; 30 rows and
+linked identities, source-order notice, canonical team profile clicks in both
+themes, no overflow, broken images, runtime errors or paid-provider requests.
+Names/plain initials remain where approved team artwork is unavailable.
+
+Remaining source limits
+WTA rechecked 08:12Z: licensed candidate still October 19; official WTA HTML
+serves October 26. Do not mix editions or silently patch disputed points.
+Liga MX, newer Colombia, Peru, European current tables, UEFA and UFC remain
+subject to their documented complete-source/rights conflicts; this batch does
+not claim they have been reconciled. Existing publications remain intact.
+No new migration, subscription, infrastructure configuration or AI activation.
+
+Release gates: 4,064 Vitest tests across 372 files plus 17 Node tests pass.
+Lint, typecheck, production build and secret scan pass. The first concurrent
+browser/test run hit the existing 5s filesystem boundary-test timeout; the
+unchanged serial full run passes. No assertion or timeout was weakened.
+
+Reconciliation evidence is local ignored output/v3-qa/v35/reconciliation.
+Public sources:
+https://en.wikipedia.org/wiki/2026%E2%80%9327_NBA_season
+https://www.cbssports.com/nba/standings/
+https://www.wtatennis.com/rankings/singles/

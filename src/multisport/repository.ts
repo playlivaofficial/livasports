@@ -101,13 +101,13 @@ export class SportsRepository {
       await db.query('SELECT pg_advisory_xact_lock(724220)');
       const state=(await db.query<RefreshState>(`SELECT ${refreshColumns} FROM sports_source_refresh WHERE source_key=$1 FOR UPDATE`,[input.sourceKey])).rows[0];
       if(!state||state.leaseToken!==input.token)throw new Error('REFRESH_LEASE_LOST');
-      let result:SnapshotRecord|null=null;
+      let result:SnapshotRecord|null=null,changed=false;
       if(input.snapshot){
         const key=snapshotKey(input.snapshot);assertSnapshot(input.snapshot,key,now);
         const old=(await db.query<SnapshotRecord>(`SELECT ${columns} FROM sports_snapshots WHERE snapshot_key=$1 FOR UPDATE`,[key])).rows[0];
         assertRefreshProgress(old?.published??null,input.snapshot);
-        if(!old)result=await createRecord(db,input.snapshot,'refresh');
-        else{result=transitionSnapshot(old,{action:'save',key,revision:old.revision,draft:input.snapshot},now);if(result!==old)await writeRecord(db,result,'refresh');}
+        if(!old){result=await createRecord(db,input.snapshot,'refresh');changed=true;}
+        else{result=transitionSnapshot(old,{action:'save',key,revision:old.revision,draft:input.snapshot},now);if(result!==old){await writeRecord(db,result,'refresh');changed=true;}}
         if(input.publishAutomatically&&!result.archived){
           // Only the fixed, full Bundesliga feed can use the automatic publication path.
           // A manual source URL/mode claim is insufficient: reconcile every score again.
@@ -117,6 +117,7 @@ export class SportsRepository {
           }else{
             result={...result,published:result.draft,archived:false,reviewedRevision:result.revision,reviewedAt:now.toISOString()};
             await writeRecord(db,result,'auto-publish');
+            changed=true;
           }
         }
       }
@@ -126,10 +127,13 @@ export class SportsRepository {
           assertOpenLigaSnapshot(staged.draft,now);
           result={...staged,published:staged.draft,reviewedRevision:staged.revision,reviewedAt:now.toISOString()};
           await writeRecord(db,result,'auto-publish');
+          changed=true;
         }
       }
       await db.query('UPDATE sports_source_refresh SET upstream_version=$3,last_success_at=$4,failures=0,last_error=NULL,lease_token=NULL WHERE source_key=$1 AND lease_token=$2',[input.sourceKey,input.token,input.upstreamVersion,now.toISOString()]);
-      return result;
+      // Reconciliation after a manual import can have a new refresh marker but
+      // identical content. Report no mutation, avoiding false publication/cache churn.
+      return changed?result:null;
     });
   }
   async failRefresh(sourceKey:string,token:string,errorCode:string,now=new Date()):Promise<void>{

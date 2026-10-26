@@ -15,6 +15,21 @@ describe('snapshot publication workflow',()=>{
   it('rejects images, unapproved sources and stale reviews before publication',()=>{const r=record();(r.draft.entities[0] as unknown as Record<string,unknown>).logoUrl='https://example.org/logo.png';expect(()=>transitionSnapshot(r,{action:'review',key:r.key,revision:1},now)).toThrow('INVALID_SNAPSHOT');const s=record();s.draft.sourceId='nba';expect(()=>transitionSnapshot(s,{action:'review',key:s.key,revision:1},now)).toThrow('INVALID_SNAPSHOT');const fresh=record();fresh.reviewedRevision=1;fresh.reviewedAt='2026-10-17T00:00:00Z';expect(()=>transitionSnapshot(fresh,{action:'publish',key:fresh.key,revision:1},now)).toThrow('REVIEW_REQUIRED');});
 });
 describe('durable refresh reservation',()=>{
+  it.each([false,true])('does not report an unchanged import as a snapshot mutation (archived=%s)',async archived=>{
+    const existing={...record(),archived,published:draft()},query=vi.fn(async(sql:string)=>({rows:sql.includes('FROM sports_source_refresh')?[{leaseToken:'lease'}]:sql.includes('FROM sports_snapshots')?[existing]:[],rowCount:1}));
+    const db={query,transaction:async(work:(db:unknown)=>Promise<unknown>)=>work({query}),close:async()=>undefined} as unknown as DatabaseClient;
+    const result=await new SportsRepository(db).finishRefresh({sourceKey:'openligadb:bl1:2026',token:'lease',upstreamVersion:'first-marker',snapshot:{...existing.draft,retrievedAt:now.toISOString()},publishAutomatically:false},now);
+    expect(result).toBeNull();expect(query.mock.calls.some(([sql])=>sql.startsWith('UPDATE sports_source_refresh'))).toBe(true);
+    expect(query.mock.calls.some(([sql])=>sql.startsWith('UPDATE sports_snapshots')||sql.startsWith('INSERT INTO sports_snapshot_audit'))).toBe(false);
+  });
+  it('reports a changed staged snapshot and preserves its previous publication',async()=>{
+    const existing={...record(),published:draft()},next=draft();next.events[0].scores={home:2,away:0};
+    const query=vi.fn(async(sql:string)=>({rows:sql.includes('FROM sports_source_refresh')?[{leaseToken:'lease'}]:sql.includes('FROM sports_snapshots')?[existing]:[],rowCount:1}));
+    const db={query,transaction:async(work:(db:unknown)=>Promise<unknown>)=>work({query}),close:async()=>undefined} as unknown as DatabaseClient;
+    const result=await new SportsRepository(db).finishRefresh({sourceKey:'openligadb:bl1:2026',token:'lease',upstreamVersion:'changed',snapshot:next,publishAutomatically:false},now);
+    expect(result?.revision).toBe(2);expect(result?.published).toEqual(existing.published);expect(result?.draft).toEqual(next);
+    expect(query.mock.calls.filter(([sql])=>sql.startsWith('INSERT INTO sports_snapshot_audit'))).toHaveLength(1);
+  });
   it('repeating an identical import is idempotent without another audit write',async()=>{
     const existing=record(),query=vi.fn(async(text:string)=>({rows:text.includes('count(*)')?[{count:'0'}]:text.includes('FOR UPDATE')?[existing]:[],rowCount:1}));
     const db={query,transaction:async(work:(db:unknown)=>Promise<unknown>)=>work({query}),close:async()=>undefined} as unknown as DatabaseClient;

@@ -20,6 +20,7 @@ export async function runOpenLigaDbRefresh(repo:RefreshRepository,options:{now?:
     const publishAutomatically=options.publishAutomatically??process.env.V3_OPENLIGA_AUTOMATION_ENABLED==='true';
     if(version===claim.previousVersion){const row=await repo.finishRefresh({sourceKey:OPENLIGA_CONFIG.sourceKey,token:claim.token,upstreamVersion:version,publishAutomatically},now);return {status:row?'published':'unchanged',requests,...(row?{key:row.key}:{})};}
     const row=await repo.finishRefresh({sourceKey:OPENLIGA_CONFIG.sourceKey,token:claim.token,upstreamVersion:version,snapshot,publishAutomatically},now);
+    if(!row)return {status:'unchanged',requests};
     const published=publishAutomatically&&row&&!row.archived&&row.published&&snapshotHash(row.published)===snapshotHash(row.draft);
     return {status:published?'published':'staged',requests,key:row?.key};
   }catch(error){
