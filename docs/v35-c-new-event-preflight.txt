@@ -1,0 +1,36 @@
+V3.5-C preparation — NOT a completed autonomous publication, 26 October 2026
+
+Existing archived NBA roster record remains untouched. The new Cardinals honor
+adapter uses only three independently corroborated facts: Larry Fitzgerald,
+Arizona Cardinals, completed Ring of Honor induction. No jersey number, venue,
+ceremony date, career statistics or game result is inferred or passed to AI.
+Publisher prose/images are not persisted or supplied to the model.
+
+08:28:35Z real local read-only preflight:
+- Three bounded requests: robots, advertised RSS, matching primary article.
+- Robots allowed; feed/article headline match and body corroboration passed.
+- No existing Owner records (INCLUDING archived) or automation events for URL.
+- Source publication day is October 26 UTC from the RSS timestamp; the visible
+  article's local date is October 25. Neither is treated as a ceremony-date fact.
+- Source URL:
+  https://azcardinals.com/news/a-cardinal-forever-larry-fitzgerald-inducted-into-ring-of-honor-no-11-retired
+- Prospective slug announcement-ca75eeec71daa7d22202ce77 is NOT a published URL.
+- Zero model calls, zero database writes, no claim or due-time override.
+
+The next legitimate newsroom run is 2026-10-26T12:57:40.139Z (16:57 Tbilisi).
+No paid run was attempted early. Existing generation, translation, independent
+audit, bounded correction, archive guard and financial limits remain unchanged.
+Production and local automation remain PAUSED. This candidate must be freshly
+checked by the scheduler and pass all model/deterministic gates before publication.
+Do not claim a generated article, automatic seven-sport operation or Production
+pilot activation from this preflight. No new reminders or parallel canaries.
+
+Offline/full regression gates: 4,074 Vitest + 17 Node tests; lint, typecheck,
+production build and secret scan pass. The NFL source cap remains three reads;
+the model maximum remains five calls, with no retries added. Real paid/editorial
+acceptance is pending, so this implementation remains a Draft, not Production.
+Local accounting: 80,000 microUSD historical reservation deduction plus 80,000
+microUSD current-epoch reservations leaves USD 0.84 under the lifetime ceiling.
+Current epoch measured usage is USD 0.002747; historical reported USD 0.003950
+is separately retained evidence, not reconstructed transactions. This preflight
+spent USD 0.00 and left both the accounting ledger and PAUSED state unchanged.

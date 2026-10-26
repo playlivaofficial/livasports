@@ -62,7 +62,7 @@ async function text(url:string,fetcher:typeof fetch,max:number){
  try{while(true){const {done,value}=await reader.read();if(done)break;bytes+=value.length;if(bytes>max){await reader.cancel();throw Error('SIZE_LIMIT');}parts.push(value);}}finally{reader.releaseLock();}
  return Buffer.concat(parts).toString('utf8');
 }
-/** Fixed feed + robots; Cardinals permits one matching award article within a three-read cap.
+/** Fixed feed + robots; Cardinals permits one matching award/honor article within a three-read cap.
  * No pagination, retries, images or publisher prose persisted or sent to the model. */
 export async function collectPrimaryFeed(id:string,fetcher:typeof fetch=fetch,now=new Date()){
  const desk=primaryFeedDesks.find(d=>d.id===id);if(!desk)throw Error('DESK_NOT_ALLOWED');
@@ -75,7 +75,7 @@ export async function collectPrimaryFeed(id:string,fetcher:typeof fetch=fetch,no
   const candidates=primaryFeedCandidates(xml,id,now);
   const announcements=primaryFeedAnnouncements(xml,id,now);
   if(id==='nfl-cardinals'){
-   const candidate=candidates.find(c=>/ Named NFC Special Teams Player Of The Week(?: After |$)/.test(c.headline));
+   const candidate=candidates.find(c=>/ Named NFC Special Teams Player Of The Week(?: After |$)| Inducted Into Ring Of Honor(?:, No\. \d{1,2} Retired)?$/.test(c.headline));
    if(candidate){
     const articleUrl=new URL(new URL(candidate.url).pathname,desk.url).href;
     if(robotsParser(robotsUrl,robots).isAllowed(articleUrl,agent)!==true)return {desk:id,requests,status:'ROBOTS_BLOCKED',candidates:[]};

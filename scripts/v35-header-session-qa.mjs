@@ -14,7 +14,11 @@ try{for(const width of [390,1440]){
  await page.c.send('Page.navigate',{url:origin+'/en/sports/basketball/nba'});
  try{await page.wait('document.readyState==="complete"&&document.querySelectorAll(".auth-header-link").length===2&&!!document.querySelector(".ms-table")',60000);}catch{
   console.log(JSON.stringify({pageDiagnostic:await page.evaluate('({origin:location.origin,path:location.pathname,title:document.title,ready:document.readyState,headers:document.querySelectorAll(".auth-header-link").length,tables:document.querySelectorAll(".ms-table").length})'),failures:page.metrics.failed}));throw Error('PUBLIC_BROWSER_LOAD_FAILED');
- }await delay(1500);
+ }
+ // A cold private session read can outlast document load. Wait for completion,
+ // not a fixed 1.5s assumption; never count a pending response as a product error.
+ for(let attempt=0;attempt<80&&(!reads.length||statuses.length<reads.length);attempt++)await delay(250);
+ await delay(1500);
  assert.ok(reads.length>0);assert.equal(reads.length,statuses.length);assert.ok(statuses.every(status=>status===200));
  const initialReads=reads.length;
  const targets=await page.evaluate('[...document.querySelectorAll(".auth-header-link")].map(a=>({href:a.getAttribute("href"),label:a.textContent}))');

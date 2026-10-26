@@ -15,6 +15,25 @@ describe('news scheduler failure reporting — no real model requests',()=>{
   const result=await runNewsAutomation(repo as unknown as AutomationRepository,{key:'synthetic-token',validationOnly:true});
   expect(result).toMatchObject({generation:'OWNER_OR_DUPLICATE_RECORD',published:[]});expect(mocks.generate).not.toHaveBeenCalled();expect(repo.markAttempt).not.toHaveBeenCalled();expect(repo.fail).toHaveBeenCalledWith('synthetic','OWNER_OR_DUPLICATE_RECORD');
  });
+ it.each(['paused','not-due','model-budget','discovery-budget'])('a durable %s rejection performs no source or model work',async reason=>{
+  const repo=publishingRepo();repo.claim.mockResolvedValue({reason});
+  const result=await runNewsAutomation(repo as unknown as AutomationRepository,{key:'synthetic-token',validationOnly:true});
+  expect(result).toEqual({status:reason,requests:0,published:[],changed:false});
+  expect(mocks.snapshot).not.toHaveBeenCalled();expect(mocks.collect).not.toHaveBeenCalled();expect(mocks.generate).not.toHaveBeenCalled();expect(repo.finish).not.toHaveBeenCalled();
+ });
+ it('a snapshot storage failure cannot retract an existing publication',async()=>{
+  const repo=publishingRepo();repo.eligiblePending.mockResolvedValue(null);mocks.snapshot.mockRejectedValue(Error('synthetic-storage-failure'));
+  const result=await runNewsAutomation(repo as unknown as AutomationRepository,{validationOnly:true});
+  expect(repo.reconcile).not.toHaveBeenCalled();expect(repo.finishSource).toHaveBeenCalledWith('synthetic-run','openliga-results','RESULT_VALIDATION_FAILED',0,{},expect.any(Date));
+  expect(result).toMatchObject({changed:false,withdrawn:0,published:[]});expect(mocks.generate).not.toHaveBeenCalled();
+ });
+ it('a failed source discovery records backoff without declaring old stories withdrawn',async()=>{
+  const repo=publishingRepo();repo.sourceEnabled.mockImplementation(id=>Promise.resolve(id!=='openliga-results'));repo.eligiblePending.mockResolvedValue(null);repo.dueSources.mockResolvedValue([{sourceId:'nfl-cardinals',cursor:{}}]);
+  mocks.collect.mockResolvedValue({requests:1,status:'SOURCE_HTTP_503',candidates:[]});
+  const result=await runNewsAutomation(repo as unknown as AutomationRepository,{validationOnly:true});
+  expect(repo.finishSource).toHaveBeenCalledWith('synthetic-run','nfl-cardinals','SOURCE_HTTP_503',1,{},expect.any(Date));
+  expect(repo.reconcile).not.toHaveBeenCalled();expect(result).toMatchObject({changed:false,withdrawn:0,published:[]});expect(mocks.generate).not.toHaveBeenCalled();
+ });
  it.each(['OWNER_OR_DUPLICATE_RECORD','SOURCE_CHANGED_DURING_GENERATION','sensitive SQL token=never-emit'])('retains only sanitized post-audit failure categories: %s',async error=>{
   const repo=publishingRepo();repo.publish.mockRejectedValue(Error(error));mocks.generate.mockResolvedValue({copy:{en:{},es:{},pt:{}},status:'VALIDATED',usage:{calls:3,inputTokens:20,outputTokens:10,microUsd:7}});
   const result=await runNewsAutomation(repo as unknown as AutomationRepository,{key:'synthetic-token',validationOnly:true});

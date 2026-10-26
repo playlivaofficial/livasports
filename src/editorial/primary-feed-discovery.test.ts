@@ -6,6 +6,17 @@ const now=new Date('2026-10-21T12:00:00Z');
 const item=(title='NBA announces a synthetic roster update',date='Tue, 20 Oct 2026 12:00:00 +0000',url='https://pr.nba.com/synthetic-roster-update/')=>`<item><title>${title}</title><link>${url}</link><pubDate>${date}</pubDate><description>Not for storage</description><content:encoded>Never store article prose</content:encoded></item>`;
 const feed=(items=item())=>`<rss><channel><lastBuildDate>Wed, 21 Oct 2026 12:00:00 +0000</lastBuildDate>${items}</channel></rss>`;
 describe('primary publisher feed intake — synthetic fixtures, no live requests',()=>{
+ it('corroborates one team honor with robots, feed and matching article only',async()=>{
+  const title='Liam Example Inducted Into Ring Of Honor',url='https://www.azcardinals.com/news/test-honor';
+  const article=`<h1>${title}</h1><article><div class="nfl-c-body-part--text"><p>Liam Example celebrated, his name now officially on display within the Cardinals Ring of Honor. Example's name was unveiled.</p></div></article>`;
+  const fetcher=vi.fn().mockResolvedValueOnce(new Response('User-agent: *\nAllow: /')).mockResolvedValueOnce(new Response(feed(item(title,undefined,url)))).mockResolvedValueOnce(new Response(article));
+  const result=await collectPrimaryFeed('nfl-cardinals',fetcher,now);expect(result.requests).toBe(3);expect(fetcher).toHaveBeenCalledTimes(3);expect('announcements' in result&&result.announcements?.[0]?.detail).toMatchObject({type:'team-honor',recipient:'Liam Example'});expect(JSON.stringify(result)).not.toContain('celebrated, his name');
+ });
+ it('does not fetch a recognition article forbidden by robots',async()=>{
+  const title='Liam Example Inducted Into Ring Of Honor',url='https://www.azcardinals.com/news/test-honor';
+  const fetcher=vi.fn().mockResolvedValueOnce(new Response('User-agent: *\nAllow: /rss/\nDisallow: /news/')).mockResolvedValueOnce(new Response(feed(item(title,undefined,url))));
+  expect(await collectPrimaryFeed('nfl-cardinals',fetcher,now)).toMatchObject({requests:2,status:'ROBOTS_BLOCKED',candidates:[]});expect(fetcher).toHaveBeenCalledTimes(2);
+ });
  it('retains only headline, canonical link, explicit publication date and source desk',()=>{const found=primaryFeedCandidates(feed(),'nba-releases',now);expect(found).toEqual([{desk:'nba-releases',url:'https://pr.nba.com/synthetic-roster-update',headline:'NBA announces a synthetic roster update',sourceDate:'2026-10-20'}]);expect(JSON.stringify(found)).not.toContain('Not for storage');expect(JSON.stringify(found)).not.toContain('article prose');});
  it('deduplicates links and excludes other basketball leagues',()=>{expect(primaryFeedCandidates(feed(item()+item()+item('WNBA announces a synthetic roster update')+item('NBA G League announces changes')),'nba-releases',now)).toHaveLength(1);});
  it.each(['Tue, 13 Oct 2026 12:00:00 +0000','Thu, 22 Oct 2026 12:00:00 +0000','','1234'])('does not substitute feed freshness for invalid/stale item date %s',date=>expect(primaryFeedCandidates(feed(item(undefined,date)),'nba-releases',now)).toEqual([]));

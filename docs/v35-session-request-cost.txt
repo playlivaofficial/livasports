@@ -42,3 +42,26 @@ Production AI remains disabled/PAUSED; no newsroom code from PR #88 is deployed
 by this independent change. Previous READY deployments remain available.
 
 Ignored evidence: output/v3-qa/v35/performance/header-session/{before,preview,after}.json
+
+Released and verified at 09:53 UTC
+Independent PR #90 merged at 1583d17556ce807d9430a39c2682f1d2f5ee018e.
+Production dpl_4aPaq5uxUR9jaQxj3KN358iES5oA is READY; actual livasports.com
+health returns that SHA. Previous dpl_88fnHi8eYDS5tf9itzRU2ndHnnwo stays READY.
+Matched Production result: session reads 2 -> 1 at BOTH 390px and 1440px
+(50% fewer session reads in these two navigations, not 50% of all requests).
+Both sign-in clicks worked; HTTP 200, zero runtime errors, zero provider calls.
+The QA harness now waits for a bounded pending session response instead of
+mistaking a cold response slower than 1.5 seconds for a product failure.
+No dollar saving is yet established and no dominant ISR reduction is claimed.
+
+Hosted preview browser QA did NOT pass: it redirected to Vercel authentication.
+Authorized CLI reads verified NBA data/SHA and anonymous Owner rejection.
+Its session endpoint returned 503 on both this and the prior main preview:
+AUTH_SECRET is absent from Preview. No credential/configuration was changed.
+The local browser check passed but was not described as hosted preview evidence.
+Actual Production session reads returned 200/private-no-store before and after.
+Normal authenticated Owner read: PAUSED=true, enabled=false, modelEnabled=false;
+12 sports records preserved and NBA contains 30 teams. Anonymous Owner=401.
+Existing DIMAYOR EN/ES/PT routes and homepages return 200 with canonicals and
+source attribution. No new publication. Bounded ten-minute deployment logs
+returned zero error records; this is not a claim of long-term traffic health.

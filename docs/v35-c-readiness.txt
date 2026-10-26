@@ -1,0 +1,85 @@
+V3.5-C continuation — 26 October 2026, before the legitimate NFL due time
+
+PR #88 safely merged origin/main (3b583a559ad48a15eaa4235f4dadd3cc01e0eafe)
+at 990d69f2381023cc554737f44336c97c565b11a6. NBA identity work is preserved.
+No Production migration, publication, configuration change or deployment.
+
+Actual isolated PostgreSQL acceptance at 09:25 UTC
+scripts/v35-news-readiness.mjs uses a new synthetic schema on the persistent
+local PostgreSQL server. Its temporary role has no rights on the preserved
+public tables; the password exists only in process memory and is removed afterward.
+31 database assertions passed, including concurrent claims, a new physical
+connection verifying the active lease/due time/reservation, protected Owner
+archives at both preflight and transaction time, duplicate publication rejection,
+source corrections, private evidence expiry, model circuit breakers, emergency
+pause, budget hard stop, rollback and three accelerated synthetic empty cycles.
+These are NOT three real elapsed daily cycles or real AI publications.
+Nine preserved public tables, including news, snapshots, audits, private evidence,
+events, runs and the accounting epoch, were unchanged (hash comparisons).
+Actual source requests: 0. Actual model requests: 0. New model cost: $0.
+
+The preserved local environment is PAUSED, with zero running jobs.
+Next legitimate run: 2026-10-26T12:57:40.139Z (16:57:40 Tbilisi).
+Historical unavailable reservation: $0.08. Current epoch reservations: $0.08.
+Conservative remaining validation authorization: $0.84, NOT another full $1.
+Current epoch measured cost: $0.002747. Historical reported $0.003950 remains
+separate evidence, not recovered transactions. Monthly limit stays $3.
+Backup completed at 09:29:41 UTC on persistent local storage.
+
+Six additional non-paid regressions prove paused/not-due/budget rejections do
+not fetch or generate, unavailable stored results cannot retract old articles,
+and source discovery failure records backoff without declaring a withdrawal.
+All 4,085 Vitest and 17 Node tests passed. The first concurrent full test/lint
+run hit the unchanged 5s dependency-boundary test timeout; the two-worker rerun
+passed without weakening the timeout or assertions. Lint/typecheck/secret scan
+passed. Hosted CI supplies the production build and authenticated DB workflow.
+
+Operational scope is still narrow: verified stored Bundesliga results; the
+specific NBA Communications and DIMAYOR announcement contracts; Cardinals
+source-specific award and team-honor facts, subject to due time and audits.
+Wikinews discovery is private metadata intake, NOT seven-sport autonomous
+publication. Other registered desks do not acquire access or approval merely
+by appearing in the catalog. Production automation remains disabled/PAUSED.
+
+NFL outcome: NOT RUN, NOT PUBLISHED in this continuation. No fresh audit or
+working article URL is claimed. The retained 08:28 preflight is NOT a fresh
+source verification at generation time. At/after the legitimate due time, recheck
+the source, robots/rights, archives/events, source freshness and all budget gates
+before the single authorized <=5-call pilot. No competing/background run exists.
+
+Cost attribution, official read-only Vercel metrics
+scripts/v35-isr-audit.mjs retains aggregate routes, actual query windows and
+status/deployment breakdowns; no headers, IPs, private drafts or credentials.
+Official ISR documentation bills 8 KB write units, not page regenerations.
+The weekly metric API rounded the requested 18 Oct 07:00–25 Oct 07:00 window
+to 18 Oct 04:00–25 Oct 08:00 UTC. Do NOT equate it to the billing window.
+In its top 30 groups, 2,740,090 of 2,746,213 units belong to the 15 legacy
+match/player/team routes. In the exact 25 Oct 07:00–26 Oct 07:00 UTC window,
+80,510 of all 81,320 units (99.0%) belong to those archive routes.
+HTTP totals: 77,792 units on 200; 3,524 on 308; 4 on 404. The cacheTags grouping
+returned no attribution. Dynamic path grouping returned an empty value; it
+cannot establish which individual archive path was regenerated most often.
+The two producing deployments preceded today's A/B/D deployments.
+
+Inspection: archives use revalidate=false, bounded read-only DB queries and
+React request memoization, with no random/current timestamp in archive content.
+Public route samples for Obbi Oulare and the obsolete A. Agolli slug went
+MISS -> HIT with identical bodies. The canonical Ansi Agolli page returned
+two MISS responses with identical bodies; a short sample is not lifetime proof.
+Player request-path metrics show long-tail traffic (top path four requests),
+not evidence of one repeatedly regenerated hot article. Cold archive generation
+and deployment cache resets remain plausible causes, not fully proved causes.
+Do not change newsroom TTLs or private/no-store handling on this evidence.
+No new dollar saving is claimed. The previous day's lower write total is not
+a matched intervention result. A/B/D navigation savings remain request-count
+measurements, not financial savings.
+
+Another concrete request duplication was identified: the desktop and menu
+AuthHeaderLink components independently fetch the same /api/auth/session on
+mount. The latest-day 11,470 auth invocations warrant a separately measured,
+in-flight-only request coalescing fix; no session TTL or authorization change.
+
+Evidence (ignored local QA outputs, no private drafts committed):
+output/v3-qa/v35/newsroom/readiness.json
+output/v3-qa/v35/costs/isr-attribution.json
+https://vercel.com/docs/incremental-static-regeneration/limits-and-pricing
