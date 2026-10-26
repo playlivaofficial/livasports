@@ -32,6 +32,7 @@ export async function runNewsAutomation(repo:AutomationRepository,options:{key?:
   const claim=await repo.claim(!!options.key?.trim(),options.validationOnly,now);
   if(!('id' in claim))return {status:claim.reason,requests:0,published:[],changed:false};
   const result={status:'completed',requests:0,discovered:0,corrections:0,withdrawn:0,published:[] as string[],changed:false,generation:options.key?'no-eligible-event':'MODEL_CREDENTIAL_MISSING'};
+  let publishingEvent:string|null=null;
   try{
     let resultsValidated=false;
     if(await repo.sourceEnabled('openliga-results')){
@@ -59,21 +60,28 @@ export async function runNewsAutomation(repo:AutomationRepository,options:{key?:
       const announcements:AnnouncementFacts[]='announcements' in found&&Array.isArray(found.announcements)?found.announcements:[];
       for(const candidate of found.candidates){const facts=announcements.find(f=>f.sourceUrl===candidate.url)??{kind:'metadata' as const,candidate};const state=await repo.observe(claim.id,facts,now);if(state==='new')result.discovered++;if(state==='changed')result.corrections++;}
     }
-    const event=await repo.pending();
+    const event=await repo.eligiblePending(now,resultsValidated);
     if(event&&options.key&&(event.facts.kind==='announcement'||(event.facts.kind==='result'&&resultsValidated))){
-      if(factErrors(event.facts,now).length){result.generation='FACTS_NO_LONGER_ELIGIBLE';await repo.fail(event.eventKey,result.generation);}
+      const blocker=await repo.publicationBlocker(event);
+      if(blocker){result.generation=blocker;await repo.fail(event.eventKey,blocker);}
+      else if(factErrors(event.facts,now).length){result.generation='FACTS_NO_LONGER_ELIGIBLE';await repo.fail(event.eventKey,result.generation);}
       else{
         await repo.markAttempt(claim.id,event.eventKey);
         let checkpoint=0;
         const generated=await generateBriefing(event.facts,options.key,options.fetcher,()=>repo.assertActive(claim.id),e=>repo.saveEvidence(claim.id,event.eventKey,checkpoint++,e));Object.assign(usage,generated.usage);result.generation=generated.status;
-        if(generated.copy){const draft=toNewsDraft(generated.copy,event.facts,now);result.published.push(await repo.publish(claim.id,event,draft,now));}
+        if(generated.copy){publishingEvent=event.eventKey;const draft=toNewsDraft(generated.copy,event.facts,now);result.published.push(await repo.publish(claim.id,event,draft,now));publishingEvent=null;}
         else{await repo.fail(event.eventKey,generated.status);if(generated.status.startsWith('MODEL_'))result.status='failed';}
       }
     }
     result.changed=!!(result.corrections||result.withdrawn||result.published.length);
     await repo.finish(claim.id,result,usage,result.status==='failed'?'failed':'completed');return result;
-  }catch{
+  }catch(error){
     // Intentionally no raw exception, URL, SQL or API response in logs/HTTP/audit.
+    if(publishingEvent){
+      const allowed=['OWNER_OR_DUPLICATE_RECORD','PUBLICATION_CONFLICT','SOURCE_DISABLED','SOURCE_CHANGED_DURING_GENERATION','PUBLICATION_PRESENTATION_INVALID','PUBLICATION_POLICY_FAILED','AUTOMATION_STOPPED_OR_LEASE_LOST'];
+      const code=error instanceof Error&&allowed.includes(error.message)?error.message:'PUBLICATION_STORAGE_UNAVAILABLE';
+      result.generation=code;await repo.fail(publishingEvent,code);
+    }
     result.status='failed';result.changed=!!(result.corrections||result.withdrawn||result.published.length);
     await repo.finish(claim.id,result,usage,'failed');return result;
   }

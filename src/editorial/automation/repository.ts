@@ -3,12 +3,13 @@ import {isDeepStrictEqual} from 'node:util';
 import type {DatabaseClient,QueryExecutor} from '@/database/client';
 import type {NewsDraft,NewsRecord,PublishedNews} from '../model';
 import {usablePublishedNews} from '../presentation';
-import {automationLimits as limits,automationSources,eventKey,fingerprint,stableFacts,factErrors,resultsFromSnapshot,type EventFacts,type ResultFacts} from './policy';
+import {automationLimits as limits,automationSources,eventKey,fingerprint,stableFacts,factErrors,resultsFromSnapshot,publicationSlug,type EventFacts,type ResultFacts} from './policy';
 import type {SportsSnapshot} from '@/multisport/model';
 import type {ModelUsage} from './generation';
 import type {ReviewEvidence} from './review';
 import {primaryFeedDesks} from '../primary-feeds';
 import {candidateDraft} from '../discovery';
+import {generationEligible,newerCorroboration} from './eligibility';
 /** A pristine discovery placeholder is not a human-written draft. Never overwrite it.
  * Preserve it privately; changed, reviewed, archived or previously published records block automation. */
 export function pristineDiscoveryRecord(record:NewsRecord,facts:EventFacts):boolean{
@@ -95,7 +96,10 @@ export class AutomationRepository {
       const key=eventKey(facts),hash=fingerprint(stableFacts(facts)),source=facts.kind!=='metadata'?facts.sourceId:facts.candidate.desk,url=facts.kind!=='metadata'?facts.sourceUrl:facts.candidate.url;
       if((await db.query<{disabled:boolean}>('SELECT disabled FROM editorial_discovery_state WHERE source_id=$1',[source])).rows[0]?.disabled!==false)return 'unchanged';
       const old=(await db.query<AutomationEvent>(`SELECT ${eventColumns} FROM editorial_automation_events WHERE event_key=$1 FOR UPDATE`,[key])).rows[0];
-      if(old?.fingerprint===hash)return 'unchanged';
+      if(old?.fingerprint===hash){
+        if(newerCorroboration(old.facts,facts,now))await db.query('UPDATE editorial_automation_events SET facts=$2 WHERE event_key=$1',[key,JSON.stringify(facts)]);
+        return 'unchanged';
+      }
       // Upgrade a never-generated metadata placeholder, not a correction of published facts.
       if(old?.facts.kind==='metadata'&&facts.kind==='announcement'&&!old.newsSlug&&old.attempts===0&&!factErrors(facts,now).length){
         await db.query("UPDATE editorial_automation_events SET facts=$2,fingerprint=$3,revision=revision+1,state='pending',reason='PRIMARY_FACTS_VERIFIED',changed_at=$4 WHERE event_key=$1",[key,JSON.stringify(facts),hash,now.toISOString()]);
@@ -136,7 +140,21 @@ export class AutomationRepository {
     });
   }
   async pending(){return (await this.db.query<AutomationEvent>(`SELECT ${eventColumns} FROM editorial_automation_events e JOIN editorial_discovery_state s ON s.source_id=e.source_id WHERE NOT s.disabled AND attempts<3 AND (state='pending' OR (state='generation-failed' AND reason IN ('GENERATION_IN_PROGRESS','MODEL_RATE_LIMITED','MODEL_UNAVAILABLE','MODEL_FAILED_NO_RETRY') AND changed_at <= now() - make_interval(hours => 6 * (1 << greatest(attempts-1,0))))) ORDER BY facts->>'eventDate' DESC NULLS LAST,event_key LIMIT 1`)).rows[0]??null;}
+  /** Bound by maxPending. Stale/unsupported queue heads must not starve eligible
+   * stories or spend model calls. Keep them private for future corroboration. */
+  async eligiblePending(now=new Date(),resultsValidated=true){
+    const rows=(await this.db.query<AutomationEvent>(`SELECT ${eventColumns} FROM editorial_automation_events e JOIN editorial_discovery_state s ON s.source_id=e.source_id WHERE NOT s.disabled AND attempts<3 AND (state='pending' OR (state='generation-failed' AND reason IN ('GENERATION_IN_PROGRESS','MODEL_RATE_LIMITED','MODEL_UNAVAILABLE','MODEL_FAILED_NO_RETRY') AND changed_at <= now() - make_interval(hours => 6 * (1 << greatest(attempts-1,0))))) ORDER BY facts->>'eventDate' DESC NULLS LAST,event_key LIMIT $1`,[limits.maxPending])).rows;
+    return rows.find(row=>generationEligible(row.facts,now,resultsValidated))??null;
+  }
   async markAttempt(runId:string,key:string){await this.db.transaction(async db=>{await active(db,runId);await db.query("UPDATE editorial_automation_events SET attempts=attempts+1,state='generation-failed',reason='GENERATION_IN_PROGRESS',changed_at=now() WHERE event_key=$1 AND state IN ('pending','generation-failed') AND attempts<3",[key]);});}
+  /** Read-only early check saves model spend. The transaction repeats it at publish
+   * time, since Owner edits can race generation. Archived Owner work stays protected. */
+  async publicationBlocker(event:AutomationEvent):Promise<string|null>{
+    if(event.facts.kind==='metadata')return 'PUBLICATION_CONFLICT';
+    const slug=publicationSlug(event.facts);
+    const rows=(await this.db.query<NewsRecord>('SELECT slug,draft,published,revision,reviewed_revision AS "reviewedRevision",reviewed_at AS "reviewedAt",archived FROM editorial_news WHERE slug=$1 OR draft->>\'sourceUrl\'=$2 OR published->>\'sourceUrl\'=$2',[slug,event.facts.sourceUrl])).rows;
+    return rows.some(row=>row.slug===slug||!pristineDiscoveryRecord(row,event.facts))?'OWNER_OR_DUPLICATE_RECORD':null;
+  }
   async assertActive(runId:string){await active(this.db,runId);}
   async fail(key:string,reason:string){
     const retry=['MODEL_RATE_LIMITED','MODEL_UNAVAILABLE','MODEL_FAILED_NO_RETRY'].includes(reason);
@@ -151,7 +169,7 @@ export class AutomationRepository {
     return this.db.transaction(async db=>{
       await db.query('SELECT pg_advisory_xact_lock(724219)');await active(db,runId);
       const stored=(await db.query<AutomationEvent>(`SELECT ${eventColumns} FROM editorial_automation_events WHERE event_key=$1 FOR UPDATE`,[event.eventKey])).rows[0];
-      if(!stored||stored.fingerprint!==event.fingerprint||stored.state!=='generation-failed'||stored.newsSlug||factErrors(stored.facts,now).length)throw Error('PUBLICATION_CONFLICT');
+      if(!stored||stored.fingerprint!==event.fingerprint||stored.state!=='generation-failed'||stored.newsSlug||!generationEligible(stored.facts,now))throw Error('PUBLICATION_CONFLICT');
       if((await db.query<{disabled:boolean}>('SELECT disabled FROM editorial_discovery_state WHERE source_id=$1',[ (stored.facts as ResultFacts).sourceId])).rows[0]?.disabled!==false)throw Error('SOURCE_DISABLED');
       const facts=stored.facts;
       if(facts.kind==='metadata')throw Error('PUBLICATION_CONFLICT');
