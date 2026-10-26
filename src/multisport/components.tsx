@@ -11,11 +11,11 @@ import {tableLabel} from './table-labels';
 export function SportsNav({locale,active}:{locale:InterfaceLocale;active?:string}){
  const labels=sportsCopy(locale);
  const links=[{label:sportName('football',locale),path:sportsPath(locale,'football'),id:'football'},{label:'NBA',path:competitionPath(locale,'nba'),id:'nba'},{label:'EuroLeague',path:competitionPath(locale,'euroleague'),id:'euroleague'},{label:'MLB',path:competitionPath(locale,'mlb'),id:'mlb'},{label:'NFL',path:competitionPath(locale,'nfl'),id:'nfl'},{label:'NHL',path:competitionPath(locale,'nhl'),id:'nhl'},{label:'UFC',path:competitionPath(locale,'ufc'),id:'ufc'},{label:sportName('tennis',locale),path:sportsPath(locale,'tennis'),id:'tennis'}];
- return <nav className="ms-sport-nav" aria-label={labels.sports}><Link className="ms-all-sports" href={sportsPath(locale)} aria-current={active==='all'?'page':undefined}>{labels.sports} <span aria-hidden="true">↗</span></Link>{links.map(link=><Link key={link.id} href={link.path} aria-current={active===link.id?'page':undefined}>{link.label}</Link>)}</nav>;
+ return <nav className="ms-sport-nav" aria-label={labels.sports}><Link prefetch={false} className="ms-all-sports" href={sportsPath(locale)} aria-current={active==='all'?'page':undefined}>{labels.sports} <span aria-hidden="true">↗</span></Link>{links.map(link=><Link prefetch={false} key={link.id} href={link.path} aria-current={active===link.id?'page':undefined}>{link.label}</Link>)}</nav>;
 }
 
 export function EntityIdentity({entity,locale,snapshot}:{entity:SportsEntity;locale:InterfaceLocale;snapshot:SportsSnapshot}){
- return <Link className="ms-entity" href={snapshotEntityPath(locale,snapshot,entity.id)}><IdentityLogo competitionId={snapshot.competitionId} teamName={entity.name}/><span>{entity.name}{entity.country?<small>{entity.country}</small>:null}</span></Link>;
+ return <Link prefetch={false} className="ms-entity" href={snapshotEntityPath(locale,snapshot,entity.id)}><IdentityLogo competitionId={snapshot.competitionId} teamName={entity.name}/><span>{entity.name}{entity.country?<small>{entity.country}</small>:null}</span></Link>;
 }
 type Column={key:string;label:string;full:string};
 function columns(table:SportsTable,locale:InterfaceLocale):Column[]{
