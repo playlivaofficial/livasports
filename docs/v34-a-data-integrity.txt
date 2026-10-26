@@ -1,0 +1,39 @@
+LivaSports V3.4-A — data integrity and operational coverage
+Review date: 26 October 2026. Baseline: 31c750947f94d36122e944f32db7e9168708b2d8.
+
+Scope and evidence
+- Owner sports coverage is derived from current database publications, reviewed candidates and refresh state. The 64-entry catalog supplies names/routes only, not a claim of operating coverage.
+- Public directory cards distinguish recent verified, dated and historical publications and expose the actual source date. Retrieval does not reset freshness. Revision timestamps remain explicitly unconfirmed result cutoffs.
+- Owner coverage is behind the existing authenticated, private/no-store boundary. No draft content or refresh lease is included in the coverage projection. The existing private editor remains unchanged.
+- Refresh failures preserve published snapshots. Automatic refresh now rejects source-cutoff regression and incomparable source/season/context before mutation. Same-cutoff corrections remain possible through the existing atomic validation/audit path.
+- The schema does not record a distinct last-failure timestamp: this field is null, not inferred from last-attempt. Last success, last attempt, sanitized last error, next due time and enabled/eligible states remain distinct. Alerts are dashboard alerts, not a claim of external notification delivery.
+- No new migration, subscription, paid sports provider or automatic source policy.
+
+Reviewed NFL update
+32 teams, eight divisions, season 2026. All W/L/T, percentage, PF and PA independently matched https://www.nfl.com/standings/league/2026/reg on 26 October.
+Adaptation source: fixed Wikipedia division-template revisions, CC BY-SA 4.0; source revision links and downloadable adapted dataset retained.
+Oldest source revision: 2026-10-25T20:00:07Z. This is NOT a confirmed results cutoff. No invented playoff bracket or current/live label.
+Reviewed normalized SHA256: 9e6cefa5dbc699c56a1543f08eee305e662be48ad08e9116eb0e075c0909472e.
+
+Reviewed NHL update
+32 teams, four divisions, season 2026/27. Explicit data date: 2026-10-25.
+W/L/OTL, games, points, GF/GA, divisions/conferences and division positions matched the official dated response https://api-web.nhle.com/v1/standings/2026-10-25.
+New Jersey regulation wins conflict: community 4, official 5. The optional regulationWins field is excluded from ALL rows in this reviewed adaptation. Neither conflicting number is published; the UI omits RW rather than displaying zero. All retained fields are reconciled.
+This is a CC BY-SA 4.0 adaptation of the reviewed Wikipedia snapshot, not permission to republish the NHL proprietary feed or logos. Official access was read-only verification, not automatic ingestion authorization.
+Reviewed normalized SHA256: e46a3e11628352c22126946536b03537e4a016ea78f5a7ca65b09bbf9c81dd09.
+
+Outstanding reconciliation (not counted as new coverage)
+- NBA: 30 balanced candidate rows, oldest template revision 2026-10-26T03:23:46Z. Official NBA HTML supplies no table; ESPN challenged browser verification and was not bypassed. Basketball Reference still shows Detroit 2-0/Philadelphia 3-0 while candidate shows 3-0/3-1 after their game. These are different cutoffs, not proof the candidate is wrong or reconciled. Remains withheld until all 30 rows share an independently verified cutoff; no automatic NBA licence granted.
+- WTA: fixed source still says 19 October and Pegula 6265; independent dated 19 October source says 6235. Official page retrieved 26 October now says 6225 and has other ranking changes. Do not mix editions or arbitrarily correct one value. Existing ATP publication is preserved. Remedy: an official dated ranking release plus matching licensed adaptation, not a subscription by default.
+- UFC: official rankings returned HTTP 403. No bypass, no unofficial meta-ranking substitution, no claimed official P4P/champion/event coverage. Needs authorized reusable official access and dated event verification.
+- Liga MX: October 25 candidate parses 18 teams. Official web table has matching sampled totals but the bounded direct read timed out; complete identity/row reconciliation not achieved. No publication.
+- Colombia: audit CLI erroneously selected the generic multisport parser; fixed to use the existing source-specific Finalizacion parser. Retained source now parses 20 teams for October 25 without another fetch. Independent publishers disagree on America games played (15 versus 16), so existing reviewed publication stays intact pending complete source-bound verification.
+- MLB: completed regular-season archive retained; no current-postseason inference.
+- Other football and EuroLeague/ATP publications are unchanged. Dated snapshots are not newly current merely because this release is deployed.
+
+Acceptance and safety
+Local normal Owner save -> review -> publish updated NFL/NHL to revision 2, preserved other publications and history, and created persistent backups. Idempotent reruns performed zero mutations.
+The initial local harness compared JSON key order and falsely rejected readback. Fixed with structural comparison; no duplicate publication needed. Production uses the corrected harness.
+Full suite: 17 Node tests and 4020 Vitest tests passed. Focused multisport: 364 passed. Lint, typecheck and secret scan passed; build/browser/hosted release evidence is retained separately under output/v3-qa/v34.
+No paid model calls in this batch. Historical reservation deduction remains 80000 microUSD. Local and Production AI remain PAUSED; affiliates inactive; retired providers disabled. This release does not claim real-time sports feeds or seven-sport autonomous journalism.
+Application rollback remains the previous READY V3.3 deployment. Database updates are reviewed additive revisions with preserved audit history; never destructively roll back data.
