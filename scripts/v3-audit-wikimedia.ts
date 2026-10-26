@@ -27,7 +27,7 @@ for (const id of ids) {
   }
   await writeFile(join(directory, `${id}-source.json`), JSON.stringify(batch, null, 2));
   try {
-    const result = id==='nba'?{snapshot:normalizeWikimediaNba(batch,now)}:['liga-mx', 'nfl', 'mlb'].includes(id) ? normalizeWikimediaSports(batch, now) : normalizeWikimediaMultisport(batch, now);
+    const result = id==='nba'?{snapshot:normalizeWikimediaNba(batch,now)}:['liga-mx', 'colombia-primera-a', 'nfl', 'mlb'].includes(id) ? normalizeWikimediaSports(batch, now) : normalizeWikimediaMultisport(batch, now);
     await writeFile(join(directory, `${id}-normalized.json`), JSON.stringify(result, null, 2));
     console.log(JSON.stringify({ id, requests, status: 'PARSED_NOT_FACT_CHECKED', freshness: snapshotFreshness(result.snapshot, now), entities: result.snapshot.entities.length, tables: result.snapshot.tables.length, rows: result.snapshot.tables.reduce((sum, table) => sum + table.rows.length, 0), evidence: directory }));
   } catch (error) {

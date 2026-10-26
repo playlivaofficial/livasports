@@ -2,6 +2,7 @@ import {requestOwnerSession} from '@/owner/session';
 import {boundedJson} from '@/http/body';
 import {validateSnapshot} from './model';
 import type {SportsRepository,SnapshotMutation} from './repository';
+import {operationalCoverage} from './coverage';
 const headers={'Cache-Control':'private, no-store','Vary':'Cookie','X-Robots-Tag':'noindex, nofollow','Referrer-Policy':'no-referrer'};
 const reply=(body:unknown,status=200)=>Response.json(body,{status,headers});
 type Dependencies={withRepository:<T>(work:(repo:SportsRepository)=>Promise<T>)=>Promise<T>;invalidate:()=>void};
@@ -9,7 +10,7 @@ export async function sportsOwnerRequest(request:Request,deps:Dependencies){
  if(!requestOwnerSession(request.headers))return reply({error:'UNAUTHORIZED'},401);
  const url=new URL(request.url);if(url.search)return reply({error:'INVALID_REQUEST'},400);
  try{
-  if(request.method==='GET')return reply(await deps.withRepository(async repo=>({records:await repo.listOwner(),refresh:await repo.refreshStatus()})));
+  if(request.method==='GET')return reply(await deps.withRepository(async repo=>{const records=await repo.listOwner(),refresh=await repo.refreshStatus();return {records,refresh,coverage:operationalCoverage(records,refresh,{automaticEnabled:process.env.V3_OPENLIGA_AUTOMATION_ENABLED==='true'})};}));
   if(request.method!=='POST')return reply({error:'METHOD_NOT_ALLOWED'},405);
   if(request.headers.get('origin')!==url.origin||request.headers.get('sec-fetch-site')!=='same-origin'||(url.protocol!=='https:'&&!['localhost','127.0.0.1'].includes(url.hostname)))return reply({error:'INVALID_ORIGIN'},403);
   if(request.headers.get('content-type')?.split(';')[0]!=='application/json')return reply({error:'INVALID_REQUEST'},400);

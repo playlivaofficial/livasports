@@ -3,6 +3,7 @@ import type {DatabaseClient,QueryExecutor} from '@/database/client';
 import {validateSnapshot,type SportsSnapshot} from './model';
 import {assertOpenLigaSnapshot} from './openligadb';
 import {orderSportsSnapshots} from './ordering';
+import {assertRefreshProgress} from './refresh-integrity';
 
 export interface SnapshotRecord {key:string;draft:SportsSnapshot;published:SportsSnapshot|null;revision:number;reviewedRevision:number|null;reviewedAt:string|null;archived:boolean}
 export interface SnapshotMutation {action:'create'|'save'|'review'|'publish'|'archive';key:string;revision:number;draft?:SportsSnapshot}
@@ -104,6 +105,7 @@ export class SportsRepository {
       if(input.snapshot){
         const key=snapshotKey(input.snapshot);assertSnapshot(input.snapshot,key,now);
         const old=(await db.query<SnapshotRecord>(`SELECT ${columns} FROM sports_snapshots WHERE snapshot_key=$1 FOR UPDATE`,[key])).rows[0];
+        assertRefreshProgress(old?.published??null,input.snapshot);
         if(!old)result=await createRecord(db,input.snapshot,'refresh');
         else{result=transitionSnapshot(old,{action:'save',key,revision:old.revision,draft:input.snapshot},now);if(result!==old)await writeRecord(db,result,'refresh');}
         if(input.publishAutomatically&&!result.archived){
