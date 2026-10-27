@@ -10,6 +10,12 @@ import {runNewsAutomation} from './runner';
 beforeEach(()=>{vi.clearAllMocks();mocks.snapshot.mockResolvedValue({events:[],season:'synthetic'});});
 describe('news scheduler failure reporting — no real model requests',()=>{
  function publishingRepo(){return {db:{},initialize:vi.fn(),claim:vi.fn().mockResolvedValue({id:'synthetic-run'}),sourceEnabled:vi.fn().mockResolvedValue(true),reconcile:vi.fn().mockResolvedValue(0),finishSource:vi.fn(),dueSources:vi.fn().mockResolvedValue([]),eligiblePending:vi.fn().mockResolvedValue({eventKey:'synthetic',facts:{kind:'result'}}),publicationBlocker:vi.fn().mockResolvedValue(null),markAttempt:vi.fn(),fail:vi.fn(),finish:vi.fn(),publish:vi.fn()};}
+ it.each([false,true])('restores canary pause after normal completion or caught failure: %s',async fail=>{
+  const repo={...publishingRepo(),canary:{id:'synthetic-canary'},control:vi.fn()};
+  repo.eligiblePending.mockResolvedValue(null);if(fail)repo.dueSources.mockRejectedValue(Error('synthetic failure'));
+  await runNewsAutomation(repo as unknown as AutomationRepository,{key:'synthetic-token',validationOnly:true});
+  expect(repo.control).toHaveBeenCalledExactlyOnceWith({paused:true});expect(mocks.generate).not.toHaveBeenCalled();
+ });
  it('does not spend tokens or increment attempts for an existing Owner/duplicate record',async()=>{
   const repo=publishingRepo();repo.publicationBlocker.mockResolvedValue('OWNER_OR_DUPLICATE_RECORD');
   const result=await runNewsAutomation(repo as unknown as AutomationRepository,{key:'synthetic-token',validationOnly:true});

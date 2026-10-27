@@ -84,5 +84,5 @@ export async function runNewsAutomation(repo:AutomationRepository,options:{key?:
     }
     result.status='failed';result.changed=!!(result.corrections||result.withdrawn||result.published.length);
     await repo.finish(claim.id,result,usage,'failed');return result;
-  }
+  }finally{if(repo.canary)await repo.control({paused:true});}
 }

@@ -18,6 +18,12 @@ describe('autonomous newsroom private route boundaries',()=>{
  it('returns a failed scheduler status for model failure rather than successful completion',async()=>{mocks.run.mockResolvedValue({status:'failed',generation:'MODEL_QUOTA_EXCEEDED',changed:false,published:[]});expect((await scheduled(cron())).status).toBe(503);expect(mocks.invalidate).not.toHaveBeenCalled();});
  it('blocks unauthenticated cron before storage or provider work',async()=>{expect((await scheduled(new Request(origin+'/api/internal/editorial/news-cycle'))).status).toBe(401);expect(mocks.run).not.toHaveBeenCalled();});
  it('rejects query controls',async()=>{expect((await scheduled(cron('?force=1'))).status).toBe(400);expect(mocks.run).not.toHaveBeenCalled();});
+ it('fails closed before storage when a one-off scope is malformed',async()=>{vi.stubEnv('V3_NEWS_CANARY','{}');expect((await scheduled(cron())).status).toBe(503);expect(mocks.withRepository).not.toHaveBeenCalled();expect(mocks.run).not.toHaveBeenCalled();});
+ it('a scoped canary retains the lifetime validation ceiling even with production budget mode',async()=>{
+  const scope={id:'synthetic-authorization',sourceId:'openliga-results',eventKey:'bundesliga:synthetic',fingerprint:'a'.repeat(64),notBefore:'2026-10-27T23:00:00Z',expiresAt:'2026-10-28T00:00:00Z',priorReservedMicroUsd:180000};
+  vi.stubEnv('V3_NEWS_CANARY',JSON.stringify(scope));vi.stubEnv('V3_NEWS_BUDGET_MODE','production');await scheduled(cron());
+  expect(mocks.withRepository.mock.calls[0][1]).toEqual(scope);expect(mocks.run.mock.calls[0][1].validationOnly).toBe(true);
+ });
  it('stays disabled without deployment approval',async()=>{vi.stubEnv('V3_NEWS_AUTOMATION_ENABLED','false');expect(await (await scheduled(cron())).json()).toEqual({status:'disabled',requests:0});expect(mocks.run).not.toHaveBeenCalled();});
  it('does not pass a model credential while model execution is off',async()=>{vi.stubEnv('V3_NEWS_MODEL_ENABLED','false');await scheduled(cron());expect(mocks.run.mock.calls[0][1]).toEqual({key:undefined,validationOnly:true});});
  it('defaults to validation budget and never returns credentials',async()=>{vi.stubEnv('V3_NEWS_BUDGET_MODE','');const response=await scheduled(cron());expect(mocks.run.mock.calls[0][1].validationOnly).toBe(true);expect(await response.text()).not.toMatch(/synthetic-cron-test|synthetic-model-test|Authorization/);expect(response.headers.get('cache-control')).toContain('no-store');});

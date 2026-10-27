@@ -1,0 +1,103 @@
+V3.6 one-event Production canary — PREPARED, NOT AUTHORIZED OR EXECUTED
+Read-only verification: 2026-10-27 10:48–10:54 UTC
+
+Production baseline d3b4888561218f4376401dce4b6300421f335cca;
+READY deployment dpl_7adNtj6ysFx8vfbFh74XuwLdRNMv, existing LivaSports project.
+Actual configured news cron: 43 */6 * * * (00:43/06:43/12:43/18:43 UTC;
+04:43/10:43/16:43/22:43 Asia/Tbilisi). Authenticated endpoint returns disabled;
+unauthenticated request returns 401; private no-store response. No paid calls.
+
+Production: PAUSED, enabled=false, modelEnabled=false, modelConfigured=false.
+No OPENAI_API_KEY or newsroom enablement environment variables exist there.
+No production AI runs/events/leases/reservations. Ten existing public articles;
+zero archived Owner records at inspection (archive protection remains mandatory).
+Neon main is READY, about 12.55GB logical storage, six-hour rolling recovery,
+protected=false. This configuration check is not a restore drill. Recheck a
+historical recovery point and retain the prior READY application before release.
+Historical schema read also succeeded at 2026-10-27T10:43:34.304Z (283485 bytes,
+SHA256 c4aae618b7185201cb7f84a5231ac524a5463893511a90e70a02dd884af4a8d1).
+No restore or new branch was created; this is historical-access evidence only.
+No migration or schema extension is required for this change.
+
+Candidate (must be reverified immediately before activation):
+SC Freiburg 1–3 FC Bayern München, 25 October 2026 16:30 UTC.
+OpenLigaDB match 83214; stored verified Bundesliga snapshot plus a fresh successful
+matching public match response. Source https://api.openligadb.de/getmatchdata/83214
+ODbL factual database reuse with existing attribution/export protections; no
+publisher article or image reuse. No matching Production draft, archive or event.
+Event: bundesliga:2026/27:openligadb-match-83214
+Stable fact hash: 2cf57f8d035c6534b7a01114cd35a85d3cf6d093a310324afb5fdd9ac4a03cfa
+Expected slug: result-df8a0bd4adf3a6c6f79db946
+Expected public paths (NOT published): /en/news/<slug>, /mx/noticias/<slug>,
+/br/noticias/<slug>. The earlier local Larry Fitzgerald sample is not imported.
+
+Current source acceptance:
+- OpenLigaDB: typed, verified Bundesliga completed results qualify.
+- Cardinals: typed player-award/team-honor contracts; today's feed yielded no
+  matching typed facts. No previous announcement is forcibly selected.
+- NBA Communications: roster-announcement contract; current feed items did not
+  yield independently corroborated supported facts. Metadata remains private.
+- DIMAYOR: supported qualification/announcement facts only; today's scheduling
+  headlines do not satisfy that contract and remain private.
+- Wikinews: licensed metadata discovery, not automatic factual approval.
+- NHL/MLB/UFC/tennis/EuroLeague and other desks are not seven-sport autonomous
+  publishing coverage. No unsupported sources are enabled for this canary.
+
+Implemented one-use protection:
+V3_NEWS_CANARY contains a non-secret id, sourceId, exact eventKey/fingerprint,
+notBefore, expiresAt (maximum one-hour window), priorReservedMicroUsd.
+Malformed configuration fails closed. Normal cron/Owner authentication remains.
+Only the selected source is initialized/read; only exact matching facts enter
+the queue; no unrelated reconciliation/withdrawal. Existing archive/dedup/audit
+and publication validations still run. A consumed grant is durably recorded
+with the run/budget reservation under the existing advisory transaction lock.
+Concurrent invocations, restarts or renaming the grant cannot retry that event.
+Six-hour cadence is not overridden. Expiry stops additional calls on the lease.
+At most five model calls, one article, $0.02 worst-case reservation; $0.10 daily,
+$3 monthly and $1 validation lifetime guards remain. Prior local/historical
+reservations total $0.18 and must be carried as the external baseline, not
+fabricated Production transactions. Reconcile this amount again before arming.
+The current $0.82 conservative allowance would become $0.80 after reservation.
+Normal success, rejection and caught failure restore PAUSED in finally. A hard
+process kill may prevent the pause write, but the durable consumed grant still
+blocks every subsequent paid run; explicitly verify/reset PAUSED on recovery.
+
+Owner authorization needed before any Production publishing controls or spend:
+Approve this exact one-event canary, secure transfer of the existing locally
+configured OpenAI key to this existing Vercel Production project, and at most
+five calls/$0.02 reservation within the current authorization. No ongoing or
+seven-sport activation is included. If facts change or fail, stop; do not substitute
+another event or obtain a new paid attempt under the same approval.
+
+Execution after approval and green exact-head CI:
+1. Freshly read source, all Owner records including archives, event history,
+   current snapshot, grants/leases, budgets and due times. Abort on any mismatch.
+2. Select the next real configured cron slot with time for one validated deployment.
+   Set notBefore to that slot and expiry one hour later; never simulate the clock.
+3. Retain previous READY deployment. Configure the key in memory through the
+   authenticated Vercel API; no env-file export, key in command arguments or logs.
+   Deploy scoped code/config together on the existing project, still DB PAUSED.
+4. Verify live SHA and authenticated Owner dashboard's exact scope, key boolean,
+   budget mode and PAUSED. Only then unpause via the normal authenticated Owner API.
+5. Let the existing Vercel cron invoke the normal endpoint. Do not launch a parallel
+   paid attempt. Record actual due time, start time, run id, source/facts and audits.
+6. Verify one durable article/audit, EN/ES/PT live routes, canonicals/indexability,
+   source dates/entity links, homepage/sitemap invalidation and mobile/desktop themes.
+   Immediate authenticated rerun must do no work (PAUSED or consumed); no forced run.
+7. Confirm PAUSED, final accounting, no live lease and no duplicate; disable model
+   and automation flags in the final deployment. Keep consumed scope/audit intact.
+   Remove temporary key configuration if it is not needed by another authorized job.
+8. Application rollback must first disable publishing flags/PAUSE. Never roll back
+   to code without the one-use guard while leaving enablement flags on. No destructive
+   DB rollback or deletion of the run/article/audit/accounting history.
+
+Repeated-cycle acceptance is not yet achieved. After one article, observe separate
+real six-hour opportunities while paused for no-op evidence. Additional publication
+cycles and ongoing allowlisted activation require separate Owner approval. Empty
+feeds, accelerated tests and a single article do not establish daily reliability.
+
+Acceptance before requesting activation:
+42 isolated PostgreSQL checks passed; nine preserved local tables unchanged;
+local PAUSED remains true. Synthetic concurrency, reconnect, expiry, archive,
+one-attempt, exact-fact scope and six-hour guards exercised with zero model calls.
+The approved local key is present (boolean check only); no key transferred yet.
