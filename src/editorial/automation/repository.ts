@@ -11,6 +11,7 @@ import {primaryFeedDesks} from '../primary-feeds';
 import {candidateDraft} from '../discovery';
 import {generationEligible,newerCorroboration} from './eligibility';
 import {canaryMatches,type CanaryScope} from './canary';
+import type {SchedulerInvocation} from './scheduler';
 /** A pristine discovery placeholder is not a human-written draft. Never overwrite it.
  * Preserve it privately; changed, reviewed, archived or previously published records block automation. */
 export function pristineDiscoveryRecord(record:NewsRecord,facts:EventFacts):boolean{
@@ -41,15 +42,17 @@ export class AutomationRepository {
   }
   async reviewEvidence(){await this.cleanupEvidence();return (await this.db.query<{run_id:string;event_key:string;checkpoint:number;payload:ReviewEvidence;expires_at:string}>('SELECT run_id,event_key,checkpoint,payload,expires_at::text FROM editorial_generation_evidence WHERE expires_at>now() ORDER BY created_at DESC,checkpoint DESC LIMIT 30')).rows;}
   async dashboard(){
-    const [control,sources,events,runs,totals,alerts]=await Promise.all([
+    const [control,sources,events,runs,totals,alerts,invocations,leases]=await Promise.all([
       this.db.query<{paused:boolean}>('SELECT paused FROM editorial_automation_control'),
       this.db.query<SourceState>(`SELECT ${sourceColumns} FROM editorial_discovery_state ORDER BY source_id`),
       this.db.query<AutomationEvent>(`SELECT ${eventColumns} FROM editorial_automation_events ORDER BY changed_at DESC LIMIT 100`),
       this.db.query('SELECT id,started_at,finished_at,status,requests_reserved,requests_used,model_microusd_reserved,model_microusd_used,input_tokens,output_tokens,result FROM editorial_automation_runs ORDER BY started_at DESC LIMIT 12'),
       this.db.query(`SELECT coalesce(sum(requests_used) FILTER (WHERE started_at >= date_trunc('day',now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'),0)::int AS "requestsToday",coalesce(sum(greatest(model_microusd_reserved,model_microusd_used)) FILTER (WHERE started_at >= date_trunc('month',now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'),0)::int AS "monthReservedMicroUsd",coalesce(sum(model_microusd_used),0)::int AS "recordedMicroUsd",coalesce(sum(greatest(model_microusd_reserved,model_microusd_used)),0)::int AS "lifetimeReservedMicroUsd" FROM editorial_automation_runs`),
       this.db.query("SELECT action,detail,recorded_at FROM editorial_automation_audit WHERE action IN ('budget-blocked','model-circuit-breaker','unexpected-model-usage') ORDER BY recorded_at DESC LIMIT 10"),
+      this.db.query<{detail:SchedulerInvocation}>("SELECT detail FROM editorial_automation_audit WHERE action='scheduler-invocation' AND recorded_at>=now()-interval '7 days' ORDER BY recorded_at DESC LIMIT 128"),
+      this.db.query<{active:number;expired:number}>("SELECT count(*) FILTER(WHERE lease_until>now())::int AS active,count(*) FILTER(WHERE lease_until<=now())::int AS expired FROM editorial_automation_runs WHERE status='running'"),
     ]);
-    return {paused:control.rows[0]?.paused??true,sources:sources.rows,events:events.rows,runs:runs.rows,usage:totals.rows[0],alerts:alerts.rows,limits,registry:automationSources};
+    return {observedAt:new Date().toISOString(),paused:control.rows[0]?.paused??true,sources:sources.rows,events:events.rows,runs:runs.rows,usage:totals.rows[0],alerts:alerts.rows,invocations:invocations.rows.map(x=>x.detail),leases:leases.rows[0],limits,registry:automationSources};
   }
   async control(input:{paused?:boolean;sourceId?:string;disabled?:boolean}){
     return this.db.transaction(async db=>{

@@ -5,8 +5,9 @@ import {collectWikinews} from '../wikinews-discovery';
 import {discoveryDesks} from '../discovery';
 import {AutomationRepository,type SourceState} from './repository';
 import {generateBriefing,type ModelUsage} from './generation';
-import {resultsFromSnapshot,toNewsDraft,factErrors,automationSources} from './policy';
+import {resultsFromSnapshot,toNewsDraft,factErrors,automationSources,type EventFacts} from './policy';
 import type {AnnouncementFacts} from './announcements';
+import {canaryMatches} from './canary';
 
 /** Cache validators apply to a fixed, approved index only. Never persist raw article bodies. */
 export async function collectScheduledDiscovery(source:SourceState,fetcher:typeof fetch=fetch,now=new Date()){
@@ -31,7 +32,20 @@ export async function runNewsAutomation(repo:AutomationRepository,options:{key?:
   await repo.initialize(now);
   const claim=await repo.claim(!!options.key?.trim(),options.validationOnly,now);
   if(!('id' in claim))return {status:claim.reason,requests:0,published:[],changed:false};
-  const result={status:'completed',requests:0,discovered:0,corrections:0,withdrawn:0,published:[] as string[],changed:false,generation:options.key?'no-eligible-event':'MODEL_CREDENTIAL_MISSING'};
+  const runId=claim.id;
+  const result={runId,status:'completed',requests:0,discovered:0,corrections:0,withdrawn:0,published:[] as string[],changed:false,generation:options.key?'no-eligible-event':'MODEL_CREDENTIAL_MISSING',candidates:{seen:0,outsideAuthorization:0,unchanged:0,reviewRequired:0,queueFull:0,selected:0,ownerOrDuplicateBlocked:0},sourceOutcomes:[] as {sourceId:string;status:string;requests:number}[]};
+  async function observe(facts:EventFacts){
+    result.candidates.seen++;
+    if(repo.canary&&!canaryMatches(repo.canary,facts)){result.candidates.outsideAuthorization++;return;}
+    if(factErrors(facts,now).length)result.candidates.reviewRequired++;
+    const state=await repo.observe(runId,facts,now);
+    if(state==='new')result.discovered++;if(state==='changed')result.corrections++;
+    if(state==='unchanged')result.candidates.unchanged++;if(state==='queue-full')result.candidates.queueFull++;
+  }
+  async function sourceResult(id:string,status:string,requests:number,cursor:Record<string,string>={}){
+    result.sourceOutcomes.push({sourceId:id,status:/^[A-Z0-9_]{1,80}$/.test(status)?status:'SOURCE_STATUS_UNKNOWN',requests});
+    await repo.finishSource(runId,id,status,requests,cursor,now);
+  }
   let publishingEvent:string|null=null;
   try{
     let resultsValidated=false;
@@ -42,13 +56,13 @@ export async function runNewsAutomation(repo:AutomationRepository,options:{key?:
       if(snapshot){
         assertOpenLigaSnapshot(snapshot,now);
         const facts=resultsFromSnapshot(snapshot,now);
-        for(const item of facts){const state=await repo.observe(claim.id,item,now);if(state==='new')result.discovered++;if(state==='changed')result.corrections++;}
+        for(const item of facts)await observe(item);
         const completedKeys=new Set(snapshot.events.filter(e=>e.status==='completed').map(e=>`bundesliga:${snapshot.season}:${e.id}`));
         result.withdrawn=await repo.reconcile(claim.id,completedKeys,now);
         resultsValidated=true;
-        await repo.finishSource(claim.id,'openliga-results','RESULTS_VALIDATED',0,{},now);
-      }
-      }catch{await repo.finishSource(claim.id,'openliga-results','RESULT_VALIDATION_FAILED',0,{},now);}
+        await sourceResult('openliga-results','RESULTS_VALIDATED',0);
+      }else await sourceResult('openliga-results','RESULT_SNAPSHOT_UNAVAILABLE',0);
+      }catch{await sourceResult('openliga-results','RESULT_VALIDATION_FAILED',0);}
     }
     for(const source of await repo.dueSources(now)){
       // An article-backed source costs three reads. Never exceed the four reads reserved by claim.
@@ -56,14 +70,15 @@ export async function runNewsAutomation(repo:AutomationRepository,options:{key?:
       if(requestLimit===undefined||result.requests+requestLimit>4)continue;
       if(!await repo.sourceEnabled(source.sourceId))continue;
       const found=await collectScheduledDiscovery(source,options.fetcher,now);result.requests+=found.requests;
-      await repo.finishSource(claim.id,source.sourceId,found.status,found.requests,found.cursor,now);
+      await sourceResult(source.sourceId,found.status,found.requests,found.cursor);
       const announcements:AnnouncementFacts[]='announcements' in found&&Array.isArray(found.announcements)?found.announcements:[];
-      for(const candidate of found.candidates){const facts=announcements.find(f=>f.sourceUrl===candidate.url)??{kind:'metadata' as const,candidate};const state=await repo.observe(claim.id,facts,now);if(state==='new')result.discovered++;if(state==='changed')result.corrections++;}
+      for(const candidate of found.candidates)await observe(announcements.find(f=>f.sourceUrl===candidate.url)??{kind:'metadata' as const,candidate});
     }
     const event=await repo.eligiblePending(now,resultsValidated);
+    result.candidates.selected=event?1:0;
     if(event&&options.key&&(event.facts.kind==='announcement'||(event.facts.kind==='result'&&resultsValidated))){
       const blocker=await repo.publicationBlocker(event);
-      if(blocker){result.generation=blocker;await repo.fail(event.eventKey,blocker);}
+      if(blocker){result.generation=blocker;if(blocker==='OWNER_OR_DUPLICATE_RECORD')result.candidates.ownerOrDuplicateBlocked++;await repo.fail(event.eventKey,blocker);}
       else if(factErrors(event.facts,now).length){result.generation='FACTS_NO_LONGER_ELIGIBLE';await repo.fail(event.eventKey,result.generation);}
       else{
         await repo.markAttempt(claim.id,event.eventKey);
