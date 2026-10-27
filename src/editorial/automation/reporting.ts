@@ -1,4 +1,5 @@
 /** Public-to-Owner summary only; no raw model payloads or credentials are accepted. */
+export function operationTimestamp(value:unknown){return value instanceof Date?value.toISOString():String(value);}
 export function executionSummary(value:unknown){
   const run=value as {status?:unknown;result?:{generation?:unknown;modelUsage?:{calls?:number;stages?:Record<string,{microUsd?:number}>}}}|null;
   const usage=run?.result?.modelUsage,calls=Number.isSafeInteger(usage?.calls)?Math.max(0,usage!.calls!):0;
