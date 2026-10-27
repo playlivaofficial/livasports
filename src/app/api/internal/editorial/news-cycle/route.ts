@@ -2,6 +2,7 @@ import {timingSafeEqual} from 'node:crypto';
 import {withAutomation} from '@/editorial/automation/server';
 import {runNewsAutomation} from '@/editorial/automation/runner';
 import {invalidateNews} from '@/editorial/invalidate';
+import {parseCanary} from '@/editorial/automation/canary';
 export const dynamic='force-dynamic';
 export const maxDuration=180;
 const headers={'Cache-Control':'private, no-store','X-Robots-Tag':'noindex, nofollow'};
@@ -11,7 +12,8 @@ export async function GET(request:Request){
   if(new URL(request.url).search)return Response.json({error:'INVALID_REQUEST'},{status:400,headers});
   if(process.env.V3_NEWS_AUTOMATION_ENABLED!=='true')return Response.json({status:'disabled',requests:0},{headers});
   try{
-    const result=await withAutomation(repo=>runNewsAutomation(repo,{key:process.env.V3_NEWS_MODEL_ENABLED==='true'?process.env.OPENAI_API_KEY:undefined,validationOnly:process.env.V3_NEWS_BUDGET_MODE!=='production'}));
+    const canary=parseCanary(process.env.V3_NEWS_CANARY);
+    const result=await withAutomation(repo=>runNewsAutomation(repo,{key:process.env.V3_NEWS_MODEL_ENABLED==='true'?process.env.OPENAI_API_KEY:undefined,validationOnly:!!canary||process.env.V3_NEWS_BUDGET_MODE!=='production'}),canary);
     if(result.changed)invalidateNews();
     return Response.json(result,{headers,status:result.status==='failed'?503:200});
   }catch{return Response.json({error:'AUTOMATION_STORAGE_UNAVAILABLE'},{status:503,headers});}

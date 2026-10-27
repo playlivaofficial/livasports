@@ -1,12 +1,13 @@
 import {requestOwnerSession} from '@/owner/session';
 import {boundedJson} from '@/http/body';
 import {withAutomation} from '@/editorial/automation/server';
+import {parseCanary} from '@/editorial/automation/canary';
 export const dynamic='force-dynamic';
 const headers={'Cache-Control':'private, no-store','X-Robots-Tag':'noindex, nofollow','Vary':'Cookie'};
 const reply=(data:unknown,status=200)=>Response.json(data,{status,headers});
 export async function GET(request:Request){
   if(!requestOwnerSession(request.headers))return reply({error:'UNAUTHORIZED'},401);
-  try{return reply({...(await withAutomation(repo=>repo.dashboard())),enabled:process.env.V3_NEWS_AUTOMATION_ENABLED==='true',modelEnabled:process.env.V3_NEWS_MODEL_ENABLED==='true',modelConfigured:!!process.env.OPENAI_API_KEY?.trim(),budgetMode:process.env.V3_NEWS_BUDGET_MODE==='production'?'production':'validation'});}catch{return reply({error:'AUTOMATION_STORAGE_UNAVAILABLE'},503);}
+  try{const canary=parseCanary(process.env.V3_NEWS_CANARY);return reply({...(await withAutomation(repo=>repo.dashboard())),enabled:process.env.V3_NEWS_AUTOMATION_ENABLED==='true',modelEnabled:process.env.V3_NEWS_MODEL_ENABLED==='true',modelConfigured:!!process.env.OPENAI_API_KEY?.trim(),budgetMode:canary||process.env.V3_NEWS_BUDGET_MODE!=='production'?'validation':'production',canary:canary??null});}catch{return reply({error:'AUTOMATION_STORAGE_UNAVAILABLE'},503);}
 }
 export async function POST(request:Request){
   if(!requestOwnerSession(request.headers))return reply({error:'UNAUTHORIZED'},401);
