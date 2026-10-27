@@ -15,7 +15,7 @@ export function invocationStart(userAgent:string|null,now=new Date()):SchedulerI
  return {startedAt:now.toISOString(),finishedAt:null,scheduledAt,delaySeconds,trigger:userAgent==='vercel-cron/1.0'?'reported-cron':'authenticated-request',outcome:'incomplete',status:'started',runId:null,cacheInvalidation:'not-reached'};
 }
 export function invocationFinish(result:{status:string;runId?:string;generation?:string;published?:string[]},cacheInvalidation:SchedulerInvocation['cacheInvalidation'],now=new Date()):Partial<SchedulerInvocation>{
- const noOp=['disabled','paused','not-due','model-budget','discovery-budget','canary-not-due','canary-expired','canary-consumed','canary-model-disabled'].includes(result.status);
+ const noOp=['disabled','paused','not-due','model-budget','model-configuration','discovery-budget','canary-not-due','canary-expired','canary-consumed','canary-model-disabled'].includes(result.status);
  const outcome=(!noOp&&result.status!=='completed')||cacheInvalidation==='failed'?'failed':noOp?'no-op':result.published?.length?'published':result.generation&& !['VALIDATED','no-eligible-event','MODEL_CREDENTIAL_MISSING'].includes(result.generation)?'review':'processed-empty';
  return {finishedAt:now.toISOString(),outcome,status:noOp||result.status==='completed'?result.status:'failed',runId:result.runId&&/^[a-f0-9-]{36}$/.test(result.runId)?result.runId:null,cacheInvalidation};
 }

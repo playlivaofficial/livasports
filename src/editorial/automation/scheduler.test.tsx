@@ -10,7 +10,7 @@ describe('scheduler evidence classification',()=>{
   expect(schedulerSlot(new Date('2026-10-27T00:42:59Z'))).toEqual({scheduledAt:'2026-10-26T18:43:00.000Z',nextScheduledAt:'2026-10-27T00:43:00.000Z',delaySeconds:21599});
   expect(schedulerSlot(new Date('2026-10-27T12:43:32Z')).delaySeconds).toBe(32);
  });
- it.each(['disabled','paused','not-due','model-budget','canary-consumed'])('never counts %s as a publishing cycle',status=>{
+ it.each(['disabled','paused','not-due','model-budget','model-configuration','canary-consumed'])('never counts %s as a publishing cycle',status=>{
   const row={...invocationStart('vercel-cron/1.0',new Date('2026-10-27T12:43:32Z')),...invocationFinish({status},'not-needed')};
   expect(row.outcome).toBe('no-op');expect(reliabilitySummary([row]).publishedCycles).toBe(0);
  });

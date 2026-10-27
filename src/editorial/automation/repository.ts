@@ -73,6 +73,11 @@ export class AutomationRepository {
     return this.db.transaction(async db=>{
       await db.query('SELECT pg_advisory_xact_lock(724222)');
       if((await db.query<{paused:boolean}>('SELECT paused FROM editorial_automation_control FOR UPDATE')).rows[0]?.paused!==false)return {reason:'paused'};
+      if(!validationOnly&&!this.canary&&!modelEnabled){
+        await db.query('UPDATE editorial_automation_control SET paused=true,edited_at=now()');
+        await audit(db,null,'model-circuit-breaker',{reason:'MODEL_CREDENTIAL_OR_SWITCH_MISSING'});
+        return {reason:'model-configuration'};
+      }
       if(this.canary){
         if(!modelEnabled)return {reason:'canary-model-disabled'};
         if(+now<Date.parse(this.canary.notBefore))return {reason:'canary-not-due'};

@@ -11,6 +11,8 @@ export async function recurringAcceptance(admin:PostgresDatabaseClient,input:URL
  try{
   for(const f of ['072_v2_editorial_newsroom.sql','074_v3_news_automation.sql','075_v3_news_review_evidence.sql'])await db.query(await readFile('db/migrations/'+f,'utf8'));
   const repo=new AutomationRepository(db);await repo.initialize();await repo.control({paused:false});
+  assert.deepEqual(await repo.claim(false,false,new Date('2026-10-15T00:43:00Z')),{reason:'model-configuration'});
+  assert.equal((await repo.dashboard()).paused,true);assert.equal((await db.query('SELECT count(*) FROM editorial_automation_runs')).rows[0].count,'0');await repo.control({paused:false});
   for(const time of ['2026-10-15T00:43:32Z','2026-10-15T06:43:01Z','2026-10-15T12:43:20Z','2026-10-15T18:43:02Z']){
    const now=new Date(time);
    if(time.includes('06:43'))assert.deepEqual(await repo.claim(true,true,now),{reason:'not-due'},'validation retains elapsed six-hour gate');
@@ -24,6 +26,6 @@ export async function recurringAcceptance(admin:PostgresDatabaseClient,input:URL
   assert.deepEqual(await repo.claim(true,false,new Date('2026-10-16T00:43:00Z')),{reason:'model-budget'});
   await repo.control({paused:true});assert.deepEqual(await repo.claim(true,false,new Date('2026-10-16T06:43:00Z')),{reason:'paused'});
   assert.equal((await db.query('SELECT count(*) FROM editorial_news')).rows[0].count,'0');
-  return ['recurring UTC slots tolerate cron jitter while validation retains elapsed-time limits','four distinct scheduled windows claim once each across reconnects and concurrent attempts','ordinary completion leaves recurring policy active; emergency pause still stops it','durable conservative reservations and monthly hard stop survive recurring restarts'];
+  return ['missing recurring model configuration pauses durably before discovery or reservation','recurring UTC slots tolerate cron jitter while validation retains elapsed-time limits','four distinct scheduled windows claim once each across reconnects and concurrent attempts','ordinary completion leaves recurring policy active; emergency pause still stops it','durable conservative reservations and monthly hard stop survive recurring restarts'];
  }finally{await db.close();await admin.query(`DROP SCHEMA ${schema} CASCADE`);}
 }
