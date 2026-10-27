@@ -12,6 +12,7 @@ import {candidateDraft} from '../src/editorial/discovery';
 import {runNewsAutomation} from '../src/editorial/automation/runner';
 import {canaryAcceptance} from './v36-canary-db-acceptance';
 import {invocationAcceptance} from './v37-invocation-db-acceptance';
+import {recurringAcceptance} from './recurring-newsroom-db-acceptance';
 
 async function main(){
  const url=new URL(process.env.V3_QA_DATABASE_URL??'');
@@ -141,6 +142,7 @@ async function main(){
   await db.query('BEGIN');await db.query("UPDATE editorial_automation_control SET paused=true");await db.query('ROLLBACK');assert.equal((await repo.dashboard()).paused,false);checks.push('transaction rollback preserves control state');
   checks.push(...await canaryAcceptance(admin,url));
   checks.push(...await invocationAcceptance(admin,url));
+  checks.push(...await recurringAcceptance(admin,url));
   const indexes=(await db.query("SELECT indexname FROM pg_indexes WHERE schemaname=current_schema() AND tablename LIKE 'editorial_%' ORDER BY indexname")).rows.map(x=>x.indexname);
   const evidence={at:now.toISOString(),environment:'isolated PostgreSQL synthetic schema',migration:'074',applications:3,checks,indexes,realSourceCalls:0,realModelCalls:0,productionConnections:0,syntheticPublications:2,schemaPreservedForInspection:schema};
   await mkdir('output/v3-qa/acceptance-2026-10-21',{recursive:true});await writeFile('output/v3-qa/acceptance-2026-10-21/automation-db.json',JSON.stringify(evidence,null,2));console.log(JSON.stringify(evidence));

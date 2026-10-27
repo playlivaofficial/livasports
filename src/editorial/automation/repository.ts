@@ -11,7 +11,7 @@ import {primaryFeedDesks} from '../primary-feeds';
 import {candidateDraft} from '../discovery';
 import {generationEligible,newerCorroboration} from './eligibility';
 import {canaryMatches,type CanaryScope} from './canary';
-import type {SchedulerInvocation} from './scheduler';
+import {schedulerSlot,type SchedulerInvocation} from './scheduler';
 /** A pristine discovery placeholder is not a human-written draft. Never overwrite it.
  * Preserve it privately; changed, reviewed, archived or previously published records block automation. */
 export function pristineDiscoveryRecord(record:NewsRecord,facts:EventFacts):boolean{
@@ -42,7 +42,7 @@ export class AutomationRepository {
   }
   async reviewEvidence(){await this.cleanupEvidence();return (await this.db.query<{run_id:string;event_key:string;checkpoint:number;payload:ReviewEvidence;expires_at:string}>('SELECT run_id,event_key,checkpoint,payload,expires_at::text FROM editorial_generation_evidence WHERE expires_at>now() ORDER BY created_at DESC,checkpoint DESC LIMIT 30')).rows;}
   async dashboard(){
-    const [control,sources,events,runs,totals,alerts,invocations,leases]=await Promise.all([
+    const [control,sources,events,runs,totals,alerts,invocations,leases,daily]=await Promise.all([
       this.db.query<{paused:boolean}>('SELECT paused FROM editorial_automation_control'),
       this.db.query<SourceState>(`SELECT ${sourceColumns} FROM editorial_discovery_state ORDER BY source_id`),
       this.db.query<AutomationEvent>(`SELECT ${eventColumns} FROM editorial_automation_events ORDER BY changed_at DESC LIMIT 100`),
@@ -51,8 +51,14 @@ export class AutomationRepository {
       this.db.query("SELECT action,detail,recorded_at FROM editorial_automation_audit WHERE action IN ('budget-blocked','model-circuit-breaker','unexpected-model-usage') ORDER BY recorded_at DESC LIMIT 10"),
       this.db.query<{detail:SchedulerInvocation}>("SELECT detail FROM editorial_automation_audit WHERE action='scheduler-invocation' AND recorded_at>=now()-interval '7 days' ORDER BY recorded_at DESC LIMIT 128"),
       this.db.query<{active:number;expired:number}>("SELECT count(*) FILTER(WHERE lease_until>now())::int AS active,count(*) FILTER(WHERE lease_until<=now())::int AS expired FROM editorial_automation_runs WHERE status='running'"),
+      this.db.query<{published:number;review:number;skipped:number;completed:number;failed:number;modelMicroUsd:number}>(`WITH boundary AS (SELECT date_trunc('day',now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC' AS day)
+        SELECT (SELECT count(*)::int FROM editorial_automation_audit,boundary WHERE action='auto-publish' AND recorded_at>=day) AS published,
+        (SELECT count(*)::int FROM editorial_automation_events,boundary WHERE state='review' AND changed_at>=day) AS review,
+        (SELECT count(*)::int FROM editorial_automation_audit,boundary WHERE action='scheduler-invocation' AND detail->>'outcome'='no-op' AND recorded_at>=day) AS skipped,
+        count(*) FILTER(WHERE status='completed')::int AS completed,count(*) FILTER(WHERE status='failed')::int AS failed,
+        coalesce(sum(model_microusd_used),0)::int AS "modelMicroUsd" FROM editorial_automation_runs,boundary WHERE started_at>=day`),
     ]);
-    return {observedAt:new Date().toISOString(),paused:control.rows[0]?.paused??true,sources:sources.rows,events:events.rows,runs:runs.rows,usage:totals.rows[0],alerts:alerts.rows,invocations:invocations.rows.map(x=>x.detail),leases:leases.rows[0],limits,registry:automationSources};
+    return {observedAt:new Date().toISOString(),paused:control.rows[0]?.paused??true,sources:sources.rows,events:events.rows,runs:runs.rows,usage:totals.rows[0],daily:daily.rows[0],alerts:alerts.rows,invocations:invocations.rows.map(x=>x.detail),leases:leases.rows[0],limits,registry:automationSources};
   }
   async control(input:{paused?:boolean;sourceId?:string;disabled?:boolean}){
     return this.db.transaction(async db=>{
@@ -67,6 +73,11 @@ export class AutomationRepository {
     return this.db.transaction(async db=>{
       await db.query('SELECT pg_advisory_xact_lock(724222)');
       if((await db.query<{paused:boolean}>('SELECT paused FROM editorial_automation_control FOR UPDATE')).rows[0]?.paused!==false)return {reason:'paused'};
+      if(!validationOnly&&!this.canary&&!modelEnabled){
+        await db.query('UPDATE editorial_automation_control SET paused=true,edited_at=now()');
+        await audit(db,null,'model-circuit-breaker',{reason:'MODEL_CREDENTIAL_OR_SWITCH_MISSING'});
+        return {reason:'model-configuration'};
+      }
       if(this.canary){
         if(!modelEnabled)return {reason:'canary-model-disabled'};
         if(+now<Date.parse(this.canary.notBefore))return {reason:'canary-not-due'};
@@ -74,7 +85,12 @@ export class AutomationRepository {
         const consumed=await db.query("SELECT id FROM editorial_automation_audit WHERE action='canary-claimed' AND (detail->>'id'=$1 OR detail->>'eventKey'=$2) LIMIT 1",[this.canary.id,this.canary.eventKey]);
         if(consumed.rows.length)return {reason:'canary-consumed'};
       }
-      const recent=await db.query(`SELECT id FROM editorial_automation_runs WHERE started_at>$1 OR (status='running' AND lease_until>now()) LIMIT 1`,[new Date(+now-limits.minIntervalMs).toISOString()]);
+      // Recurring production gets one claim per real UTC cron slot. Arrival-time jitter
+      // must not turn a six-hour scheduler into a twelve-hour scheduler. Validation
+      // and one-event canaries retain their stricter elapsed-time gate.
+      const recurring=!validationOnly&&!this.canary;
+      const dueBoundary=recurring?schedulerSlot(now).scheduledAt:new Date(+now-limits.minIntervalMs).toISOString();
+      const recent=await db.query(`SELECT id FROM editorial_automation_runs WHERE started_at${recurring?'>=':'>'}$1 OR (status='running' AND lease_until>now()) LIMIT 1`,[dueBoundary]);
       if(recent.rows.length)return {reason:'not-due'};
       const totals=(await db.query<{dayCount:number;dayRequests:number;dayCost:number;monthCost:number;allCost:number}>(`SELECT count(*) FILTER(WHERE started_at>=$1)::int AS "dayCount",coalesce(sum(requests_reserved) FILTER(WHERE started_at>=$1),0)::int AS "dayRequests",coalesce(sum(greatest(model_microusd_reserved,model_microusd_used)) FILTER(WHERE started_at>=$1),0)::int AS "dayCost",coalesce(sum(greatest(model_microusd_reserved,model_microusd_used)) FILTER(WHERE started_at>=$2),0)::int AS "monthCost",coalesce(sum(greatest(model_microusd_reserved,model_microusd_used)),0)::int AS "allCost" FROM editorial_automation_runs`,[now.toISOString().slice(0,10)+'T00:00:00Z',now.toISOString().slice(0,7)+'-01T00:00:00Z'])).rows[0];
       const reserve=modelEnabled?limits.reserveMicroUsd:0;
