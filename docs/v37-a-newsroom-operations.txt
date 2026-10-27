@@ -1,0 +1,19 @@
+V3.7-A — durable newsroom operations
+
+Scope
+Authenticated cron invocations are now distinct from processing runs. Starts are persisted before paid work and updated in place on completion. Disabled, paused, cadence/budget-blocked and consumed/expired-canary calls are no-ops, never publishing successes. An interrupted request remains incomplete. No migration or configuration activation is required.
+
+Owner-only evidence
+/owner/news shows deployment/model switches, database pause, seven-day invocation history, computed UTC due slot versus actual start, next opportunity, unfinished/expired leases, run IDs, candidate dispositions, source outcomes, model counts/tokens/costs, audit flags and publication links. Only operational invocation records expire after 30 days. Financial, grant, editorial and private-review retention rules are unchanged.
+
+Evidence limits
+The exact vercel-cron/1.0 user-agent is only a reported origin; independently corroborate it with Vercel request logs. Missing observations flag telemetry gaps, not proven scheduler failure. No history is invented for earlier runs. Cache invalidation is recorded as requested, not proof that homepage/sitemap freshness was verified. Manual authenticated probes are labelled separately. Real elapsed-time reliability still requires multiple actual cron opportunities.
+
+Preserved gates
+Exact-event grant, atomic consumption, six-hour cadence, source freshness, protected Owner records, durable reservations, $1 lifetime validation ceiling, $3 monthly ceiling, independent editorial review, bounded correction, emergency pause and public route behavior remain in place. This release makes no model calls and authorizes no new canary or recurring publication. Production remains PAUSED with deployment/model execution disabled and no configured OpenAI key.
+
+Validation
+Focused scheduler/route/runner tests and isolated PostgreSQL tests cover no-op classification, authentication before telemetry, persistence before model work, invalidation failures, concurrent observations, interrupted requests across reconnect, retention isolation and no changes to preserved local articles/snapshots/ledger. Synthetic checks are labelled synthetic; they are not repeated real publishing cycles. Full repository CI includes the new database acceptance.
+
+Release rollback
+Application-only rollback to the prior READY deployment remains compatible. Operational records are additive JSONB in the existing audit table; no database rollback is necessary. Keep the previous READY deployment. Do not enable sources or publishing as part of rollback.

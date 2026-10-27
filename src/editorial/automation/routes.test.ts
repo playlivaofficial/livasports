@@ -1,8 +1,9 @@
 import {beforeEach,afterEach,describe,it,expect,vi} from 'vitest';
-const mocks=vi.hoisted(()=>({owner:vi.fn(),withRepository:vi.fn(),run:vi.fn(),invalidate:vi.fn(),control:vi.fn(),dashboard:vi.fn()}));
+const mocks=vi.hoisted(()=>({owner:vi.fn(),withRepository:vi.fn(),run:vi.fn(),invalidate:vi.fn(),control:vi.fn(),dashboard:vi.fn(),begin:vi.fn(),finish:vi.fn()}));
 vi.mock('@/owner/session',()=>({requestOwnerSession:mocks.owner}));
 vi.mock('./server',()=>({withAutomation:mocks.withRepository}));
 vi.mock('./runner',()=>({runNewsAutomation:mocks.run}));
+vi.mock('./invocations',()=>({beginInvocation:mocks.begin,finishInvocation:mocks.finish}));
 vi.mock('../invalidate',()=>({invalidateNews:mocks.invalidate}));
 import {GET as scheduled} from '@/app/api/internal/editorial/news-cycle/route';
 import {GET as ownerGet,POST as ownerPost} from '@/app/api/owner/news/automation/route';
@@ -11,10 +12,14 @@ const cron=(suffix='')=>new Request(origin+'/api/internal/editorial/news-cycle'+
 const control=(body:unknown,headers:Record<string,string>={})=>new Request(origin+'/api/owner/news/automation',{method:'POST',headers:{Origin:origin,'Sec-Fetch-Site':'same-origin','Content-Type':'application/json',...headers},body:JSON.stringify(body)});
 beforeEach(()=>{
  vi.clearAllMocks();vi.stubEnv('CRON_SECRET','synthetic-cron-test');vi.stubEnv('OPENAI_API_KEY','synthetic-model-test');vi.stubEnv('V3_NEWS_AUTOMATION_ENABLED','true');vi.stubEnv('V3_NEWS_MODEL_ENABLED','true');vi.stubEnv('V3_NEWS_BUDGET_MODE','validation');
- mocks.owner.mockReturnValue(true);mocks.dashboard.mockResolvedValue({paused:true});mocks.control.mockResolvedValue(undefined);mocks.withRepository.mockImplementation(work=>work({control:mocks.control,dashboard:mocks.dashboard}));mocks.run.mockResolvedValue({status:'completed',requests:0,published:[],changed:false});
+ mocks.begin.mockResolvedValue('1');mocks.finish.mockResolvedValue(undefined);mocks.owner.mockReturnValue(true);mocks.dashboard.mockResolvedValue({paused:true});mocks.control.mockResolvedValue(undefined);mocks.withRepository.mockImplementation(work=>work({control:mocks.control,dashboard:mocks.dashboard}));mocks.run.mockResolvedValue({status:'completed',requests:0,published:[],changed:false});
 });
 afterEach(()=>vi.unstubAllEnvs());
 describe('autonomous newsroom private route boundaries',()=>{
+ it('persists telemetry before model work and finishes with cache evidence',async()=>{mocks.run.mockResolvedValue({status:'completed',changed:true,published:['safe-slug']});await scheduled(cron());expect(mocks.begin.mock.invocationCallOrder[0]).toBeLessThan(mocks.run.mock.invocationCallOrder[0]);expect(mocks.finish.mock.calls[0].slice(1)).toEqual(['1',{status:'completed',changed:true,published:['safe-slug']},'requested']);});
+ it('fails closed before paid work if invocation persistence fails',async()=>{mocks.begin.mockRejectedValueOnce(Error('private-storage-detail'));expect((await scheduled(cron())).status).toBe(503);expect(mocks.run).not.toHaveBeenCalled();});
+ it('records an invalidation failure without falsely claiming fresh public caches',async()=>{mocks.run.mockResolvedValue({status:'completed',changed:true,published:['safe-slug']});mocks.invalidate.mockImplementationOnce(()=>{throw Error('private-cache-detail');});const response=await scheduled(cron());expect(response.status).toBe(503);expect(mocks.finish.mock.calls[0][3]).toBe('failed');expect(await response.text()).not.toContain('private-cache-detail');});
+ it('records a disabled invocation without source/model execution',async()=>{vi.stubEnv('V3_NEWS_AUTOMATION_ENABLED','false');await scheduled(cron());expect(mocks.begin).toHaveBeenCalledTimes(1);expect(mocks.finish.mock.calls[0][2]).toEqual({status:'disabled',requests:0});expect(mocks.run).not.toHaveBeenCalled();});
  it('returns a failed scheduler status for model failure rather than successful completion',async()=>{mocks.run.mockResolvedValue({status:'failed',generation:'MODEL_QUOTA_EXCEEDED',changed:false,published:[]});expect((await scheduled(cron())).status).toBe(503);expect(mocks.invalidate).not.toHaveBeenCalled();});
  it('blocks unauthenticated cron before storage or provider work',async()=>{expect((await scheduled(new Request(origin+'/api/internal/editorial/news-cycle'))).status).toBe(401);expect(mocks.run).not.toHaveBeenCalled();});
  it('rejects query controls',async()=>{expect((await scheduled(cron('?force=1'))).status).toBe(400);expect(mocks.run).not.toHaveBeenCalled();});
