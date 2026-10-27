@@ -1,0 +1,36 @@
+V3.7-B — verified league notices and source review, 27 October 2026
+
+New operational extraction, not a published AI article
+The existing DIMAYOR RSS adapter now recognizes a narrowly corroborated Liga BetPlay schedule notice. At 13:16:23Z, the real two-request robots/RSS flow extracted the 26 October notice for matchday 17, edition II-2026. The separately inspected official notice matches the factual context: cup fixture scheduling and El Campin availability. It does not provide parsed old/new kickoff times; no PDF extraction or guessed match schedule is introduced.
+https://dimayor.com.co/2026/10/26/cambios-en-la-programacion-de-la-fecha-17-de-la-liga-betplay-dimayor-ll-2026/
+
+Only facts enter the model contract. No source prose/images or proprietary table is persisted or sent to AI. The affected competition is Colombia Primera A, not the cup merely mentioned as context. Deterministic checks reject conflicting edition/round, missing cause, unsupported participants, stale dates, invented numbers/times and missing attribution. Independent generation, translation, audit and bounded correction remain mandatory. This does not claim that the scheduling PDF was parsed or that the cup match itself moved. Existing qualification, referee, roster and award/honor contracts remain unchanged.
+
+Production preflight at 13:17:55Z: no matching Owner record, including archives; no prior automation event; no active lease; PAUSED; model key absent. Measured Production cost remains $0.000515, reserved $0.02; prior $0.18 remains unavailable, leaving $0.80 lifetime validation headroom. This check is not authorization and must be refreshed immediately before a future approved run.
+
+Source review / actual coverage
+- Bundesliga: stored OpenLigaDB result contract remains the only source class with a completed scheduled Production AI publication. Existing ODbL attribution/export is preserved. Other European competitions do not inherit this result permission.
+- Colombia: DIMAYOR robots/RSS worked; three current candidates, one newly extracted schedule notice. Ordinary metadata remains private. Existing narrow facts-only access is retained; no blanket syndication claim.
+- NBA: robots/RSS worked; one current audience announcement, no supported verified factual extraction. No new roster event and no override of the protected earlier archive.
+- NFL: robots/RSS worked; three current items but no current supported award/honor among the bounded candidates. The completed local Fitzgerald pilot is not repeated or relabelled as Production.
+- NHL: unauthorized automated collection is restricted; no authorized news feed established. Keep disabled. https://www.nhl.com/info/terms-of-service
+- MLB: no approved automated feed established; keep disabled pending permission. https://www.mlb.com/official-information/terms-of-use
+- WTA: official RSS terms restrict use to personal/non-commercial purposes. Keep disabled without permission. https://www.wtatennis.com/news/1350431/rss-feeds
+- ATP: systematic collection requires permission; direct terms access also returned 403. No bypass or scheduled collection. https://www.atptour.com/en/terms-and-conditions-app
+- UEFA: terms prohibit systematic automated collection. No automatic source activation. https://www.uefa.com/termsconditions/
+- EuroLeague: media centre offers embeds; content packages require a written commercial agreement. No automatic news-feed permission established. https://mediacentre.euroleague.net/mediacentre/en/?v2=yes
+- UFC: access returned 403; no approved automatic source or workaround. https://www.ufc.com/terms
+- Mexico/Peru and remaining European leagues: no new permitted, source-specific automatic news feed established in this review. Existing independently reviewed tables/manual workflow remain separate from automatic journalism. A public news page/catalog entry is not working coverage. Cheapest next step is written permission for a narrow official feed, not purchasing an unspecified subscription.
+
+Source review requests cost no model tokens. Two bounded existing-feed sweeps used six reads each. No failed source was hammered. Broader policy research did not enable adapters or import publisher articles. No seven-sport autonomous coverage is claimed.
+
+Owner release correction
+Actual Production browser QA uncovered a timezone-dependent Date string in the preexisting recent-run display after the first real run appeared. Run/alert timestamps now use identical UTC ISO strings on server and client. This fixes hydration rather than suppressing the warning.
+
+Canary readiness / recurring operation
+A new Production canary requires explicit Owner authorization, a fresh source/archive/grant/lease/budget recheck, exact source URL/fingerprint, at most five calls and a $0.02 reservation, followed by PAUSED and disabled model/publishing switches. The next durable due time observed was 18:43:32.558Z; a cron arriving earlier must no-op. Do not force that slot or claim it ran. No new authorization, key transfer or scheduled task is created by this change.
+
+Recurring activation is NOT approved. Proposed initial ceiling, subject to later Owner approval and actual repeated-cycle evidence: existing six-hour schedule; at most one article per run/four per day; only independently proven source contracts; unchanged $3 monthly and $0.10 daily model caps, $0.02 reservation and five-call maximum. Infra costs are separate. Before activation require more than one genuine Production source class, distinct elapsed cron cycles, correction/withdrawal and duplicate evidence, and a reviewed allowlist. Unknown costs retain reservations.
+
+Archive cost decision
+No archive intervention is justified by the current evidence. Existing 87,711/88,169 write units are not request counts, cache misses or dollars. The prior legitimate-page sample became cold after code and same-SHA configuration deployments; that does not prove account-wide cost causality. Existing archives use revalidate=false and retain legitimate SEO traffic. No blind TTL change, removal, bot block or savings claim. Post-change write reduction / financial benefit: not measured, because no archive change was made.

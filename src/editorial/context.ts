@@ -16,6 +16,8 @@ export function storyContext(story:PublishedNews,snapshots:SportsSnapshot[]){
   const text=Object.values(story.title).join(' ')+' '+Object.values(story.body).join(' ');
   const entities=snapshot.entities.filter(e=>mentions(text,e.name));
   // A matchup is inferred ONLY from two exact identities and an exact source-date match.
-  const events=entities.length===2?snapshot.events.filter(e=>entities.some(x=>x.id===e.homeId)&&entities.some(x=>x.id===e.awayId)&&(e.start??e.date??'').slice(0,10)===story.sourcePublishedOn):[];
+  // Automatic announcement slugs identify notices, not match reports. Their publication
+  // day and mentioned teams must never manufacture an unrelated same-day matchup.
+  const events=!story.slug.startsWith('announcement-')&&entities.length===2?snapshot.events.filter(e=>entities.some(x=>x.id===e.homeId)&&entities.some(x=>x.id===e.awayId)&&(e.start??e.date??'').slice(0,10)===story.sourcePublishedOn):[];
   return {snapshot,entities,event:events.length===1?events[0]:null};
 }
