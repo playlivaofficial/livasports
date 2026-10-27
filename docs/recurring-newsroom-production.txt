@@ -1,0 +1,24 @@
+Recurring Production newsroom — Owner-authorized 27 October 2026
+
+Operating policy
+The Owner now authorizes ongoing publication without per-article approval. Activate only OpenLigaDB verified Bundesliga results, DIMAYOR narrow official announcements, NBA Communications verified roster announcements and Arizona Cardinals award/team-honor announcements. A fresh RSS headline alone never qualifies. Metadata-only and unapproved sources remain disabled or private. Other sports/competitions retain the documented permission and extraction blockers; this is not seven-sport completion.
+
+Capacity and budget
+Keep the existing 43 */6 * * * UTC cron and one article per processing cycle: up to four per day, within the requested 3–5 target when eligible facts exist. No forced quota, recycled stories or schedule-frequency increase. Each cycle reserves at most four free discovery requests and $0.02; at most five model calls per article. Four daily reservations total $0.08, at most $2.48 in a 31-day month, below unchanged $0.10/day and $3/month application limits. Unknown/empty reservations remain retained. Infrastructure usage is separate; no new resource or plan.
+
+The Production budget mode may be production under the new recurring authorization. The $1 local validation ceiling and historical $0.18 local reservations remain intact in their existing accounting; no transaction is fabricated or deleted. Production historical canary reservations remain included in the monthly ledger. Removing the retired one-use canary configuration does not remove its consumed grant/history.
+
+Scheduler correction
+Recurring Production claims now bind to a real six-hour UTC cron window. The previous elapsed-six-hour check could skip the next legitimate cron when it arrived a few seconds earlier than its predecessor, reducing effective throughput to two/day. Advisory locking, one claim per window, active leases, daily run/request limits and monthly reservations remain. Validation and one-event canaries retain strict elapsed-time gates. This change does not simulate time or execute paid work early.
+
+Persistent source discovery and queue
+The existing queue, archive check, fact freshness, independent audits, bounded corrections, transactional publication and cache invalidation are preserved. Successful ordinary runs leave the policy active. Emergency pause, authentication/billing circuit breakers, exhausted-budget refusal and bounded source/model backoff remain. Enable the existing daily free OpenLigaDB refresh only after its source/data preflight; the retired paid sports scheduler is not reactivated.
+
+Owner controls
+Owner-only operations show effective ACTIVE/PAUSED/DISABLED/BUDGET BLOCKED state, UTC-day publications, held candidates, skipped invocations, completed/failed runs, measured daily model cost and reservation-adjusted monthly headroom. Source status distinguishes permission-blocked, uninitialized, disabled, discovery-only and approved factual sources. Existing last/next scheduler timing, leases, sanitized errors, audit details, costs and Pause/Resume remain private and uncached.
+
+Release and recovery
+No database migration. Stage tested code while database remains paused. Configure the existing sensitive Production model credential securely; remove the obsolete one-use scope; set recurring budget mode and approved source states; deploy once; verify exact SHA, Owner/public behavior, budgets, leases and recovery before unpausing. Keep the previous READY application deployment. Emergency rollback must first pause the database; do not roll back or delete data. Model key/configuration rollback is separate from application rollback.
+
+Acceptance evidence
+Synthetic isolated PostgreSQL tests verify jitter tolerance, four distinct windows, concurrency, reconnects, unchanged validation timing, monthly hard stops and emergency pause. They are not real elapsed cycles. Actual Production cron observations must be recorded separately. The prior successful scheduled Production article is a baseline, not proof of sustained throughput. Daily throughput is measured, not guaranteed; no stories are fabricated to fill empty cycles.

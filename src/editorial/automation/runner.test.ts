@@ -16,6 +16,12 @@ describe('news scheduler failure reporting — no real model requests',()=>{
   await runNewsAutomation(repo as unknown as AutomationRepository,{key:'synthetic-token',validationOnly:true});
   expect(repo.control).toHaveBeenCalledExactlyOnceWith({paused:true});expect(mocks.generate).not.toHaveBeenCalled();
  });
+ it('keeps ordinary recurring publication active after an audited success',async()=>{
+  const repo={...publishingRepo(),control:vi.fn()};repo.publish.mockResolvedValue('synthetic-approved-story');
+  mocks.generate.mockResolvedValue({copy:{en:{},es:{},pt:{}},status:'VALIDATED',usage:{calls:3,inputTokens:20,outputTokens:10,microUsd:7}});
+  const result=await runNewsAutomation(repo as unknown as AutomationRepository,{key:'synthetic-token',validationOnly:false});
+  expect(result.published).toEqual(['synthetic-approved-story']);expect(repo.control).not.toHaveBeenCalled();expect(repo.finish).toHaveBeenCalled();
+ });
  it('does not spend tokens or increment attempts for an existing Owner/duplicate record',async()=>{
   const repo=publishingRepo();repo.publicationBlocker.mockResolvedValue('OWNER_OR_DUPLICATE_RECORD');
   const result=await runNewsAutomation(repo as unknown as AutomationRepository,{key:'synthetic-token',validationOnly:true});
