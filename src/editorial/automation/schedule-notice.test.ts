@@ -1,6 +1,6 @@
 import {describe,it,expect,vi,afterEach} from 'vitest';
 import {extractAnnouncement,announcementErrors} from './announcements';
-import {copyErrors,fingerprint,stableFacts,toNewsDraft} from './policy';
+import {automationLimits,copyErrors,fingerprint,stableFacts,toNewsDraft} from './policy';
 import {generateBriefing} from './generation';
 import {storyContext} from '../context';
 import type {SportsSnapshot} from '@/multisport/model';
@@ -15,6 +15,18 @@ const copy={
 };
 describe('confirmed league notice, not an invented fixture schedule',()=>{
  afterEach(()=>vi.useRealTimers());
+ it('counts source-format instructions in the pre-request input ceiling',async()=>{
+  vi.useFakeTimers();vi.setSystemTime(now);
+  const f=extractAnnouncement(candidate,body,now)!;
+  const probe=vi.fn<typeof fetch>().mockResolvedValue(new Response('{}'));
+  await generateBriefing(f,'synthetic-token',probe);
+  const request=JSON.parse(String(probe.mock.calls[0][1]?.body));
+  const padded={...f,padding:''};
+  const bytes=Buffer.byteLength(JSON.stringify({facts:padded})+request.instructions+JSON.stringify(request.text.format.schema));
+  padded.padding='x'.repeat(automationLimits.maxModelInputBytes-bytes+1);
+  const blocked=vi.fn<typeof fetch>();const result=await generateBriefing(padded,'synthetic-token',blocked);
+  expect(result.status).toBe('MODEL_LIMIT');expect(result.usage.calls).toBe(0);expect(blocked).not.toHaveBeenCalled();
+ });
  it.each([true,false])('requires independent editorial approval, preserving context instructions across all model stages: %s',async approved=>{
   vi.useFakeTimers();vi.setSystemTime(now);const answers=[copy.en,{es:copy.es,pt:copy.pt},{grounded:approved,translations:true,original:true,quality:true,issues:approved?[]:[{field:'en.body',code:'UNSUPPORTED_FACT',reason:'Synthetic grounding rejection.'}]}];
   const fetcher=vi.fn<typeof fetch>().mockImplementation(async()=>new Response(JSON.stringify({status:'completed',usage:{input_tokens:100,output_tokens:20},output:[{type:'message',content:[{type:'output_text',text:JSON.stringify(answers.shift())}]}]})));
