@@ -8,6 +8,7 @@ import {generateBriefing,type ModelUsage} from './generation';
 import {resultsFromSnapshot,toNewsDraft,factErrors,automationSources,type EventFacts} from './policy';
 import type {AnnouncementFacts} from './announcements';
 import {canaryMatches} from './canary';
+import {eventKey} from './policy';
 
 /** Cache validators apply to a fixed, approved index only. Never persist raw article bodies. */
 export async function collectScheduledDiscovery(source:SourceState,fetcher:typeof fetch=fetch,now=new Date()){
@@ -34,7 +35,7 @@ export async function runNewsAutomation(repo:AutomationRepository,options:{key?:
   const claim=await repo.claim(!!options.key?.trim(),options.validationOnly,now);
   if(!('id' in claim))return {status:claim.reason,requests:0,published:[],changed:false};
   const runId=claim.id;
-  const result={runId,status:'completed',requests:0,discovered:0,corrections:0,withdrawn:0,published:[] as string[],changed:false,generation:options.key?'no-eligible-event':'MODEL_CREDENTIAL_MISSING',candidates:{seen:0,outsideAuthorization:0,unchanged:0,reviewRequired:0,queueFull:0,selected:0,ownerOrDuplicateBlocked:0},sourceOutcomes:[] as {sourceId:string;status:string;requests:number}[]};
+  const result={runId,status:'completed',requests:0,discovered:0,corrections:0,withdrawn:0,published:[] as string[],changed:false,generation:options.key?'no-eligible-event':'MODEL_CREDENTIAL_MISSING',validatorRecovery:null as {correctionId:string;recovered:boolean}|null,candidates:{seen:0,outsideAuthorization:0,unchanged:0,reviewRequired:0,queueFull:0,selected:0,ownerOrDuplicateBlocked:0},sourceOutcomes:[] as {sourceId:string;status:string;requests:number}[]};
   async function observe(facts:EventFacts){
     result.candidates.seen++;
     if(repo.canary&&!canaryMatches(repo.canary,facts)){result.candidates.outsideAuthorization++;return;}
@@ -65,7 +66,10 @@ export async function runNewsAutomation(repo:AutomationRepository,options:{key?:
       }else await sourceResult('openliga-results','RESULT_SNAPSHOT_UNAVAILABLE',0);
       }catch{await sourceResult('openliga-results','RESULT_VALIDATION_FAILED',0);}
     }
-    for(const source of await repo.dueSources(now)){
+    const recovery=options.key&&!repo.canary?await repo.beginValidatorRecovery(runId,now):null;
+    const due=await repo.dueSources(now);
+    const sources=recovery?[recovery.source,...due.filter(s=>s.sourceId!==recovery.source.sourceId)]:due;
+    for(const source of sources){
       // An attachment-backed source can cost four reads. Never exceed the four reads reserved by claim.
       const requestLimit=automationSources.find(s=>s.id===source.sourceId)?.requestLimit;
       if(requestLimit===undefined||result.requests+requestLimit>4)continue;
@@ -77,12 +81,14 @@ export async function runNewsAutomation(repo:AutomationRepository,options:{key?:
         // Other sources' verified candidates remain eligible for this cycle.
         result.requests+=requestLimit;
         await sourceResult(source.sourceId,'SOURCE_COLLECTOR_FAILED',requestLimit,source.cursor);
+        if(recovery?.source.sourceId===source.sourceId)result.validatorRecovery={correctionId:recovery.ticket.correctionId,recovered:await repo.finishValidatorRecovery(runId,recovery.ticket,undefined,now)};
         continue;
       }
       result.requests+=found.requests;
       await sourceResult(source.sourceId,found.status,found.requests,found.cursor);
       const announcements:AnnouncementFacts[]='announcements' in found&&Array.isArray(found.announcements)?found.announcements:[];
       for(const candidate of found.candidates)await observe(announcements.find(f=>f.sourceUrl===candidate.url)??{kind:'metadata' as const,candidate,...('reviewReasons' in found&&(found.reviewReasons as Record<string,string>)[candidate.url]&&['SCHEDULE_ATTACHMENT_REVIEW_REQUIRED','PRIMARY_ARTICLE_REVIEW_REQUIRED'].includes((found.reviewReasons as Record<string,string>)[candidate.url])?{reason:(found.reviewReasons as Record<string,'SCHEDULE_ATTACHMENT_REVIEW_REQUIRED'|'PRIMARY_ARTICLE_REVIEW_REQUIRED'>)[candidate.url]}:{})});
+      if(recovery?.source.sourceId===source.sourceId)result.validatorRecovery={correctionId:recovery.ticket.correctionId,recovered:await repo.finishValidatorRecovery(runId,recovery.ticket,announcements.find(f=>eventKey(f)===recovery.ticket.eventKey),now)};
     }
     const event=await repo.eligiblePending(now,resultsValidated);
     result.candidates.selected=event?1:0;

@@ -1,3 +1,4 @@
+export const audienceValidatorVersion='nba-audience-average-inflections-v1';
 /** A reported audience statistic, NOT an independently measured rating, game result or record claim. */
 export interface NbaAudience {type:'broadcast-audience';scope:'opening-night-doubleheader';measure:'average-viewers';averageMillions:string;platforms:['NBC','Peacock'];games:[[string,string],[string,string]];attribution:'NBA-reported'}
 const teams:Record<string,string>={'76ers':'Philadelphia 76ers',Knicks:'New York Knicks',Thunder:'Oklahoma City Thunder',Spurs:'San Antonio Spurs',Celtics:'Boston Celtics',Pistons:'Detroit Pistons'};
