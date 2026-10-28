@@ -8,7 +8,6 @@ import {generateBriefing,type ModelUsage} from './generation';
 import {resultsFromSnapshot,toNewsDraft,factErrors,automationSources,eventKey,type EventFacts} from './policy';
 import type {AnnouncementFacts} from './announcements';
 import {canaryMatches} from './canary';
-import {eventKey} from './policy';
 
 /** Cache validators apply to a fixed, approved index only. Never persist raw article bodies. */
 export async function collectScheduledDiscovery(source:SourceState,fetcher:typeof fetch=fetch,now=new Date()){
