@@ -5,7 +5,7 @@ export const issueCodes=['UNSUPPORTED_FACT','SCORE_OR_TEAM','TRANSLATION_DIFFERE
 export interface ReviewIssue {field:typeof reviewFields[number];code:typeof issueCodes[number];reason:string}
 export interface EditorialAudit {grounded:boolean;translations:boolean;original:boolean;quality:boolean;issues:ReviewIssue[]}
 export interface CorrectionDiagnostic {code:'SHAPE'|'TARGETS'|'MISSING_TARGET'|'EXTRA_TARGET'|'TEXT_TYPE'|'TEXT_LENGTH';field:typeof reviewFields[number]|null}
-export interface ReviewEvidence {model:string;rubric:string;facts:PublicationFacts;draft:Partial<GeneratedCopy>;deterministic:string[];audit:EditorialAudit|null;status:string;usage:ModelUsage;correctedFields:string[];correctionDiagnostic?:CorrectionDiagnostic}
+export interface ReviewEvidence {validatorVersion?:string;model:string;rubric:string;facts:PublicationFacts;draft:Partial<GeneratedCopy>;deterministic:string[];audit:EditorialAudit|null;status:string;usage:ModelUsage;correctedFields:string[];correctionDiagnostic?:CorrectionDiagnostic}
 export class CorrectionContractError extends Error {
  constructor(readonly diagnostic:CorrectionDiagnostic){super('MODEL_CORRECTION_INVALID');}
 }

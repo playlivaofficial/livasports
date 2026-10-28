@@ -1,0 +1,5 @@
+import type {AutomationRepository} from './repository';
+import {operationTimestamp} from './reporting';
+export function RecoveryHistory({rows}:{rows?:Awaited<ReturnType<AutomationRepository['dashboard']>>['validatorRecovery']}){
+ return <details><summary>Verified validator corrections · {rows?.length??0} audit entries</summary><p>A source recheck is not publication approval. Each reviewed correction permits one fresh, budgeted pipeline attempt. Original failures remain in private evidence and processing history.</p><ul className="ed-event-queue">{rows?.map((row,index)=><li key={`${row.runId}:${row.action}:${index}`}><strong>{row.action} · {row.correctionId}</strong><span>{operationTimestamp(row.recordedAt)} · {row.validatorVersion??'see correction proof'}</span><span>{row.recovered==='true'?'Fresh identical facts verified':row.recovered==='false'?`Recovery rejected · ${row.reason}`:'One-use recovery checkpoint'} · run {row.runId}</span></li>)}</ul>{!rows?.length?<p>No validator recovery has been recorded.</p>:null}</details>;
+}

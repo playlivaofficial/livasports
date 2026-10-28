@@ -1,0 +1,44 @@
+V3.8.1 — reviewed validator-defect recovery
+
+The average/averaged correction alone did not leave review-state events eligible.
+This release registers one reviewed defect: nba-average-inflections-v1. It proves
+that the retained original English draft failed only the old average word-boundary
+check and passes the corrected version. It does not approve or reuse that draft.
+
+During an ordinary claimed, budget-reserved scheduler cycle, one healthy-source
+recheck is allowed for that exact event/correction. This can shorten a successful
+poll cooldown, never an outage backoff or the global six-hour cadence. Robots,
+feed and primary article still fit the existing four-read reservation. A 304,
+missing primary evidence, changed facts, stale story or inaccessible source fails
+closed. This one-use recheck is consumed even if interrupted or unsuccessful.
+
+The transaction requires unchanged identity, stable fingerprint and revision;
+original terminal failure and English-only usage evidence; corrected validator
+version; no independent audit; no protected Owner/archived/duplicate record; and
+fresh identical primary facts. Original attempts and private evidence remain.
+No migration, direct event reset, new control endpoint or manual approval button.
+
+A recovered pending event enters normal story ranking and the complete original
+English, ES/PT translation, independent audit and bounded correction workflow.
+One recovery attempt is recorded before generation. Crash or model failure cannot
+retry that attempt. Fact, archive, budget, source and publication gates still apply.
+The current model workflow remains capped at five calls and a $0.02 reservation;
+this reservation is part of the existing $3 monthly hard cap, not extra budget.
+
+Owner operations expose bounded recovery checkpoint metadata without private
+article text. Corrected NBA generation records its validator version in private
+retained evidence. Independent audit remains mandatory before public publication.
+
+Acceptance: 4,215 Vitest + 20 Node tests, lint, types, production build, SEO crawl,
+secret scan; isolated PostgreSQL concurrent/restart, archive race, audit rejection,
+expiry, identity, source failure, pause, budget, one-attempt and atomic publication
+checks. Local preserved data hashes were unchanged. No paid model calls in tests.
+Real Production recovery/publication is measured separately at its scheduled time.
+
+Scope: existing approved source classes remain ACTIVE. This release does not infer
+new source permissions, reactivate paid sports providers, enable affiliates or
+claim seven-sport publication. Source-rights blockers remain in v38-source-readiness.txt.
+
+QA safety: Owner browser sign-in now checks the exact application origin before
+constructing its credential request. Absolute same-origin requests reject redirects
+and navigation races; a Vercel SSO page cannot receive another Owner sign-in.

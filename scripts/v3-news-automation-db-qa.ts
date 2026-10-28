@@ -13,6 +13,7 @@ import {candidateDraft} from '../src/editorial/discovery';
 import {runNewsAutomation} from '../src/editorial/automation/runner';
 import {canaryAcceptance} from './v36-canary-db-acceptance';
 import {invocationAcceptance} from './v37-invocation-db-acceptance';
+import {validatorRecoveryAcceptance} from './v381-validator-recovery-db-acceptance';
 import {recurringAcceptance} from './recurring-newsroom-db-acceptance';
 
 async function main(){
@@ -165,6 +166,7 @@ async function main(){
   checks.push(...await canaryAcceptance(admin,url));
   checks.push(...await invocationAcceptance(admin,url));
   checks.push(...await recurringAcceptance(admin,url));
+  checks.push(...await validatorRecoveryAcceptance(admin,url));
   await db.query("UPDATE editorial_discovery_state SET last_attempt_at=now()-interval '20 hours',last_success_at=now()-interval '20 hours',next_allowed_at=now()+interval '4 hours',failures=0 WHERE source_id='nba-releases'");
   await repo.initialize();
   assert.equal((await db.query("SELECT next_allowed_at=last_success_at+interval '12 hours' AS ok FROM editorial_discovery_state WHERE source_id='nba-releases'")).rows[0].ok,true);
