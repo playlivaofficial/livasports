@@ -1,4 +1,5 @@
 import {createHash} from 'node:crypto';
+import {parseNbaAudience,audienceErrors,audienceCopyErrors,type NbaAudience} from './nba-audience';
 import {attachmentErrors,stableEvidence,scheduleCopyErrors,unsupportedAbsenceClaim,type ScheduleAttachment} from './schedule-attachments';
 import type {NewsCompetition,NewsSport} from '../taxonomy';
 import type {DiscoveryCandidate} from '../discovery';
@@ -7,6 +8,7 @@ import type {DiscoveryCandidate} from '../discovery';
  * Only a source-specific extractor with corroborating primary evidence can create one.
  * Quotes, photographs, article prose and comprehensive proprietary datasets are excluded. */
 export type AnnouncementDetail=
+ | NbaAudience
  | {type:'schedule-update';authority:'DIMAYOR';competition:'Liga BetPlay';season:string;phase:'II';matchday:number;reason:'cup-fixture-and-stadium-availability';relatedFixture:[string,string];stadium:'El Campín';attachment?:ScheduleAttachment}
  | {type:'qualification';participant:string;stage:'semi-final';season:string}
  | {type:'league-announcement';authority:string;action:string;subject:string}
@@ -27,7 +29,7 @@ export interface AnnouncementFacts {
 }
 /** Fixed field order survives PostgreSQL jsonb normalization; never hash insertion order. */
 const hash=(value:AnnouncementDetail|TeamHonor)=>{
- const normalized=value.type==='roster-announcement'?{type:value.type,season:value.season,scope:value.scope,internationalPlayers:value.internationalPlayers,countries:value.countries,continents:value.continents}
+ const normalized=value.type==='broadcast-audience'?{type:value.type,scope:value.scope,measure:value.measure,averageMillions:value.averageMillions,platforms:value.platforms,games:value.games,attribution:value.attribution}:value.type==='roster-announcement'?{type:value.type,season:value.season,scope:value.scope,internationalPlayers:value.internationalPlayers,countries:value.countries,continents:value.continents}
   :value.type==='schedule-update'?{type:value.type,authority:value.authority,competition:value.competition,season:value.season,phase:value.phase,matchday:value.matchday,reason:value.reason,relatedFixture:value.relatedFixture,stadium:value.stadium,...(value.attachment?{attachment:stableEvidence(value.attachment)}:{})}
   :value.type==='fixture-announcement'?{type:value.type,participants:value.participants,stage:value.stage,action:value.action,referee:value.referee}
   :value.type==='qualification'?{type:value.type,participant:value.participant,stage:value.stage,season:value.season}
@@ -48,6 +50,8 @@ export function announcementErrors(f:AnnouncementFacts,now=new Date()):string[]{
  if(f.sourceId==='nba-releases'&&url.hostname==='pr.nba.com'&&f.competition==='nba'&&f.sport==='basketball'&&f.country==='international'&&f.sourceName==='NBA Communications'&&f.detail.type==='roster-announcement'){
   const d=f.detail;
   if(!/^20\d{2}-\d{2}$/.test(d.season)||Number(d.season.slice(-2))!==(Number(d.season.slice(0,4))+1)%100||d.scope!=='opening-night'||![d.internationalPlayers,d.countries,d.continents].every(Number.isSafeInteger)||d.internationalPlayers<1||d.internationalPlayers>600||d.countries<1||d.countries>d.internationalPlayers||d.continents<1||d.continents>7)errors.push('CONTRADICTORY_ROSTER_FACTS');
+ }else if(f.sourceId==='nba-releases'&&url.hostname==='pr.nba.com'&&f.competition==='nba'&&f.sport==='basketball'&&f.country==='international'&&f.sourceName==='NBA Communications'&&f.detail.type==='broadcast-audience'){
+  errors.push(...audienceErrors(f.detail));
  }else if(f.sourceId==='dimayor-releases'&&url.hostname==='dimayor.com.co'&&f.competition==='colombia-primera-a'&&f.sport==='football'&&f.country==='co'&&f.sourceName==='DIMAYOR'&&f.detail.type==='schedule-update'){
   const d=f.detail;
   errors.push(...attachmentErrors(d.attachment,f.sourceUrl,f.eventDate.slice(0,10)));
@@ -70,7 +74,7 @@ export function announcementErrors(f:AnnouncementFacts,now=new Date()):string[]{
 }
 /** Receives approved RSS or source-specific article text transiently. Never returns prose.
  * Headline and body must independently establish the same facts. Unknown shapes remain metadata. */
-export function extractAnnouncement(candidate:DiscoveryCandidate,body:string,now=new Date(),attachment?:ScheduleAttachment):AnnouncementFacts|null{
+export function extractAnnouncement(candidate:DiscoveryCandidate,body:string,now=new Date(),attachment?:ScheduleAttachment,articleVerified=false):AnnouncementFacts|null{
  if(!candidate.sourceDate||body.length>50000)return null;
  let detail:AnnouncementDetail|TeamHonor|undefined;
  if(candidate.desk==='nfl-cardinals'){
@@ -87,6 +91,7 @@ export function extractAnnouncement(candidate:DiscoveryCandidate,body:string,now
    if(body.includes(headline[1])&&body.includes(corroboration)&&!new RegExp(`(?:not|never) (?:named|awarded|bestowed)`, 'i').test(body))detail={type:'award',recipient:headline[1],award:'NFC Special Teams Player of the Week',period:'weekly'};
   }
  }else if(candidate.desk==='nba-releases'){
+  if(articleVerified)detail=parseNbaAudience(candidate.headline,body)??undefined;
   const h=/NBA rosters feature (\d+) international players from (?:record-tying )?(\d+) countries across (\w+) continents/i.exec(candidate.headline);
   const b=/(\d+) international players from (?:a record-tying )?(\d+) countries across (\w+) continents are on opening-night rosters for the (20\d{2}-\d{2}) season/i.exec(body);
   const numbers:Record<string,number>={one:1,two:2,three:3,four:4,five:5,six:6,seven:7};
@@ -116,7 +121,7 @@ export function extractAnnouncement(candidate:DiscoveryCandidate,body:string,now
 }
 export function announcementCopyErrors(copy:Record<'en'|'es'|'pt',{title:string;summary:string;body:string}>,facts:AnnouncementFacts){
  const errors:string[]=[],numbers=new Set(JSON.stringify(facts.detail).match(/\d+/g)??[]);
- const entities=facts.detail.type==='schedule-update'?['Liga BetPlay',...facts.detail.relatedFixture,facts.detail.stadium]:facts.detail.type==='fixture-announcement'?[...facts.detail.participants,facts.detail.referee]:facts.detail.type==='qualification'?[facts.detail.participant]:facts.detail.type==='award'?[facts.detail.recipient]:facts.detail.type==='team-honor'?[facts.detail.recipient,facts.detail.team]:['NBA'];
+ const entities=facts.detail.type==='broadcast-audience'?facts.detail.games.flat():facts.detail.type==='schedule-update'?['Liga BetPlay',...facts.detail.relatedFixture,facts.detail.stadium]:facts.detail.type==='fixture-announcement'?[...facts.detail.participants,facts.detail.referee]:facts.detail.type==='qualification'?[facts.detail.participant]:facts.detail.type==='award'?[facts.detail.recipient]:facts.detail.type==='team-honor'?[facts.detail.recipient,facts.detail.team]:['NBA'];
  for(const lang of ['en','es','pt'] as const){
   const part=copy?.[lang];
   if(!part||Object.keys(part).sort().join(',')!=='body,summary,title'||Object.values(part).some(v=>typeof v!=='string')){errors.push(`${lang}:INVALID_COPY`);continue;}
@@ -127,6 +132,7 @@ export function announcementCopyErrors(copy:Record<'en'|'es'|'pt',{title:string;
   if(part.body.length<40||part.body.length>1800||/[<>]|https?:|["“”]|\b(?:bet|odds|apuesta|cuota|aposte|exclusive|exclusiv\w*)\b/i.test(text))errors.push(`${lang}:UNSUPPORTED_CLAIM_OR_FORMAT`);
   if(!part.body.includes(facts.sourceName)||entities.some(e=>!part.body.includes(e)))errors.push(`${lang}:MISSING_SOURCE_OR_ENTITY`);
   if((text.match(/\d+/g)??[]).some(n=>!numbers.has(n)))errors.push(`${lang}:UNSUPPORTED_NUMBER`);
+  if(facts.detail.type==='broadcast-audience')errors.push(...audienceCopyErrors(part,facts.detail,lang));
   if(facts.detail.type==='schedule-update'){if(!facts.detail.attachment)errors.push(`${lang}:SCHEDULE_ATTACHMENT_INCOMPLETE`);else errors.push(...scheduleCopyErrors(part.body,facts.detail.attachment,lang));}
  }
  if(copy?.en?.body===copy?.es?.body||copy?.en?.body===copy?.pt?.body||copy?.es?.body===copy?.pt?.body)errors.push('TRANSLATION_NOT_DISTINCT');

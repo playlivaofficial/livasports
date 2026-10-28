@@ -14,13 +14,14 @@ export async function collectScheduledDiscovery(source:SourceState,fetcher:typeo
   if(source.sourceId.startsWith('wikinews-'))return {...await collectWikinews(source.sourceId,fetcher,now),cursor:{}};
   const desk=discoveryDesks.find(d=>d.id===source.sourceId);if(!desk)throw Error('SOURCE_NOT_APPROVED');
   let unchanged=false;const cursor={...source.cursor};
+  const contractChanged=source.sourceId==='nba-releases'&&cursor.contract!=='nba-audience-v1';
   const conditional:typeof fetch=async(input,init)=>{
     const headers=new Headers(init?.headers);
-    if(String(input)===desk.url&&source.sourceId!=='dimayor-releases'){if(cursor.etag)headers.set('If-None-Match',cursor.etag);if(cursor.modified)headers.set('If-Modified-Since',cursor.modified);}
+    if(String(input)===desk.url&&source.sourceId!=='dimayor-releases'&&!contractChanged){if(cursor.etag)headers.set('If-None-Match',cursor.etag);if(cursor.modified)headers.set('If-Modified-Since',cursor.modified);}
     const response=await fetcher(input,{...init,headers});
     if(String(input)===desk.url){
       if(response.status===304){unchanged=true;return new Response(' ',{status:200});}
-      if(response.ok){for(const [key,header] of [['etag','etag'],['modified','last-modified']]){const value=response.headers.get(header);if(value&&value.length<256&&!/[\r\n]/.test(value))cursor[key]=value;else delete cursor[key];}}
+      if(response.ok){if(source.sourceId==='nba-releases')cursor.contract='nba-audience-v1';for(const [key,header] of [['etag','etag'],['modified','last-modified']]){const value=response.headers.get(header);if(value&&value.length<256&&!/[\r\n]/.test(value))cursor[key]=value;else delete cursor[key];}}
     }
     return response;
   };
@@ -69,10 +70,19 @@ export async function runNewsAutomation(repo:AutomationRepository,options:{key?:
       const requestLimit=automationSources.find(s=>s.id===source.sourceId)?.requestLimit;
       if(requestLimit===undefined||result.requests+requestLimit>4)continue;
       if(!await repo.sourceEnabled(source.sourceId))continue;
-      const found=await collectScheduledDiscovery(source,options.fetcher,now);result.requests+=found.requests;
+      let found:Awaited<ReturnType<typeof collectScheduledDiscovery>>;
+      try{found=await collectScheduledDiscovery(source,options.fetcher,now);}
+      catch{
+        // Charge the maximum if a collector fails before returning its counter.
+        // Other sources' verified candidates remain eligible for this cycle.
+        result.requests+=requestLimit;
+        await sourceResult(source.sourceId,'SOURCE_COLLECTOR_FAILED',requestLimit,source.cursor);
+        continue;
+      }
+      result.requests+=found.requests;
       await sourceResult(source.sourceId,found.status,found.requests,found.cursor);
       const announcements:AnnouncementFacts[]='announcements' in found&&Array.isArray(found.announcements)?found.announcements:[];
-      for(const candidate of found.candidates)await observe(announcements.find(f=>f.sourceUrl===candidate.url)??{kind:'metadata' as const,candidate,...('reviewReasons' in found&&(found.reviewReasons as Record<string,string>)[candidate.url]==='SCHEDULE_ATTACHMENT_REVIEW_REQUIRED'?{reason:'SCHEDULE_ATTACHMENT_REVIEW_REQUIRED' as const}:{})});
+      for(const candidate of found.candidates)await observe(announcements.find(f=>f.sourceUrl===candidate.url)??{kind:'metadata' as const,candidate,...('reviewReasons' in found&&(found.reviewReasons as Record<string,string>)[candidate.url]&&['SCHEDULE_ATTACHMENT_REVIEW_REQUIRED','PRIMARY_ARTICLE_REVIEW_REQUIRED'].includes((found.reviewReasons as Record<string,string>)[candidate.url])?{reason:(found.reviewReasons as Record<string,'SCHEDULE_ATTACHMENT_REVIEW_REQUIRED'|'PRIMARY_ARTICLE_REVIEW_REQUIRED'>)[candidate.url]}:{})});
     }
     const event=await repo.eligiblePending(now,resultsValidated);
     result.candidates.selected=event?1:0;

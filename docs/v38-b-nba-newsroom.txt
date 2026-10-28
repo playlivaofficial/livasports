@@ -1,0 +1,16 @@
+V3.8-B: NBA audience reporting and eligible-source diversity — 2026-10-28
+
+Scope shipped: a new narrow NBA Communications broadcast-audience contract. The existing advertised RSS locates the release; a bounded, robots-checked request verifies its primary article, exact heading and publication date. Only typed facts enter generation: source-reported average audience, units, platforms and the two canonical team pairings. No publisher prose or image is reused; RSS is not an unrestricted reproduction licence. This is not independent measurement of ratings or approval for bulk proprietary statistics.
+
+Live source: https://pr.nba.com/nba-opening-night-nbc-peacock/
+Publication date: 2026-10-22. Verified on 2026-10-28. Reported aggregate average 6.41 million, NBC/Peacock; Philadelphia 76ers–New York Knicks and Oklahoma City Thunder–San Antonio Spurs. No game score, winner, peak audience or record claim is admitted.
+
+The eligible queue considers recent publication diversity, then freshness. It does not grant eligibility to stale, blocked or unsupported facts. NBA successful feed polling is twelve hours; the global six-hour schedule, four reads per cycle, sixteen reads per day, five model calls and $3 monthly cap stay intact. Failure backoff and one-event authorization are preserved. A contract-version marker forces one fresh source inspection rather than trusting an older feed validator. Unexpected source exceptions are isolated and conservatively charged at their maximum request allowance.
+
+Real LOCAL canary: 2026-10-28T10:36:03Z, three source reads, five model calls, 5,086 input / 712 output tokens, $0.000866 measured, $0.02 reserved. Independent first audit requested one attribution correction; bounded correction and independent re-audit passed grounded, translations, original and quality. Atomic publication created announcement-d04789c4147a497b5e380a8c in EN/ES/PT, with source date and attribution. Zero duplicate source publications. Local automation returned to PAUSED; persistent backup completed. Remaining conservative local allowance $0.80, including historical $0.08 deduction. No additional model run was made.
+
+Local browser: all three article languages and populated homepage, 390px Light/Dark, 1440px desktop; no overflow, broken images, runtime errors or retired-provider requests. Real article inspected against typed source facts. Archive photograph is explicitly captioned as not depicting the event.
+
+Validation: 4,179 Vitest + 17 Node tests, lint, typecheck, production build, route/SEO audit, secret scan; isolated PostgreSQL migration/Owner/atomic publication/archives/budget/reconnect acceptance passed and preserved local tables unchanged. Hosted CI and Production acceptance are recorded in the PR. No migration, Neon, subscription, affiliate or Production pause change.
+
+Limits: this is operational expansion of basketball reporting, not seven-sport coverage. NHL/MLB/UFC/ATP/WTA/EuroLeague and additional football sources remain blocked where automated access or specific fact contracts are unapproved. Public source visibility does not imply commercial reuse permission. Actual Production publication requires a legitimate scheduled cycle and all independent gates; the local article is not imported into Production.

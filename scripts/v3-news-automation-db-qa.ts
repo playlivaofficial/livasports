@@ -165,6 +165,13 @@ async function main(){
   checks.push(...await canaryAcceptance(admin,url));
   checks.push(...await invocationAcceptance(admin,url));
   checks.push(...await recurringAcceptance(admin,url));
+  await db.query("UPDATE editorial_discovery_state SET last_attempt_at=now()-interval '20 hours',last_success_at=now()-interval '20 hours',next_allowed_at=now()+interval '4 hours',failures=0 WHERE source_id='nba-releases'");
+  await repo.initialize();
+  assert.equal((await db.query("SELECT next_allowed_at=last_success_at+interval '12 hours' AS ok FROM editorial_discovery_state WHERE source_id='nba-releases'")).rows[0].ok,true);
+  await db.query("UPDATE editorial_discovery_state SET failures=2,next_allowed_at=now()+interval '24 hours' WHERE source_id='nba-releases'");
+  const failureDue=(await db.query("SELECT next_allowed_at::text AS due FROM editorial_discovery_state WHERE source_id='nba-releases'")).rows[0].due;
+  await repo.initialize();assert.equal((await db.query("SELECT next_allowed_at::text AS due FROM editorial_discovery_state WHERE source_id='nba-releases'")).rows[0].due,failureDue);
+  checks.push('NBA successful 12-hour polling transition preserves failure backoff and persisted source state');
   const indexes=(await db.query("SELECT indexname FROM pg_indexes WHERE schemaname=current_schema() AND tablename LIKE 'editorial_%' ORDER BY indexname")).rows.map(x=>x.indexname);
   const evidence={at:now.toISOString(),environment:'isolated PostgreSQL synthetic schema',migration:'074',applications:3,checks,indexes,realSourceCalls:0,realModelCalls:0,productionConnections:0,syntheticPublications:2,schemaPreservedForInspection:schema};
   await mkdir('output/v3-qa/acceptance-2026-10-21',{recursive:true});await writeFile('output/v3-qa/acceptance-2026-10-21/automation-db.json',JSON.stringify(evidence,null,2));console.log(JSON.stringify(evidence));

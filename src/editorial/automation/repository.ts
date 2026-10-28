@@ -1,4 +1,5 @@
 import {randomUUID} from 'node:crypto';
+import {rankNews,type PublicationMix} from './ranking';
 import {isDeepStrictEqual} from 'node:util';
 import type {DatabaseClient,QueryExecutor} from '@/database/client';
 import type {NewsDraft,NewsRecord,PublishedNews} from '../model';
@@ -34,7 +35,10 @@ async function active(db:QueryExecutor,runId:string){
 }
 export class AutomationRepository {
   constructor(readonly db:DatabaseClient,readonly canary?:CanaryScope){}
-  async initialize(now=new Date()){await this.cleanupEvidence();for(const s of automationSources.filter(s=>!this.canary||s.id===this.canary.sourceId))await this.db.query('INSERT INTO editorial_discovery_state(source_id,disabled,next_allowed_at) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING',[s.id,!s.automaticAccess,now.toISOString()]);}
+  async initialize(now=new Date()){await this.cleanupEvidence();for(const s of automationSources.filter(s=>!this.canary||s.id===this.canary.sourceId))await this.db.query('INSERT INTO editorial_discovery_state(source_id,disabled,next_allowed_at) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING',[s.id,!s.automaticAccess,now.toISOString()]);
+    // Adopt the NBA feed's 12h successful polling policy; never shorten a failure backoff or one-event canary.
+    if(!this.canary)await this.db.query("UPDATE editorial_discovery_state SET next_allowed_at=last_success_at+interval '12 hours' WHERE source_id='nba-releases' AND failures=0 AND last_attempt_at=last_success_at AND next_allowed_at>last_success_at+interval '12 hours'");
+  }
   async cleanupEvidence(){await this.db.query('DELETE FROM editorial_generation_evidence WHERE expires_at<=now()');}
   async saveEvidence(runId:string,key:string,checkpoint:number,payload:ReviewEvidence){
     if(!Number.isInteger(checkpoint)||checkpoint<0||checkpoint>12||Buffer.byteLength(JSON.stringify(payload))>90000)throw Error('PRIVATE_EVIDENCE_LIMIT');
@@ -110,10 +114,10 @@ export class AutomationRepository {
   async finishSource(runId:string,id:string,status:string,requests:number,cursor:Record<string,string>,now=new Date()){
     await this.db.transaction(async db=>{
       await active(db,runId);
-      const ok=['CANDIDATES_REQUIRE_REVIEW','NO_CURRENT_VERIFIED_CANDIDATES','NOT_MODIFIED','RESULTS_VALIDATED','SCHEDULE_ATTACHMENTS_QUARANTINED'].includes(status);
+      const ok=['CANDIDATES_REQUIRE_REVIEW','NO_CURRENT_VERIFIED_CANDIDATES','NOT_MODIFIED','RESULTS_VALIDATED','SCHEDULE_ATTACHMENTS_QUARANTINED','PRIMARY_ARTICLE_QUARANTINED'].includes(status);
       const row=(await db.query<{failures:number}>('SELECT failures FROM editorial_discovery_state WHERE source_id=$1 FOR UPDATE',[id])).rows[0];
       // Empty supplementary Wikinews categories must not consume the daily primary-source slots.
-      const failures=ok?0:Math.min(8,(row?.failures??0)+1),hours=ok?(id.startsWith('wikinews-')&&status==='NO_CURRENT_VERIFIED_CANDIDATES'?168:24):Math.min(168,6*2**failures);
+      const failures=ok?0:Math.min(8,(row?.failures??0)+1),hours=ok?(id.startsWith('wikinews-')&&status==='NO_CURRENT_VERIFIED_CANDIDATES'?168:id==='nba-releases'?12:24):Math.min(168,6*2**failures);
       await db.query('UPDATE editorial_discovery_state SET last_attempt_at=$2,last_success_at=CASE WHEN $3 THEN $2 ELSE last_success_at END,next_allowed_at=$4,failures=$5,last_status=$6,cursor=$7 WHERE source_id=$1',[id,now.toISOString(),ok,new Date(+now+hours*3600000).toISOString(),failures,status,JSON.stringify(cursor)]);
       await db.query('UPDATE editorial_automation_runs SET requests_used=requests_used+$2 WHERE id=$1',[runId,requests]);
     });
@@ -181,7 +185,10 @@ export class AutomationRepository {
    * stories or spend model calls. Keep them private for future corroboration. */
   async eligiblePending(now=new Date(),resultsValidated=true){
     const rows=(await this.db.query<AutomationEvent>(`SELECT ${eventColumns} FROM editorial_automation_events e JOIN editorial_discovery_state s ON s.source_id=e.source_id WHERE NOT s.disabled AND attempts<3 AND (state='pending' OR (state='generation-failed' AND reason IN ('GENERATION_IN_PROGRESS','MODEL_RATE_LIMITED','MODEL_UNAVAILABLE','MODEL_FAILED_NO_RETRY') AND changed_at <= now() - make_interval(hours => 6 * (1 << greatest(attempts-1,0))))) ORDER BY facts->>'eventDate' DESC NULLS LAST,event_key LIMIT $1`,[limits.maxPending])).rows;
-    return rows.find(row=>(!this.canary||(row.attempts===0&&canaryMatches(this.canary,row.facts)))&&generationEligible(row.facts,now,resultsValidated))??null;
+    const eligible=rows.filter(row=>(!this.canary||(row.attempts===0&&canaryMatches(this.canary,row.facts)))&&generationEligible(row.facts,now,resultsValidated));
+    if(this.canary||!eligible.length)return eligible[0]??null;
+    const mix=(await this.db.query<PublicationMix>("SELECT coalesce(e.facts->>'sport','football') AS sport,e.source_id AS \"sourceId\",count(*)::int AS count FROM editorial_automation_audit a JOIN editorial_automation_events e ON e.event_key=a.event_key WHERE a.action='auto-publish' AND a.recorded_at >= $1::timestamptz-interval '24 hours' GROUP BY 1,2",[now.toISOString()])).rows;
+    return rankNews(eligible,mix)[0]??null;
   }
   async markAttempt(runId:string,key:string){await this.db.transaction(async db=>{await active(db,runId);await db.query("UPDATE editorial_automation_events SET attempts=attempts+1,state='generation-failed',reason='GENERATION_IN_PROGRESS',changed_at=now() WHERE event_key=$1 AND state IN ('pending','generation-failed') AND attempts<3",[key]);});}
   /** Read-only early check saves model spend. The transaction repeats it at publish
