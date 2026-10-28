@@ -1,0 +1,11 @@
+V3.8-D follow-through: NBA editorial precision and mobile context
+
+The successful local audience canary retained an independent audit that objected to a headline attributing the report to NBA Communications rather than NBA. Both name the same official publisher; the correction/re-audit succeeded, but the objection was not a factual distinction. The new rubric explicitly recognizes the publisher alias in headlines while retaining exact sourceName attribution in every body and every grounding, translation, originality and quality gate. No additional paid validation or manual approval bypass was used.
+
+Deterministic checks now reject crossed team pairings, unsupported audience superlatives and billion-scale unit claims. Reversed team order within the correct pair remains valid; no home/away inference is introduced. The real published local EN/ES/PT article remains unchanged and passes the stricter contract.
+
+NBA articles with exact canonical team names now show compact team context and a language-correct link to the NBA team directory. For these stories this replaces unrelated archive photography. Only approved identity artwork can render; otherwise genuine names appear without fabricated badges. This context does not assert scores, fixtures, standings or home/away relationships.
+
+Browser acceptance used the existing real local NBA publication in EN/ES/PT, 390px Light/Dark and desktop. It created no new model calls or publication. Full CI and isolated PostgreSQL remain required before merge. Production automation remains ACTIVE and the existing 12:43 UTC cron is untouched.
+
+Additional bounded source research: Colombian FCF and Peruvian FPF HTTPS requests failed Node certificate-chain verification, including the system trust store attempt for FCF. Verification was not disabled. No sources were enabled on this evidence; this is a local transport blocker, separate from still-unverified automated access/reuse permission.

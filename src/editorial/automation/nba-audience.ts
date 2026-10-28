@@ -18,6 +18,12 @@ export function audienceCopyErrors(part:{title:string;summary:string;body:string
  if(!/\b(?:average|promedio|media)\b/.test(body)||!/(?:million|millones|milhoes)/.test(body)||!/(?:viewers|espectadores)/.test(body)||!/(?:reports?|reported|informa|informou|informo|segun|according)/.test(body)||!d.platforms.every(p=>part.body.includes(p)))errors.push(`${lang}:AUDIENCE_MEASURE_OR_ATTRIBUTION_MISSING`);
  // Headline claims of an all-time record and game results are outside this narrow contract.
  if(/\b(?:record|recorde|recordes|records|ever|hist[oó]ric\w*|r[eé]cord\w*|won|beat|victory|victoria|vitoria|derroto|venceu|gano|winning|won)\b/i.test(all))errors.push(`${lang}:UNVERIFIED_RECORD_OR_GAME_RESULT`);
+ if(/most[- ]watched|mas vist[ao]|mais assistid[ao]|billion|billones|bilhoes/i.test(all.normalize('NFD').replace(/[\u0300-\u036f]/g,'')))errors.push(`${lang}:UNVERIFIED_RECORD_OR_GAME_RESULT`);
+ const ordered=d.games.flat().map(name=>({name,index:part.body.indexOf(name)})).sort((a,b)=>a.index-b.index);
+ if(ordered.every(x=>x.index>=0)){
+  const pairs=[ordered.slice(0,2),ordered.slice(2)].map(pair=>pair.map(x=>x.name).sort().join('|')).sort();
+  if(JSON.stringify(pairs)!==JSON.stringify(d.games.map(pair=>[...pair].sort().join('|')).sort()))errors.push(`${lang}:AUDIENCE_PAIRING_MISMATCH`);
+ }
  if([...all.matchAll(/\d+[.,]\d+/g)].some(m=>m[0]!==d.averageMillions&&m[0]!==decimal))errors.push(`${lang}:AUDIENCE_VALUE_MISMATCH`);
  return errors;
 }

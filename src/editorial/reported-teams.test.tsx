@@ -1,0 +1,6 @@
+import {describe,it,expect} from 'vitest';import {renderToStaticMarkup} from 'react-dom/server';import {load} from 'cheerio';import {ReportedTeams,reportedNbaTeams} from './ReportedTeams';import {previewNews} from './seed';
+const story={...previewNews[0],sport:'basketball' as const,competition:'nba' as const,body:{en:'Philadelphia 76ers vs. New York Knicks and Oklahoma City Thunder vs. San Antonio Spurs.',es:'',pt:''}};
+describe('reported team context',()=>{
+ it.each(['en','mx','br'] as const)('links actual league context without invented artwork in %s',locale=>{const $=load(renderToStaticMarkup(<ReportedTeams item={story} locale={locale}/>));expect($('li')).toHaveLength(4);expect($('img')).toHaveLength(0);expect($('a').attr('href')).toBe('/'+locale+'/'+({en:'sports',mx:'deportes',br:'esportes'}[locale])+'/basketball/nba#competitors');expect($.text()).not.toContain(' vs ');});
+ it('does not classify names from another sport or absent body',()=>{expect(reportedNbaTeams({...story,competition:'nfl'})).toEqual([]);expect(reportedNbaTeams({...story,body:{en:'No team-specific claims.',es:'',pt:''}})).toEqual([]);});
+});
