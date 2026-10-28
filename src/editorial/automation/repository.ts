@@ -110,7 +110,7 @@ export class AutomationRepository {
   async finishSource(runId:string,id:string,status:string,requests:number,cursor:Record<string,string>,now=new Date()){
     await this.db.transaction(async db=>{
       await active(db,runId);
-      const ok=['CANDIDATES_REQUIRE_REVIEW','NO_CURRENT_VERIFIED_CANDIDATES','NOT_MODIFIED','RESULTS_VALIDATED'].includes(status);
+      const ok=['CANDIDATES_REQUIRE_REVIEW','NO_CURRENT_VERIFIED_CANDIDATES','NOT_MODIFIED','RESULTS_VALIDATED','SCHEDULE_ATTACHMENTS_QUARANTINED'].includes(status);
       const row=(await db.query<{failures:number}>('SELECT failures FROM editorial_discovery_state WHERE source_id=$1 FOR UPDATE',[id])).rows[0];
       // Empty supplementary Wikinews categories must not consume the daily primary-source slots.
       const failures=ok?0:Math.min(8,(row?.failures??0)+1),hours=ok?(id.startsWith('wikinews-')&&status==='NO_CURRENT_VERIFIED_CANDIDATES'?168:24):Math.min(168,6*2**failures);
@@ -150,6 +150,12 @@ export class AutomationRepository {
   private async withdraw(db:QueryExecutor,event:AutomationEvent,reason:string,now:Date){
     if(!event.newsSlug)return;
     const row=(await db.query<NewsRecord>('SELECT slug,draft,published,revision,archived FROM editorial_news WHERE slug=$1 FOR UPDATE',[event.newsSlug])).rows[0];
+    // A separately reviewed, published correction supersedes this automation version.
+    // A merely edited private draft does not: its still-old public claim must be withdrawn.
+    if(row?.published&&event.publicationRevision!==null){
+      const latest=(await db.query<{revision:number|null}>("SELECT max(revision)::int AS revision FROM editorial_news_audit WHERE slug=$1 AND action='publish'",[row.slug])).rows[0]?.revision;
+      if(latest!==null&&latest!==undefined&&latest>event.publicationRevision){await audit(db,event.eventKey,'owner-publication-preserved',{slug:row.slug,publishedRevision:latest,automationRevision:event.publicationRevision});return;}
+    }
     // Source uncertainty removes the old public claim even when the Owner has a newer private draft.
     // Preserve that draft and all versions; never republish over a manual intervention.
     if(row&&!row.archived&&row.published){
