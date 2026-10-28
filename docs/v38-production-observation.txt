@@ -1,0 +1,9 @@
+V3.8 Production observation and average-verb correction — 2026-10-28
+
+The legitimate 12:43 UTC cron executed at 12:43:32.771. NBA discovery used three source reads and selected the audience announcement. English generation used one model call (690 input / 103 output tokens, $0.000121 measured, $0.02 conservative reservation). Deterministic validation rejected it with en:AUDIENCE_MEASURE_OR_ATTRIBUTION_MISSING. No translation, independent audit or publication occurred; no duplicate was created. Production remained ACTIVE with no outstanding lease.
+
+Private evidence was inspected only through normal authenticated Owner access. The body used the English verb averaged, while the checker accepted only the standalone word average. The source name, numerical value, units and platforms were present. A narrow inflection fix admits average/averaged/averages/averaging; it does not admit peak measures, altered values, billion units, missing source/platforms or unsupported facts. Independent editorial approval remains mandatory.
+
+An in-memory replay of the retained evidence passed the corrected English deterministic checks. This is NOT an independent editorial approval or a publication. No private draft, credential, full request or response was exported or committed. Regression tests use synthetic wording based on public typed facts. No extra paid call, event-state reset, cadence bypass, automatic retry, source-policy expansion or Production migration is included.
+
+The prior local NBA publication remains valid local evidence only. Multi-sport Production publication has not yet been demonstrated. The rejected Production candidate stays private, and unaffected eligible source classes continue their normal six-hour autonomous operation.
