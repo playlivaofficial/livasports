@@ -10,6 +10,14 @@ import {runNewsAutomation} from './runner';
 beforeEach(()=>{vi.clearAllMocks();mocks.snapshot.mockResolvedValue({events:[],season:'synthetic'});});
 describe('news scheduler failure reporting — no real model requests',()=>{
  function publishingRepo(){return {db:{},initialize:vi.fn(),claim:vi.fn().mockResolvedValue({id:'synthetic-run'}),sourceEnabled:vi.fn().mockResolvedValue(true),reconcile:vi.fn().mockResolvedValue(0),finishSource:vi.fn(),dueSources:vi.fn().mockResolvedValue([]),eligiblePending:vi.fn().mockResolvedValue({eventKey:'synthetic',facts:{kind:'result'}}),publicationBlocker:vi.fn().mockResolvedValue(null),markAttempt:vi.fn(),fail:vi.fn(),finish:vi.fn(),publish:vi.fn()};}
+ it('isolates a thrown collector while publishing another verified source',async()=>{
+  const repo=publishingRepo();repo.dueSources.mockResolvedValue([{sourceId:'nfl-cardinals',cursor:{}}]);
+  mocks.collect.mockRejectedValue(Error('private upstream details'));repo.publish.mockResolvedValue('verified-result');
+  mocks.generate.mockResolvedValue({copy:{en:{},es:{},pt:{}},status:'VALIDATED',usage:{calls:3,inputTokens:20,outputTokens:10,microUsd:7}});
+  const result=await runNewsAutomation(repo as unknown as AutomationRepository,{key:'synthetic-token',validationOnly:false});
+  expect(result).toMatchObject({status:'completed',requests:3,published:['verified-result'],sourceOutcomes:expect.arrayContaining([{sourceId:'nfl-cardinals',status:'SOURCE_COLLECTOR_FAILED',requests:3}])});
+  expect(JSON.stringify(result)).not.toContain('private upstream');
+ });
  it.each([false,true])('restores canary pause after normal completion or caught failure: %s',async fail=>{
   const repo={...publishingRepo(),canary:{id:'synthetic-canary'},control:vi.fn()};
   repo.eligiblePending.mockResolvedValue(null);if(fail)repo.dueSources.mockRejectedValue(Error('synthetic failure'));
