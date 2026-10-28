@@ -15,7 +15,7 @@ export function audienceCopyErrors(part:{title:string;summary:string;body:string
  const errors:string[]=[],all=[part.title,part.summary,part.body].join(' '),decimal=d.averageMillions.replace('.',',');
  const body=part.body.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
  if(!part.body.includes(d.averageMillions)&&!part.body.includes(decimal))errors.push(`${lang}:AUDIENCE_VALUE_MISMATCH`);
- if(!/\b(?:average|promedio|media)\b/.test(body)||!/(?:million|millones|milhoes)/.test(body)||!/(?:viewers|espectadores)/.test(body)||!/(?:reports?|reported|informa|informou|informo|segun|according)/.test(body)||!d.platforms.every(p=>part.body.includes(p)))errors.push(`${lang}:AUDIENCE_MEASURE_OR_ATTRIBUTION_MISSING`);
+ if(!/\b(?:averag(?:e[ds]?|ing)|promedio|media)\b/.test(body)||!/(?:million|millones|milhoes)/.test(body)||!/(?:viewers|espectadores)/.test(body)||!/(?:reports?|reported|informa|informou|informo|segun|according)/.test(body)||!d.platforms.every(p=>part.body.includes(p)))errors.push(`${lang}:AUDIENCE_MEASURE_OR_ATTRIBUTION_MISSING`);
  // Headline claims of an all-time record and game results are outside this narrow contract.
  if(/\b(?:record|recorde|recordes|records|ever|hist[oó]ric\w*|r[eé]cord\w*|won|beat|victory|victoria|vitoria|derroto|venceu|gano|winning|won)\b/i.test(all))errors.push(`${lang}:UNVERIFIED_RECORD_OR_GAME_RESULT`);
  if(/most[- ]watched|mas vist[ao]|mais assistid[ao]|billion|billones|bilhoes/i.test(all.normalize('NFD').replace(/[\u0300-\u036f]/g,'')))errors.push(`${lang}:UNVERIFIED_RECORD_OR_GAME_RESULT`);
