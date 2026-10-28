@@ -1,0 +1,25 @@
+V3.8 source readiness — observed 2026-10-28
+
+Operational Production intake preserved: OpenLigaDB verified published Bundesliga results (ODbL, attributed export); DIMAYOR qualification/referee notices and only schedules with complete byte-bound attachment evidence; NBA Communications roster facts plus the new primary-article audience contract; Arizona Cardinals weekly special-teams awards and confirmed Ring of Honor induction. A source being enabled is not proof that it has published an article. Production scheduler/publication evidence is reported separately.
+
+V3.8-A remaining football blockers
+Premier League: official terms restrict commercial reuse and electronic databases without prior written approval: https://www.premierleague.com/en/terms-and-conditions . No scheduled collection enabled. Cheapest remedy: written permission for bounded independent-fact extraction from an agreed primary feed.
+LaLiga: search-discovered ?format=feed&type=rss page returns a normal homepage, not a verified syndication contract. No approved automatic source contract. https://www.laliga.com/es-US?format=feed&type=rss . Remedy: an authorized dated primary feed; no paid service purchased.
+Serie A and Ligue 1: no verified current publisher-advertised machine feed plus authorized collection contract established. Catalog/team pages are not news access. Written feed authorization or an explicitly reusable primary feed is required before enablement.
+UEFA Champions/Europa/Conference: systematic automated collection restriction remains; no automated adapter enabled. https://www.uefa.com/termsconditions/ . Remedy: permission for the specific feed and independent factual reporting.
+Liga MX: no authorized current official machine news source verified. An unrelated webnode site using Liga MX branding is not an official feed and was rejected. Remedy: a verified federation/league or club syndication channel with permitted collection.
+Peru Liga 1: official site accessible, but recent referee-story headline/body season labels conflict (2025 versus 2026). Do not infer which is correct or promote those into facts. https://liga1.pe/ . Remedy: corrected/independently corroborated exact season and a permitted structured announcement channel. Embedded third-party standings widgets are not access authorization.
+
+V3.8-B remaining non-football blockers
+NBA: real local five-call publication passed; normal Production cron must independently rediscover, validate and publish. It does not inherit or import local publication records.
+NFL: existing Cardinals source contracts remain enabled; no additional model call or successful new NFL publication is claimed in this batch.
+NHL: official terms restrict unauthorized automated collection. https://www.nhl.com/info/terms-of-service . No data API or webpage restriction bypass.
+MLB: official content/data access remains unapproved for automated commercial collection. https://www.mlb.com/official-information/terms-of-use . No undocumented endpoint use.
+EuroLeague: media-centre content packages and exploitation require agreement; public internal-viewing terms do not establish an automatic commercial feed. https://publications.euroleague.net/en/terms . Remedy: media/feed authorization, not a new subscription by default.
+
+V3.8-C blockers
+UFC: official source access returned HTTP 403; no approved alternative automatic feed. No anti-bot bypass or invented source.
+ATP: systematic collection requires permission; terms access also returned 403. No scheduled collection enabled.
+WTA: advertised RSS permits personal/noncommercial use, not this site's scheduled commercial ingestion. https://www.wtatennis.com/news/1350431/rss-feeds . Remedy: written permission for commercial factual extraction or another genuinely reusable primary source.
+
+These are scoped access/rights/evidence blockers, not proof that every conceivable source is unavailable. No claims of seven-sport autonomy, 3–5 guaranteed stories daily, new paid access, new infrastructure, or sports-data completeness. Existing four daily cron opportunities and per-article gates remain; current maximum is four successful stories/day when eligible sources exist. No publisher prose or images are licensed merely by RSS availability.

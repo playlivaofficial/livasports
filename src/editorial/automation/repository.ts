@@ -1,3 +1,4 @@
+import {newsroomMetrics} from './metrics';
 import {randomUUID} from 'node:crypto';
 import {rankNews,type PublicationMix} from './ranking';
 import {isDeepStrictEqual} from 'node:util';
@@ -46,7 +47,7 @@ export class AutomationRepository {
   }
   async reviewEvidence(){await this.cleanupEvidence();return (await this.db.query<{run_id:string;event_key:string;checkpoint:number;payload:ReviewEvidence;expires_at:string}>('SELECT run_id,event_key,checkpoint,payload,expires_at::text FROM editorial_generation_evidence WHERE expires_at>now() ORDER BY created_at DESC,checkpoint DESC LIMIT 30')).rows;}
   async dashboard(){
-    const [control,sources,events,runs,totals,alerts,invocations,leases,daily]=await Promise.all([
+    const [control,sources,events,runs,totals,alerts,invocations,leases,daily,metrics]=await Promise.all([
       this.db.query<{paused:boolean}>('SELECT paused FROM editorial_automation_control'),
       this.db.query<SourceState>(`SELECT ${sourceColumns} FROM editorial_discovery_state ORDER BY source_id`),
       this.db.query<AutomationEvent>(`SELECT ${eventColumns} FROM editorial_automation_events ORDER BY changed_at DESC LIMIT 100`),
@@ -61,8 +62,9 @@ export class AutomationRepository {
         (SELECT count(*)::int FROM editorial_automation_audit,boundary WHERE action='scheduler-invocation' AND detail->>'outcome'='no-op' AND recorded_at>=day) AS skipped,
         count(*) FILTER(WHERE status='completed')::int AS completed,count(*) FILTER(WHERE status='failed')::int AS failed,
         coalesce(sum(model_microusd_used),0)::int AS "modelMicroUsd" FROM editorial_automation_runs,boundary WHERE started_at>=day`),
+      newsroomMetrics(this.db),
     ]);
-    return {observedAt:new Date().toISOString(),paused:control.rows[0]?.paused??true,sources:sources.rows,events:events.rows,runs:runs.rows,usage:totals.rows[0],daily:daily.rows[0],alerts:alerts.rows,invocations:invocations.rows.map(x=>x.detail),leases:leases.rows[0],limits,registry:automationSources};
+    return {metrics,observedAt:new Date().toISOString(),paused:control.rows[0]?.paused??true,sources:sources.rows,events:events.rows,runs:runs.rows,usage:totals.rows[0],daily:daily.rows[0],alerts:alerts.rows,invocations:invocations.rows.map(x=>x.detail),leases:leases.rows[0],limits,registry:automationSources};
   }
   async control(input:{paused?:boolean;sourceId?:string;disabled?:boolean}){
     return this.db.transaction(async db=>{
