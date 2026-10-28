@@ -92,5 +92,3 @@ export async function validatorRecoveryAcceptance(admin:PostgresDatabaseClient,i
   return checks;
  }finally{await db.close();await admin.query(`DROP SCHEMA ${schema} CASCADE`);}
 }
-
-
