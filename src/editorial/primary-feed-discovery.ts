@@ -4,6 +4,7 @@ import {primaryFeedDesks} from './primary-feeds';
 import {canonicalSourceUrl} from './sources';
 import {isDiscoveryArticleUrl,type DiscoveryCandidate} from './discovery';
 import {extractAnnouncement} from './automation/announcements';
+import {verifiedScheduleBytes} from './automation/schedule-attachments';
 
 const agent='LivaSports-EditorialDiscovery';
 function citationUrl(raw:string){
@@ -62,8 +63,18 @@ async function text(url:string,fetcher:typeof fetch,max:number){
  try{while(true){const {done,value}=await reader.read();if(done)break;bytes+=value.length;if(bytes>max){await reader.cancel();throw Error('SIZE_LIMIT');}parts.push(value);}}finally{reader.releaseLock();}
  return Buffer.concat(parts).toString('utf8');
 }
-/** Fixed feed + robots; Cardinals permits one matching award/honor article within a three-read cap.
- * No pagination, retries, images or publisher prose persisted or sent to the model. */
+async function pdfBytes(url:string,fetcher:typeof fetch){
+ const r=await fetcher(url,{redirect:'error',signal:AbortSignal.timeout(12000),headers:{'User-Agent':agent+'/1.0 (+https://livasports.com)',Accept:'application/pdf'},cache:'no-store'});
+ if(!r.ok)throw Error('HTTP_'+r.status);
+ if(!r.headers.get('content-type')?.toLowerCase().startsWith('application/pdf')||!r.body||Number(r.headers.get('content-length')??0)>1500000)throw Error('ATTACHMENT_INVALID');
+ const reader=r.body.getReader(),parts:Uint8Array[]=[];let size=0;
+ try{while(true){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>1500000){await reader.cancel();throw Error('SIZE_LIMIT');}parts.push(value);}}finally{reader.releaseLock();}
+ return Buffer.concat(parts);
+}
+/** Robots + feed; DIMAYOR adds at most one article and one PDF (four reads total).
+ * Known image-based attachments use facts transcribed from every rendered page, bound to exact bytes.
+ * New/changed/unreadable/ambiguous documents stay quarantined; never assume they contain no facts.
+ * No publisher prose or PDF artwork is retained by the runtime or supplied to the model. */
 export async function collectPrimaryFeed(id:string,fetcher:typeof fetch=fetch,now=new Date()){
  const desk=primaryFeedDesks.find(d=>d.id===id);if(!desk)throw Error('DESK_NOT_ALLOWED');
  let requests=0;
@@ -74,6 +85,30 @@ export async function collectPrimaryFeed(id:string,fetcher:typeof fetch=fetch,no
   requests++;const xml=await text(desk.url,fetcher,512000);
   const candidates=primaryFeedCandidates(xml,id,now);
   const announcements=primaryFeedAnnouncements(xml,id,now);
+  const reviewReasons:Record<string,'SCHEDULE_ATTACHMENT_REVIEW_REQUIRED'>={};
+  if(id==='dimayor-releases'){
+   const schedules=candidates.filter(c=>/programaci[oó]n|horarios?|aplazad|reprogram/i.test(c.headline));
+   for(const c of schedules)reviewReasons[c.url]='SCHEDULE_ATTACHMENT_REVIEW_REQUIRED';
+   const candidate=schedules[0];
+   if(candidate){
+    try{
+     const articleUrl=candidate.url.replace(/\/$/,'')+'/'; // WordPress canonical path; no redirect following.
+     if(robotsParser(robotsUrl,robots).isAllowed(articleUrl,agent)!==true)throw Error('ROBOTS_BLOCKED');
+     requests++;const article=load(await text(articleUrl,fetcher,1500000));
+     const canonical=article('link[rel=canonical]').attr('href');
+     const headline=article('h1').toArray().some(el=>article(el).text().replace(/\s+/g,' ').trim()===candidate.headline)||(canonical===articleUrl&&article('meta[property="og:title"]').attr('content')===candidate.headline+' - Dimayor');
+     const main=article('main');
+     const links=[...new Set(main.find('a[href],object[data],embed[src],iframe[src]').toArray().map(el=>{try{return new URL((article(el).attr('href')??article(el).attr('data')??article(el).attr('src'))!,articleUrl).href;}catch{return '';}}).filter(u=>/\.pdf(?:$|[?#])/i.test(u)))];
+     if(!headline||main.length!==1||links.length!==1)throw Error('ATTACHMENT_AMBIGUOUS');
+     const url=new URL(links[0]);
+     if(url.protocol!=='https:'||url.hostname!=='dimayor.com.co'||url.username||url.password||url.port||url.search||url.hash||!/^\/wp-content\/uploads\/20\d{2}\/\d{2}\/[^/]+\.pdf$/i.test(url.pathname)||robotsParser(robotsUrl,robots).isAllowed(url.href,agent)!==true)throw Error('ATTACHMENT_NOT_ALLOWED');
+     requests++;const attachment=verifiedScheduleBytes(candidate.url,candidate.sourceDate!,url.href,await pdfBytes(url.href,fetcher));
+     const body=main.text();
+     const facts=attachment?extractAnnouncement(candidate,body.replace(/\s+/g,' ').trim(),now,attachment):null;
+     if(facts){announcements.push(facts);delete reviewReasons[candidate.url];}
+    }catch{/* The candidate remains private; no retry, no downgrade to a notice-only assertion. */}
+   }
+  }
   if(id==='nfl-cardinals'){
    const candidate=candidates.find(c=>/ Named NFC Special Teams Player Of The Week(?: After |$)| Inducted Into Ring Of Honor(?:, No\. \d{1,2} Retired)?$/.test(c.headline));
    if(candidate){
@@ -87,6 +122,6 @@ export async function collectPrimaryFeed(id:string,fetcher:typeof fetch=fetch,no
     if(facts&&!announcements.some(f=>f.eventKey===facts.eventKey))announcements.push(facts);
    }
   }
-  return {desk:id,requests,status:candidates.length?'CANDIDATES_REQUIRE_REVIEW':'NO_CURRENT_VERIFIED_CANDIDATES',candidates,announcements};
+  return {desk:id,requests,status:Object.keys(reviewReasons).length?'SCHEDULE_ATTACHMENTS_QUARANTINED':candidates.length?'CANDIDATES_REQUIRE_REVIEW':'NO_CURRENT_VERIFIED_CANDIDATES',candidates,announcements,reviewReasons};
  }catch(error){return {desk:id,requests,status:error instanceof Error&&/^(HTTP_\d{3}|SIZE_LIMIT)$/.test(error.message)?error.message:'SOURCE_UNAVAILABLE_NO_RETRY',candidates:[]};}
 }

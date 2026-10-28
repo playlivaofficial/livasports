@@ -1,71 +1,30 @@
 import {describe,it,expect,vi,afterEach} from 'vitest';
 import {extractAnnouncement,announcementErrors} from './announcements';
-import {automationLimits,copyErrors,fingerprint,stableFacts,toNewsDraft} from './policy';
+import {automationLimits,copyErrors,stableFacts,fingerprint,toNewsDraft} from './policy';
 import {generateBriefing} from './generation';
+import {reviewedDimayorSchedule as attachment,scheduleRow,attachmentErrors,unsupportedAbsenceClaim,verifiedScheduleBytes} from './schedule-attachments';
 import {storyContext} from '../context';
-import type {SportsSnapshot} from '@/multisport/model';
-const now=new Date('2026-10-27T13:00:00Z');
-const candidate={desk:'dimayor-releases',url:'https://dimayor.com.co/2026/10/26/synthetic-schedule-notice',sourceDate:'2026-10-26',headline:'Cambios en la programación de la Fecha 17 de la Liga BetPlay DIMAYOR ll-2026'};
-// Narrow factual clause, not a stored source article or generated draft.
+const now=new Date('2026-10-28T07:00:00Z');
+const candidate={desk:'dimayor-releases',url:attachment.sourceArticle,sourceDate:'2026-10-26',headline:'Cambios en la programación de la Fecha 17 de la Liga BetPlay DIMAYOR ll-2026'};
 const body='DIMAYOR informa que, luego de confirmarse la programación del partido entre Independiente Santa Fe y Once Caldas DAF, válido por los Cuartos de Final de la Copa BetPlay DIMAYOR 2026 y, debido a la disponibilidad del estadio El Campín, se realizaron los siguientes cambios en la programación de los partidos de la Fecha 17 de la Liga BetPlay DIMAYOR ll-2026.';
+const rows=attachment.fixtures.map(scheduleRow).join('\n\n');
 const copy={
- en:{title:'DIMAYOR updates Liga BetPlay matchday 17 schedule',summary:'DIMAYOR announced schedule changes for Liga BetPlay II-2026 matchday 17.',body:'DIMAYOR announced changes to the Liga BetPlay II-2026 matchday 17 schedule, citing the confirmed Copa fixture between Independiente Santa Fe and Once Caldas DAF and availability of El Campín.'},
- es:{title:'DIMAYOR modifica la programación de la Fecha 17',summary:'DIMAYOR anunció cambios para la Fecha 17 de la Liga BetPlay II-2026.',body:'DIMAYOR anunció cambios en la Fecha 17 de la Liga BetPlay II-2026 por la programación del partido de Copa entre Independiente Santa Fe y Once Caldas DAF y la disponibilidad de El Campín.'},
- pt:{title:'DIMAYOR altera programação da rodada 17',summary:'DIMAYOR anunciou mudanças na rodada 17 da Liga BetPlay II-2026.',body:'DIMAYOR anunciou mudanças na rodada 17 da Liga BetPlay II-2026 devido à programação do jogo da Copa entre Independiente Santa Fe e Once Caldas DAF e à disponibilidade de El Campín.'}
+ en:{title:'DIMAYOR updates Liga BetPlay matchday 17',summary:'DIMAYOR confirms the three revised fixtures in Liga BetPlay matchday 17.',body:'DIMAYOR lists these changes to Liga BetPlay DIMAYOR II-2026, round 17, due to the cup fixture involving Independiente Santa Fe and Once Caldas DAF and availability at El Campín.\n\n'+rows+'\n\nTimes interpreted as Colombia local time (UTC-05:00); the timezone is an interpretation.'},
+ es:{title:'DIMAYOR modifica la fecha 17 de la Liga BetPlay',summary:'DIMAYOR confirma tres partidos con programación modificada en la fecha 17.',body:'DIMAYOR presenta los cambios de la Liga BetPlay DIMAYOR II-2026, fecha 17, por el partido de copa entre Independiente Santa Fe y Once Caldas DAF y la disponibilidad de El Campín.\n\n'+rows+'\n\nHorarios interpretados como hora de Colombia (UTC-05:00); la zona horaria es una interpretación.'},
+ pt:{title:'DIMAYOR altera a rodada 17 da Liga BetPlay',summary:'A DIMAYOR confirma três jogos com programação alterada na rodada 17.',body:'A DIMAYOR apresenta as mudanças da Liga BetPlay DIMAYOR II-2026, rodada 17, pelo jogo de copa entre Independiente Santa Fe e Once Caldas DAF e a disponibilidade do El Campín.\n\n'+rows+'\n\nHorários interpretados como hora da Colômbia (UTC-05:00); o fuso é uma interpretação.'},
 };
-describe('confirmed league notice, not an invented fixture schedule',()=>{
- afterEach(()=>vi.useRealTimers());
- it('counts source-format instructions in the pre-request input ceiling',async()=>{
-  vi.useFakeTimers();vi.setSystemTime(now);
-  const f=extractAnnouncement(candidate,body,now)!;
-  const probe=vi.fn<typeof fetch>().mockResolvedValue(new Response('{}'));
-  await generateBriefing(f,'synthetic-token',probe);
-  const request=JSON.parse(String(probe.mock.calls[0][1]?.body));
-  const padded={...f,padding:''};
-  const bytes=Buffer.byteLength(JSON.stringify({facts:padded})+request.instructions+JSON.stringify(request.text.format.schema));
-  padded.padding='x'.repeat(automationLimits.maxModelInputBytes-bytes+1);
-  const blocked=vi.fn<typeof fetch>();const result=await generateBriefing(padded,'synthetic-token',blocked);
-  expect(result.status).toBe('MODEL_LIMIT');expect(result.usage.calls).toBe(0);expect(blocked).not.toHaveBeenCalled();
- });
- it.each([true,false])('requires independent editorial approval, preserving context instructions across all model stages: %s',async approved=>{
-  vi.useFakeTimers();vi.setSystemTime(now);const answers=[copy.en,{es:copy.es,pt:copy.pt},{grounded:approved,translations:true,original:true,quality:true,issues:approved?[]:[{field:'en.body',code:'UNSUPPORTED_FACT',reason:'Synthetic grounding rejection.'}]}];
-  const fetcher=vi.fn<typeof fetch>().mockImplementation(async()=>new Response(JSON.stringify({status:'completed',usage:{input_tokens:100,output_tokens:20},output:[{type:'message',content:[{type:'output_text',text:JSON.stringify(answers.shift())}]}]})));
-  const f=extractAnnouncement(candidate,body,now)!;const result=await generateBriefing(f,'synthetic-token',fetcher);
-  expect(!!result.copy).toBe(approved);expect(result.status).toBe(approved?'VALIDATED':'EDITORIAL_REVIEW_REQUIRED');expect(result.verification?.grounded).toBe(approved);expect(fetcher).toHaveBeenCalledTimes(3);
-  for(const call of fetcher.mock.calls)expect(JSON.parse(String(call[1]?.body)).instructions).toContain('not a verified rescheduled league fixture');
- });
- it('shows the league and mentioned identities without constructing a same-day match',()=>{
-  const f=extractAnnouncement(candidate,body,now)!,draft=toNewsDraft(copy,f,now);
-  const s={schemaVersion:1,stage:'League',sourceId:'wikimedia',sourceUrl:'https://example.org/synthetic',retrievedAt:f.observedAt,mode:'manual',competitionId:'colombia-primera-a',sport:'football',season:'2026-II',entities:[{id:'a',name:'Independiente Santa Fe',kind:'club'},{id:'b',name:'Once Caldas DAF',kind:'club'}],events:[{id:'unrelated',stage:'League',scores:null,homeId:'a',awayId:'b',start:f.eventDate,status:'scheduled'}],tables:[],observedAt:f.observedAt} as SportsSnapshot;
-  const context=storyContext({...draft,publishedAt:now.toISOString(),updatedAt:now.toISOString(),verifiedAt:now.toISOString()},[s]);
-  expect(context?.entities).toHaveLength(2);expect(context?.event).toBeNull();
- });
- it('extracts factual context and classifies the affected league independently of the related cup',()=>{
-  const f=extractAnnouncement(candidate,body,now)!;
-  expect(f.competition).toBe('colombia-primera-a');expect(announcementErrors(f,now)).toEqual([]);
-  expect(f.detail).toMatchObject({type:'schedule-update',matchday:17,season:'2026',phase:'II'});
-  expect(JSON.stringify(f.detail)).not.toMatch(/kickoff|newStart|previousStart|score|eventDate/);
-  expect(copyErrors(copy,f)).toEqual([]);expect(toNewsDraft(copy,f,now).competition).toBe('colombia-primera-a');
- });
- it.each(['Fecha 18','Copa BetPlay DIMAYOR 2025','estadio Otro Estadio','no se realizaron los siguientes cambios','sin cambios'])('quarantines conflicting or missing primary assertions: %s',change=>{
-  const changed=change==='sin cambios'?body+' Sin cambios.':change.startsWith('Fecha')?body.replace('Fecha 17',change):change.startsWith('Copa')?body.replace('Copa BetPlay DIMAYOR 2026',change):change.startsWith('estadio')?body.replace('estadio El Campín',change):body.replace('se realizaron los siguientes cambios',change);
-  expect(extractAnnouncement(candidate,changed,now)).toBeNull();
- });
- it('keeps old notices and wrong source/competition identities out',()=>{
-  expect(extractAnnouncement({...candidate,sourceDate:'2026-10-01'},body,now)).toBeNull();
-  expect(extractAnnouncement({...candidate,url:'https://unapproved.invalid/schedule'},body,now)).toBeNull();
-  const f=extractAnnouncement(candidate,body,now)!;expect(announcementErrors({...f,competition:'copa-colombia'},now)).not.toEqual([]);
- });
- it('retains stable JSONB fingerprints and detects a changed matchday',()=>{
-  const f=extractAnnouncement(candidate,body,now)!;
-  const reordered=structuredClone(f);reordered.detail=Object.fromEntries(Object.entries(f.detail).reverse()) as typeof f.detail;
-  expect(announcementErrors(reordered,now)).toEqual([]);expect(fingerprint(stableFacts(reordered))).toBe(fingerprint(stableFacts(f)));
-  const next=extractAnnouncement({...candidate,headline:candidate.headline.replace('17','18')},body.replace('17','18'),now)!;
-  expect(fingerprint(stableFacts(next))).not.toBe(fingerprint(stableFacts(f)));
- });
- it('rejects invented kickoff times even if their digits happen to be allowed',()=>{
-  const f=extractAnnouncement(candidate,body,now)!;
-  for(const extra of [' Kickoff is 17:17.',' Kickoff is 17 pm.',' The score was 3-1.'])expect(copyErrors({...copy,en:{...copy.en,body:copy.en.body+extra}},f)).not.toEqual([]);
-  expect(copyErrors({...copy,en:{...copy.en,body:copy.en.body.replace('Once Caldas DAF','Another Club')}},f)).toContain('en:MISSING_SOURCE_OR_ENTITY');
- });
+const facts=()=>extractAnnouncement(candidate,body,now,structuredClone(attachment))!;
+afterEach(()=>vi.useRealTimers());
+describe('complete source-bound DIMAYOR attachment evidence',()=>{
+ it('quarantines the old RSS-only notice before any model request',async()=>{expect(extractAnnouncement(candidate,body,now)).toBeNull();const f=facts();if(f.detail.type==='schedule-update')delete f.detail.attachment;vi.useFakeTimers();vi.setSystemTime(now);const model=vi.fn<typeof fetch>();expect((await generateBriefing(f,'synthetic-token',model)).status).toBe('FACTS_NOT_ELIGIBLE');expect(model).not.toHaveBeenCalled();});
+ it('verifies exact competition, round, three fixture rows, both pages and explicit timezone interpretation',()=>{const f=facts();expect(f).not.toBeNull();expect(f.competition).toBe('colombia-primera-a');expect(announcementErrors(f,now)).toEqual([]);expect(copyErrors(copy,f)).toEqual([]);expect(toNewsDraft(copy,f,now).competition).toBe('colombia-primera-a');expect(attachment.fixtures).toHaveLength(3);expect(attachment.inspectedPages).toEqual([1,2]);expect(attachment.timezone.explicitInDocument).toBe(false);expect(storyContext({...toNewsDraft(copy,f,now),publishedAt:now.toISOString(),updatedAt:now.toISOString(),verifiedAt:now.toISOString()},[])?.event??null).toBeNull();});
+ it.each(['sha256','pages','version','fixture','timezone','round'])('rejects changed or incomplete evidence: %s',change=>{const a=structuredClone(attachment);if(change==='sha256')a.sha256='0'.repeat(64);if(change==='pages')a.inspectedPages=[1];if(change==='version')a.version='V39';if(change==='fixture')a.fixtures[0].kickoff='16:15';if(change==='timezone')a.timezone.offset='-04:00' as '-05:00';if(change==='round')a.round=18;expect(attachmentErrors(a,candidate.url,candidate.sourceDate).length).toBeGreaterThan(0);expect(extractAnnouncement(candidate,body,now,a)).toBeNull();});
+ it('does not reuse approved artwork recognition for another document or source date',()=>{expect(attachmentErrors(attachment,candidate.url+'/other',candidate.sourceDate).length).toBeGreaterThan(0);expect(attachmentErrors(attachment,candidate.url,'2026-10-27').length).toBeGreaterThan(0);expect(verifiedScheduleBytes(candidate.url,candidate.sourceDate,attachment.url,Buffer.from('%PDF-changed'))).toBeNull();});
+ it('requires rechecking queued schedule evidence after six hours',()=>{expect(announcementErrors(facts(),new Date(+now+6*3600000+1))).toContain('SCHEDULE_ATTACHMENT_RECHECK_REQUIRED');});
+ it.each(['en','es','pt'] as const)('rejects omitted, swapped and unsupported fixture details in %s',lang=>{for(const bad of [copy[lang].body.replace(scheduleRow(attachment.fixtures[1]),''),copy[lang].body.replace('16:05','18:30'),copy[lang].body.replace('Boyacá Chicó','Once Caldas DAF'),copy[lang].body.replace('2026-11-01','2026-11-04'),copy[lang].body.replace('General Santander','El Campín'),copy[lang].body.replace('UTC-05:00','UTC-04:00')])expect(copyErrors({...copy,[lang]:{...copy[lang],body:bad}},facts()).length).toBeGreaterThan(0);});
+ it.each(['No further fixture or scheduling details were specified.','No additional information was available.','No se especificaron más detalles de programación.','Não foram especificados outros detalhes da programação.'])('rejects unsupported absence: %s',claim=>{expect(unsupportedAbsenceClaim(claim)).toBe(true);expect(copyErrors({...copy,en:{...copy.en,body:copy.en.body+' '+claim}},facts())).toContain('en:UNSUPPORTED_ABSENCE_CLAIM');});
+ it('keeps JSONB field reordering stable and refuses a contradictory matchday',()=>{const f=facts(),reordered=structuredClone(f);if(reordered.detail.type==='schedule-update')reordered.detail.attachment=JSON.parse(JSON.stringify(Object.fromEntries(Object.entries(attachment).reverse())));expect(announcementErrors(reordered,now)).toEqual([]);expect(fingerprint(stableFacts(reordered))).toBe(fingerprint(stableFacts(f)));expect(extractAnnouncement({...candidate,headline:candidate.headline.replace('17','18')},body.replace('Fecha 17','Fecha 18'),now,attachment)).toBeNull();});
+ it.each([true,false])('still requires independent editorial approval: %s',async approved=>{vi.useFakeTimers();vi.setSystemTime(now);const answers=[copy.en,{es:copy.es,pt:copy.pt},{grounded:approved,translations:true,original:true,quality:true,issues:approved?[]:[{field:'en.body',code:'UNSUPPORTED_FACT',reason:'Synthetic rejection.'}]}];const model=vi.fn<typeof fetch>().mockImplementation(async()=>new Response(JSON.stringify({status:'completed',usage:{input_tokens:100,output_tokens:20},output:[{type:'message',content:[{type:'output_text',text:JSON.stringify(answers.shift())}]}]})));const result=await generateBriefing(facts(),'synthetic-token',model);expect(!!result.copy).toBe(approved);expect(model).toHaveBeenCalledTimes(3);for(const c of model.mock.calls){const request=JSON.parse(String(c[1]?.body));expect(request.instructions).toContain('Missing input is not evidence of absence');expect(request.instructions).toContain('every row');expect(request.instructions).toContain('1800');}});
+ it('blocks the old negative claim deterministically before translation or audit',async()=>{vi.useFakeTimers();vi.setSystemTime(now);const model=vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({status:'completed',usage:{input_tokens:100,output_tokens:20},output:[{type:'message',content:[{type:'output_text',text:JSON.stringify({...copy.en,body:copy.en.body+' No further details were specified.'})}]}]})));const result=await generateBriefing(facts(),'synthetic-token',model);expect(result.status).toBe('DETERMINISTIC_VALIDATION_FAILED');expect(model).toHaveBeenCalledTimes(1);});
+ it('counts all evidence, instructions and schema in the unchanged hard input ceiling',async()=>{vi.useFakeTimers();vi.setSystemTime(now);const probe=vi.fn<typeof fetch>().mockResolvedValue(new Response('{}'));const f=facts();await generateBriefing(f,'synthetic-token',probe);const req=JSON.parse(String(probe.mock.calls[0][1]?.body)),padded={...f,padding:''},bytes=Buffer.byteLength(JSON.stringify({facts:padded})+req.instructions+JSON.stringify(req.text.format.schema));padded.padding='x'.repeat(automationLimits.maxModelInputBytes-bytes+1);const model=vi.fn<typeof fetch>();expect((await generateBriefing(padded,'synthetic-token',model)).status).toBe('MODEL_LIMIT');expect(model).not.toHaveBeenCalled();});
 });

@@ -16,7 +16,7 @@ export async function collectScheduledDiscovery(source:SourceState,fetcher:typeo
   let unchanged=false;const cursor={...source.cursor};
   const conditional:typeof fetch=async(input,init)=>{
     const headers=new Headers(init?.headers);
-    if(String(input)===desk.url){if(cursor.etag)headers.set('If-None-Match',cursor.etag);if(cursor.modified)headers.set('If-Modified-Since',cursor.modified);}
+    if(String(input)===desk.url&&source.sourceId!=='dimayor-releases'){if(cursor.etag)headers.set('If-None-Match',cursor.etag);if(cursor.modified)headers.set('If-Modified-Since',cursor.modified);}
     const response=await fetcher(input,{...init,headers});
     if(String(input)===desk.url){
       if(response.status===304){unchanged=true;return new Response(' ',{status:200});}
@@ -65,14 +65,14 @@ export async function runNewsAutomation(repo:AutomationRepository,options:{key?:
       }catch{await sourceResult('openliga-results','RESULT_VALIDATION_FAILED',0);}
     }
     for(const source of await repo.dueSources(now)){
-      // An article-backed source costs three reads. Never exceed the four reads reserved by claim.
+      // An attachment-backed source can cost four reads. Never exceed the four reads reserved by claim.
       const requestLimit=automationSources.find(s=>s.id===source.sourceId)?.requestLimit;
       if(requestLimit===undefined||result.requests+requestLimit>4)continue;
       if(!await repo.sourceEnabled(source.sourceId))continue;
       const found=await collectScheduledDiscovery(source,options.fetcher,now);result.requests+=found.requests;
       await sourceResult(source.sourceId,found.status,found.requests,found.cursor);
       const announcements:AnnouncementFacts[]='announcements' in found&&Array.isArray(found.announcements)?found.announcements:[];
-      for(const candidate of found.candidates)await observe(announcements.find(f=>f.sourceUrl===candidate.url)??{kind:'metadata' as const,candidate});
+      for(const candidate of found.candidates)await observe(announcements.find(f=>f.sourceUrl===candidate.url)??{kind:'metadata' as const,candidate,...('reviewReasons' in found&&(found.reviewReasons as Record<string,string>)[candidate.url]==='SCHEDULE_ATTACHMENT_REVIEW_REQUIRED'?{reason:'SCHEDULE_ATTACHMENT_REVIEW_REQUIRED' as const}:{})});
     }
     const event=await repo.eligiblePending(now,resultsValidated);
     result.candidates.selected=event?1:0;

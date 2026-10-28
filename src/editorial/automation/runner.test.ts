@@ -5,7 +5,7 @@ vi.mock('./generation',()=>({generateBriefing:mocks.generate}));
 vi.mock('@/multisport/repository',()=>({SportsRepository:class{findPublished=mocks.snapshot;}}));
 vi.mock('@/multisport/openligadb',()=>({assertOpenLigaSnapshot:vi.fn()}));
 vi.mock('../discovery-collector',()=>({collectDiscovery:mocks.collect}));
-vi.mock('./policy',()=>({resultsFromSnapshot:()=>[],factErrors:()=>[],toNewsDraft:vi.fn(),automationSources:[{id:'nfl-cardinals',requestLimit:3},{id:'dimayor-releases',requestLimit:2}]}));
+vi.mock('./policy',()=>({resultsFromSnapshot:()=>[],factErrors:()=>[],toNewsDraft:vi.fn(),automationSources:[{id:'nfl-cardinals',requestLimit:3},{id:'dimayor-releases',requestLimit:4}]}));
 import {runNewsAutomation} from './runner';
 beforeEach(()=>{vi.clearAllMocks();mocks.snapshot.mockResolvedValue({events:[],season:'synthetic'});});
 describe('news scheduler failure reporting — no real model requests',()=>{
