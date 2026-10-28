@@ -29,7 +29,7 @@ Owner operations expose bounded recovery checkpoint metadata without private
 article text. Corrected NBA generation records its validator version in private
 retained evidence. Independent audit remains mandatory before public publication.
 
-Acceptance: 4,215 Vitest + 17 Node tests, lint, types, production build, SEO crawl,
+Acceptance: 4,215 Vitest + 20 Node tests, lint, types, production build, SEO crawl,
 secret scan; isolated PostgreSQL concurrent/restart, archive race, audit rejection,
 expiry, identity, source failure, pause, budget, one-attempt and atomic publication
 checks. Local preserved data hashes were unchanged. No paid model calls in tests.
@@ -38,3 +38,7 @@ Real Production recovery/publication is measured separately at its scheduled tim
 Scope: existing approved source classes remain ACTIVE. This release does not infer
 new source permissions, reactivate paid sports providers, enable affiliates or
 claim seven-sport publication. Source-rights blockers remain in v38-source-readiness.txt.
+
+QA safety: Owner browser sign-in now checks the exact application origin before
+constructing its credential request. Absolute same-origin requests reject redirects
+and navigation races; a Vercel SSO page cannot receive another Owner sign-in.
