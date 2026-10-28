@@ -172,6 +172,10 @@ async function main(){
   const failureDue=(await db.query("SELECT next_allowed_at::text AS due FROM editorial_discovery_state WHERE source_id='nba-releases'")).rows[0].due;
   await repo.initialize();assert.equal((await db.query("SELECT next_allowed_at::text AS due FROM editorial_discovery_state WHERE source_id='nba-releases'")).rows[0].due,failureDue);
   checks.push('NBA successful 12-hour polling transition preserves failure backoff and persisted source state');
+  const metrics=(await repo.dashboard()).metrics;
+  assert.equal(metrics.publications.reduce((n,p)=>n+p.live,0),Number((await db.query("SELECT count(*) FROM editorial_news WHERE published IS NOT NULL AND NOT archived")).rows[0].count));
+  assert.ok(metrics.runs.failed>=49);assert.ok(metrics.publications.every(p=>p.today<=p.sevenDays&&p.sevenDays<=p.live));
+  checks.push('Owner seven-day live publication, archive exclusion and failed/abandoned run metrics use durable database records');
   const indexes=(await db.query("SELECT indexname FROM pg_indexes WHERE schemaname=current_schema() AND tablename LIKE 'editorial_%' ORDER BY indexname")).rows.map(x=>x.indexname);
   const evidence={at:now.toISOString(),environment:'isolated PostgreSQL synthetic schema',migration:'074',applications:3,checks,indexes,realSourceCalls:0,realModelCalls:0,productionConnections:0,syntheticPublications:2,schemaPreservedForInspection:schema};
   await mkdir('output/v3-qa/acceptance-2026-10-21',{recursive:true});await writeFile('output/v3-qa/acceptance-2026-10-21/automation-db.json',JSON.stringify(evidence,null,2));console.log(JSON.stringify(evidence));

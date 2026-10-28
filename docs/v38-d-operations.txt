@@ -1,0 +1,9 @@
+V3.8-D operations visibility — 2026-10-28
+
+The authenticated Owner newsroom now reports durable live-story totals today, in the rolling seven-day window and all-time, grouped by sport. EN/ES/PT variants count as one story. Published snapshots count; archived and withdrawn records do not. Legacy stories without an explicit sport retain the existing football classification.
+
+Seven-day processing totals distinguish completed runs from publication, failed/abandoned runs, protected Owner/duplicate blocks, unchanged source observations and current private editorial/format quarantines. Measured inference cost remains separate from conservative reservations. Existing next-cycle telemetry, pause/resume, source health and budget controls remain intact. Each source now names its implemented fact classes; metadata discovery is not labelled automatic publication.
+
+Read-only aggregate queries require no migration and run only on the authenticated Owner dashboard/API, which remain private/no-store. No new secret exposure or public rejected-draft route. The real NBA article remains available in all three local languages after publication; source attribution, date and archive-photo caption are preserved.
+
+Full CI, isolated PostgreSQL, browser and Production evidence recorded in PR. Source readiness and permission blockers are in docs/v38-source-readiness.txt. No change to commercial eligibility, snapshots, providers, cron frequency, spending limits or Production ACTIVE state.
