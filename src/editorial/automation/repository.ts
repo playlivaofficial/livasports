@@ -109,8 +109,26 @@ export class AutomationRepository {
       }
       await db.query("UPDATE editorial_automation_runs SET status='abandoned' WHERE status='running' AND lease_until<=now()");
       const id=randomUUID();await db.query("INSERT INTO editorial_automation_runs(id,started_at,lease_until,status,requests_reserved,model_microusd_reserved) VALUES ($1,$2,$3,'running',4,$4)",[id,now.toISOString(),new Date(+now+180000).toISOString(),reserve]);
+      if(recurring)await db.query('UPDATE editorial_automation_runs SET result=$2 WHERE id=$1',[id,JSON.stringify({budgetMode:'production'})]);
       if(this.canary){await db.query('UPDATE editorial_automation_runs SET result=$2 WHERE id=$1',[id,JSON.stringify({canary:this.canary})]);await audit(db,null,'canary-claimed',{...this.canary,runId:id});}
       return {id};
+    });
+  }
+  /** Reserve a second story atomically before any new model call. Never refund uncertain usage. */
+  async reserveAdditionalStory(runId:string,key:string,now=new Date()):Promise<string|null>{
+    return this.db.transaction(async db=>{
+      await db.query('SELECT pg_advisory_xact_lock(724222)');await active(db,runId);
+      const run=(await db.query<{model_microusd_reserved:number;result:{budgetMode?:string;canary?:unknown};started_at:Date}>('SELECT model_microusd_reserved,result,started_at FROM editorial_automation_runs WHERE id=$1 FOR UPDATE',[runId])).rows[0];
+      const attempts=(await db.query("SELECT event_key FROM editorial_automation_audit WHERE action='story-attempted' AND detail->>'runId'=$1",[runId])).rows;
+      if(attempts.length!==1||attempts.some(a=>a.event_key===key))return 'FIRST_STORY_REQUIRED';
+      if(this.canary||run.result.budgetMode!=='production'||run.result.canary)return 'SINGLE_STORY_SCOPE';
+      if(new Date(run.started_at).toISOString().slice(0,10)!==now.toISOString().slice(0,10))return 'UTC_DAY_CHANGED';
+      if(run.model_microusd_reserved+limits.reserveMicroUsd>limits.maxEventsPerRun*limits.reserveMicroUsd)return 'RUN_STORY_LIMIT';
+      if((await db.query("SELECT 1 FROM editorial_automation_audit WHERE action='story-budget-reserved' AND detail->>'runId'=$1 AND event_key=$2",[runId,key])).rows.length)return 'STORY_ALREADY_RESERVED';
+      const totals=(await db.query<{day:number;month:number}>(`SELECT coalesce(sum(greatest(model_microusd_reserved,model_microusd_used)) FILTER(WHERE started_at>=$1),0)::int AS day,coalesce(sum(greatest(model_microusd_reserved,model_microusd_used)) FILTER(WHERE started_at>=$2),0)::int AS month FROM editorial_automation_runs`,[now.toISOString().slice(0,10)+'T00:00:00Z',now.toISOString().slice(0,7)+'-01T00:00:00Z'])).rows[0];
+      if(totals.day+limits.reserveMicroUsd>limits.maxDailyMicroUsd||totals.month+limits.reserveMicroUsd>limits.maxMonthlyMicroUsd)return 'MODEL_BUDGET';
+      await db.query('UPDATE editorial_automation_runs SET model_microusd_reserved=model_microusd_reserved+$2 WHERE id=$1',[runId,limits.reserveMicroUsd]);
+      await audit(db,key,'story-budget-reserved',{runId,reservedMicroUsd:limits.reserveMicroUsd});return null;
     });
   }
   /** One source recheck for an exact, retained validator-defect proof, inside a claimed budgeted cycle. */
@@ -236,18 +254,25 @@ export class AutomationRepository {
       return withdrawn;
     });
   }
-  async pending(){return (await this.db.query<AutomationEvent>(`SELECT ${eventColumns} FROM editorial_automation_events e JOIN editorial_discovery_state s ON s.source_id=e.source_id WHERE NOT s.disabled AND attempts<3 AND NOT EXISTS (SELECT 1 FROM editorial_automation_audit a WHERE a.event_key=e.event_key AND a.action='validator-recovery-attempted') AND (state='pending' OR (state='generation-failed' AND reason IN ('GENERATION_IN_PROGRESS','MODEL_RATE_LIMITED','MODEL_UNAVAILABLE','MODEL_FAILED_NO_RETRY') AND changed_at <= now() - make_interval(hours => 6 * (1 << greatest(attempts-1,0))))) ORDER BY facts->>'eventDate' DESC NULLS LAST,event_key LIMIT 1`)).rows[0]??null;}
+  async pending(){return (await this.db.query<AutomationEvent>(`SELECT ${eventColumns} FROM editorial_automation_events e JOIN editorial_discovery_state s ON s.source_id=e.source_id WHERE NOT s.disabled AND attempts<3 AND NOT EXISTS (SELECT 1 FROM editorial_automation_audit a WHERE a.event_key=e.event_key AND a.action='validator-recovery-attempted') AND (state='pending' OR (state='generation-failed' AND reason IN ('GENERATION_IN_PROGRESS','MODEL_RATE_LIMITED','MODEL_UNAVAILABLE','MODEL_FAILED_NO_RETRY','MODEL_EXECUTION_DEADLINE') AND changed_at <= now() - make_interval(hours => 6 * (1 << greatest(attempts-1,0))))) ORDER BY facts->>'eventDate' DESC NULLS LAST,event_key LIMIT 1`)).rows[0]??null;}
   /** Bound by maxPending. Stale/unsupported queue heads must not starve eligible
    * stories or spend model calls. Keep them private for future corroboration. */
-  async eligiblePending(now=new Date(),resultsValidated=true){
-    const rows=(await this.db.query<AutomationEvent>(`SELECT ${eventColumns} FROM editorial_automation_events e JOIN editorial_discovery_state s ON s.source_id=e.source_id WHERE NOT s.disabled AND attempts<3 AND NOT EXISTS (SELECT 1 FROM editorial_automation_audit a WHERE a.event_key=e.event_key AND a.action='validator-recovery-attempted') AND (state='pending' OR (state='generation-failed' AND reason IN ('GENERATION_IN_PROGRESS','MODEL_RATE_LIMITED','MODEL_UNAVAILABLE','MODEL_FAILED_NO_RETRY') AND changed_at <= now() - make_interval(hours => 6 * (1 << greatest(attempts-1,0))))) ORDER BY facts->>'eventDate' DESC NULLS LAST,event_key LIMIT $1`,[limits.maxPending])).rows;
-    const eligible=rows.filter(row=>(!this.canary||(row.attempts===0&&canaryMatches(this.canary,row.facts)))&&generationEligible(row.facts,now,resultsValidated));
+  async eligiblePending(now=new Date(),resultsValidated=true,excluded:readonly string[]=[]){
+    const rows=(await this.db.query<AutomationEvent>(`SELECT ${eventColumns} FROM editorial_automation_events e JOIN editorial_discovery_state s ON s.source_id=e.source_id WHERE NOT s.disabled AND attempts<3 AND NOT EXISTS (SELECT 1 FROM editorial_automation_audit a WHERE a.event_key=e.event_key AND a.action='validator-recovery-attempted') AND (state='pending' OR (state='generation-failed' AND reason IN ('GENERATION_IN_PROGRESS','MODEL_RATE_LIMITED','MODEL_UNAVAILABLE','MODEL_FAILED_NO_RETRY','MODEL_EXECUTION_DEADLINE') AND changed_at <= now() - make_interval(hours => 6 * (1 << greatest(attempts-1,0))))) ORDER BY facts->>'eventDate' DESC NULLS LAST,event_key LIMIT $1`,[limits.maxPending])).rows;
+    const eligible=rows.filter(row=>!excluded.includes(row.eventKey)&&(!this.canary||(row.attempts===0&&canaryMatches(this.canary,row.facts)))&&generationEligible(row.facts,now,resultsValidated));
     if(this.canary||!eligible.length)return eligible[0]??null;
     const mix=(await this.db.query<PublicationMix>("SELECT coalesce(e.facts->>'sport','football') AS sport,e.source_id AS \"sourceId\",count(*)::int AS count FROM editorial_automation_audit a JOIN editorial_automation_events e ON e.event_key=a.event_key WHERE a.action='auto-publish' AND a.recorded_at >= $1::timestamptz-interval '24 hours' GROUP BY 1,2",[now.toISOString()])).rows;
     return rankNews(eligible,mix)[0]??null;
   }
   async markAttempt(runId:string,key:string){await this.db.transaction(async db=>{
     await db.query('SELECT pg_advisory_xact_lock(724219)');await active(db,runId);
+    const budget=(await db.query<{model_microusd_reserved:number;result:{budgetMode?:string}}>('SELECT model_microusd_reserved,result FROM editorial_automation_runs WHERE id=$1 FOR UPDATE',[runId])).rows[0];
+    if(budget.result.budgetMode==='production'){
+      const attempts=(await db.query("SELECT event_key FROM editorial_automation_audit WHERE action='story-attempted' AND detail->>'runId'=$1",[runId])).rows;
+      if(attempts.some(a=>a.event_key===key)||attempts.length>=limits.maxEventsPerRun)throw Error('STORY_ALREADY_ATTEMPTED');
+      if((attempts.length+1)*limits.reserveMicroUsd>budget.model_microusd_reserved)throw Error('STORY_RESERVATION_REQUIRED');
+      await audit(db,key,'story-attempted',{runId});
+    }
     const grants=(await db.query("SELECT detail FROM editorial_automation_audit WHERE event_key=$1 AND action='validator-recovery-result' AND detail->>'recovered'='true'",[key])).rows;
     if(grants.length){
       const event=(await db.query<{state:string;reason:string;attempts:number}>("SELECT state,reason,attempts FROM editorial_automation_events WHERE event_key=$1 FOR UPDATE",[key])).rows[0];
@@ -255,7 +280,8 @@ export class AutomationRepository {
       if((await db.query("SELECT 1 FROM editorial_automation_audit WHERE event_key=$1 AND action='validator-recovery-attempted' LIMIT 1",[key])).rows.length)throw Error('RECOVERY_ALREADY_ATTEMPTED');
       await audit(db,key,'validator-recovery-attempted',{runId,correctionId:validatorCorrection.id,validatorVersion:validatorCorrection.version});
     }
-    await db.query("UPDATE editorial_automation_events SET attempts=attempts+1,state='generation-failed',reason='GENERATION_IN_PROGRESS',changed_at=now() WHERE event_key=$1 AND state IN ('pending','generation-failed') AND attempts<3",[key]);
+    const changed=await db.query("UPDATE editorial_automation_events SET attempts=attempts+1,state='generation-failed',reason='GENERATION_IN_PROGRESS',changed_at=now() WHERE event_key=$1 AND state IN ('pending','generation-failed') AND attempts<3 RETURNING event_key",[key]);
+    if(changed.rows.length!==1)throw Error('EVENT_NO_LONGER_ELIGIBLE');
   });}
   /** Read-only early check saves model spend. The transaction repeats it at publish
    * time, since Owner edits can race generation. Archived Owner work stays protected. */
@@ -267,9 +293,9 @@ export class AutomationRepository {
   }
   async assertActive(runId:string){await active(this.db,runId);}
   async fail(key:string,reason:string){
-    const retry=['MODEL_RATE_LIMITED','MODEL_UNAVAILABLE','MODEL_FAILED_NO_RETRY'].includes(reason);
+    const retry=['MODEL_RATE_LIMITED','MODEL_UNAVAILABLE','MODEL_FAILED_NO_RETRY','MODEL_EXECUTION_DEADLINE'].includes(reason);
     await this.db.query("UPDATE editorial_automation_events SET state=CASE WHEN $3 AND attempts<3 AND NOT EXISTS (SELECT 1 FROM editorial_automation_audit a WHERE a.event_key=editorial_automation_events.event_key AND a.action='validator-recovery-attempted') THEN 'generation-failed' ELSE 'review' END,reason=$2,changed_at=now() WHERE event_key=$1 AND state IN ('pending','generation-failed')",[key,reason.slice(0,120),retry]);
-    if(['MODEL_AUTH_REJECTED','MODEL_CONFIGURATION_REJECTED','MODEL_QUOTA_EXCEEDED','MODEL_LIMIT_UNCLASSIFIED'].includes(reason))await this.db.transaction(async db=>{await db.query('UPDATE editorial_automation_control SET paused=true,edited_at=now()');await audit(db,key,'model-circuit-breaker',{reason});});
+    if(['MODEL_AUTH_REJECTED','MODEL_CONFIGURATION_REJECTED','MODEL_QUOTA_EXCEEDED','MODEL_LIMIT_UNCLASSIFIED','MODEL_SPEND_LIMIT_EXCEEDED'].includes(reason))await this.db.transaction(async db=>{await db.query('UPDATE editorial_automation_control SET paused=true,edited_at=now()');await audit(db,key,'model-circuit-breaker',{reason});});
   }
   async publish(runId:string,event:AutomationEvent,draft:NewsDraft,now=new Date()){
     if(this.canary&&!canaryMatches(this.canary,event.facts))throw Error('PUBLICATION_CONFLICT');
@@ -302,6 +328,7 @@ export class AutomationRepository {
   async finish(runId:string,result:object,usage:ModelUsage,status:'completed'|'failed'='completed'){
     // Keep the original worst-case reservation, including ambiguous network failures. Never refund it.
     await this.db.query('UPDATE editorial_automation_runs SET status=$2,finished_at=now(),model_microusd_used=$3,input_tokens=$4,output_tokens=$5,result=result||$6::jsonb WHERE id=$1 AND status=\'running\'',[runId,status,usage.microUsd,usage.inputTokens,usage.outputTokens,JSON.stringify({...result,modelUsage:{calls:usage.calls,stages:usage.stages??{},...(usage.failure?{failure:usage.failure}:{}),...(usage.audit?{audit:usage.audit}:{})}})]);
-    if(usage.microUsd>limits.reserveMicroUsd)await this.db.transaction(async db=>{await db.query('UPDATE editorial_automation_control SET paused=true,edited_at=now()');await audit(db,null,'unexpected-model-usage',{runId,reportedMicroUsd:usage.microUsd});});
+    const reserved=(await this.db.query<{model_microusd_reserved:number}>('SELECT model_microusd_reserved FROM editorial_automation_runs WHERE id=$1',[runId])).rows[0]?.model_microusd_reserved??0;
+    if(usage.microUsd>reserved)await this.db.transaction(async db=>{await db.query('UPDATE editorial_automation_control SET paused=true,edited_at=now()');await audit(db,null,'unexpected-model-usage',{runId,reportedMicroUsd:usage.microUsd});});
   }
 }

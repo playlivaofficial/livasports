@@ -80,7 +80,7 @@ await db.query('BEGIN');await db.query("UPDATE qa_existing_data SET value='{}'")
 assert.deepEqual((await db.query('SELECT * FROM qa_existing_data')).rows,before);
 // Only the disposable row created above is removed, allowing the real HTTP publishing test.
 await db.query("DELETE FROM sports_snapshots WHERE snapshot_key='bundesliga:2026/27'");
-for(const name of ['021_owner_qa_login_rate_limit.sql','072_v2_editorial_newsroom.sql','074_v3_news_automation.sql','075_v3_news_review_evidence.sql'])await db.query(await readFile('db/migrations/'+name,'utf8'));
+for(const name of ['021_owner_qa_login_rate_limit.sql','072_v2_editorial_newsroom.sql','074_v3_news_automation.sql','075_v3_news_review_evidence.sql','076_bounded_newsroom_stories.sql'])await db.query(await readFile('db/migrations/'+name,'utf8'));
 // Reuse this disposable service only; no external credentials or real model calls.
 const automationDbUrl=new URL('postgresql://127.0.0.1');automationDbUrl.port=String(config.port);automationDbUrl.username=config.user;automationDbUrl.password=config.password;automationDbUrl.pathname='/livasports_v3_qa';
 const automationQA=spawn(process.execPath,['--require','./scripts/tsx-windows-preload.cjs','--import','tsx','scripts/v3-news-automation-db-qa.ts'],{env:{...process.env,V3_QA_DATABASE_URL:automationDbUrl.href},stdio:'inherit',windowsHide:true});

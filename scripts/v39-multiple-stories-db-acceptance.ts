@@ -1,0 +1,31 @@
+/** Synthetic isolated PostgreSQL acceptance; no source or model requests. */
+import assert from 'node:assert/strict';
+import {randomUUID} from 'node:crypto';
+import {readFile} from 'node:fs/promises';
+import {PostgresDatabaseClient} from '../src/database/client';
+import {AutomationRepository} from '../src/editorial/automation/repository';
+import {extractAnnouncement} from '../src/editorial/automation/announcements';
+export async function multipleStoriesAcceptance(admin:PostgresDatabaseClient,input:URL){
+ assert.ok(['localhost','127.0.0.1'].includes(input.hostname));const schema='qa_batch_'+randomUUID().replaceAll('-','');await admin.query(`CREATE SCHEMA ${schema}`);const uri=new URL(input);uri.searchParams.set('options',`-c search_path=${schema}`);const db=new PostgresDatabaseClient(uri.href),repo=new AutomationRepository(db),now=new Date(),checks:string[]=[];
+ const facts=(name:string)=>extractAnnouncement({desk:'nfl-cardinals',url:'https://azcardinals.com/news/synthetic-'+name,headline:name+' Example Inducted Into Ring Of Honor',sourceDate:now.toISOString().slice(0,10)},`${name} Example has his name now officially on display within the Cardinals Ring of Honor. Example's name was unveiled.`,now)!;
+ const first=facts('First'),second=facts('Second');
+ async function seed(validation=false){await db.query('TRUNCATE editorial_automation_audit,editorial_automation_events,editorial_automation_runs RESTART IDENTITY CASCADE');await repo.control({paused:false});const r=await repo.claim(true,validation,now);assert.ok('id'in r);await repo.observe(r.id,first,now);await repo.observe(r.id,second,now);return r.id;}
+ try{
+  for(const f of ['072_v2_editorial_newsroom.sql','074_v3_news_automation.sql','075_v3_news_review_evidence.sql'])await db.query(await readFile('db/migrations/'+f,'utf8'));await repo.initialize(now);let id=await seed();
+  const original=(await db.query('SELECT id,model_microusd_reserved FROM editorial_automation_runs')).rows;
+  const migration=await readFile('db/migrations/076_bounded_newsroom_stories.sql','utf8');await db.query(migration);await db.query(migration);assert.deepEqual((await db.query('SELECT id,model_microusd_reserved FROM editorial_automation_runs')).rows,original);
+  await assert.rejects(db.query('UPDATE editorial_automation_runs SET model_microusd_reserved=40001'),/check constraint/);checks.push('076 repeatable, preserves rows and blocks reservations above two stories; old single-story writes remain compatible');
+  assert.equal(await repo.reserveAdditionalStory(id,second.eventKey,now),'FIRST_STORY_REQUIRED');await repo.markAttempt(id,first.eventKey);await assert.rejects(repo.markAttempt(id,first.eventKey),/STORY_ALREADY_ATTEMPTED/);
+  const attempts=await Promise.all([repo.reserveAdditionalStory(id,second.eventKey,now),repo.reserveAdditionalStory(id,second.eventKey,now)]);assert.equal(attempts.filter(x=>x===null).length,1);assert.equal((await db.query('SELECT model_microusd_reserved FROM editorial_automation_runs')).rows[0].model_microusd_reserved,40000);
+  const restart=new PostgresDatabaseClient(uri.href);try{assert.equal(await new AutomationRepository(restart).reserveAdditionalStory(id,second.eventKey,now),'RUN_STORY_LIMIT');}finally{await restart.close();}
+  await repo.markAttempt(id,second.eventKey);await assert.rejects(repo.markAttempt(id,second.eventKey),/STORY_ALREADY_ATTEMPTED/);await repo.finish(id,{published:[]},{calls:6,inputTokens:100,outputTokens:100,microUsd:30000});assert.equal((await db.query('SELECT paused FROM editorial_automation_control')).rows[0].paused,false);checks.push('concurrent/reconnected reservation and attempt are each single-use; two-story measured cost is checked against the actual retained reservation');
+  id=await seed();await db.query("UPDATE editorial_automation_events SET state='review' WHERE event_key=$1",[first.eventKey]);await assert.rejects(repo.markAttempt(id,first.eventKey),/EVENT_NO_LONGER_ELIGIBLE/);assert.equal((await db.query("SELECT count(*)::int AS n FROM editorial_automation_audit WHERE action='story-attempted'")).rows[0].n,0);checks.push('concurrent event quarantine rolls back attempt audit before model spending');
+  id=await seed(true);await repo.markAttempt(id,first.eventKey);assert.equal(await repo.reserveAdditionalStory(id,second.eventKey,now),'FIRST_STORY_REQUIRED');checks.push('local validation cannot acquire another story budget');
+  id=await seed();await assert.rejects(repo.markAttempt(id,second.eventKey).then(()=>repo.markAttempt(id,first.eventKey)),/STORY_RESERVATION_REQUIRED/);checks.push('second attempt cannot precede its atomic reservation');
+  for(const amount of [80000,2980000]){id=await seed();await repo.markAttempt(id,first.eventKey);await db.query("INSERT INTO editorial_automation_runs(id,started_at,lease_until,status,model_microusd_used) VALUES($1,$2,$2,'completed',$3)",[randomUUID(),new Date(+now-(amount>100000?86400000:0)).toISOString(),amount]);assert.equal(await repo.reserveAdditionalStory(id,second.eventKey,now),'MODEL_BUDGET');assert.equal((await db.query('SELECT model_microusd_reserved FROM editorial_automation_runs WHERE id=$1',[id])).rows[0].model_microusd_reserved,20000);}
+  checks.push('daily and monthly caps reject the extra story without changing its attempt or reservation');
+  id=await seed();await repo.markAttempt(id,first.eventKey);await repo.control({paused:true});await assert.rejects(repo.reserveAdditionalStory(id,second.eventKey,now),/STOPPED_OR_LEASE_LOST/);
+  await repo.control({paused:false});await db.query("UPDATE editorial_automation_runs SET lease_until=now()-interval '1 second' WHERE id=$1",[id]);await assert.rejects(repo.reserveAdditionalStory(id,second.eventKey,now),/STOPPED_OR_LEASE_LOST/);checks.push('emergency pause and expired lease stop the next story before spending');
+  return checks;
+ }finally{await db.close();}
+}

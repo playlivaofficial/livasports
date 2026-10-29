@@ -1,3 +1,4 @@
+import {multipleStoriesAcceptance} from './v39-multiple-stories-db-acceptance';
 /** Synthetic isolated PostgreSQL acceptance. Never accepts a remote database host. */
 import assert from 'node:assert/strict';
 import {readFile,mkdir,writeFile} from 'node:fs/promises';
@@ -178,6 +179,7 @@ async function main(){
   assert.equal(metrics.publications.reduce((n,p)=>n+p.live,0),Number((await db.query("SELECT count(*) FROM editorial_news WHERE published IS NOT NULL AND NOT archived")).rows[0].count));
   assert.ok(metrics.runs.failed>=49);assert.ok(metrics.publications.every(p=>p.today<=p.sevenDays&&p.sevenDays<=p.live));
   checks.push('Owner seven-day live publication, archive exclusion and failed/abandoned run metrics use durable database records');
+  checks.push(...await multipleStoriesAcceptance(admin,url));
   const indexes=(await db.query("SELECT indexname FROM pg_indexes WHERE schemaname=current_schema() AND tablename LIKE 'editorial_%' ORDER BY indexname")).rows.map(x=>x.indexname);
   const evidence={at:now.toISOString(),environment:'isolated PostgreSQL synthetic schema',migration:'074',applications:3,checks,indexes,realSourceCalls:0,realModelCalls:0,productionConnections:0,syntheticPublications:2,schemaPreservedForInspection:schema};
   await mkdir('output/v3-qa/acceptance-2026-10-21',{recursive:true});await writeFile('output/v3-qa/acceptance-2026-10-21/automation-db.json',JSON.stringify(evidence,null,2));console.log(JSON.stringify(evidence));
