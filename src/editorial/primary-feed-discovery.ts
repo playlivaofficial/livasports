@@ -7,6 +7,7 @@ import {extractAnnouncement} from './automation/announcements';
 import {verifiedScheduleBytes} from './automation/schedule-attachments';
 
 const agent='LivaSports-EditorialDiscovery';
+const supportedNflHeadline=(headline:string)=>/^(?:'[^']{1,40}': )?[A-Z][a-z]+(?: [A-Z][a-z]+){1,3} Inducted Into Ring Of Honor(?:, No\. \d{1,2} Retired)?$/.test(headline)||/^[A-Z][a-z]+(?: [A-Z][a-z]+){1,3} Named NFC Special Teams Player Of The Week(?: After [A-Za-z ]+)?$/.test(headline);
 function citationUrl(raw:string){
  try{
   const url=new URL(raw);
@@ -38,12 +39,16 @@ export function primaryFeedCandidates(xml:string,id:string,now=new Date()):Disco
   // Photo-gallery fixture titles are not independently usable announcements.
   if(id==='dimayor-releases'&&(/galer[ií]a|fotograf/i.test(item.children('category').text())||headline===headline.toLocaleUpperCase()))continue;
   seen.add(url);out.push({desk:id,url,headline,sourceDate:date.toISOString().slice(0,10)});
-  if(out.length===3)break;
+  if(id!=='nfl-cardinals'&&out.length===3)break;
  }
- return out;
+ // Inspect only the same bounded 30-item feed, then prioritize a supported factual contract.
+ // Headlines grant article inspection, never factual or publication approval.
+ return (id==='nfl-cardinals'?out.sort((a,b)=>Number(supportedNflHeadline(b.headline))-Number(supportedNflHeadline(a.headline))):out).slice(0,3);
 }
 /** Retain normalized facts only. Feed article text exists only transiently in memory. */
 export function primaryFeedAnnouncements(xml:string,id:string,now=new Date()){
+ // NFL announcements require the matching primary article, never RSS prose alone.
+ if(id==='nfl-cardinals')return [];
  const candidates=primaryFeedCandidates(xml,id,now);if(!candidates.length)return [];
  const $=load(xml,{xmlMode:true});
  return candidates.flatMap(candidate=>{
@@ -122,7 +127,7 @@ export async function collectPrimaryFeed(id:string,fetcher:typeof fetch=fetch,no
    }catch{/* Keep only private metadata; no retry or partial factual assertion. */}}
   }
   if(id==='nfl-cardinals'){
-   const candidate=candidates.find(c=>/ Named NFC Special Teams Player Of The Week(?: After |$)| Inducted Into Ring Of Honor(?:, No\. \d{1,2} Retired)?$/.test(c.headline));
+   const candidate=candidates.find(c=>supportedNflHeadline(c.headline));
    if(candidate){
     const articleUrl=new URL(new URL(candidate.url).pathname,desk.url).href;
     if(robotsParser(robotsUrl,robots).isAllowed(articleUrl,agent)!==true)return {desk:id,requests,status:'ROBOTS_BLOCKED',candidates:[]};
@@ -130,7 +135,11 @@ export async function collectPrimaryFeed(id:string,fetcher:typeof fetch=fetch,no
     const article=load(await text(articleUrl,fetcher,2500000));
     const matchingHeadline=article('h1').toArray().some(el=>article(el).text().replace(/\s+/g,' ').trim()===candidate.headline);
     const body=article('article .nfl-c-body-part--text p').toArray().map(el=>article(el).text()).join(' ').replace(/\s+/g,' ').trim();
-    const facts=matchingHeadline?extractAnnouncement(candidate,body,now):null;
+    const dates=article('script[type="application/ld+json"]').toArray().flatMap(el=>{try{const data=JSON.parse(article(el).text());return data['@type']==='NewsArticle'?[data.datePublished]:[];}catch{return [];}});
+    const published=dates.length===1&&typeof dates[0]==='string'?new Date(dates[0]):null;
+    const matchingDate=published&&Number.isFinite(+published)&&+published<=+now&&published.toISOString().slice(0,10)===candidate.sourceDate;
+    const facts=matchingHeadline&&matchingDate?extractAnnouncement(candidate,body,now):null;
+    if(!facts)reviewReasons[candidate.url]='PRIMARY_ARTICLE_REVIEW_REQUIRED';
     if(facts&&!announcements.some(f=>f.eventKey===facts.eventKey))announcements.push(facts);
    }
   }

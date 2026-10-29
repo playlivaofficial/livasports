@@ -8,7 +8,7 @@ const candidate={desk:'nfl-cardinals',headline,url,sourceDate:'2026-10-21'};
 // Minimal factual test assertions, not a stored copy of the publisher article.
 const body='Chad Ryland is the subject. NFC Special Teams Player of the Week, which the NFL bestowed upon Ryland on Wednesday.';
 const xml=`<rss><channel><item><title>${headline}</title><link>${url}</link><pubDate>Wed, 21 Oct 2026 16:00:13 GMT</pubDate><description>Short headline metadata alone is insufficient.</description></item></channel></rss>`;
-const html=`<main><article><h1>${headline}</h1><div class="nfl-c-body-part--text"><p>${body}</p></div></article></main>`;
+const html=`<script type="application/ld+json">{"@type":"NewsArticle","datePublished":"2026-10-21T16:00:13Z"}</script><main><article><h1>${headline}</h1><div class="nfl-c-body-part--text"><p>${body}</p></div></article></main>`;
 describe('bounded official NFL club award facts',()=>{
  it('retains only the corroborated recipient and award, never scores or copied prose',()=>{
   const facts=extractAnnouncement(candidate,body,now)!;

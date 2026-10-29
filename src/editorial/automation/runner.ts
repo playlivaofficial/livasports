@@ -14,14 +14,15 @@ export async function collectScheduledDiscovery(source:SourceState,fetcher:typeo
   if(source.sourceId.startsWith('wikinews-'))return {...await collectWikinews(source.sourceId,fetcher,now),cursor:{}};
   const desk=discoveryDesks.find(d=>d.id===source.sourceId);if(!desk)throw Error('SOURCE_NOT_APPROVED');
   let unchanged=false;const cursor={...source.cursor};
-  const contractChanged=source.sourceId==='nba-releases'&&cursor.contract!=='nba-audience-v1';
+  const contract=source.sourceId==='nba-releases'?'nba-audience-v1':source.sourceId==='nfl-cardinals'?'nfl-supported-intake-v2':undefined;
+  const contractChanged=!!contract&&cursor.contract!==contract;
   const conditional:typeof fetch=async(input,init)=>{
     const headers=new Headers(init?.headers);
     if(String(input)===desk.url&&source.sourceId!=='dimayor-releases'&&!contractChanged){if(cursor.etag)headers.set('If-None-Match',cursor.etag);if(cursor.modified)headers.set('If-Modified-Since',cursor.modified);}
     const response=await fetcher(input,{...init,headers});
     if(String(input)===desk.url){
       if(response.status===304){unchanged=true;return new Response(' ',{status:200});}
-      if(response.ok){if(source.sourceId==='nba-releases')cursor.contract='nba-audience-v1';for(const [key,header] of [['etag','etag'],['modified','last-modified']]){const value=response.headers.get(header);if(value&&value.length<256&&!/[\r\n]/.test(value))cursor[key]=value;else delete cursor[key];}}
+      if(response.ok){if(contract)cursor.contract=contract;for(const [key,header] of [['etag','etag'],['modified','last-modified']]){const value=response.headers.get(header);if(value&&value.length<256&&!/[\r\n]/.test(value))cursor[key]=value;else delete cursor[key];}}
     }
     return response;
   };

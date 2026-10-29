@@ -1,0 +1,11 @@
+V3.9-A — bounded NFL intake, observed 2026-10-29
+
+The Cardinals feed previously retained the first three fresh items before looking for supported award/honor contracts. Generic commentary could hide an otherwise supported fresh announcement below that cutoff.
+
+Scan the existing maximum 30 feed items and prioritize already-supported NFL headline shapes, retaining at most three candidates. One matching primary article must corroborate facts, headline and explicit NewsArticle publication date. RSS prose alone no longer qualifies an NFL announcement. No copied text or imagery is supplied to AI or persisted. No new rights category or source host is enabled.
+
+Healthy NFL polling uses the same 12-hour policy as NBA; failed-source backoff is unchanged. The fixed six-hour scheduler, four-read run reservation, 16 daily source requests, five calls per article and $3 monthly cap remain. A contract cursor prevents an old conditional response from masking the improved intake. Nothing forces a scheduler invocation or publication.
+
+Live read-only validation used three requests and verified the October 26 Larry Fitzgerald Ring of Honor announcement from the existing Cardinals source. The normalized contract contains only recipient, team, honor and completed induction status; it does not infer jersey number, ceremony date, venue or career statistics. Production publication still requires normal discovery, archive/duplicate checks, original EN generation, ES/PT translation and independent editorial approval.
+
+Production remained ACTIVE. Real October 29 00:43 and 06:43 cycles published two football briefs; NBA remains live from October 28. Third-sport publication is not claimed until public URLs exist. No paid model test, migration, infrastructure change, affiliate activation or Owner key rotation occurred.
