@@ -1,0 +1,14 @@
+import {beforeEach,afterEach,describe,it,expect,vi} from 'vitest';
+import {selectDueSources} from './source-timing';
+const start=new Date('2026-10-29T18:43:00Z'),due=new Date('2026-10-29T18:43:32.535Z');
+function repo(){return {dueSources:vi.fn().mockImplementation(async(now:Date)=>+now>=+due?[{sourceId:'nfl-cardinals'}]:[]),nextSourceDue:vi.fn().mockResolvedValue(due.toISOString()),assertActive:vi.fn()};}
+beforeEach(()=>{vi.useFakeTimers();vi.setSystemTime(start);});afterEach(()=>vi.useRealTimers());
+describe('real source due-time boundary (accelerated unit tests, not Production acceptance)',()=>{
+ it('waits until the exact future deadline and queries the unchanged gate again',async()=>{const r=repo(),p=selectDueSources(r as never,'run',true);await vi.advanceTimersByTimeAsync(32534);expect(r.dueSources).toHaveBeenCalledTimes(1);await vi.advanceTimersByTimeAsync(1);const v=await p;expect(v.sources).toHaveLength(1);expect(v.now).toEqual(due);expect(r.assertActive).toHaveBeenCalledTimes(2);expect(v.timing.recheckedAt).toBe(due.toISOString());});
+ it('does not delay already-due sources',async()=>{vi.setSystemTime(due);const r=repo();expect((await selectDueSources(r as never,'run',true)).sources).toHaveLength(1);expect(r.nextSourceDue).not.toHaveBeenCalled();});
+ it('never sleeps for validation or a one-event canary',async()=>{const r=repo();expect((await selectDueSources(r as never,'run',false)).sources).toEqual([]);expect(r.nextSourceDue).not.toHaveBeenCalled();});
+ it('does not wait beyond 45 seconds or alter the source gate',async()=>{const r=repo();r.nextSourceDue.mockResolvedValue(new Date(+start+45001).toISOString());expect((await selectDueSources(r as never,'run',true)).sources).toEqual([]);expect(r.assertActive).not.toHaveBeenCalled();});
+ it('a changed future gate remains closed after the wait',async()=>{const r=repo();r.dueSources.mockResolvedValue([]);const p=selectDueSources(r as never,'run',true);await vi.advanceTimersByTimeAsync(32535);expect((await p).sources).toEqual([]);expect(r.dueSources).toHaveBeenCalledTimes(2);});
+ it('an emergency pause while waiting prevents polling',async()=>{const r=repo();r.assertActive.mockResolvedValueOnce(undefined).mockRejectedValueOnce(Error('AUTOMATION_STOPPED_OR_LEASE_LOST'));const p=selectDueSources(r as never,'run',true);const assertion=expect(p).rejects.toThrow('AUTOMATION_STOPPED_OR_LEASE_LOST');await vi.advanceTimersByTimeAsync(32535);await assertion;expect(r.dueSources).toHaveBeenCalledTimes(1);});
+ it('uses the current decision time rather than invocation time',async()=>{const r=repo();vi.setSystemTime(new Date(+due+200));const v=await selectDueSources(r as never,'run',true);expect(v.sources).toHaveLength(1);expect(v.timing.checkedAt).toBe('2026-10-29T18:43:32.735Z');expect(r.nextSourceDue).not.toHaveBeenCalled();});
+});

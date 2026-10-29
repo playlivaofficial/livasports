@@ -1,0 +1,29 @@
+V3.9 source due-time acceptance fix
+
+Observed Production evidence: on 2026-10-29 the run started at 06:43:32.535 UTC;
+the NBA source was due at 06:43:33.265 UTC. It was not selected and retained its
+previous attempt. Source selection used the invocation timestamp throughout the
+run, even after real time had advanced. NFL has the same upcoming boundary risk.
+
+The runner now reads the current decision time before selecting sources. If none
+is due, an ordinary recurring run may wait once for an approved, enabled source
+whose persisted deadline is within 45 seconds. It checks pause and lease before
+and after waiting and repeats the original SQL due-time predicate using actual
+time. The deadline is never moved backwards; early timer wakes or a changed due
+date cannot authorize a request. No second invocation, new cron or lease reset.
+
+Existing due sources are never delayed. Canaries, local validation and validator
+recovery never wait. Work already taking 10 seconds does not add a wait. The wait
+counts against the 165-second work budget and unchanged 180-second route limit;
+per-story time and model budgets can defer generation without losing the queue.
+Six-hour cron, request ceilings, $0.10 daily/$3 monthly caps, ACTIVE policy and
+all factual/editorial checks remain unchanged. No migration or new source grant.
+
+Run telemetry and Owner details retain source checked/due/rechecked times and
+actual waited milliseconds. These records let acceptance distinguish invocation
+arrival from legitimate source polling time without assuming execution occurred.
+
+Unit tests use explicitly accelerated clocks; they are not real elapsed-time
+Production evidence. Isolated PostgreSQL tests confirm exact due thresholds and
+disabled-source exclusions. Real NFL and two-story acceptance remain pending
+their normal Production scheduler opportunities.

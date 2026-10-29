@@ -185,6 +185,11 @@ export class AutomationRepository {
 
   async sourceEnabled(id:string){return (!this.canary||this.canary.sourceId===id)&&automationSources.some(s=>s.id===id&&s.automaticAccess)&&(await this.db.query<{disabled:boolean}>('SELECT disabled FROM editorial_discovery_state WHERE source_id=$1',[id])).rows[0]?.disabled===false;}
   async dueSources(now=new Date()){return (await this.db.query<SourceState>(`SELECT ${sourceColumns} FROM editorial_discovery_state WHERE NOT disabled AND source_id=ANY($2::text[]) AND next_allowed_at<=$1 ORDER BY CASE WHEN source_id=ANY($3::text[]) THEN 0 ELSE 1 END,last_attempt_at NULLS FIRST,source_id LIMIT 2`,[now.toISOString(),automationSources.filter(s=>s.automaticAccess&&s.id!=='openliga-results'&&(!this.canary||s.id===this.canary.sourceId)).map(s=>s.id),primaryFeedDesks.map(s=>s.id)])).rows;}
+  async nextSourceDue(now:Date,windowMs:number){
+    if(this.canary||windowMs<0||windowMs>45000)return null;
+    const ids=automationSources.filter(s=>s.automaticAccess&&s.id!=='openliga-results').map(s=>s.id);
+    return (await this.db.query<{due:string}>("SELECT min(next_allowed_at)::text AS due FROM editorial_discovery_state WHERE NOT disabled AND source_id=ANY($1::text[]) AND next_allowed_at>$2 AND next_allowed_at<=$3",[ids,now.toISOString(),new Date(+now+windowMs).toISOString()])).rows[0]?.due??null;
+  }
   async finishSource(runId:string,id:string,status:string,requests:number,cursor:Record<string,string>,now=new Date()){
     await this.db.transaction(async db=>{
       await active(db,runId);

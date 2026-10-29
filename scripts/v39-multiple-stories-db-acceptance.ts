@@ -26,6 +26,8 @@ export async function multipleStoriesAcceptance(admin:PostgresDatabaseClient,inp
   checks.push('daily and monthly caps reject the extra story without changing its attempt or reservation');
   id=await seed();await repo.markAttempt(id,first.eventKey);await repo.control({paused:true});await assert.rejects(repo.reserveAdditionalStory(id,second.eventKey,now),/STOPPED_OR_LEASE_LOST/);
   await repo.control({paused:false});await db.query("UPDATE editorial_automation_runs SET lease_until=now()-interval '1 second' WHERE id=$1",[id]);await assert.rejects(repo.reserveAdditionalStory(id,second.eventKey,now),/STOPPED_OR_LEASE_LOST/);checks.push('emergency pause and expired lease stop the next story before spending');
+  await db.query("UPDATE editorial_discovery_state SET disabled=true");await db.query("UPDATE editorial_discovery_state SET disabled=false,next_allowed_at=$1 WHERE source_id='nfl-cardinals'",[new Date(+now+32535).toISOString()]);
+  assert.equal((await repo.dueSources(now)).length,0);assert.equal(Date.parse((await repo.nextSourceDue(now,45000))!),+now+32535);assert.equal(await repo.nextSourceDue(now,1000),null);assert.equal((await repo.dueSources(new Date(+now+32534))).length,0);assert.equal((await repo.dueSources(new Date(+now+32535)))[0]?.sourceId,'nfl-cardinals');await db.query("UPDATE editorial_discovery_state SET disabled=true WHERE source_id='nfl-cardinals'");assert.equal(await repo.nextSourceDue(now,45000),null);checks.push('source timing reads preserve exact due gate; disabled sources and deadlines beyond bounded window excluded');
   return checks;
  }finally{await db.close();}
 }

@@ -1,3 +1,4 @@
+import {selectDueSources} from './source-timing';
 import {SportsRepository} from '@/multisport/repository';
 import {assertOpenLigaSnapshot} from '@/multisport/openligadb';
 import {collectDiscovery} from '../discovery-collector';
@@ -31,12 +32,12 @@ export async function collectScheduledDiscovery(source:SourceState,fetcher:typeo
 }
 export async function runNewsAutomation(repo:AutomationRepository,options:{key?:string;validationOnly:boolean;fetcher?:typeof fetch;now?:Date}){
   const started=performance.now(),workDeadlineMs=165000,minStoryWindowMs=110000;
-  const now=options.now??new Date(),usage:ModelUsage={calls:0,inputTokens:0,outputTokens:0,microUsd:0};
+  const clock=()=>options.now??new Date();let now=clock();const usage:ModelUsage={calls:0,inputTokens:0,outputTokens:0,microUsd:0};
   await repo.initialize(now);
   const claim=await repo.claim(!!options.key?.trim(),options.validationOnly,now);
   if(!('id' in claim))return {status:claim.reason,requests:0,published:[],changed:false};
   const runId=claim.id;
-  const result={runId,stories:[] as {eventKey:string;sourceId:string;sport:string;status:string;slug?:string;usage:ModelUsage}[],batchStop:null as string|null,status:'completed',requests:0,discovered:0,corrections:0,withdrawn:0,published:[] as string[],changed:false,generation:options.key?'no-eligible-event':'MODEL_CREDENTIAL_MISSING',validatorRecovery:null as {correctionId:string;recovered:boolean}|null,candidates:{seen:0,outsideAuthorization:0,unchanged:0,reviewRequired:0,queueFull:0,selected:0,ownerOrDuplicateBlocked:0},sourceOutcomes:[] as {sourceId:string;status:string;requests:number}[]};
+  const result={runId,sourceTiming:null as Awaited<ReturnType<typeof selectDueSources>>['timing']|null,stories:[] as {eventKey:string;sourceId:string;sport:string;status:string;slug?:string;usage:ModelUsage}[],batchStop:null as string|null,status:'completed',requests:0,discovered:0,corrections:0,withdrawn:0,published:[] as string[],changed:false,generation:options.key?'no-eligible-event':'MODEL_CREDENTIAL_MISSING',validatorRecovery:null as {correctionId:string;recovered:boolean}|null,candidates:{seen:0,outsideAuthorization:0,unchanged:0,reviewRequired:0,queueFull:0,selected:0,ownerOrDuplicateBlocked:0},sourceOutcomes:[] as {sourceId:string;status:string;requests:number}[]};
   async function observe(facts:EventFacts){
     result.candidates.seen++;
     if(repo.canary&&!canaryMatches(repo.canary,facts)){result.candidates.outsideAuthorization++;return;}
@@ -68,7 +69,8 @@ export async function runNewsAutomation(repo:AutomationRepository,options:{key?:
       }catch{await sourceResult('openliga-results','RESULT_VALIDATION_FAILED',0);}
     }
     const recovery=options.key&&!repo.canary?await repo.beginValidatorRecovery(runId,now):null;
-    const due=await repo.dueSources(now);
+    const selected=await selectDueSources(repo,runId,!options.validationOnly&&!repo.canary&&!recovery&&performance.now()-started<10000,clock);
+    now=selected.now;result.sourceTiming=selected.timing;const due=selected.sources;
     const sources=recovery?[recovery.source,...due.filter(s=>s.sourceId!==recovery.source.sourceId)]:due;
     for(const source of sources){
       // An attachment-backed source can cost four reads. Never exceed the four reads reserved by claim.
