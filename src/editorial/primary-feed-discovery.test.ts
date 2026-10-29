@@ -8,7 +8,7 @@ const feed=(items=item())=>`<rss><channel><lastBuildDate>Wed, 21 Oct 2026 12:00:
 describe('primary publisher feed intake — synthetic fixtures, no live requests',()=>{
  it('corroborates one team honor with robots, feed and matching article only',async()=>{
   const title='Liam Example Inducted Into Ring Of Honor',url='https://www.azcardinals.com/news/test-honor';
-  const article=`<h1>${title}</h1><article><div class="nfl-c-body-part--text"><p>Liam Example celebrated, his name now officially on display within the Cardinals Ring of Honor. Example's name was unveiled.</p></div></article>`;
+  const article=`<script type="application/ld+json">{"@type":"NewsArticle","datePublished":"2026-10-20T12:00:00Z"}</script><h1>${title}</h1><article><div class="nfl-c-body-part--text"><p>Liam Example celebrated, his name now officially on display within the Cardinals Ring of Honor. Example's name was unveiled.</p></div></article>`;
   const fetcher=vi.fn().mockResolvedValueOnce(new Response('User-agent: *\nAllow: /')).mockResolvedValueOnce(new Response(feed(item(title,undefined,url)))).mockResolvedValueOnce(new Response(article));
   const result=await collectPrimaryFeed('nfl-cardinals',fetcher,now);expect(result.requests).toBe(3);expect(fetcher).toHaveBeenCalledTimes(3);expect('announcements' in result&&result.announcements?.[0]?.detail).toMatchObject({type:'team-honor',recipient:'Liam Example'});expect(JSON.stringify(result)).not.toContain('celebrated, his name');
  });

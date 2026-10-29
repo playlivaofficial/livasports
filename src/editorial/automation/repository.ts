@@ -38,8 +38,8 @@ async function active(db:QueryExecutor,runId:string){
 export class AutomationRepository {
   constructor(readonly db:DatabaseClient,readonly canary?:CanaryScope){}
   async initialize(now=new Date()){await this.cleanupEvidence();for(const s of automationSources.filter(s=>!this.canary||s.id===this.canary.sourceId))await this.db.query('INSERT INTO editorial_discovery_state(source_id,disabled,next_allowed_at) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING',[s.id,!s.automaticAccess,now.toISOString()]);
-    // Adopt the NBA feed's 12h successful polling policy; never shorten a failure backoff or one-event canary.
-    if(!this.canary)await this.db.query("UPDATE editorial_discovery_state SET next_allowed_at=last_success_at+interval '12 hours' WHERE source_id='nba-releases' AND failures=0 AND last_attempt_at=last_success_at AND next_allowed_at>last_success_at+interval '12 hours'");
+    // Adopt the NBA and NFL feeds' 12h successful polling policy; never shorten a failure backoff or one-event canary.
+    if(!this.canary)await this.db.query("UPDATE editorial_discovery_state SET next_allowed_at=last_success_at+interval '12 hours' WHERE source_id IN ('nba-releases','nfl-cardinals') AND failures=0 AND last_attempt_at=last_success_at AND next_allowed_at>last_success_at+interval '12 hours'");
   }
   async cleanupEvidence(){await this.db.query('DELETE FROM editorial_generation_evidence WHERE expires_at<=now()');}
   async saveEvidence(runId:string,key:string,checkpoint:number,payload:ReviewEvidence){
@@ -173,7 +173,7 @@ export class AutomationRepository {
       const ok=['CANDIDATES_REQUIRE_REVIEW','NO_CURRENT_VERIFIED_CANDIDATES','NOT_MODIFIED','RESULTS_VALIDATED','SCHEDULE_ATTACHMENTS_QUARANTINED','PRIMARY_ARTICLE_QUARANTINED'].includes(status);
       const row=(await db.query<{failures:number}>('SELECT failures FROM editorial_discovery_state WHERE source_id=$1 FOR UPDATE',[id])).rows[0];
       // Empty supplementary Wikinews categories must not consume the daily primary-source slots.
-      const failures=ok?0:Math.min(8,(row?.failures??0)+1),hours=ok?(id.startsWith('wikinews-')&&status==='NO_CURRENT_VERIFIED_CANDIDATES'?168:id==='nba-releases'?12:24):Math.min(168,6*2**failures);
+      const failures=ok?0:Math.min(8,(row?.failures??0)+1),hours=ok?(id.startsWith('wikinews-')&&status==='NO_CURRENT_VERIFIED_CANDIDATES'?168:['nba-releases','nfl-cardinals'].includes(id)?12:24):Math.min(168,6*2**failures);
       await db.query('UPDATE editorial_discovery_state SET last_attempt_at=$2,last_success_at=CASE WHEN $3 THEN $2 ELSE last_success_at END,next_allowed_at=$4,failures=$5,last_status=$6,cursor=$7 WHERE source_id=$1',[id,now.toISOString(),ok,new Date(+now+hours*3600000).toISOString(),failures,status,JSON.stringify(cursor)]);
       await db.query('UPDATE editorial_automation_runs SET requests_used=requests_used+$2 WHERE id=$1',[runId,requests]);
     });
