@@ -43,7 +43,7 @@ export async function validatorRecoveryAcceptance(admin:PostgresDatabaseClient,i
   assert.equal((await db.query('SELECT payload FROM editorial_generation_evidence')).rows[0].payload.status,validatorCorrection.failure);
   assert.equal((await repo.dashboard()).validatorRecovery.length,2);
   checks.push('exact retained deterministic defect rechecks a healthy source once; concurrent/restarted claims cannot repeat it; unchanged observations alone do not recover review events');
-  await repo.markAttempt(run.id,event.eventKey);await assert.rejects(repo.markAttempt(run.id,event.eventKey),/RECOVERY_NOT_PENDING|RECOVERY_ALREADY_ATTEMPTED/);
+  await repo.markAttempt(run.id,event.eventKey);await assert.rejects(repo.markAttempt(run.id,event.eventKey),/RECOVERY_NOT_PENDING|RECOVERY_ALREADY_ATTEMPTED|STORY_ALREADY_ATTEMPTED/);
   assert.equal(await repo.eligiblePending(now,false),null,'crash after claim cannot repeat paid work');
   await repo.fail(event.eventKey,'MODEL_UNAVAILABLE');
   assert.equal((await db.query('SELECT state,attempts FROM editorial_automation_events')).rows[0].state,'review');

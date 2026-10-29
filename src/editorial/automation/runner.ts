@@ -4,8 +4,8 @@ import {collectDiscovery} from '../discovery-collector';
 import {collectWikinews} from '../wikinews-discovery';
 import {discoveryDesks} from '../discovery';
 import {AutomationRepository,type SourceState} from './repository';
-import {generateBriefing,type ModelUsage} from './generation';
-import {resultsFromSnapshot,toNewsDraft,factErrors,automationSources,eventKey,type EventFacts} from './policy';
+import {generateBriefing,modelPolicy,type ModelUsage} from './generation';
+import {automationLimits,resultsFromSnapshot,toNewsDraft,factErrors,automationSources,eventKey,type EventFacts} from './policy';
 import type {AnnouncementFacts} from './announcements';
 import {canaryMatches} from './canary';
 
@@ -30,12 +30,13 @@ export async function collectScheduledDiscovery(source:SourceState,fetcher:typeo
   return {...result,status:unchanged?'NOT_MODIFIED':result.status,cursor};
 }
 export async function runNewsAutomation(repo:AutomationRepository,options:{key?:string;validationOnly:boolean;fetcher?:typeof fetch;now?:Date}){
+  const started=performance.now(),workDeadlineMs=165000,minStoryWindowMs=110000;
   const now=options.now??new Date(),usage:ModelUsage={calls:0,inputTokens:0,outputTokens:0,microUsd:0};
   await repo.initialize(now);
   const claim=await repo.claim(!!options.key?.trim(),options.validationOnly,now);
   if(!('id' in claim))return {status:claim.reason,requests:0,published:[],changed:false};
   const runId=claim.id;
-  const result={runId,status:'completed',requests:0,discovered:0,corrections:0,withdrawn:0,published:[] as string[],changed:false,generation:options.key?'no-eligible-event':'MODEL_CREDENTIAL_MISSING',validatorRecovery:null as {correctionId:string;recovered:boolean}|null,candidates:{seen:0,outsideAuthorization:0,unchanged:0,reviewRequired:0,queueFull:0,selected:0,ownerOrDuplicateBlocked:0},sourceOutcomes:[] as {sourceId:string;status:string;requests:number}[]};
+  const result={runId,stories:[] as {eventKey:string;sourceId:string;sport:string;status:string;slug?:string;usage:ModelUsage}[],batchStop:null as string|null,status:'completed',requests:0,discovered:0,corrections:0,withdrawn:0,published:[] as string[],changed:false,generation:options.key?'no-eligible-event':'MODEL_CREDENTIAL_MISSING',validatorRecovery:null as {correctionId:string;recovered:boolean}|null,candidates:{seen:0,outsideAuthorization:0,unchanged:0,reviewRequired:0,queueFull:0,selected:0,ownerOrDuplicateBlocked:0},sourceOutcomes:[] as {sourceId:string;status:string;requests:number}[]};
   async function observe(facts:EventFacts){
     result.candidates.seen++;
     if(repo.canary&&!canaryMatches(repo.canary,facts)){result.candidates.outsideAuthorization++;return;}
@@ -90,18 +91,37 @@ export async function runNewsAutomation(repo:AutomationRepository,options:{key?:
       for(const candidate of found.candidates)await observe(announcements.find(f=>f.sourceUrl===candidate.url)??{kind:'metadata' as const,candidate,...('reviewReasons' in found&&(found.reviewReasons as Record<string,string>)[candidate.url]&&['SCHEDULE_ATTACHMENT_REVIEW_REQUIRED','PRIMARY_ARTICLE_REVIEW_REQUIRED'].includes((found.reviewReasons as Record<string,string>)[candidate.url])?{reason:(found.reviewReasons as Record<string,'SCHEDULE_ATTACHMENT_REVIEW_REQUIRED'|'PRIMARY_ARTICLE_REVIEW_REQUIRED'>)[candidate.url]}:{})});
       if(recovery?.source.sourceId===source.sourceId)result.validatorRecovery={correctionId:recovery.ticket.correctionId,recovered:await repo.finishValidatorRecovery(runId,recovery.ticket,announcements.find(f=>eventKey(f)===recovery.ticket.eventKey),now)};
     }
-    const event=await repo.eligiblePending(now,resultsValidated);
-    result.candidates.selected=event?1:0;
-    if(event&&options.key&&(event.facts.kind==='announcement'||(event.facts.kind==='result'&&resultsValidated))){
+    const processed:string[]=[];
+    const storyLimit=options.validationOnly||repo.canary?1:automationLimits.maxEventsPerRun;
+    let paidStories=0;
+    for(let index=0;index<storyLimit;index++){
+      if(performance.now()-started>workDeadlineMs-minStoryWindowMs){result.batchStop='EXECUTION_WINDOW';break;}
+      const event=await repo.eligiblePending(now,resultsValidated,processed);
+      if(!event||!options.key||processed.includes(event.eventKey))break;
+      processed.push(event.eventKey);result.candidates.selected++;
+      if(event.facts.kind==='metadata')continue;
+      const story={eventKey:event.eventKey,sourceId:event.facts.sourceId,sport:event.facts.kind==='result'?'football':event.facts.sport,status:'pending',usage:{calls:0,inputTokens:0,outputTokens:0,microUsd:0} as ModelUsage,slug:undefined as string|undefined};
       const blocker=await repo.publicationBlocker(event);
-      if(blocker){result.generation=blocker;if(blocker==='OWNER_OR_DUPLICATE_RECORD')result.candidates.ownerOrDuplicateBlocked++;await repo.fail(event.eventKey,blocker);}
-      else if(factErrors(event.facts,now).length){result.generation='FACTS_NO_LONGER_ELIGIBLE';await repo.fail(event.eventKey,result.generation);}
-      else{
-        await repo.markAttempt(claim.id,event.eventKey);
-        let checkpoint=0;
-        const generated=await generateBriefing(event.facts,options.key,options.fetcher,()=>repo.assertActive(claim.id),e=>repo.saveEvidence(claim.id,event.eventKey,checkpoint++,e));Object.assign(usage,generated.usage);result.generation=generated.status;
-        if(generated.copy){publishingEvent=event.eventKey;const draft=toNewsDraft(generated.copy,event.facts,now);result.published.push(await repo.publish(claim.id,event,draft,now));publishingEvent=null;}
-        else{await repo.fail(event.eventKey,generated.status);if(generated.status.startsWith('MODEL_'))result.status='failed';}
+      if(blocker){result.generation=blocker;if(blocker==='OWNER_OR_DUPLICATE_RECORD')result.candidates.ownerOrDuplicateBlocked++;await repo.fail(event.eventKey,blocker);story.status=blocker;result.stories.push(story);continue;}
+      if(factErrors(event.facts,now).length){result.generation='FACTS_NO_LONGER_ELIGIBLE';await repo.fail(event.eventKey,result.generation);story.status=result.generation;result.stories.push(story);continue;}
+      if(paidStories){const stop=await repo.reserveAdditionalStory(runId,event.eventKey,now);if(stop){result.batchStop=stop;break;}}
+      await repo.markAttempt(claim.id,event.eventKey);paidStories++;
+      const assertActive=async()=>{await repo.assertActive(claim.id);if(performance.now()-started>workDeadlineMs-modelPolicy.timeoutMs-10000)throw Error('MODEL_EXECUTION_DEADLINE');};
+      let checkpoint=0;
+      const generated=await generateBriefing(event.facts,options.key,options.fetcher,assertActive,e=>repo.saveEvidence(claim.id,event.eventKey,checkpoint++,e));
+      story.usage=generated.usage;story.status=generated.status;result.stories.push(story);result.generation=generated.status;
+      for(const field of ['calls','inputTokens','outputTokens','microUsd'] as const)usage[field]+=generated.usage[field];
+      for(const [stage,value] of Object.entries(generated.usage.stages??{})){const key=stage as keyof NonNullable<ModelUsage['stages']>;const old=(usage.stages??={})[key]??{inputTokens:0,outputTokens:0,microUsd:0};usage.stages[key]={inputTokens:old.inputTokens+value.inputTokens,outputTokens:old.outputTokens+value.outputTokens,microUsd:old.microUsd+value.microUsd};}
+      if(generated.usage.failure)usage.failure=generated.usage.failure;
+      if(paidStories===1)usage.audit=generated.usage.audit;else delete usage.audit;
+      if(generated.usage.microUsd>automationLimits.reserveMicroUsd){await repo.fail(event.eventKey,'MODEL_SPEND_LIMIT_EXCEEDED');result.status='failed';result.batchStop='MODEL_SPEND_LIMIT_EXCEEDED';break;}
+      if(generated.copy){
+        publishingEvent=event.eventKey;const draft=toNewsDraft(generated.copy,event.facts,now);
+        story.slug=await repo.publish(claim.id,event,draft,now);result.published.push(story.slug);publishingEvent=null;
+      }else{
+        await repo.fail(event.eventKey,generated.status);
+        // Text/audit rejections are independent. Shared model transport/configuration failure stops this batch.
+        if(generated.status.startsWith('MODEL_')&&!['MODEL_CORRECTION_INVALID','MODEL_COPY_INVALID','MODEL_AUDIT_INVALID'].includes(generated.status)){result.status='failed';result.batchStop=generated.status;break;}
       }
     }
     result.changed=!!(result.corrections||result.withdrawn||result.published.length);
@@ -111,7 +131,7 @@ export async function runNewsAutomation(repo:AutomationRepository,options:{key?:
     if(publishingEvent){
       const allowed=['OWNER_OR_DUPLICATE_RECORD','PUBLICATION_CONFLICT','SOURCE_DISABLED','SOURCE_CHANGED_DURING_GENERATION','PUBLICATION_PRESENTATION_INVALID','PUBLICATION_POLICY_FAILED','AUTOMATION_STOPPED_OR_LEASE_LOST'];
       const code=error instanceof Error&&allowed.includes(error.message)?error.message:'PUBLICATION_STORAGE_UNAVAILABLE';
-      result.generation=code;await repo.fail(publishingEvent,code);
+      result.generation=code;const story=result.stories.find(s=>s.eventKey===publishingEvent);if(story)story.status=code;await repo.fail(publishingEvent,code);
     }
     result.status='failed';result.changed=!!(result.corrections||result.withdrawn||result.published.length);
     await repo.finish(claim.id,result,usage,'failed');return result;

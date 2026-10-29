@@ -1,0 +1,39 @@
+V3.9-B: bounded newsroom throughput
+
+Ordinary Production cron cycles may process at most two different eligible stories.
+The existing six-hour schedule and 180-second route remain unchanged. Before each
+story the queue is ranked using the latest 24-hour sport/source publication mix.
+Each story gets the complete EN -> ES/PT -> independent audit/correction workflow,
+with at most five model calls and its own $0.02 atomic durable reservation.
+Validation and separately authorized canaries remain limited to one story.
+
+Daily conservative spending remains $0.10 and monthly spending remains $3.
+Reservations are retained after failures; they are never refunded from uncertain
+usage. These limits permit at most five reserved story attempts per UTC day,
+not a promise of five publications. Empty cycles still retain their original
+reservation. No new source, subscription, infrastructure or affiliate is enabled.
+
+A second story only starts with at least 110 seconds left inside a 165-second
+application deadline. Per-call lease/pause and deadline checks remain mandatory.
+Text/audit rejections quarantine that candidate while another can proceed. Shared
+model transport, rate or billing failures stop further calls. No factual/audit
+rejection is automatically approved. Candidate identity and reservation are checked
+transactionally before generation. Published stories survive a later batch failure.
+
+Owner run details show per-story audits, tokens, measured cost and batch stop reason.
+Older single-story run history remains readable. No private drafts enter public
+responses or release documents.
+
+Migration 076 widens only the existing per-run reservation constraint from 20000
+to 40000 microUSD. It is repeatable, with five-second lock and 30-second statement
+timeouts. Apply through the normal release flow before the new runner is deployed.
+Do not rerun previous migrations. Existing records are preserved. An application
+rollback to the previous READY deployment remains compatible with this wider
+constraint; no destructive database rollback is required.
+
+Acceptance: isolated PostgreSQL verifies repeatability, preservation, concurrent
+single-use reservations, reconnects, daily/monthly hard stops, owner quarantine
+races, emergency pause, expired leases, and old single-story compatibility.
+No synthetic data or source/model requests are used in Production acceptance.
+Real multi-story and third-sport publication remain subject to normal cron time,
+source freshness, eligibility and independent editorial approval.

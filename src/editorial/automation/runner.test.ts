@@ -1,11 +1,11 @@
 import {beforeEach,describe,it,expect,vi} from 'vitest';
 import type {AutomationRepository} from './repository';
 const mocks=vi.hoisted(()=>({generate:vi.fn(),snapshot:vi.fn(),collect:vi.fn()}));
-vi.mock('./generation',()=>({generateBriefing:mocks.generate}));
+vi.mock('./generation',()=>({generateBriefing:mocks.generate,modelPolicy:{timeoutMs:20000}}));
 vi.mock('@/multisport/repository',()=>({SportsRepository:class{findPublished=mocks.snapshot;}}));
 vi.mock('@/multisport/openligadb',()=>({assertOpenLigaSnapshot:vi.fn()}));
 vi.mock('../discovery-collector',()=>({collectDiscovery:mocks.collect}));
-vi.mock('./policy',()=>({eventKey:(f:{eventKey:string})=>f.eventKey,resultsFromSnapshot:()=>[],factErrors:()=>[],toNewsDraft:vi.fn(),automationSources:[{id:'nba-releases',requestLimit:3},{id:'nfl-cardinals',requestLimit:3},{id:'dimayor-releases',requestLimit:4}]}));
+vi.mock('./policy',()=>({automationLimits:{maxEventsPerRun:2,reserveMicroUsd:20000},eventKey:(f:{eventKey:string})=>f.eventKey,resultsFromSnapshot:()=>[],factErrors:()=>[],toNewsDraft:vi.fn(),automationSources:[{id:'nba-releases',requestLimit:3},{id:'nfl-cardinals',requestLimit:3},{id:'dimayor-releases',requestLimit:4}]}));
 import {runNewsAutomation} from './runner';
 beforeEach(()=>{vi.clearAllMocks();mocks.snapshot.mockResolvedValue({events:[],season:'synthetic'});});
 describe('news scheduler failure reporting — no real model requests',()=>{
