@@ -17,3 +17,15 @@ describe('concise award reporting and conflicting audit',()=>{
  it('retains safe correction-contract diagnostics without raw response or extra calls',async()=>{vi.useFakeTimers();vi.setSystemTime(now);const save=vi.fn(),fetcher=model(copy.en,{es:copy.es,pt:copy.pt},{...pass,quality:false,issues:[{field:'es.body',code:'LANGUAGE_QUALITY',reason:'Concrete fluency error.'}]},{changes:{'en.body':'Outside target'}});const r=await generateBriefing(facts,'synthetic-token',fetcher,async()=>{},save);expect(r.copy).toBeNull();expect(r.status).toBe('MODEL_CORRECTION_INVALID');expect(fetcher).toHaveBeenCalledTimes(4);expect(save.mock.calls.at(-1)?.[0].correctionDiagnostic).toEqual({code:'EXTRA_TARGET',field:'en.body'});const schema=JSON.parse(String(fetcher.mock.calls[3][1]?.body)).text.format.schema;expect(Object.keys(schema.properties.changes.properties)).toEqual(['es.body']);});
  it('enforces title/summary lengths and unchanged factual/translation checks deterministically',()=>{expect(copyErrors({...copy,en:{...copy.en,title:'Short'}},facts)).toContain('en:TITLE_LENGTH');expect(copyErrors({...copy,es:{...copy.es,summary:'Short'}},facts)).toContain('es:SUMMARY_LENGTH');expect(copyErrors({...copy,pt:{...copy.pt,body:copy.pt.body+' 35 touchdowns.'}},facts)).toContain('pt:UNSUPPORTED_NUMBER');expect(copyErrors({...copy,pt:copy.en},facts)).toContain('TRANSLATION_NOT_DISTINCT');});
 });
+
+it('keeps a post-correction fluency failure private within the same five-call ceiling',async()=>{
+ vi.useFakeTimers();vi.setSystemTime(now);
+ const fail={...pass,quality:false,issues:[{field:'es.body',code:'ATTRIBUTION',reason:'The reporting authority is ambiguous.'}]};
+ const stillBad={...pass,quality:false,issues:[{field:'es.body',code:'LANGUAGE_QUALITY',reason:'The corrected clause has incorrect agreement.'}]};
+ const fetcher=model(copy.en,{es:copy.es,pt:copy.pt},fail,{changes:{'es.body':copy.es.body}},stillBad);
+ const result=await generateBriefing(facts,'synthetic-token',fetcher);
+ expect(result.copy).toBeNull();expect(result.status).toBe('EDITORIAL_REVIEW_REQUIRED');expect(fetcher).toHaveBeenCalledTimes(5);
+ expect(result.verification?.quality).toBe(false);
+ const instructions=JSON.parse(String(fetcher.mock.calls[3][1]?.body)).instructions;
+ expect(instructions).toContain('Según');expect(instructions).toContain('Segundo');expect(instructions).toContain('idiomatic grammar');
+});

@@ -1,3 +1,4 @@
+import {primaryDateEligible,primaryFailure,type PrimaryReviewReason} from './primary-verification';
 import {load} from 'cheerio';
 import robotsParser from 'robots-parser';
 import {primaryFeedDesks} from './primary-feeds';
@@ -90,7 +91,7 @@ export async function collectPrimaryFeed(id:string,fetcher:typeof fetch=fetch,no
   requests++;const xml=await text(desk.url,fetcher,512000);
   const candidates=primaryFeedCandidates(xml,id,now);
   const announcements=primaryFeedAnnouncements(xml,id,now);
-  const reviewReasons:Record<string,'SCHEDULE_ATTACHMENT_REVIEW_REQUIRED'|'PRIMARY_ARTICLE_REVIEW_REQUIRED'>={};
+  const reviewReasons:Record<string,PrimaryReviewReason>={};
   if(id==='dimayor-releases'){
    const schedules=candidates.filter(c=>/programaci[oó]n|horarios?|aplazad|reprogram/i.test(c.headline));
    for(const c of schedules)reviewReasons[c.url]='SCHEDULE_ATTACHMENT_REVIEW_REQUIRED';
@@ -117,14 +118,17 @@ export async function collectPrimaryFeed(id:string,fetcher:typeof fetch=fetch,no
   if(id==='nba-releases'){
    const candidate=candidates.find(c=>c.headline==='NBA Tip-Off on NBC and Peacock delivers most-watched opening night ever');
    if(candidate){reviewReasons[candidate.url]='PRIMARY_ARTICLE_REVIEW_REQUIRED';try{
-    const url=candidate.url+'/';if(robotsParser(robotsUrl,robots).isAllowed(url,agent)!==true)throw Error('ROBOTS_BLOCKED');
+    if(!primaryDateEligible(candidate.sourceDate,now))throw Error('SOURCE_PUBLICATION_EXPIRED');
+    const url=candidate.url+'/';if(robotsParser(robotsUrl,robots).isAllowed(url,agent)!==true)throw Error('PRIMARY_ROBOTS_BLOCKED');
     requests++;const page=load(await text(url,fetcher,512000)),article=page('article');
     const headline=article.find('h1,h2').toArray().some(e=>page(e).text().replace(/\s+/g,' ').trim()===candidate.headline);
     const stamp=page('meta[property="article:published_time"]').attr('content'),date=stamp?new Date(stamp):null;
-    if(!headline||article.length!==1||!date||!Number.isFinite(+date)||+date>+now||date.toISOString().slice(0,10)!==candidate.sourceDate)throw Error('PRIMARY_CONFLICT');
+    if(!headline||article.length!==1)throw Error('PRIMARY_HEADLINE_MISMATCH');
+    if(!date||!Number.isFinite(+date)||+date>+now||date.toISOString().slice(0,10)!==candidate.sourceDate)throw Error('PRIMARY_DATE_MISMATCH');
     const facts=extractAnnouncement(candidate,article.text().replace(/\s+/g,' ').trim(),now,undefined,true);
     if(facts){announcements.push(facts);delete reviewReasons[candidate.url];}
-   }catch{/* Keep only private metadata; no retry or partial factual assertion. */}}
+   else reviewReasons[candidate.url]='PRIMARY_FACTS_UNVERIFIED';
+   }catch(error){reviewReasons[candidate.url]=primaryFailure(error);}} 
   }
   if(id==='nfl-cardinals'){
    const candidate=candidates.find(c=>supportedNflHeadline(c.headline));

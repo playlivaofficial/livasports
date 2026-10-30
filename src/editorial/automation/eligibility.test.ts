@@ -38,3 +38,17 @@ describe('fresh primary evidence admission — synthetic facts, zero model calls
   expect(mutations).toHaveLength(1);expect(mutations[0][0]).toBe('UPDATE editorial_automation_events SET facts=$2 WHERE event_key=$1');
  });
 });
+
+describe('incomplete primary rechecks do not retract verified history',()=>{
+ it.each(['published','pending','review','withdrawn'])('preserves facts, revision and history for %s',async state=>{
+  const old={facts,fingerprint:fingerprint(stableFacts(facts)),state,attempts:1,newsSlug:state==='published'?'existing-story':null};
+  const query=vi.fn(async(sql:string)=>({rows:sql.includes('SELECT r.id')?[{id:'synthetic'}]:sql.includes('SELECT disabled')?[{disabled:false}]:sql.includes('SELECT event_key')?[old]:[]}));
+  const db={query,transaction:async<T>(work:(value:unknown)=>Promise<T>)=>work({query})};
+  const metadata={kind:'metadata' as const,candidate:{desk:'nba-releases',url:facts.sourceUrl,headline:'A synthetic news announcement',sourceDate:'2026-10-25'},reason:'SOURCE_PUBLICATION_EXPIRED' as const};
+  expect(await new AutomationRepository(db as unknown as DatabaseClient).observe('synthetic',metadata,now)).toBe('unchanged');
+  const sql=query.mock.calls.map(([s])=>s).join('\n');
+  expect(sql).not.toMatch(/UPDATE editorial_news|SET facts=|revision=revision|DELETE/);
+  expect(sql).toContain("WHEN state IN ('pending','running') THEN 'review'");
+  expect(query.mock.calls.some(c=>JSON.stringify(c).includes('source-recheck-incomplete'))).toBe(true);
+ });
+});
