@@ -84,6 +84,13 @@ async function main(){
   assert.equal(await repo.observe(run.id,announcement,now),'unchanged');
   await assert.rejects(repo.publish(run.id,announced,toNewsDraft(announcementCopy,announcement,now),now),/PUBLICATION_CONFLICT/);
   checks.push('announcement JSONB round-trip publication, metadata promotion, duplicate protection and pristine private placeholder preservation');
+  const preservedAnnouncement=(await db.query('SELECT * FROM editorial_news WHERE slug=$1',[announcementSlug])).rows[0];
+  const preservedEvent=(await db.query('SELECT facts,revision,attempts FROM editorial_automation_events WHERE event_key=$1',[announced.eventKey])).rows[0];
+  assert.equal(await repo.observe(run.id,{kind:'metadata',candidate,reason:'SOURCE_PUBLICATION_EXPIRED'},now),'unchanged');
+  assert.deepEqual((await db.query('SELECT * FROM editorial_news WHERE slug=$1',[announcementSlug])).rows[0],preservedAnnouncement);
+  assert.deepEqual((await db.query('SELECT facts,revision,attempts FROM editorial_automation_events WHERE event_key=$1',[announced.eventKey])).rows[0],preservedEvent);
+  assert.equal((await db.query("SELECT count(*)::int AS n FROM editorial_automation_audit WHERE event_key=$1 AND action='source-recheck-incomplete'",[announced.eventKey])).rows[0].n,1);
+  checks.push('expired or incomplete primary recheck preserves live publication, facts, attempts and original history');
   const corrected={...announcement,detail:{...announcement.detail,type:'roster-announcement' as const,season:'2026-27',scope:'opening-night' as const,internationalPlayers:126,countries:43,continents:6}};
   await repo.observe(run.id,corrected,now);assert.equal((await db.query('SELECT archived FROM editorial_news WHERE slug=$1',[announcementSlug])).rows[0].archived,true);
   checks.push('changed announcement withdraws public version and quarantines unverified correction');

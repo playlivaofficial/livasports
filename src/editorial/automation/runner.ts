@@ -1,3 +1,4 @@
+import {primaryReviewReasons,type PrimaryReviewReason} from '../primary-verification';
 import {selectDueSources} from './source-timing';
 import {SportsRepository} from '@/multisport/repository';
 import {assertOpenLigaSnapshot} from '@/multisport/openligadb';
@@ -90,7 +91,7 @@ export async function runNewsAutomation(repo:AutomationRepository,options:{key?:
       result.requests+=found.requests;
       await sourceResult(source.sourceId,found.status,found.requests,found.cursor);
       const announcements:AnnouncementFacts[]='announcements' in found&&Array.isArray(found.announcements)?found.announcements:[];
-      for(const candidate of found.candidates)await observe(announcements.find(f=>f.sourceUrl===candidate.url)??{kind:'metadata' as const,candidate,...('reviewReasons' in found&&(found.reviewReasons as Record<string,string>)[candidate.url]&&['SCHEDULE_ATTACHMENT_REVIEW_REQUIRED','PRIMARY_ARTICLE_REVIEW_REQUIRED'].includes((found.reviewReasons as Record<string,string>)[candidate.url])?{reason:(found.reviewReasons as Record<string,'SCHEDULE_ATTACHMENT_REVIEW_REQUIRED'|'PRIMARY_ARTICLE_REVIEW_REQUIRED'>)[candidate.url]}:{})});
+      for(const candidate of found.candidates)await observe(announcements.find(f=>f.sourceUrl===candidate.url)??{kind:'metadata' as const,candidate,...('reviewReasons' in found&&(found.reviewReasons as Record<string,string>)[candidate.url]&&primaryReviewReasons.includes((found.reviewReasons as Record<string,PrimaryReviewReason>)[candidate.url])?{reason:(found.reviewReasons as Record<string,PrimaryReviewReason>)[candidate.url]}:{})});
       if(recovery?.source.sourceId===source.sourceId)result.validatorRecovery={correctionId:recovery.ticket.correctionId,recovered:await repo.finishValidatorRecovery(runId,recovery.ticket,announcements.find(f=>eventKey(f)===recovery.ticket.eventKey),now)};
     }
     const processed:string[]=[];

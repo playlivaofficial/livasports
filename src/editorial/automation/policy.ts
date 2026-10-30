@@ -1,3 +1,4 @@
+import type {PrimaryReviewReason} from '../primary-verification';
 import {createHash} from 'node:crypto';
 import {unsupportedAbsenceClaim} from './schedule-attachments';
 import {assertOpenLigaSnapshot} from '@/multisport/openligadb';
@@ -19,7 +20,7 @@ export interface ResultFacts {
   home:{id:string;name:string}; away:{id:string;name:string}; homeScore:number; awayScore:number;
   status:'completed'; sourceSnapshotHash:string;
 }
-export interface MetadataFacts {kind:'metadata';candidate:DiscoveryCandidate;reason?:'SCHEDULE_ATTACHMENT_REVIEW_REQUIRED'|'PRIMARY_ARTICLE_REVIEW_REQUIRED'}
+export interface MetadataFacts {kind:'metadata';candidate:DiscoveryCandidate;reason?:PrimaryReviewReason}
 export type PublicationFacts=ResultFacts|AnnouncementFacts;
 export type EventFacts=PublicationFacts|MetadataFacts;
 function canonical(value:unknown):string {if(value===null||typeof value!=='object')return JSON.stringify(value);if(Array.isArray(value))return '['+value.map(canonical).join(',')+']';return '{'+Object.keys(value).sort().map(k=>JSON.stringify(k)+':'+canonical((value as Record<string,unknown>)[k])).join(',')+'}';}
@@ -27,7 +28,7 @@ export const fingerprint=(facts:EventFacts)=>createHash('sha256').update(canonic
 export const eventKey=(facts:EventFacts)=>facts.kind!=='metadata'?facts.eventKey:`citation:${createHash('sha256').update(facts.candidate.url).digest('hex')}`;
 export function factErrors(facts:EventFacts,now=new Date()):string[]{
   if(facts.kind==='announcement')return announcementErrors(facts,now);
-  if(facts.kind!=='result')return [facts.reason==='SCHEDULE_ATTACHMENT_REVIEW_REQUIRED'||facts.reason==='PRIMARY_ARTICLE_REVIEW_REQUIRED'?facts.reason:'SOURCE_RIGHTS_AND_FACT_REVIEW'];
+  if(facts.kind!=='result')return [facts.reason??'SOURCE_RIGHTS_AND_FACT_REVIEW'];
   if(facts.sourceId!=='openliga-results'||facts.competition!=='bundesliga'||!/^openligadb-match-\d+$/.test(facts.eventId)||facts.sourceUrl!==`https://api.openligadb.de/getmatchdata/${facts.eventId.replace('openligadb-match-','')}`||facts.status!=='completed')return ['SOURCE_NOT_APPROVED'];
   if(!facts.home.id||!facts.away.id||facts.home.id===facts.away.id||!facts.home.name||!facts.away.name||facts.home.name===facts.away.name)return ['ENTITY_CONFLICT'];
   if(![facts.homeScore,facts.awayScore].every(n=>Number.isInteger(n)&&n>=0&&n<=30))return ['INVALID_RESULT'];

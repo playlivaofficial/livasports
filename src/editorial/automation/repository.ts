@@ -208,6 +208,14 @@ export class AutomationRepository {
       const key=eventKey(facts),hash=fingerprint(stableFacts(facts)),source=facts.kind!=='metadata'?facts.sourceId:facts.candidate.desk,url=facts.kind!=='metadata'?facts.sourceUrl:facts.candidate.url;
       if((await db.query<{disabled:boolean}>('SELECT disabled FROM editorial_discovery_state WHERE source_id=$1',[source])).rows[0]?.disabled!==false)return 'unchanged';
       const old=(await db.query<AutomationEvent>(`SELECT ${eventColumns} FROM editorial_automation_events WHERE event_key=$1 FOR UPDATE`,[key])).rows[0];
+      // Failed verification or an expired discovery window is not new verified source facts.
+      // Preserve published/Owner history; quarantine ungenerated candidates without refreshing evidence.
+      if(old&&old.facts.kind!=='metadata'&&facts.kind==='metadata'){
+        const reason=facts.reason??'SOURCE_RIGHTS_AND_FACT_REVIEW';
+        await db.query("UPDATE editorial_automation_events SET state=CASE WHEN state IN ('pending','running') THEN 'review' ELSE state END,reason='SOURCE_RECHECK_INCOMPLETE' WHERE event_key=$1",[key]);
+        await audit(db,key,'source-recheck-incomplete',{reason,publicationPreserved:old.state==='published'});
+        return 'unchanged';
+      }
       if(old?.fingerprint===hash){
         if(newerCorroboration(old.facts,facts,now))await db.query('UPDATE editorial_automation_events SET facts=$2 WHERE event_key=$1',[key,JSON.stringify(facts)]);
         return 'unchanged';

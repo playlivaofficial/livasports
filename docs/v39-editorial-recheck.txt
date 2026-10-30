@@ -1,0 +1,28 @@
+V3.9 editorial recheck repair — 2026-10-30
+
+Observed Production, not a simulated clock:
+29 Oct 18:43 UTC: NFL attempted once, five calls, 3,974 input + 1,141 output tokens, $0.000970; final ES/PT LANGUAGE_QUALITY rejection after attribution correction. No publication.
+30 Oct 00:43 UTC: two separately reserved football attempts. First failed quality ($0.001405); second passed all four independent audit flags and published result-5c60c83b57a53ce4d46f6a65 ($0.000522). This proves failure isolation, not two successful publications.
+30 Oct 06:43 UTC: no eligible event; zero model calls. Source polling and durable cron records are present.
+ACTIVE; no active/expired leases; recorded model cost $0.010271; conservative monthly reservations $0.28/$3. No forced run or deadline changes.
+
+Defects and changes:
+1. An RSS timestamp can remain inside seven days while the canonical date-only fact window has expired. NBA's Oct 22 story fell into this case at Oct 29 noon. Extraction returned metadata, and observe() treated this as changed facts, archiving a valid published article.
+2. Incomplete/expired metadata now preserves verified facts, revision, publication and Owner history. Unpublished pending work is quarantined. A source-recheck-incomplete audit records the safe reason. Genuine changed structured facts continue through existing withdrawal/review protections. No automatic restoration of protected archives or failed editorial attempts.
+3. Primary NBA checks record bounded failure categories: date expiry, robots, HTTP, size, unavailable, headline/date mismatch or unverified facts. Date-only expiry is detected before an unnecessary primary-article fetch. Dates are not advanced to qualify stale news.
+4. NFL award/honor prompts distinguish source attribution from the team named in the fact. Idiomatic EN/ES/PT attribution patterns and a grammar self-check apply to original/translation/correction stages. Independent auditing, five-call maximum, budgets and no-retry rules remain unchanged. Better instructions are not proof of a real passing NFL publication.
+
+Acceptance:
+Focused synthetic tests and isolated PostgreSQL verify preservation after incomplete rechecks, quarantine of pending work, actual source-change withdrawal, duplicate exclusion and Owner correction history. Prompt regressions keep post-correction fluency failures private at five calls. Hosted CI must pass all release gates before merge.
+No migration or Production source/control changes required. Previous READY app deployment remains rollback-compatible.
+
+Expansion blockers rechecked October 30 (no new automatic source enabled):
+NHL: no verified authorized automated primary channel. Official terms and registered media access remain the acceptance dependency. https://www.nhl.com/info/terms-of-service ; https://media.nhl.com/
+MLB/MLBPA: current October 28 award and October 29 free-agent announcements exist, but an authorized recurring extraction/reuse channel has not been established. Public availability is not a reproduction licence. Terms reserve commercial reproduction/derivative material rights. https://www.mlbplayers.com/press-releases ; https://www.mlbplayers.com/legal/terms-of-use
+EuroLeague/ELPA: accessible primary association news, but no fresh qualifying announcement established in the inspected index and no accepted automated feed contract. Do not recycle old stories. https://elpa.basketball/news/ ; https://elpa.basketball/imprint/
+Cheapest next step is a permitted publisher feed or explicit access authorization; no paid subscription or publisher outreach was initiated.
+
+Prompt reference: https://developers.openai.com/api/docs/guides/prompt-engineering
+The existing model, service tier, schema and token prices are unchanged. Use representative regression cases and independent evaluation; do not treat prompt examples as publication approval.
+
+V3.9 acceptance remains open until a genuine third-sport publication and two successful publications in one real scheduled cycle exist. V4 planning follows that acceptance; no such success is claimed here.
