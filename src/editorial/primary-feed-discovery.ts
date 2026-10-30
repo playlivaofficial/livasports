@@ -128,7 +128,7 @@ export async function collectPrimaryFeed(id:string,fetcher:typeof fetch=fetch,no
     const facts=extractAnnouncement(candidate,article.text().replace(/\s+/g,' ').trim(),now,undefined,true);
     if(facts){announcements.push(facts);delete reviewReasons[candidate.url];}
    else reviewReasons[candidate.url]='PRIMARY_FACTS_UNVERIFIED';
-   }catch(error){reviewReasons[candidate.url]=primaryFailure(error);}} 
+   }catch(error){reviewReasons[candidate.url]=primaryFailure(error);}}
   }
   if(id==='nfl-cardinals'){
    const candidate=candidates.find(c=>supportedNflHeadline(c.headline));
